@@ -72,6 +72,19 @@ public sealed class ZoneGeometryTests
     }
 
     [Fact]
+    public void HitTest_with_metrics_uses_the_same_pixel_bounds_as_placement()
+    {
+        var left = Zone("Links", 0, 0, 0.5, 1);
+        var right = Zone("Rechts", 0.5, 0, 0.5, 1);
+        var area = new MonitorWorkArea(0, 0, 200, 100);
+
+        var hit = ZoneGeometry.HitTest(
+            [left, right], area, new LayoutMetrics(10, 8), new PointInt(104, 50));
+
+        Assert.Equal(right, hit);
+    }
+
+    [Fact]
     public void ToPixels_applies_independent_outer_margins()
     {
         var area = new MonitorWorkArea(0, 0, 2000, 1000);
