@@ -86,20 +86,7 @@ public sealed class AppRuleCoordinator : IDisposable
                 return new AppRuleExecutionResult(AppRuleExecutionStatus.NoMatch);
             }
 
-            if (rule.DelayMilliseconds > 0)
-            {
-                await delay(TimeSpan.FromMilliseconds(rule.DelayMilliseconds), token);
-            }
-
-            await executor.WaitAsync(token);
-            try
-            {
-                return await ExecuteAsync(rule.Id, eventType, initialCandidate, token);
-            }
-            finally
-            {
-                executor.Release();
-            }
+            return await HandleResolvedRuleAsync(rule, eventType, initialCandidate, token);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)
         {
@@ -110,23 +97,33 @@ public sealed class AppRuleCoordinator : IDisposable
     public async Task<IReadOnlyList<AppRuleExecutionResult>> HandleLayoutActivatedAsync(Guid layoutId)
     {
         ObjectDisposedException.ThrowIf(disposed, this);
-        var results = new List<AppRuleExecutionResult>();
-        foreach (var candidate in windowGateway.GetCandidates())
+        var token = CurrentToken();
+        try
         {
-            var configuration = configurationProvider();
-            var rule = AppRuleMatcher.Resolve(
-                configuration.AppRules,
-                AppRuleEvent.LayoutActivated,
-                candidate.Identity);
-            if (rule is null || rule.TargetLayoutId != layoutId)
+            var operations = new List<Task<AppRuleExecutionResult>>();
+            foreach (var candidate in windowGateway.GetCandidates())
             {
-                continue;
+                var configuration = configurationProvider();
+                var rule = AppRuleMatcher.Resolve(
+                    configuration.AppRules.Where(candidateRule => candidateRule.TargetLayoutId == layoutId),
+                    AppRuleEvent.LayoutActivated,
+                    candidate.Identity);
+                if (rule is not null)
+                {
+                    operations.Add(HandleResolvedRuleAsync(
+                        rule,
+                        AppRuleEvent.LayoutActivated,
+                        candidate,
+                        token));
+                }
             }
 
-            results.Add(await HandleAsync(AppRuleEvent.LayoutActivated, candidate.WindowHandle));
+            return await Task.WhenAll(operations);
         }
-
-        return results;
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            return [new AppRuleExecutionResult(AppRuleExecutionStatus.Cancelled)];
+        }
     }
 
     public void CancelPending()
@@ -159,6 +156,7 @@ public sealed class AppRuleCoordinator : IDisposable
         Guid ruleId,
         AppRuleEvent eventType,
         WindowRuleCandidate initialCandidate,
+        Guid? requiredTargetLayoutId,
         CancellationToken token)
     {
         for (var attempt = 0; ; attempt++)
@@ -166,7 +164,10 @@ public sealed class AppRuleCoordinator : IDisposable
             token.ThrowIfCancellationRequested();
             var configuration = configurationProvider();
             var rule = configuration.AppRules.FirstOrDefault(candidate => candidate.Id == ruleId);
-            if (rule is null || !rule.IsEnabled || rule.Event != eventType)
+            if (rule is null ||
+                !rule.IsEnabled ||
+                rule.Event != eventType ||
+                (requiredTargetLayoutId.HasValue && rule.TargetLayoutId != requiredTargetLayoutId.Value))
             {
                 return new AppRuleExecutionResult(AppRuleExecutionStatus.NoMatch, ruleId);
             }
@@ -198,6 +199,33 @@ public sealed class AppRuleCoordinator : IDisposable
             }
 
             await delay(RetryDelay, token);
+        }
+    }
+
+    private async Task<AppRuleExecutionResult> HandleResolvedRuleAsync(
+        AppRule rule,
+        AppRuleEvent eventType,
+        WindowRuleCandidate initialCandidate,
+        CancellationToken token)
+    {
+        if (rule.DelayMilliseconds > 0)
+        {
+            await delay(TimeSpan.FromMilliseconds(rule.DelayMilliseconds), token);
+        }
+
+        await executor.WaitAsync(token);
+        try
+        {
+            return await ExecuteAsync(
+                rule.Id,
+                eventType,
+                initialCandidate,
+                eventType == AppRuleEvent.LayoutActivated ? rule.TargetLayoutId : null,
+                token);
+        }
+        finally
+        {
+            executor.Release();
         }
     }
 

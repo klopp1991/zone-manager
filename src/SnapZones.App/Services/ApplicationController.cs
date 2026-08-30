@@ -5,6 +5,7 @@ using SnapZones.App.Overlays;
 using SnapZones.App.ViewModels;
 using SnapZones.App.Views;
 using SnapZones.Core.Drag;
+using SnapZones.Core.AppRules;
 using SnapZones.Core.Layouts;
 using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
@@ -24,6 +25,8 @@ public sealed class ApplicationController : IDisposable
     private readonly IStartupService startupService;
     private readonly FileLog log;
     private readonly IWindowMoveHook moveHook;
+    private readonly IWindowRuleHook appRuleHook;
+    private readonly AppRuleCoordinator appRuleCoordinator;
     private readonly IGlobalHotkeyService hotkeys;
     private readonly IWindowService windowService;
     private readonly OverlayManager overlays;
@@ -60,9 +63,17 @@ public sealed class ApplicationController : IDisposable
         overlays = new OverlayManager();
         monitorIdentification = new MonitorIdentificationOverlay();
         windowService = new WindowsWindowService();
+        var synchronizationContext = SynchronizationContext.Current
+            ?? new DispatcherSynchronizationContext(window.Dispatcher);
         moveHook = new WindowMoveHook(
-            SynchronizationContext.Current ?? new DispatcherSynchronizationContext(window.Dispatcher),
+            synchronizationContext,
             message => log.Write("DEBUG", message));
+        appRuleHook = new WindowRuleHook(synchronizationContext);
+        appRuleCoordinator = new AppRuleCoordinator(
+            () => configuration,
+            monitors,
+            new WindowServiceAppRuleGateway(windowService, Environment.ProcessId),
+            reportStatus: message => _ = window.Dispatcher.InvokeAsync(() => viewModel.StatusMessage = message));
         hotkeys = new GlobalHotkeyService();
         cursorTimer = new DispatcherTimer(DispatcherPriority.Input, window.Dispatcher)
         {
@@ -83,6 +94,8 @@ public sealed class ApplicationController : IDisposable
         moveHook.MoveStarted += MoveStarted;
         moveHook.MoveEnded += _ => MoveEnded();
         moveHook.EmergencyStopped += reason => EmergencyStop(reason);
+        appRuleHook.RuleEvent += AppRuleHook_RuleEvent;
+        appRuleHook.EmergencyStopped += reason => EmergencyStop($"App-Regel-Hook gestoppt: {reason}");
         hotkeys.EmergencyStopRequested += () => EmergencyStop("Not-Aus ausgelöst: Snap-Funktion deaktiviert");
         window.Closing += Window_Closing;
 
@@ -98,6 +111,8 @@ public sealed class ApplicationController : IDisposable
         overlays.HideAll();
         monitorIdentification.HideAll();
         moveHook.Disable();
+        appRuleCoordinator.CancelPending();
+        appRuleHook.Disable();
         viewModel.StatusMessage = reason;
         configuration = viewModel.Configuration;
         _ = hotkeys.Configure(emergencyStopEnabled: false);
@@ -117,10 +132,14 @@ public sealed class ApplicationController : IDisposable
         cursorTimer.Stop();
         identificationTimer.Stop();
         moveHook.Disable();
+        appRuleCoordinator.CancelPending();
+        appRuleHook.Disable();
         overlays.HideAll();
         tray.Dispose();
         hotkeys.Dispose();
         moveHook.Dispose();
+        appRuleCoordinator.Dispose();
+        appRuleHook.Dispose();
         overlays.Dispose();
         monitorIdentification.Dispose();
         toast.Close();
@@ -134,8 +153,13 @@ public sealed class ApplicationController : IDisposable
     {
         var previousConfiguration = configuration;
         configuration = newConfiguration;
+        var activatedLayoutIds = FindNewlyActivatedLayoutIds(previousConfiguration, newConfiguration);
         ReflowWindowsForChangedActiveLayouts(previousConfiguration, newConfiguration);
         Reconfigure(configuration);
+        foreach (var layoutId in activatedLayoutIds)
+        {
+            _ = ApplyLayoutRulesAsync(layoutId);
+        }
         try
         {
             if (startupService.IsEnabled != newConfiguration.Settings.StartWithWindows)
@@ -290,6 +314,8 @@ public sealed class ApplicationController : IDisposable
         cursorTimer.Stop();
         coordinator?.Cancel();
         moveHook.Disable();
+        appRuleCoordinator.CancelPending();
+        appRuleHook.Disable();
         var targets = BuildTargets(newConfiguration);
         overlays.UpdateTargets(targets);
         coordinator = new WindowDragCoordinator(
@@ -317,8 +343,59 @@ public sealed class ApplicationController : IDisposable
             }
         }
 
+        if (!emergencyStopped && newConfiguration.AppRules.Any(rule => rule.IsEnabled))
+        {
+            try
+            {
+                appRuleHook.Enable();
+            }
+            catch (Exception exception)
+            {
+                EmergencyStop($"App-Regel-Hook konnte nicht aktiviert werden: {exception.Message}");
+                return;
+            }
+        }
+
         tray.Update(newConfiguration);
     }
+
+    private void AppRuleHook_RuleEvent(AppRuleEvent eventType, nint windowHandle) =>
+        _ = ApplyWindowRuleAsync(eventType, windowHandle);
+
+    private async Task ApplyWindowRuleAsync(AppRuleEvent eventType, nint windowHandle)
+    {
+        try
+        {
+            await appRuleCoordinator.HandleAsync(eventType, windowHandle);
+        }
+        catch (Exception exception)
+        {
+            log.Write("ERROR", "Eine App-Regel konnte nicht ausgeführt werden.", exception);
+            viewModel.StatusMessage = $"App-Regel fehlgeschlagen: {exception.Message}";
+        }
+    }
+
+    private async Task ApplyLayoutRulesAsync(Guid layoutId)
+    {
+        try
+        {
+            await appRuleCoordinator.HandleLayoutActivatedAsync(layoutId);
+        }
+        catch (Exception exception)
+        {
+            log.Write("ERROR", "Die App-Regeln des aktivierten Layouts konnten nicht ausgeführt werden.", exception);
+            viewModel.StatusMessage = $"Layout-Regeln fehlgeschlagen: {exception.Message}";
+        }
+    }
+
+    public static IReadOnlyList<Guid> FindNewlyActivatedLayoutIds(
+        SnapConfiguration previousConfiguration,
+        SnapConfiguration newConfiguration) =>
+        newConfiguration.Layouts
+            .Where(layout => layout.IsActive &&
+                previousConfiguration.Layouts.FirstOrDefault(previous => previous.Id == layout.Id)?.IsActive != true)
+            .Select(layout => layout.Id)
+            .ToArray();
 
     private void IdentifyMonitors()
     {
