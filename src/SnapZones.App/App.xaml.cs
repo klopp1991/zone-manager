@@ -26,17 +26,30 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(eventArgs);
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        var startupMode = StartupModeResolver.Resolve(eventArgs.Args);
+        if (startupMode == StartupMode.DpiProbe)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(3));
+            Shutdown(0);
+            return;
+        }
+
         var executablePath = Environment.ProcessPath ?? throw new InvalidOperationException("Der Programmpfad fehlt.");
         var paths = ApplicationDataPaths.Resolve(
             executablePath,
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
-        var diagnosticsRequested = eventArgs.Args.Contains("--diagnostics", StringComparer.OrdinalIgnoreCase);
+        if (startupMode == StartupMode.Diagnostics)
+        {
+            var diagnosticStartupService = new WindowsStartupService(executablePath);
+            var exitCode = await DiagnosticRunner.RunAsync(paths.ConfigurationDirectory, diagnosticStartupService);
+            Shutdown(exitCode);
+            return;
+        }
+
         startupLifetime = new CancellationTokenSource();
         var placementRepository = new JsonWindowPlacementRepository(paths.ConfigurationDirectory);
-        var placementLoadTask = diagnosticsRequested
-            ? null
-            : WindowPlacementStartupLoad.Start(placementRepository, startupLifetime.Token);
+        var placementLoadTask = WindowPlacementStartupLoad.Start(placementRepository, startupLifetime.Token);
         log = new FileLog(paths.LogDirectory);
         var startupService = new WindowsStartupService(executablePath);
 
@@ -59,14 +72,6 @@ public partial class App : System.Windows.Application
             {
                 log.Write("WARN", "Der frühe Platzierungs-Load wurde mit einem Fehler beendet.", exception);
             }
-        }
-
-        if (diagnosticsRequested)
-        {
-            await CancelPlacementLoadAsync();
-            var exitCode = await DiagnosticRunner.RunAsync(paths.ConfigurationDirectory, startupService);
-            Shutdown(exitCode);
-            return;
         }
 
         if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))

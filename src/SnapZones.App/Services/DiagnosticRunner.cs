@@ -76,14 +76,15 @@ public static class DiagnosticRunner
         {
             using var document = await ReadDocumentAsync(path, cancellationToken);
             var root = document.RootElement;
-            var schemaVersion = TryGetProperty(root, "schemaVersion", out var version) && version.TryGetInt32(out var parsedVersion)
-                ? (int?)parsedVersion
-                : null;
-            var enabled = !TryGetProperty(root, "restoreWindowPlacementEnabled", out var restoreEnabled) ||
-                          restoreEnabled.ValueKind is not JsonValueKind.False;
-            var ruleCount = TryGetProperty(root, "windowPlacementRules", out var rules) && rules.ValueKind == JsonValueKind.Array
-                ? rules.GetArrayLength()
-                : 0;
+            if (root.ValueKind != JsonValueKind.Object ||
+                !TryGetProperty(root, "settings", out var settings) ||
+                settings.ValueKind != JsonValueKind.Object ||
+                !TryReadSchemaVersion(root, out var schemaVersion) ||
+                !TryReadSettings(settings, out var enabled, out var ruleCount))
+            {
+                return new SettingsDiagnostic("invalid-structure", null, Enabled: true, RuleCount: 0);
+            }
+
             return new SettingsDiagnostic("valid-json", schemaVersion, enabled, ruleCount);
         }
         catch (OperationCanceledException)
@@ -119,9 +120,14 @@ public static class DiagnosticRunner
         {
             using var document = await ReadDocumentAsync(path, cancellationToken);
             var root = document.RootElement;
-            var learnedEntryCount = TryGetProperty(root, "entries", out var entries) && entries.ValueKind == JsonValueKind.Array
-                ? entries.GetArrayLength()
-                : 0;
+            if (root.ValueKind != JsonValueKind.Object ||
+                !TryGetProperty(root, "entries", out var entries) ||
+                entries.ValueKind != JsonValueKind.Array)
+            {
+                return new WindowPlacementDiagnostic(enabled, 0, ruleCount, LifecycleHookRegistered: false, "invalid-structure");
+            }
+
+            var learnedEntryCount = entries.GetArrayLength();
             return new WindowPlacementDiagnostic(enabled, learnedEntryCount, ruleCount, LifecycleHookRegistered: false, "valid-json");
         }
         catch (OperationCanceledException)
@@ -156,6 +162,12 @@ public static class DiagnosticRunner
 
     private static bool TryGetProperty(JsonElement element, string name, out JsonElement value)
     {
+        if (element.ValueKind != JsonValueKind.Object)
+        {
+            value = default;
+            return false;
+        }
+
         foreach (var property in element.EnumerateObject())
         {
             if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase))
@@ -167,6 +179,51 @@ public static class DiagnosticRunner
 
         value = default;
         return false;
+    }
+
+    private static bool TryReadSchemaVersion(JsonElement root, out int? schemaVersion)
+    {
+        schemaVersion = null;
+        if (!TryGetProperty(root, "schemaVersion", out var version))
+        {
+            return true;
+        }
+
+        if (!version.TryGetInt32(out var parsedVersion))
+        {
+            return false;
+        }
+
+        schemaVersion = parsedVersion;
+        return true;
+    }
+
+    private static bool TryReadSettings(JsonElement settings, out bool enabled, out int ruleCount)
+    {
+        enabled = true;
+        ruleCount = 0;
+        if (TryGetProperty(settings, "restoreWindowPlacementEnabled", out var restoreEnabled))
+        {
+            if (restoreEnabled.ValueKind is not (JsonValueKind.True or JsonValueKind.False))
+            {
+                return false;
+            }
+
+            enabled = restoreEnabled.GetBoolean();
+        }
+
+        if (!TryGetProperty(settings, "windowPlacementRules", out var rules))
+        {
+            return true;
+        }
+
+        if (rules.ValueKind != JsonValueKind.Array)
+        {
+            return false;
+        }
+
+        ruleCount = rules.GetArrayLength();
+        return true;
     }
 
     private sealed record SettingsDiagnostic(string Status, int? SchemaVersion, bool Enabled, int RuleCount);

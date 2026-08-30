@@ -8,7 +8,7 @@
 
 - Unter **Fensterplatzierung** aktiviert der Hauptschalter die automatische Wiederherstellung. Der globale Standard ist **Letzte Platzierung merken**.
 - Die Wiederherstellung wirkt nur einmal beim Öffnen. Danach sind Verschieben, Skalieren und Maximieren frei; beim nächsten Öffnen wird daraus wieder gelernt.
-- Gleichartige Hauptfenster teilen einen Anwendung-/Fenstertyp. Dialoge bleiben getrennt. Maximierung wird gespeichert, Minimierung nie.
+- Gleichartige Hauptfenster teilen einen Anwendung-/Fenstertyp. Dialoge bleiben getrennt. Maximierung wird nur für ein bereits im Vordergrund befindliches Ziel wiederhergestellt; sonst bleibt das Fenster ohne Fokusdiebstahl unverändert. Minimierung wird nie gespeichert.
 - **Feste Zone** legt eine Startzone für Profil, Monitor und Zone fest. **Nicht verwalten** schliesst den passenden Typ aus. `TitlePattern` steht nur in erweiterten Regeln zur Verfügung.
 - Gelernte Einträge liegen in `placements.json`; Regeln und Hauptschalter liegen in `settings.json`.
 

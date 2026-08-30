@@ -11,14 +11,6 @@ if (-not (Test-Path -LiteralPath $resolvedExecutable -PathType Leaf)) {
     throw "Die ausführbare Datei fehlt: $resolvedExecutable"
 }
 
-$settingsPath = Join-Path $env:APPDATA 'SnapZones\settings.json'
-if (Test-Path -LiteralPath $settingsPath) {
-    $settings = (Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json).Settings
-    if ($settings.SnappingEnabled -eq $true) {
-        throw 'Der DPI-Test startet Sascha Window Zones nur bei ausgeschalteter Snap-Funktion.'
-    }
-}
-
 if (-not ('SnapZones.ProcessDpiProbe' -as [type])) {
     Add-Type -TypeDefinition @'
 using System;
@@ -35,11 +27,21 @@ namespace SnapZones
 '@
 }
 
-$process = Start-Process -FilePath $resolvedExecutable -PassThru
+$process = Start-Process -FilePath $resolvedExecutable -ArgumentList '--dpi-probe' -PassThru -WindowStyle Hidden
 try {
-    [void]$process.WaitForInputIdle(5000)
-    if ($process.HasExited) {
-        throw "Sascha Window Zones wurde vor dem DPI-Test beendet: ExitCode $($process.ExitCode)"
+    $deadline = [DateTime]::UtcNow.AddSeconds(5)
+    while ($process.HasExited -eq $false -and [DateTime]::UtcNow -lt $deadline) {
+        try {
+            $null = $process.Handle
+            break
+        }
+        catch {
+            Start-Sleep -Milliseconds 50
+        }
+    }
+    if ($process.HasExited -or [DateTime]::UtcNow -ge $deadline) {
+        $exitDescription = if ($process.HasExited) { "ExitCode $($process.ExitCode)" } else { 'läuft noch' }
+        throw "Der DPI-Probeprozess wurde nicht rechtzeitig bereit: $exitDescription"
     }
 
     $awareness = -1
@@ -52,10 +54,17 @@ try {
         throw "Sascha Window Zones ist nicht pro Monitor DPI-bewusst: PROCESS_DPI_AWARENESS=$awareness"
     }
 
-    Write-Output 'DPI_OK awareness=PerMonitor'
+    if (-not $process.WaitForExit(10000)) {
+        throw 'Der DPI-Probeprozess hat das Zeitlimit überschritten.'
+    }
+    if ($process.ExitCode -ne 0) {
+        throw "Der DPI-Probeprozess wurde mit ExitCode $($process.ExitCode) beendet."
+    }
+
+    Write-Output 'DPI_OK awareness=PerMonitor exitCode=0'
 }
 finally {
     if (-not $process.HasExited) {
-        Stop-Process -Id $process.Id -ErrorAction Stop
+        Stop-Process -Id $process.Id -ErrorAction SilentlyContinue
     }
 }

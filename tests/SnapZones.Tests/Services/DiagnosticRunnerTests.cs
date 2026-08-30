@@ -42,7 +42,7 @@ public sealed class DiagnosticRunnerTests
         using var directory = new TemporaryDirectory();
         await File.WriteAllTextAsync(
             Path.Combine(directory.Path, "settings.json"),
-            "{\"restoreWindowPlacementEnabled\":false,\"windowPlacementRules\":[{},{}]}");
+            "{\"schemaVersion\":2,\"settings\":{\"restoreWindowPlacementEnabled\":false,\"windowPlacementRules\":[{},{}]}}");
         await File.WriteAllTextAsync(
             Path.Combine(directory.Path, "placements.json"),
             "{\"entries\":[{},{}]}");
@@ -52,6 +52,40 @@ public sealed class DiagnosticRunnerTests
         Assert.False(result.WindowPlacement.Enabled);
         Assert.Equal(2, result.WindowPlacement.LearnedEntryCount);
         Assert.Equal(2, result.WindowPlacement.RuleCount);
+    }
+
+    [Theory]
+    [InlineData("[]")]
+    [InlineData("null")]
+    [InlineData("1")]
+    [InlineData("\"Text\"")]
+    public async Task Diagnostics_reports_a_non_object_placement_document_without_throwing(string placementContents)
+    {
+        using var directory = new TemporaryDirectory();
+        await File.WriteAllTextAsync(Path.Combine(directory.Path, "placements.json"), placementContents);
+
+        var result = await DiagnosticRunner.RunForTestAsync(directory.Path, CancellationToken.None);
+
+        Assert.Equal("invalid-structure", result.WindowPlacement.Status);
+        Assert.Equal(0, result.WindowPlacement.LearnedEntryCount);
+        Assert.False(result.WindowPlacement.LifecycleHookRegistered);
+    }
+
+    [Fact]
+    public async Task Diagnostics_reports_schema_invalid_children_without_throwing()
+    {
+        using var directory = new TemporaryDirectory();
+        await File.WriteAllTextAsync(
+            Path.Combine(directory.Path, "settings.json"),
+            "{\"schemaVersion\":2,\"settings\":{\"restoreWindowPlacementEnabled\":\"false\",\"windowPlacementRules\":null}}");
+        await File.WriteAllTextAsync(Path.Combine(directory.Path, "placements.json"), "{\"entries\":null}");
+
+        var result = await DiagnosticRunner.RunForTestAsync(directory.Path, CancellationToken.None);
+
+        Assert.Equal("invalid-structure", result.ConfigurationStatus);
+        Assert.Equal("invalid-structure", result.WindowPlacement.Status);
+        Assert.True(result.WindowPlacement.Enabled);
+        Assert.Equal(0, result.WindowPlacement.RuleCount);
     }
 
     [Fact]

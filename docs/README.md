@@ -41,7 +41,7 @@ Jede Einstellung erklärt direkt in der Oberfläche Wirkung, Gültigkeitsbereich
 
 ## Fensterplatzierung
 
-Die automatische Fensterplatzierung ist ein separater Hauptschalter. Ihr globaler Standard ist **Letzte Platzierung merken**: Ein sichtbares, geeignetes Top-Level-Fenster wird nach dem Öffnen höchstens einmal wiederhergestellt und spätere manuelle Bewegungen bleiben frei. Mehrere gleichartige Hauptfenster einer Anwendung teilen einen Anwendung-/Fenstertyp; Dialoge bleiben durch ihre Fensterart getrennt. Maximierte Fenster werden beim nächsten Öffnen wieder maximiert, minimierte Zustände und minimierte Rechtecke werden nie gespeichert oder wiederhergestellt.
+Die automatische Fensterplatzierung ist ein separater Hauptschalter. Ihr globaler Standard ist **Letzte Platzierung merken**: Ein sichtbares, geeignetes Top-Level-Fenster wird nach dem Öffnen höchstens einmal wiederhergestellt und spätere manuelle Bewegungen bleiben frei. Mehrere gleichartige Hauptfenster einer Anwendung teilen einen Anwendung-/Fenstertyp; Dialoge bleiben durch ihre Fensterart getrennt. Ein maximiertes Ziel wird nur wieder maximiert, wenn es bereits im Vordergrund ist; andernfalls bleibt es ohne Fokusdiebstahl unverändert. Minimierte Zustände und minimierte Rechtecke werden nie gespeichert oder wiederhergestellt.
 
 Unter **Fensterplatzierung** lassen sich gelernte Einträge vergessen, eine **Feste Zone** für ein Profil, einen Monitor und eine Zone festlegen oder ein Fenstertyp mit **Nicht verwalten** ausschliessen. Eine optionale `TitlePattern`-Bedingung ist nur für erweiterte Regeln verfügbar; gleich spezifische Regeln werden als Konflikt nicht ausgeführt. Die festen Zonen und Ausschlüsse gelten beim Öffnen, sie erzwingen keine laufende Position.
 
