@@ -1,0 +1,101 @@
+using SnapZones.Core.Geometry;
+using SnapZones.Core.Models;
+
+namespace SnapZones.Core.Placement;
+
+public static class PlacementGeometry
+{
+    private const double ZoneOverlapThreshold = 0.25;
+
+    public static NormalizedRect Normalize(PixelRect bounds, MonitorWorkArea workArea)
+    {
+        if (workArea.Width <= 0 || workArea.Height <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(workArea), "Die Arbeitsfläche muss positiv sein.");
+        }
+
+        return new NormalizedRect(
+            (double)(bounds.X - workArea.X) / workArea.Width,
+            (double)(bounds.Y - workArea.Y) / workArea.Height,
+            (double)bounds.Width / workArea.Width,
+            (double)bounds.Height / workArea.Height);
+    }
+
+    public static PixelRect Resolve(
+        WindowPlacementEntry entry,
+        IReadOnlyList<PlacementMonitorTarget> monitors,
+        IReadOnlyList<PlacementZoneTarget> zones)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        ArgumentNullException.ThrowIfNull(monitors);
+        ArgumentNullException.ThrowIfNull(zones);
+        if (monitors.Count == 0)
+        {
+            throw new ArgumentException("Mindestens ein Monitor ist erforderlich.", nameof(monitors));
+        }
+
+        var monitor = monitors.FirstOrDefault(candidate => candidate.StableId == entry.MonitorStableId);
+        if (monitor is null && entry.ZoneId is Guid zoneId)
+        {
+            var savedZone = zones.FirstOrDefault(zone => zone.ZoneId == zoneId);
+            if (savedZone is not null)
+            {
+                monitor = monitors.FirstOrDefault(candidate => candidate.StableId == savedZone.MonitorStableId);
+            }
+        }
+
+        monitor ??= monitors.FirstOrDefault(candidate => candidate.IsPrimary) ?? monitors[0];
+        var workArea = monitor.WorkArea;
+        var bounds = entry.SourceWorkArea == workArea
+            ? entry.NormalBoundsPixels
+            : Map(entry.NormalBoundsNormalized, workArea);
+
+        var width = Math.Clamp(bounds.Width, 160, workArea.Width);
+        var height = Math.Clamp(bounds.Height, 120, workArea.Height);
+        var x = Math.Clamp(bounds.X, workArea.X, workArea.X + workArea.Width - width);
+        var y = Math.Clamp(bounds.Y, workArea.Y, workArea.Y + workArea.Height - height);
+        return new PixelRect(x, y, width, height);
+    }
+
+    public static Guid? ClassifyZone(PixelRect bounds, IReadOnlyList<PlacementZoneTarget> zones)
+    {
+        if (bounds.Width <= 0 || bounds.Height <= 0 || zones.Count == 0)
+        {
+            return null;
+        }
+
+        var windowArea = (double)bounds.Width * bounds.Height;
+        var bestRatio = ZoneOverlapThreshold;
+        Guid? bestZone = null;
+        var tied = false;
+        foreach (var zone in zones)
+        {
+            var overlapWidth = Math.Max(0, Math.Min(bounds.Right, zone.Bounds.Right) - Math.Max(bounds.X, zone.Bounds.X));
+            var overlapHeight = Math.Max(0, Math.Min(bounds.Bottom, zone.Bounds.Bottom) - Math.Max(bounds.Y, zone.Bounds.Y));
+            var ratio = overlapWidth * (double)overlapHeight / windowArea;
+            if (ratio < ZoneOverlapThreshold)
+            {
+                continue;
+            }
+
+            if (bestZone is null || ratio > bestRatio)
+            {
+                bestRatio = ratio;
+                bestZone = zone.ZoneId;
+                tied = false;
+            }
+            else if (bestZone is not null && Math.Abs(ratio - bestRatio) < 0.0000001)
+            {
+                tied = true;
+            }
+        }
+
+        return tied ? null : bestZone;
+    }
+
+    private static PixelRect Map(NormalizedRect bounds, MonitorWorkArea workArea) => new(
+        workArea.X + (int)Math.Round(bounds.X * workArea.Width),
+        workArea.Y + (int)Math.Round(bounds.Y * workArea.Height),
+        (int)Math.Round(bounds.Width * workArea.Width),
+        (int)Math.Round(bounds.Height * workArea.Height));
+}
