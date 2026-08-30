@@ -1,4 +1,5 @@
 using SnapZones.Core.Persistence;
+using SnapZones.Core.Models;
 using SnapZones.Tests.Support;
 using Xunit;
 
@@ -35,5 +36,41 @@ public sealed class JsonConfigurationRepositoryTests
         Assert.True(result.RecoveredFromError);
         Assert.False(result.Configuration.Settings.SnappingEnabled);
         Assert.Single(Directory.GetFiles(directory.Path, "settings.invalid-*.json"));
+    }
+
+    [Fact]
+    public async Task Load_applies_new_safe_defaults_to_existing_schema_one_settings()
+    {
+        using var directory = new TemporaryDirectory();
+        var profileId = "11111111-1111-1111-1111-111111111111";
+        var json = $$"""
+        {
+          "SchemaVersion": 1,
+          "Settings": {
+            "ActiveProfileId": "{{profileId}}",
+            "SnappingEnabled": false,
+            "StartWithWindows": false,
+            "OverlayScope": "AllMonitors",
+            "TriggerMode": "Immediate",
+            "OuterMargin": 8,
+            "ZoneGap": 8,
+            "OverlayColor": "#2F6FED",
+            "OverlayOpacity": 0.24
+          },
+          "Profiles": [
+            { "Id": "{{profileId}}", "Name": "Standard", "QuickSlot": 1, "Monitors": [] }
+          ]
+        }
+        """;
+        await File.WriteAllTextAsync(System.IO.Path.Combine(directory.Path, "settings.json"), json);
+        var repository = new JsonConfigurationRepository(directory.Path);
+
+        var result = await repository.LoadAsync(CancellationToken.None);
+
+        Assert.False(result.RecoveredFromError);
+        Assert.Equal(ThemeMode.System, result.Configuration.Settings.ThemeMode);
+        Assert.Equal(10, result.Configuration.Settings.MagnetThresholdPixels);
+        Assert.True(result.Configuration.Settings.ShowZoneNames);
+        Assert.Equal(EdgeInsets.Uniform(8), result.Configuration.Settings.EffectiveOuterMargins);
     }
 }

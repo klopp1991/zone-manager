@@ -1,7 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <AssemblyName>SnapZones</AssemblyName>
+    <AssemblyName>SaschaWindowZones</AssemblyName>
+    <AssemblyTitle>Sascha Window Zones</AssemblyTitle>
+    <Product>Sascha Window Zones</Product>
     <RootNamespace>SnapZones.App</RootNamespace>
     <OutputType>WinExe</OutputType>
     <UseWPF>true</UseWPF>
@@ -12,8 +14,14 @@
     <PlatformTarget>x64</PlatformTarget>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <StartupObject>SnapZones.App.Program</StartupObject>
+    <ApplicationIcon>Assets\SaschaWindowZones.ico</ApplicationIcon>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\SaschaWindowZones.ico" />
+    <None Update="Assets\SaschaWindowZones.svg" />
+  </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SnapZones.Core\SnapZones.Core.csproj" />
     <ProjectReference Include="..\SnapZones.Windows\SnapZones.Windows.csproj" />

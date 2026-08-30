@@ -8,6 +8,7 @@ namespace SnapZones.App.Services;
 public sealed class TrayIconService : IDisposable
 {
     private readonly Forms.NotifyIcon icon;
+    private readonly Drawing.Icon? applicationIcon;
     private readonly MainWindow window;
     private readonly Action<Guid> activateProfile;
     private readonly Action<bool> toggleSnapping;
@@ -23,10 +24,13 @@ public sealed class TrayIconService : IDisposable
         this.activateProfile = activateProfile;
         this.toggleSnapping = toggleSnapping;
         this.exit = exit;
+        applicationIcon = Environment.ProcessPath is { } processPath
+            ? Drawing.Icon.ExtractAssociatedIcon(processPath)
+            : null;
         icon = new Forms.NotifyIcon
         {
-            Icon = Drawing.SystemIcons.Application,
-            Text = "SnapZones",
+            Icon = applicationIcon ?? Drawing.SystemIcons.Application,
+            Text = ProductInfo.Name,
             Visible = true
         };
         icon.DoubleClick += (_, _) => ShowWindow();
@@ -63,7 +67,7 @@ public sealed class TrayIconService : IDisposable
         var previous = icon.ContextMenuStrip;
         icon.ContextMenuStrip = menu;
         previous?.Dispose();
-        icon.Text = $"SnapZones · {active.Name}";
+        icon.Text = $"{ProductInfo.Name} · {active.Name}";
     }
 
     public void Dispose()
@@ -71,6 +75,7 @@ public sealed class TrayIconService : IDisposable
         icon.Visible = false;
         icon.ContextMenuStrip?.Dispose();
         icon.Dispose();
+        applicationIcon?.Dispose();
     }
 
     private void ShowWindow()

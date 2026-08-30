@@ -10,4 +10,11 @@ internal static class DwmApi
         int attribute,
         out int value,
         int valueSize);
+
+    [DllImport("dwmapi.dll")]
+    internal static extern int DwmSetWindowAttribute(
+        nint window,
+        int attribute,
+        ref int value,
+        int valueSize);
 }

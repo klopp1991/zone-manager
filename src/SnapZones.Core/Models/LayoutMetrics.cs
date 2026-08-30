@@ -1,6 +1,13 @@
 namespace SnapZones.Core.Models;
 
-public sealed record LayoutMetrics(int OuterMargin, int ZoneGap)
+public sealed record LayoutMetrics(EdgeInsets OuterMargins, int ZoneGap)
 {
-    public static LayoutMetrics Default { get; } = new(8, 8);
+    public LayoutMetrics(int outerMargin, int zoneGap)
+        : this(EdgeInsets.Uniform(outerMargin), zoneGap)
+    {
+    }
+
+    public int OuterMargin => OuterMargins.Left;
+
+    public static LayoutMetrics Default { get; } = new(EdgeInsets.Uniform(8), 8);
 }

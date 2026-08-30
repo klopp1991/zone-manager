@@ -15,6 +15,7 @@ public partial class MonitorOverlayWindow : Window
     private LayoutMetrics metrics = LayoutMetrics.Default;
     private string accent = "#2F6FED";
     private double overlayOpacity = 0.24;
+    private bool showZoneNames = true;
     private Guid? highlightedZoneId;
 
     public MonitorOverlayWindow()
@@ -27,12 +28,14 @@ public partial class MonitorOverlayWindow : Window
         DragMonitorTarget newTarget,
         LayoutMetrics newMetrics,
         string colour,
-        double opacity)
+        double opacity,
+        bool displayZoneNames)
     {
         target = newTarget;
         metrics = newMetrics;
         accent = colour;
         overlayOpacity = opacity;
+        showZoneNames = displayZoneNames;
         highlightedZoneId = null;
 
         if (!IsVisible)
@@ -84,7 +87,7 @@ public partial class MonitorOverlayWindow : Window
                 BorderBrush = new SolidColorBrush(colour) { Opacity = active ? 1 : 0.68 },
                 BorderThickness = new Thickness(active ? 3 : 1.5),
                 CornerRadius = new CornerRadius(6),
-                Child = new TextBlock
+                Child = showZoneNames ? new TextBlock
                 {
                     Text = zone.Name,
                     Foreground = System.Windows.Media.Brushes.White,
@@ -98,7 +101,7 @@ public partial class MonitorOverlayWindow : Window
                         ShadowDepth = 1,
                         Opacity = 0.7
                     }
-                }
+                } : null
             };
             Canvas.SetLeft(border, (pixels.X - target.Monitor.WorkArea.X) * scaleX);
             Canvas.SetTop(border, (pixels.Y - target.Monitor.WorkArea.Y) * scaleY);

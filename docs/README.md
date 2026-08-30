@@ -1,63 +1,61 @@
-# SnapZones Prototyp
+# Sascha Window Zones
 
-SnapZones erstellt frei bearbeitbare Fensterbereiche pro Monitor. Beim Ziehen eines normalen Fensters an der Titelleiste zeigt die aktivierte Snap-Funktion die Bereiche als Overlay; beim Loslassen füllt das Fenster den gewählten Bereich.
-
-> **Prüfstatus:** Layout-Editor, Profile, Speichern, Diagnose und Not-Aus sind geprüft. Die Titelleisten-Erkennung des aktuellen Windows-11-Notepad ist noch fehlerhaft; die Snap-Funktion bleibt deshalb in diesem Build ausgeschaltet und ist noch nicht zur Nutzung freigegeben.
+Sascha Window Zones erstellt frei bearbeitbare Fensterbereiche pro Monitor. Beim Ziehen eines geeigneten Fensters an der Titelleiste zeigt die aktivierte Snap-Funktion die Bereiche als Overlay; beim Loslassen füllt das Fenster die gewählte Zone.
 
 ## Schnellstart
 
-1. `outputs/SnapZones-prototype/SnapZones.exe` starten.
-2. Unter **Layouts** einen Monitor wählen und Zonen direkt ziehen, skalieren oder über eine Vorlage erzeugen.
-3. **Speichern** wählen. Layouts und Einstellungen liegen danach in `%APPDATA%\SnapZones\settings.json`.
-4. Die **Snap-Funktion** bis zur Behebung der dokumentierten Titelleisten-Erkennung ausgeschaltet lassen.
+1. `outputs/Sascha-Window-Zones-prototype/SaschaWindowZones.exe` starten.
+2. Zuerst unter **Profile** das gewünschte Profil wählen oder erstellen.
+3. Unter **Layouts** einen Monitor wählen, die vorhandene Zone anpassen und mit **+ Neue Zone** die grösste freie Fläche belegen.
+4. Zonen ziehen, über acht Griffe skalieren oder als Prozent/Pixel mit Position/Grösse beziehungsweise vier Aussenabständen eingeben.
+5. Unter **Einstellungen** die Snap-Funktion bewusst aktivieren und **Speichern** wählen.
 
-Die Snap-Funktion und der Autostart sind beim ersten Start ausgeschaltet. SnapZones enthält keinen Treiber, keinen Windows-Dienst, keine Code-Injection und benötigt keine Administratorrechte.
+Konfiguration und bestehende Installationen bleiben unter `%APPDATA%\SnapZones\settings.json` kompatibel. Snap-Funktion und Autostart sind beim ersten Start ausgeschaltet.
 
-## Not-Aus
+## Layouteditor
 
-`Ctrl + Alt + Shift + F12` deaktiviert Hook und Overlays sofort und speichert die Snap-Funktion als ausgeschaltet. Dasselbe geschieht bei einem Callback-Fehler oder bei mehr als 100 Hook-Ereignissen innerhalb von zehn Sekunden.
+- **+ Neue Zone** belegt die grösste freie achsenparallele Fläche; ohne ausreichenden freien Bereich wird nichts verändert.
+- Zonen docken innerhalb der eingestellten Magnetdistanz an Monitor- und Zonenkanten an; `Alt` deaktiviert den Magnetismus während des Ziehens.
+- **Prozent** bleibt bei Auflösungsänderungen proportional; **Pixel** bezieht sich auf die aktuelle Windows-Arbeitsfläche des Monitors.
+- **Position und Grösse** bearbeitet Links, Oben, Breite und Höhe; **Aussenabstände** bearbeitet Links, Oben, Rechts und Unten.
+- Überlappende, zu kleine oder ausserhalb liegende Zonen werden markiert und können nicht gespeichert werden.
 
-## Layouts bearbeiten
+## Monitore und Windows-Anzeige
 
-- Zone anklicken und innerhalb der Fläche ziehen.
-- Die acht Griffe der ausgewählten Zone ändern ihre Grösse.
-- Name und Prozentwerte rechts numerisch bearbeiten und **Werte anwenden** wählen.
-- Vorlagen ersetzen die Zonen nur im aktuellen Entwurf; **Entwurf zurücksetzen** stellt den zuletzt gespeicherten Stand wieder her.
-- Überlappende, zu kleine oder ausserhalb liegende Zonen werden rot markiert und können nicht gespeichert werden.
+Monitornamen werden bevorzugt aus dem aktiven Displaypfad und den EDID-Daten gelesen. Die Seite **Windows-Anzeige** zeigt den erkannten monitorbezogenen Skalierungswert und öffnet die zuständigen Windows-Seiten.
 
-## Profile und Schnellwahl
-
-Profile enthalten getrennte Layouts für jeden erkannten Monitor. Sie lassen sich oben im Editor oder im Infobereich bei der Uhr wechseln; den Schnellwahlplätzen 1 bis 9 zugeordnete Profile reagieren auf `Ctrl + Alt + 1` bis `Ctrl + Alt + 9`.
-
-Die Standardkonfiguration ordnet «Standard» dem Platz 1 zu. Neue Profile übernehmen zunächst die vorhandenen Monitorlayouts; eine frei konfigurierbare Schnellwahlzuordnung ist noch nicht Teil dieses Prototyps.
+Windows 11 stellt normalen Desktopanwendungen keine unterstützte Schnittstelle für frei wählbare monitorweise Textskalierung oder monitorweise Taskleisten-/Icongrössen bereit. Benutzerdefinierte Windows-Skalierung von 100 bis 500 % und Textskalierung von 100 bis 225 % sind globale Windows-Einstellungen; Sascha Window Zones verwendet dafür keine Explorer-Injektion, privaten DPI-Pakete oder undokumentierten Registry-Werte.
 
 ## Einstellungen
 
-- **Overlays anzeigen:** auf allen Monitoren oder nur auf dem Monitor unter dem Mauszeiger.
-- **Aktivierung:** sofort beim Titelleisten-Drag oder nur bei gedrückter Umschalttaste.
-- **Aussenrand / Zonenabstand:** Pixelabstand zur Arbeitsfläche beziehungsweise zwischen Zonen.
-- **Overlay-Deckkraft:** Sichtbarkeit der Zonen während des Ziehens.
-- **Mit Windows starten:** schreibt nach bewusstem Speichern ausschliesslich den Wert `SnapZones` unter `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
+- System-, helles oder dunkles Theme; Systemänderungen werden ohne Neustart übernommen.
+- Overlay auf allen Monitoren oder nur auf dem aktiven Monitor.
+- Sofortige Aktivierung oder Aktivierung mit Umschalttaste.
+- Separate äussere Abstände links, oben, rechts und unten, Zonenabstand und Magnetdistanz.
+- Overlayfarbe, Deckkraft und ein-/ausblendbare Zonennamen.
+- Autostart pro Benutzer ohne Administratorrechte.
 
-## Infobereich
+Jede Einstellung erklärt direkt in der Oberfläche Wirkung, Gültigkeitsbereich und Einschränkungen.
 
-Das Schliessen des Hauptfensters beendet SnapZones nicht, sondern lässt es im Infobereich weiterlaufen. Das Menü wechselt Profile, aktiviert oder deaktiviert die Snap-Funktion, öffnet den Editor und beendet die Anwendung vollständig.
+## Sicherheit und Not-Aus
+
+`Ctrl + Alt + Shift + F12` deaktiviert Hook und Overlays sofort und speichert die Snap-Funktion als ausgeschaltet. `Escape` beendet nur den aktuellen Ziehvorgang. Die Anwendung enthält keinen Treiber, keinen Windows-Dienst und keine Code-Injektion; ein Schutzschalter stoppt die Snap-Funktion bei Callback-Fehlern oder ungewöhnlich vielen Hook-Ereignissen.
 
 ## Diagnose
 
 ```powershell
-SnapZones.exe --diagnostics
+SaschaWindowZones.exe --diagnostics
 ```
 
 Die Diagnose liest Konfigurationsstatus, Monitore, DPI und Autostartstatus. Sie registriert keinen Fenster-Hook und verändert weder Einstellungen noch Registry.
 
-## Einschränkungen des Prototyps
+## Einschränkungen
 
 - Nur Windows 11 x64.
-- Fenster mit höheren Administratorrechten können nicht positioniert werden.
-- Die aktuelle Titelleisten-Erkennung akzeptiert Windows-11-Notepad noch nicht; das zugehörige Windows-Verschiebeereignis kommt korrekt an, wird aber fälschlich als Nicht-Titelleisten-Drag verworfen.
-- Nicht rechteckige oder überlappende Zonen, virtuelle Desktops, Fensterregeln und automatische Updates sind nicht enthalten.
-- Der Prototyp ist noch nicht digital signiert; Windows kann deshalb beim ersten Start eine Sicherheitswarnung anzeigen.
+- Fenster mit höheren Administratorrechten können ohne gleich hohe Rechte nicht positioniert werden.
+- Nicht rechteckige oder überlappende Zonen, virtuelle Desktops, Fensterregeln und automatische Updates sind noch nicht enthalten.
+- Eigene Layouts können nicht über eine dokumentierte API in das native Windows-Snap-Popup eingefügt werden; die Anwendung verwendet ein eigenes Overlay.
+- Der Prototyp ist nicht digital signiert und kann beim ersten Start eine Windows-Sicherheitswarnung auslösen.
 
 ## Entwicklung und Prüfung
 
@@ -67,4 +65,4 @@ Voraussetzung ist das .NET 8 SDK. Der vollständige Prüf- und Publish-Lauf laut
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1
 ```
 
-Das Skript stellt Pakete wieder her, führt alle Tests aus, baut Release, veröffentlicht selbständig für `win-x64` und prüft danach die lesende Diagnose.
+Das Skript erzeugt das Mehrgrössen-Icon, stellt Pakete wieder her, führt alle Tests aus, baut Release, veröffentlicht selbständig für `win-x64` und prüft Diagnose sowie Per-Monitor-DPI ohne aktivierten Hook.

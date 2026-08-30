@@ -12,18 +12,18 @@ public static class ZoneGeometry
         MonitorWorkArea area,
         LayoutMetrics metrics)
     {
-        var innerWidth = Math.Max(1, area.Width - (2 * Math.Max(0, metrics.OuterMargin)));
-        var innerHeight = Math.Max(1, area.Height - (2 * Math.Max(0, metrics.OuterMargin)));
+        var margins = metrics.OuterMargins.Clamp(0, int.MaxValue);
+        var innerWidth = Math.Max(1, area.Width - margins.Left - margins.Right);
+        var innerHeight = Math.Max(1, area.Height - margins.Top - margins.Bottom);
         var gap = Math.Max(0, metrics.ZoneGap);
-        var margin = Math.Max(0, metrics.OuterMargin);
 
-        var left = area.X + margin + (int)Math.Round(zone.X * innerWidth)
+        var left = area.X + margins.Left + (int)Math.Round(zone.X * innerWidth)
             + (zone.X > Epsilon ? gap / 2 : 0);
-        var top = area.Y + margin + (int)Math.Round(zone.Y * innerHeight)
+        var top = area.Y + margins.Top + (int)Math.Round(zone.Y * innerHeight)
             + (zone.Y > Epsilon ? gap / 2 : 0);
-        var right = area.X + margin + (int)Math.Round((zone.X + zone.Width) * innerWidth)
+        var right = area.X + margins.Left + (int)Math.Round((zone.X + zone.Width) * innerWidth)
             - (zone.X + zone.Width < 1 - Epsilon ? gap - (gap / 2) : 0);
-        var bottom = area.Y + margin + (int)Math.Round((zone.Y + zone.Height) * innerHeight)
+        var bottom = area.Y + margins.Top + (int)Math.Round((zone.Y + zone.Height) * innerHeight)
             - (zone.Y + zone.Height < 1 - Epsilon ? gap - (gap / 2) : 0);
 
         return new PixelRect(left, top, Math.Max(1, right - left), Math.Max(1, bottom - top));

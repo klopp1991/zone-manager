@@ -12,7 +12,6 @@ public sealed class WindowsWindowService : IWindowService
     private const long ToolWindowStyle = 0x00000080L;
     private const uint RootAncestor = 2;
     private const uint NonClientHitTest = 0x0084;
-    private const int TitleBarHit = 2;
     private const int CloakedAttribute = 14;
     private const uint AbortIfHung = 0x0002;
     private const int Restore = 9;
@@ -90,9 +89,9 @@ public sealed class WindowsWindowService : IWindowService
             AbortIfHung,
             50,
             out var hitResult);
-        if (callResult != 0 && hitResult == TitleBarHit)
+        if (callResult != 0)
         {
-            return true;
+            return WindowHitTestClassifier.IsMoveOperation((int)hitResult);
         }
 
         if (!User32.GetWindowRect(window, out var rectangle))

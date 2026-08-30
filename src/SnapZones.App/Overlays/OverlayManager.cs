@@ -18,7 +18,12 @@ public sealed class OverlayManager : IDisposable
         }
     }
 
-    public void Show(IReadOnlyList<string> monitorIds, LayoutMetrics metrics, string colour, double opacity)
+    public void Show(
+        IReadOnlyList<string> monitorIds,
+        LayoutMetrics metrics,
+        string colour,
+        double opacity,
+        bool showZoneNames)
     {
         var visible = monitorIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var monitorId in visible)
@@ -34,7 +39,7 @@ public sealed class OverlayManager : IDisposable
                 windows.Add(monitorId, window);
             }
 
-            window.ShowFor(target, metrics, colour, opacity);
+            window.ShowFor(target, metrics, colour, opacity, showZoneNames);
         }
 
         foreach (var pair in windows.Where(pair => !visible.Contains(pair.Key)))

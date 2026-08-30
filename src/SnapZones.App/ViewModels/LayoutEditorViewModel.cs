@@ -1,4 +1,5 @@
 using SnapZones.Core.Editor;
+using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;
 
 namespace SnapZones.App.ViewModels;
@@ -6,11 +7,15 @@ namespace SnapZones.App.ViewModels;
 public sealed class LayoutEditorViewModel : ViewModelBase
 {
     private readonly LayoutEditorSession session;
+    private readonly int monitorWidth;
+    private readonly int monitorHeight;
     private Guid? selectedZoneId;
 
     public LayoutEditorViewModel(MonitorLayout layout)
     {
         session = new LayoutEditorSession(layout);
+        monitorWidth = Math.Max(1, layout.SavedWidth);
+        monitorHeight = Math.Max(1, layout.SavedHeight);
         selectedZoneId = session.Zones.FirstOrDefault()?.Id;
     }
 
@@ -33,12 +38,18 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         NotifyStateChanged();
     }
 
-    public void AddZone()
+    public bool AddZone()
     {
-        var offset = Math.Min(0.45, Zones.Count * 0.04);
-        var zone = session.AddZone($"Zone {Zones.Count + 1}", new NormalizedRect(offset, offset, 0.4, 0.4));
+        var freeArea = LargestFreeRectangle.Find(Zones.Select(zone => zone.Bounds).ToArray());
+        if (freeArea is null)
+        {
+            return false;
+        }
+
+        var zone = session.AddZone($"Zone {Zones.Count + 1}", freeArea);
         selectedZoneId = zone.Id;
         NotifyStateChanged();
+        return true;
     }
 
     public void DeleteSelected()
@@ -61,20 +72,55 @@ public sealed class LayoutEditorViewModel : ViewModelBase
     }
 
     public void UpdateSelectedZone(string name, double xPercent, double yPercent, double widthPercent, double heightPercent)
+        => UpdateSelectedZoneFromPositionAndSize(
+            name,
+            xPercent,
+            yPercent,
+            widthPercent,
+            heightPercent,
+            MeasurementUnit.Percent);
+
+    public void UpdateSelectedZoneFromPositionAndSize(
+        string name,
+        double left,
+        double top,
+        double width,
+        double height,
+        MeasurementUnit unit)
     {
         if (selectedZoneId is null)
         {
             return;
         }
 
-        var bounds = new NormalizedRect(
-            xPercent / 100d,
-            yPercent / 100d,
-            widthPercent / 100d,
-            heightPercent / 100d);
+        var bounds = ZoneEditorGeometry.FromPositionAndSize(
+            left, top, width, height, unit, monitorWidth, monitorHeight);
         session.UpdateZone(selectedZoneId.Value, name, bounds);
         NotifyStateChanged();
     }
+
+    public void UpdateSelectedZoneFromMargins(
+        string name,
+        double left,
+        double top,
+        double right,
+        double bottom,
+        MeasurementUnit unit)
+    {
+        if (selectedZoneId is null)
+        {
+            return;
+        }
+
+        var bounds = ZoneEditorGeometry.FromMargins(
+            left, top, right, bottom, unit, monitorWidth, monitorHeight);
+        session.UpdateZone(selectedZoneId.Value, name, bounds);
+        NotifyStateChanged();
+    }
+
+    public ZoneEditorValues GetSelectedValues(MeasurementUnit unit) => SelectedZone is { } zone
+        ? ZoneEditorGeometry.ToValues(zone.Bounds, unit, monitorWidth, monitorHeight)
+        : throw new InvalidOperationException("Es ist keine Zone ausgewählt.");
 
     public void MoveOrResizeZone(Guid zoneId, NormalizedRect bounds)
     {

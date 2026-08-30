@@ -149,7 +149,7 @@ public sealed class ApplicationController : IDisposable
         overlays.UpdateTargets(targets);
         coordinator = new WindowDragCoordinator(
             targets,
-            new LayoutMetrics(newConfiguration.Settings.OuterMargin, newConfiguration.Settings.ZoneGap),
+            new LayoutMetrics(newConfiguration.Settings.EffectiveOuterMargins, newConfiguration.Settings.ZoneGap),
             newConfiguration.Settings.OverlayScope);
         coordinator.ActionRequested += HandleDragAction;
 
@@ -257,9 +257,10 @@ public sealed class ApplicationController : IDisposable
             case ShowOverlaysAction show:
                 overlays.Show(
                     show.MonitorIds,
-                    new LayoutMetrics(configuration.Settings.OuterMargin, configuration.Settings.ZoneGap),
+                    new LayoutMetrics(configuration.Settings.EffectiveOuterMargins, configuration.Settings.ZoneGap),
                     configuration.Settings.OverlayColor,
-                    configuration.Settings.OverlayOpacity);
+                    configuration.Settings.OverlayOpacity,
+                    configuration.Settings.ShowZoneNames);
                 break;
             case HighlightZoneAction highlight:
                 overlays.Highlight(highlight.MonitorId, highlight.ZoneId);
@@ -302,7 +303,7 @@ public sealed class ApplicationController : IDisposable
         {
             eventArgs.Cancel = true;
             window.Hide();
-            viewModel.StatusMessage = "SnapZones läuft im Infobereich weiter";
+            viewModel.StatusMessage = "Sascha Window Zones läuft im Infobereich weiter";
         }
     }
 

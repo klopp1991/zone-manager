@@ -6,5 +6,7 @@ obj/
 TestResults/
 outputs/SnapZones-prototype/
 outputs/diagnostics.json
+outputs/Sascha-Window-Zones-prototype/
+outputs/sascha-window-zones-diagnostics.json
 work/
 *.log

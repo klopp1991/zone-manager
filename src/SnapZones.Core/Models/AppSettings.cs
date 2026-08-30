@@ -12,6 +12,13 @@ public enum TriggerMode
     ShiftKey
 }
 
+public enum ThemeMode
+{
+    System,
+    Light,
+    Dark
+}
+
 public sealed record AppSettings(
     Guid ActiveProfileId,
     bool SnappingEnabled,
@@ -21,8 +28,15 @@ public sealed record AppSettings(
     int OuterMargin,
     int ZoneGap,
     string OverlayColor,
-    double OverlayOpacity)
+    double OverlayOpacity,
+    ThemeMode ThemeMode = ThemeMode.System,
+    int MagnetThresholdPixels = 10,
+    bool ShowZoneNames = true,
+    EdgeInsets? OuterMargins = null)
 {
+    public EdgeInsets EffectiveOuterMargins =>
+        (OuterMargins ?? EdgeInsets.Uniform(OuterMargin)).Clamp(0, 400);
+
     public static AppSettings Default(Guid activeProfileId) => new(
         activeProfileId,
         SnappingEnabled: false,
@@ -32,5 +46,9 @@ public sealed record AppSettings(
         OuterMargin: 8,
         ZoneGap: 8,
         OverlayColor: "#2F6FED",
-        OverlayOpacity: 0.24);
+        OverlayOpacity: 0.24,
+        ThemeMode: ThemeMode.System,
+        MagnetThresholdPixels: 10,
+        ShowZoneNames: true,
+        OuterMargins: EdgeInsets.Uniform(8));
 }

@@ -12,9 +12,10 @@ public sealed class WindowsMonitorService : IMonitorService
     public IReadOnlyList<LiveMonitor> GetMonitors()
     {
         var monitors = new List<LiveMonitor>();
+        var displayPaths = DisplayPathIdentityProvider.GetActiveIdentities();
         User32.MonitorEnumProc callback = (monitor, _, _, _) =>
         {
-            monitors.Add(ReadMonitor(monitor));
+            monitors.Add(ReadMonitor(monitor, displayPaths));
             return true;
         };
 
@@ -26,7 +27,9 @@ public sealed class WindowsMonitorService : IMonitorService
         return monitors;
     }
 
-    private static LiveMonitor ReadMonitor(nint monitor)
+    private static LiveMonitor ReadMonitor(
+        nint monitor,
+        IReadOnlyDictionary<string, DisplayPathIdentity> displayPaths)
     {
         var info = new MonitorInfoEx
         {
@@ -71,8 +74,13 @@ public sealed class WindowsMonitorService : IMonitorService
             info.Work.Top,
             info.Work.Right - info.Work.Left,
             info.Work.Bottom - info.Work.Top);
+        var identity = DisplayPathIdentity.Resolve(
+            info.DeviceName,
+            stableId,
+            friendlyName,
+            displayPaths);
         return new LiveMonitor(
-            new MonitorIdentity(stableId, info.DeviceName, friendlyName),
+            identity,
             workArea,
             dpiX,
             dpiY,

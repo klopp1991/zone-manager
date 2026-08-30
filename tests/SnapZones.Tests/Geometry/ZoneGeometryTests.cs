@@ -46,6 +46,19 @@ public sealed class ZoneGeometryTests
         Assert.Equal(zone, hit);
     }
 
+    [Fact]
+    public void ToPixels_applies_independent_outer_margins()
+    {
+        var area = new MonitorWorkArea(0, 0, 2000, 1000);
+
+        var actual = ZoneGeometry.ToPixels(
+            NormalizedRect.Full,
+            area,
+            new LayoutMetrics(new EdgeInsets(10, 20, 30, 40), 0));
+
+        Assert.Equal(new PixelRect(10, 20, 1960, 940), actual);
+    }
+
     private static ZoneDefinition Zone(string name, double x, double y, double width, double height) =>
         new(Guid.NewGuid(), name, new NormalizedRect(x, y, width, height));
 }

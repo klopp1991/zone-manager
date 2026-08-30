@@ -1,5 +1,6 @@
 using SnapZones.App.ViewModels;
 using SnapZones.Core.Editor;
+using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;
 using Xunit;
 
@@ -30,6 +31,53 @@ public sealed class LayoutEditorViewModelTests
 
         Assert.Equal(new NormalizedRect(0.1, 0.05, 0.8, 0.9), viewModel.SelectedZone?.Bounds);
         Assert.True(viewModel.CanSave);
+    }
+
+    [Fact]
+    public void AddZone_uses_largest_free_area_beside_existing_half_width_zone()
+    {
+        var layout = FullMonitorLayout() with
+        {
+            Zones = [new ZoneDefinition(Guid.NewGuid(), "Links", new NormalizedRect(0, 0, 0.5, 1))]
+        };
+        var viewModel = new LayoutEditorViewModel(layout);
+
+        var added = viewModel.AddZone();
+
+        Assert.True(added);
+        Assert.Equal(new NormalizedRect(0.5, 0, 0.5, 1), viewModel.SelectedZone?.Bounds);
+    }
+
+    [Fact]
+    public void AddZone_returns_false_without_changing_fully_occupied_layout()
+    {
+        var viewModel = new LayoutEditorViewModel(FullMonitorLayout());
+
+        var added = viewModel.AddZone();
+
+        Assert.False(added);
+        Assert.Single(viewModel.Zones);
+    }
+
+    [Fact]
+    public void UpdateSelectedZoneFromMargins_accepts_pixel_input()
+    {
+        var viewModel = new LayoutEditorViewModel(FullMonitorLayout());
+
+        viewModel.UpdateSelectedZoneFromMargins("Mitte", 344, 144, 688, 288, MeasurementUnit.Pixels);
+
+        Assert.Equal(new NormalizedRect(0.1, 0.1, 0.7, 0.7), viewModel.SelectedZone?.Bounds);
+    }
+
+    [Fact]
+    public void GetSelectedValues_returns_synchronized_percent_values()
+    {
+        var viewModel = new LayoutEditorViewModel(FullMonitorLayout());
+        viewModel.UpdateSelectedZoneFromPositionAndSize("Haupt", 344, 144, 1720, 720, MeasurementUnit.Pixels);
+
+        var values = viewModel.GetSelectedValues(MeasurementUnit.Percent);
+
+        Assert.Equal(new ZoneEditorValues(10, 10, 40, 40, 50, 50), values);
     }
 
     private static MonitorLayout FullMonitorLayout() => new(

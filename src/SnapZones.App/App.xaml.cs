@@ -7,6 +7,7 @@ using SnapZones.App.Views;
 using SnapZones.Core.Persistence;
 using SnapZones.Windows.Displays;
 using SnapZones.Windows.Startup;
+using SnapZones.Core.Models;
 
 namespace SnapZones.App;
 
@@ -15,6 +16,9 @@ public partial class App : System.Windows.Application
     private SingleInstanceService? singleInstance;
     private ApplicationController? controller;
     private FileLog? log;
+    private ThemeService? themeService;
+
+    public void ApplyTheme(ThemeMode mode) => themeService?.Apply(mode);
 
     protected override async void OnStartup(StartupEventArgs eventArgs)
     {
@@ -34,13 +38,13 @@ public partial class App : System.Windows.Application
 
         if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
         {
-            System.Windows.MessageBox.Show("SnapZones benötigt Windows 11.", "Nicht unterstütztes System", MessageBoxButton.OK, MessageBoxImage.Error);
+            System.Windows.MessageBox.Show($"{ProductInfo.Name} benötigt Windows 11.", "Nicht unterstütztes System", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(3);
             return;
         }
 
         var context = new DispatcherSynchronizationContext(Dispatcher);
-        singleInstance = new SingleInstanceService("SnapZones", context);
+        singleInstance = new SingleInstanceService(ProductInfo.ProcessName, context);
         if (!singleInstance.IsPrimary)
         {
             singleInstance.NotifyPrimary();
@@ -52,6 +56,8 @@ public partial class App : System.Windows.Application
         {
             var repository = new JsonConfigurationRepository(appData);
             var loadResult = await repository.LoadAsync(CancellationToken.None);
+            themeService = new ThemeService();
+            themeService.Apply(loadResult.Configuration.Settings.ThemeMode);
             var monitors = new WindowsMonitorService().GetMonitors();
             var viewModel = new MainViewModel(loadResult.Configuration, monitors);
             if (loadResult.RecoveredFromError)
@@ -60,6 +66,7 @@ public partial class App : System.Windows.Application
             }
 
             var mainWindow = new MainWindow();
+            themeService.Track(mainWindow);
             mainWindow.AttachViewModel(viewModel);
             controller = new ApplicationController(mainWindow, viewModel, repository, monitors, startupService, log);
             singleInstance.ActivationRequested += () =>
@@ -83,8 +90,8 @@ public partial class App : System.Windows.Application
         }
         catch (Exception exception)
         {
-            log.Write("FATAL", "SnapZones konnte nicht gestartet werden.", exception);
-            System.Windows.MessageBox.Show(exception.Message, "SnapZones konnte nicht gestartet werden", MessageBoxButton.OK, MessageBoxImage.Error);
+            log.Write("FATAL", $"{ProductInfo.Name} konnte nicht gestartet werden.", exception);
+            System.Windows.MessageBox.Show(exception.Message, $"{ProductInfo.Name} konnte nicht gestartet werden", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(5);
         }
     }
@@ -92,6 +99,7 @@ public partial class App : System.Windows.Application
     protected override void OnExit(ExitEventArgs eventArgs)
     {
         controller?.Dispose();
+        themeService?.Dispose();
         singleInstance?.Dispose();
         base.OnExit(eventArgs);
     }

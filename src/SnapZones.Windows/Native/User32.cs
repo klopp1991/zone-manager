@@ -38,6 +38,29 @@ internal static class User32
         uint flags);
 
     [DllImport("user32.dll")]
+    internal static extern int GetDisplayConfigBufferSizes(
+        uint flags,
+        out uint numberOfPaths,
+        out uint numberOfModes);
+
+    [DllImport("user32.dll")]
+    internal static extern int QueryDisplayConfig(
+        uint flags,
+        ref uint numberOfPaths,
+        [Out] DisplayConfigPathInfo[] paths,
+        ref uint numberOfModes,
+        [Out] DisplayConfigModeInfo[] modes,
+        nint currentTopologyId);
+
+    [DllImport("user32.dll", EntryPoint = "DisplayConfigGetDeviceInfo")]
+    internal static extern int DisplayConfigGetSourceDeviceInfo(
+        ref DisplayConfigSourceDeviceName requestPacket);
+
+    [DllImport("user32.dll", EntryPoint = "DisplayConfigGetDeviceInfo")]
+    internal static extern int DisplayConfigGetTargetDeviceInfo(
+        ref DisplayConfigTargetDeviceName requestPacket);
+
+    [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool IsWindow(nint window);
 

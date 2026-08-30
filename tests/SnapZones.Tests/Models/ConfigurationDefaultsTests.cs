@@ -15,6 +15,10 @@ public sealed class ConfigurationDefaultsTests
         Assert.Equal("Standard", configuration.Profiles[0].Name);
         Assert.False(configuration.Settings.SnappingEnabled);
         Assert.False(configuration.Settings.StartWithWindows);
+        Assert.Equal(ThemeMode.System, configuration.Settings.ThemeMode);
+        Assert.Equal(10, configuration.Settings.MagnetThresholdPixels);
+        Assert.True(configuration.Settings.ShowZoneNames);
+        Assert.Equal(EdgeInsets.Uniform(8), configuration.Settings.EffectiveOuterMargins);
         Assert.Equal(0.0, NormalizedRect.Full.X);
         Assert.Equal(1.0, NormalizedRect.Full.Width);
     }

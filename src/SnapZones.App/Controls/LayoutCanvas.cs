@@ -26,6 +26,24 @@ public sealed class LayoutCanvas : FrameworkElement
         typeof(LayoutCanvas),
         new FrameworkPropertyMetadata(16d / 9d, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty MonitorPixelWidthProperty = DependencyProperty.Register(
+        nameof(MonitorPixelWidth),
+        typeof(int),
+        typeof(LayoutCanvas),
+        new FrameworkPropertyMetadata(1920));
+
+    public static readonly DependencyProperty MonitorPixelHeightProperty = DependencyProperty.Register(
+        nameof(MonitorPixelHeight),
+        typeof(int),
+        typeof(LayoutCanvas),
+        new FrameworkPropertyMetadata(1080));
+
+    public static readonly DependencyProperty MagnetThresholdPixelsProperty = DependencyProperty.Register(
+        nameof(MagnetThresholdPixels),
+        typeof(int),
+        typeof(LayoutCanvas),
+        new FrameworkPropertyMetadata(10));
+
     private System.Windows.Point dragStart;
     private NormalizedRect? originalBounds;
     private Guid? draggedZoneId;
@@ -49,6 +67,24 @@ public sealed class LayoutCanvas : FrameworkElement
         set => SetValue(MonitorAspectRatioProperty, value);
     }
 
+    public int MonitorPixelWidth
+    {
+        get => (int)GetValue(MonitorPixelWidthProperty);
+        set => SetValue(MonitorPixelWidthProperty, value);
+    }
+
+    public int MonitorPixelHeight
+    {
+        get => (int)GetValue(MonitorPixelHeightProperty);
+        set => SetValue(MonitorPixelHeightProperty, value);
+    }
+
+    public int MagnetThresholdPixels
+    {
+        get => (int)GetValue(MagnetThresholdPixelsProperty);
+        set => SetValue(MagnetThresholdPixelsProperty, value);
+    }
+
     public event EventHandler<ZoneSelectedEventArgs>? ZoneSelected;
     public event EventHandler<ZoneChangedEventArgs>? ZoneChanged;
 
@@ -57,14 +93,14 @@ public sealed class LayoutCanvas : FrameworkElement
         base.OnRender(drawingContext);
         var monitor = GetMonitorRectangle();
         drawingContext.DrawRoundedRectangle(
-            new SolidColorBrush(System.Windows.Media.Color.FromRgb(23, 32, 51)),
+            ResourceBrush("MonitorFrameBrush", System.Windows.Media.Color.FromRgb(23, 32, 51)),
             null,
             monitor,
             12,
             12);
         var screen = new Rect(monitor.X + 8, monitor.Y + 8, Math.Max(1, monitor.Width - 16), Math.Max(1, monitor.Height - 16));
         drawingContext.DrawRoundedRectangle(
-            new SolidColorBrush(System.Windows.Media.Color.FromRgb(244, 247, 251)),
+            ResourceBrush("MonitorScreenBrush", System.Windows.Media.Color.FromRgb(244, 247, 251)),
             null,
             screen,
             7,
@@ -114,6 +150,27 @@ public sealed class LayoutCanvas : FrameworkElement
         var changed = resizeEdges == ResizeEdges.None
             ? Move(originalBounds, deltaX, deltaY)
             : Resize(originalBounds, deltaX, deltaY, resizeEdges);
+        if (!Keyboard.IsKeyDown(Key.LeftAlt) && !Keyboard.IsKeyDown(Key.RightAlt))
+        {
+            var otherBounds = Zones
+                .Where(zone => zone.Id != draggedZoneId.Value)
+                .Select(zone => zone.Bounds)
+                .ToArray();
+            changed = resizeEdges == ResizeEdges.None
+                ? ZoneMagnetism.SnapMove(
+                    changed,
+                    otherBounds,
+                    MagnetThresholdPixels,
+                    MonitorPixelWidth,
+                    MonitorPixelHeight)
+                : ZoneMagnetism.SnapResize(
+                    changed,
+                    otherBounds,
+                    ToZoneEdges(resizeEdges),
+                    MagnetThresholdPixels,
+                    MonitorPixelWidth,
+                    MonitorPixelHeight);
+        }
         ZoneChanged?.Invoke(this, new ZoneChangedEventArgs(draggedZoneId.Value, changed));
     }
 
@@ -134,7 +191,9 @@ public sealed class LayoutCanvas : FrameworkElement
     {
         var rectangle = ToCanvasRect(zone.Bounds, screen);
         var selected = zone.Id == SelectedZoneId;
-        var colour = invalid ? System.Windows.Media.Color.FromRgb(198, 54, 54) : System.Windows.Media.Color.FromRgb(47, 111, 237);
+        var colour = ResourceBrush(
+            invalid ? "DangerBrush" : "AccentBrush",
+            invalid ? System.Windows.Media.Color.FromRgb(198, 54, 54) : System.Windows.Media.Color.FromRgb(47, 111, 237)).Color;
         context.DrawRoundedRectangle(
             new SolidColorBrush(colour) { Opacity = selected ? 0.32 : 0.16 },
             new System.Windows.Media.Pen(new SolidColorBrush(colour), selected ? 3 : 1.5),
@@ -147,7 +206,7 @@ public sealed class LayoutCanvas : FrameworkElement
             System.Windows.FlowDirection.LeftToRight,
             new Typeface("Segoe UI Variable Text"),
             selected ? 15 : 13,
-            new SolidColorBrush(System.Windows.Media.Color.FromRgb(23, 32, 51)),
+            ResourceBrush("InkBrush", System.Windows.Media.Color.FromRgb(23, 32, 51)),
             VisualTreeHelper.GetDpi(this).PixelsPerDip)
         {
             MaxTextWidth = Math.Max(1, rectangle.Width - 20),
@@ -231,6 +290,19 @@ public sealed class LayoutCanvas : FrameworkElement
         yield return rectangle.BottomLeft;
         yield return new System.Windows.Point(rectangle.Left, centerY);
     }
+
+    private static ZoneEdges ToZoneEdges(ResizeEdges edges)
+    {
+        var result = ZoneEdges.None;
+        if (edges.HasFlag(ResizeEdges.Left)) result |= ZoneEdges.Left;
+        if (edges.HasFlag(ResizeEdges.Top)) result |= ZoneEdges.Top;
+        if (edges.HasFlag(ResizeEdges.Right)) result |= ZoneEdges.Right;
+        if (edges.HasFlag(ResizeEdges.Bottom)) result |= ZoneEdges.Bottom;
+        return result;
+    }
+
+    private SolidColorBrush ResourceBrush(string key, System.Windows.Media.Color fallback) =>
+        TryFindResource(key) as SolidColorBrush ?? new SolidColorBrush(fallback);
 
     [Flags]
     private enum ResizeEdges

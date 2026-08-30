@@ -32,7 +32,7 @@ public static class DiagnosticRunner
         var monitors = new WindowsMonitorService().GetMonitors();
         var report = new
         {
-            application = "SnapZones",
+            application = "Sascha Window Zones",
             configurationStatus,
             schemaVersion,
             monitors = monitors.Select(monitor => new
