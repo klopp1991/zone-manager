@@ -17,6 +17,8 @@
 - Use neutral German UI copy and German code comments; identifiers remain idiomatic English C#.
 - Store configuration under `%APPDATA%\\SnapZones` and logs under `%LOCALAPPDATA%\\SnapZones`.
 - Request no administrator rights, inject no code into other processes, and ignore higher-integrity windows that cannot be repositioned.
+- Start with snapping and autostart disabled; no hook may be registered before an explicit UI action.
+- Register `Ctrl+Alt+Shift+F12` as an emergency stop only for an active snap session; callback exceptions or more than 100 hook events in ten seconds trigger the same shutdown path.
 - Use per-monitor DPI v2 awareness and physical-pixel rectangles at every Win32 boundary.
 - Every behavioural production method starts with a failing test; declarative XAML and direct P/Invoke declarations are verified by build and integration checks.
 
@@ -91,6 +93,8 @@ public void CreateDefault_builds_one_active_profile_with_full_monitor_fallback()
     Assert.Single(configuration.Profiles);
     Assert.Equal(configuration.Profiles[0].Id, configuration.Settings.ActiveProfileId);
     Assert.Equal("Standard", configuration.Profiles[0].Name);
+    Assert.False(configuration.Settings.SnappingEnabled);
+    Assert.False(configuration.Settings.StartWithWindows);
     Assert.Equal(0.0, NormalizedRect.Full.X);
     Assert.Equal(1.0, NormalizedRect.Full.Width);
 }
@@ -357,7 +361,7 @@ git commit -m "feat: discover and match Windows monitors"
 - Test: `tests/SnapZones.Tests/Drag/{WindowCandidateEvaluatorTests,WindowDragCoordinatorTests}.cs`
 
 **Interfaces:**
-- Produces: `WindowDragCoordinator.Start(nint, WindowSnapshot, PointInt)`, `Update(PointInt)`, `Cancel()`, `End()`, event `Action<DragAction> ActionRequested`; `IWindowMoveHook.MoveStarted/MoveEnded`; `IWindowService.TrySnap(nint, PixelRect)`.
+- Produces: `WindowDragCoordinator.Start(nint, WindowSnapshot, PointInt)`, `Update(PointInt)`, `Cancel()`, `End()`, event `Action<DragAction> ActionRequested`; `IWindowMoveHook.MoveStarted/MoveEnded`; `IWindowService.TrySnap(nint, PixelRect)`; `HookCircuitBreaker.RecordEvent(DateTimeOffset)` and `Trip(Exception?)`.
 
 - [ ] **Step 1: Write candidate and state-machine RED tests**
 
@@ -392,7 +396,7 @@ Expected: RED for missing coordinator, then PASS for start/update/monitor-crossi
 
 - [ ] **Step 3: Implement Win32 window boundary and hook**
 
-`WindowMoveHook` registers `EVENT_SYSTEM_MOVESIZESTART` and `EVENT_SYSTEM_MOVESIZEEND` using `WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS`, roots child handles with `GetAncestor`, and posts callbacks through the supplied `SynchronizationContext`. `WindowsWindowService` uses bounded `SendMessageTimeout(WM_NCHITTEST)`, `DwmGetWindowAttribute`, styles, cloaking state, `ShowWindow(SW_RESTORE)`, and `SetWindowPos`; every public operation rechecks `IsWindow`.
+Write failing tests proving `HookCircuitBreaker` trips on a callback exception and the 101st event inside ten seconds, but not on 100 events or events outside the window. `WindowMoveHook` registers only when `Enable()` is explicitly called, handles `EVENT_SYSTEM_MOVESIZESTART` and `EVENT_SYSTEM_MOVESIZEEND` using `WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS`, roots child handles with `GetAncestor`, and posts callbacks through the supplied `SynchronizationContext`. Every callback catches exceptions and routes them to the circuit breaker; a trip disposes the hook and requests `HideOverlaysAction`. `WindowsWindowService` uses bounded `SendMessageTimeout(WM_NCHITTEST)`, `DwmGetWindowAttribute`, styles, cloaking state, `ShowWindow(SW_RESTORE)`, and `SetWindowPos`; every public operation rechecks `IsWindow`.
 
 - [ ] **Step 4: Implement reusable click-through per-monitor overlays**
 
@@ -498,7 +502,7 @@ Expected: RED then PASS for empty, valid, duplicate and out-of-range slots.
 
 - [ ] **Step 3: Implement native services and application lifecycle**
 
-Create one hidden `HwndSource` for `RegisterHotKey` messages; register `MOD_CONTROL | MOD_ALT` plus digits 1-9 and return per-slot conflicts without failing startup. Autostart writes/removes only value `SnapZones` in HKCU Run and quotes the executable path. A named mutex plus registered window message causes a second process to show the existing main window. Shutdown always disposes tray, hooks, overlays, hotkeys and mutex.
+Create one hidden `HwndSource` for `RegisterHotKey` messages; register `MOD_CONTROL | MOD_ALT` plus digits 1-9 and return per-slot conflicts without failing startup. While snapping is active, also register `MOD_CONTROL | MOD_ALT | MOD_SHIFT` plus `F12`; it immediately hides overlays, disposes the hook, persists `SnappingEnabled = false`, and never restarts automatically. Autostart writes/removes only value `SnapZones` in HKCU Run and quotes the executable path, but is invoked only from the explicit UI toggle. A named mutex plus registered window message causes a second process to show the existing main window. Shutdown always disposes tray, hooks, overlays, hotkeys and mutex.
 
 - [ ] **Step 4: Compose tray and drag workflow**
 
@@ -506,10 +510,10 @@ The tray menu contains current profile, checked profile list, active toggle, edi
 
 - [ ] **Step 5: Add diagnostics, verify, commit**
 
-`SnapZones.exe --diagnostics` prints schema version, configuration load status, monitor stable IDs/work areas/DPI, hook registration, overlay style verification, hotkey conflicts and autostart state as JSON, then exits without changing settings.
+`SnapZones.exe --diagnostics` prints schema version, configuration load status, monitor stable IDs/work areas/DPI, WinEvent API availability, overlay style definition, hotkey conflicts and autostart read state as JSON, then exits without registering a hook or changing settings.
 
 Run: `dotnet test SnapZones.sln && dotnet run --project src/SnapZones.App -c Release -- --diagnostics`.
-Expected: tests pass and diagnostics exit 0 with at least one monitor and `hookRegistered: true`.
+Expected: tests pass and diagnostics exit 0 with at least one monitor, `hookRegistered: false` and `settingsChanged: false`.
 
 ```powershell
 git add -- src/SnapZones.Windows src/SnapZones.App src/SnapZones.Core/Profiles tests/SnapZones.Tests/Profiles
@@ -553,7 +557,7 @@ Expected: restore/build/publish exit 0; all tests pass; `outputs/SnapZones-proto
 
 - [ ] **Step 4: Perform running UI and drag checks**
 
-Open the published app, capture the main editor at its default 1280×800 size, inspect focus/contrast/clipping, remove one unnecessary visual element if it does not encode state, then test Notepad drag start, zone highlight, release placement, Escape cancellation, cross-monitor drag and profile switch. Record exact monitor count, scales, tested applications and any untestable multi-monitor case in `outputs/SnapZones-Pruefbericht.md`.
+Open the published app, confirm that no hook is active and capture the main editor at its default 1280×800 size. Inspect focus/contrast/clipping and remove one unnecessary visual element if it does not encode state. Explicitly enable snapping, then test only Notepad for drag start, zone highlight, release placement, Escape cancellation, cross-monitor drag, emergency stop and profile switch before trying Explorer or a browser. Record exact monitor count, scales, tested applications, protection results and any untestable multi-monitor case in `outputs/SnapZones-Pruefbericht.md`.
 
 - [ ] **Step 5: Re-run verification after visual fixes and commit**
 

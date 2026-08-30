@@ -18,6 +18,7 @@ Der erste Prototyp gilt als erfolgreich, wenn folgende Abläufe funktionieren:
 5. Mindestens zwei Profile lassen sich im Infobereich und per Tastenkürzel in weniger als einer Sekunde wechseln.
 6. Einstellungen und Layouts bleiben nach einem Neustart erhalten; ab- und wieder angeschlossene Monitore werden möglichst demselben Monitorprofil zugeordnet.
 7. Autostart lässt sich ohne Administratorrechte aktivieren und deaktivieren.
+8. Beim ersten Start sind Snap-Engine und Autostart ausgeschaltet; vor einer bewussten Aktivierung läuft kein systemweiter Hook.
 
 ## 2. Produktumfang
 
@@ -32,6 +33,9 @@ Der erste Prototyp gilt als erfolgreich, wenn folgende Abläufe funktionieren:
 - Option, Overlays auf allen Monitoren oder nur auf dem Monitor unter dem Mauszeiger anzuzeigen.
 - Einstellbare Aussenränder, Zonenabstände, Overlay-Farbe und Deckkraft.
 - Temporäres Deaktivieren der Snap-Funktion im Infobereich.
+- Sicherer Startmodus: Editor und Diagnose funktionieren ohne aktiven Fenster-Hook.
+- Not-Aus über `Ctrl+Alt+Shift+F12`, der Hook und Overlays sofort deaktiviert.
+- Schutzschalter, der die Snap-Sitzung bei Callback-Fehlern oder mehr als 100 Hook-Ereignissen in zehn Sekunden beendet.
 - Autostart pro Benutzer über `HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run`.
 - Lokale, atomar geschriebene JSON-Konfiguration und lokale Diagnoseprotokolle.
 - Per-Monitor-DPI-Unterstützung und negative Desktopkoordinaten.
@@ -89,9 +93,9 @@ Gespeichert wird zuerst in eine temporäre Datei im selben Verzeichnis; danach e
 
 ### 5.1 Ereignisse
 
-`SetWinEventHook` registriert ausserhalb fremder Prozesse die Ereignisse `EVENT_SYSTEM_MOVESIZESTART` und `EVENT_SYSTEM_MOVESIZEEND`. Beim Start werden unsichtbare Fenster, Kindfenster, eigene Fenster, Toolfenster sowie nicht positionierbare Systemfenster ausgeschlossen. Ein sicher begrenzter `WM_NCHITTEST`-Aufruf prüft, ob der Mauszeiger im verschiebbaren Titelbereich liegt; für Anwendungen mit eigener Titelleiste gibt es eine geometrische Fallback-Prüfung ausserhalb der Grössenänderungsränder.
+`SetWinEventHook` registriert erst nach bewusster Aktivierung ausserhalb fremder Prozesse die Ereignisse `EVENT_SYSTEM_MOVESIZESTART` und `EVENT_SYSTEM_MOVESIZEEND`. Beim Start werden unsichtbare Fenster, Kindfenster, eigene Fenster, Toolfenster sowie nicht positionierbare Systemfenster ausgeschlossen. Ein sicher begrenzter `WM_NCHITTEST`-Aufruf prüft, ob der Mauszeiger im verschiebbaren Titelbereich liegt; für Anwendungen mit eigener Titelleiste gibt es eine geometrische Fallback-Prüfung ausserhalb der Grössenänderungsränder.
 
-Nach einem gültigen Drag-Start liest ein Dispatcher-Timer Mausposition, aktuellen Monitor und Zielzone. Der Timer aktualisiert nur Zustandsänderungen, damit keine unnötigen Neuzeichnungen stattfinden. `Escape` verwirft die aktuelle Zielzone. Beim Ende des Verschiebevorgangs werden zuerst alle Overlays verborgen und danach das Fenster mit `ShowWindow(SW_RESTORE)` und `SetWindowPos` in die zuletzt gültige Zone gesetzt. Schlägt dies wegen Prozessrechten oder eines verschwundenen Fensters fehl, bleibt das Fenster unverändert und der Fehler wird protokolliert.
+Nach einem gültigen Drag-Start liest ein Dispatcher-Timer Mausposition, aktuellen Monitor und Zielzone. Der Timer aktualisiert nur Zustandsänderungen, damit keine unnötigen Neuzeichnungen stattfinden. `Escape` verwirft die aktuelle Zielzone. Beim Ende des Verschiebevorgangs werden zuerst alle Overlays verborgen und danach das Fenster mit `ShowWindow(SW_RESTORE)` und `SetWindowPos` in die zuletzt gültige Zone gesetzt. Schlägt dies wegen Prozessrechten oder eines verschwundenen Fensters fehl, bleibt das Fenster unverändert und der Fehler wird protokolliert. Jeder native Callback ist durch eine Ausnahmegrenze geschützt; bei einem Fehler oder mehr als 100 Hook-Ereignissen in zehn Sekunden werden Hook und Overlays automatisch deaktiviert.
 
 ### 5.2 Overlays
 
@@ -123,6 +127,8 @@ Zonen lassen sich durch Ziehen verschieben und über acht Griffe skalieren. Eine
 
 Das Infobereichsmenü enthält den aktiven Profilnamen, die Profilliste, «Snap-Funktion aktiv», «Editor öffnen», «Mit Windows starten» und «Beenden». Ein Profilwechsel wird durch ein kurzes neutrales Desktop-Hinweisfenster bestätigt. Tastenkürzel werden beim Start und nach Änderungen neu registriert; Konflikte erscheinen neben dem betroffenen Schnellwahlplatz.
 
+Beim ersten Start öffnet sich der Editor mit sichtbarem Hinweis «Snap-Funktion ist ausgeschaltet». Die Aktivierung erklärt knapp, dass danach Fenster-Verschiebeereignisse beobachtet werden. `Ctrl+Alt+Shift+F12` bleibt während einer aktiven Snap-Sitzung als Not-Aus registriert und ändert die gespeicherte Einstellung wieder auf ausgeschaltet.
+
 ## 7. Zustände, Fehler und Sicherheit
 
 - Ein benannter System-Mutex verhindert mehrere gleichzeitig laufende Instanzen; ein zweiter Start aktiviert das bestehende Hauptfenster.
@@ -131,6 +137,8 @@ Das Infobereichsmenü enthält den aktiven Profilnamen, die Profilliste, «Snap-
 - Fensterhandles werden vor jeder Positionierung erneut mit `IsWindow` geprüft.
 - Externe Fenster erhalten weder Code-Injektion noch Prozesszugriff; verwendet werden ausschliesslich dokumentierte, prozessübergreifende Windows-Ereignisse und Fensterfunktionen.
 - Die Anwendung fordert keine Administratorrechte an und verändert keine systemweiten Richtlinien.
+- Die Anwendung enthält keinen Treiber, keinen Windows-Dienst, keine Code-Injection und keinen automatischen Neustart nach einem Schutzschalter.
+- Autostart und Snap-Funktion sind in der Standardkonfiguration `false`.
 - Unbekannte JSON-Felder werden toleriert, damit spätere Versionen abwärtskompatibel erweitert werden können.
 
 ## 8. Tests und Verifikation
@@ -152,16 +160,18 @@ Jede Kernfunktion wird testgetrieben entwickelt: Der neue Test muss zuerst aus d
 - Start/Ende eines Verschiebevorgangs mit einem kontrollierten WPF-Testfenster.
 - Overlayfenster aktivieren weder sich selbst noch andere Anwendungen und nehmen keine Mausklicks an.
 - Profil-Hotkeys lassen sich registrieren, wechseln das Profil und werden beim Beenden freigegeben.
-- Autostart-Eintrag kann im aktuellen Benutzerkontext gesetzt, gelesen und entfernt werden; der Test räumt seinen eigenen Testwert auf.
+- Bildung und Erkennung des Autostart-Befehls werden ohne Registry-Schreibzugriff getestet; eine reale Änderung erfolgt ausschliesslich durch den Schalter der Benutzeroberfläche.
+- Schutzschalter wird mit simulierten Callback-Fehlern und einer kontrollierten Ereignisfolge getestet.
 
 ### 8.3 Manuelle Abnahme auf dem Zielsystem
 
 1. Editor mit jedem angeschlossenen Monitor öffnen und Skalierung sowie Monitoranordnung vergleichen.
-2. Notepad, Explorer und einen Browser über Monitorgrenzen ziehen und in Rand-, Mittel- und Eckzonen ablegen.
+2. Snap-Funktion bewusst aktivieren und zuerst ausschliesslich Notepad über Monitorgrenzen ziehen und in Rand-, Mittel- und Eckzonen ablegen.
 3. Profile über Infobereich und Tastenkürzel wechseln und anschliessend erneut ein Fenster einrasten.
 4. Einen Monitor ab- und wieder anschliessen und die Zuordnung kontrollieren.
 5. Windows-Skalierungen oberhalb von 100 % sowie eine links vom Primärmonitor liegende Anzeige prüfen.
-6. Autostart aktivieren, Anwendung neu starten und danach den Eintrag wieder deaktivieren.
+6. Not-Aus während eines sichtbaren Overlays auslösen und prüfen, dass Hook und alle Overlays verschwinden.
+7. Autostart bewusst aktivieren, Anwendung neu starten und danach den Eintrag wieder deaktivieren.
 
 ## 9. Lieferumfang
 
