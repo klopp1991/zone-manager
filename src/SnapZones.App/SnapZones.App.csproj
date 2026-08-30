@@ -1,9 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <AssemblyName>SaschaWindowZones</AssemblyName>
-    <AssemblyTitle>Sascha Window Zones</AssemblyTitle>
-    <Product>Sascha Window Zones</Product>
+    <AssemblyName>SaschaZoneManager</AssemblyName>
+    <AssemblyTitle>Sascha’s Zone Manager</AssemblyTitle>
+    <Product>Sascha’s Zone Manager</Product>
     <RootNamespace>SnapZones.App</RootNamespace>
     <OutputType>WinExe</OutputType>
     <UseWPF>true</UseWPF>
@@ -12,18 +12,35 @@
     <Nullable>enable</Nullable>
     <LangVersion>12</LangVersion>
     <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <StartupObject>SnapZones.App.Program</StartupObject>
     <ApplicationIcon>Assets\SaschaWindowZones.ico</ApplicationIcon>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <DebugType>embedded</DebugType>
+    <RootExecutablePath Condition="'$(RootExecutablePath)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\SaschaZoneManager.exe'))</RootExecutablePath>
+    <RootPublishDirectory>$([System.IO.Path]::GetFullPath('$(BaseIntermediateOutputPath)root-publish\$(Configuration)\win-x64\'))</RootPublishDirectory>
+    <RootPublishScript>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\scripts\install-root-executable.ps1'))</RootPublishScript>
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="Assets\SaschaWindowZones.ico" />
+    <Resource Include="Assets\SaschaWindowZones.Header.png" />
     <None Update="Assets\SaschaWindowZones.svg" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SnapZones.Core\SnapZones.Core.csproj" />
     <ProjectReference Include="..\SnapZones.Windows\SnapZones.Windows.csproj" />
   </ItemGroup>
+  <Target Name="PublishRootExecutableAfterBuild"
+          AfterTargets="Build"
+          Condition="'$(SkipRootExecutablePublish)' != 'true' and '$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="Restore;Publish"
+             BuildInParallel="false"
+             Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishDir=$(RootPublishDirectory);SkipRootExecutablePublish=true" />
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(RootPublishScript)&quot; -PublishedExecutablePath &quot;$(RootPublishDirectory)SaschaZoneManager.exe&quot; -RootExecutablePath &quot;$(RootExecutablePath)&quot;" />
+  </Target>
 </Project>

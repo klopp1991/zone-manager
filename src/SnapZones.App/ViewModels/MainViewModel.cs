@@ -1,53 +1,36 @@
 using System.Collections.ObjectModel;
+using SnapZones.Core.Layouts;
 using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
-using SnapZones.Core.Profiles;
 
 namespace SnapZones.App.ViewModels;
 
 public sealed class MainViewModel : ViewModelBase
 {
-    private readonly ProfileService profileService;
+    private LayoutService layoutService;
     private readonly IReadOnlyList<LiveMonitor> liveMonitors;
-    private LayoutProfile selectedProfile;
     private MonitorChoice? selectedMonitor;
+    private MonitorLayout? selectedLayout;
     private LayoutEditorViewModel? editor;
     private string statusMessage = "Bereit";
+    private bool suppressPersistence;
 
     public MainViewModel(SnapConfiguration configuration, IReadOnlyList<LiveMonitor> monitors)
     {
-        profileService = new ProfileService(configuration);
+        layoutService = new LayoutService(configuration);
         liveMonitors = monitors;
-        selectedProfile = profileService.ActiveProfile;
-        Settings = new SettingsViewModel(profileService.Configuration.Settings);
-        Profiles = new ObservableCollection<LayoutProfile>(profileService.Configuration.Profiles);
+        Settings = new SettingsViewModel(layoutService.Configuration.Settings);
+        Settings.PropertyChanged += Settings_PropertyChanged;
         Monitors = [];
+        Layouts = [];
         RefreshMonitors();
     }
 
     public event Action<SnapConfiguration>? SaveRequested;
 
-    public ObservableCollection<LayoutProfile> Profiles { get; }
     public ObservableCollection<MonitorChoice> Monitors { get; }
+    public ObservableCollection<MonitorLayout> Layouts { get; }
     public SettingsViewModel Settings { get; }
-
-    public LayoutProfile SelectedProfile
-    {
-        get => selectedProfile;
-        set
-        {
-            if (value is null || value.Id == selectedProfile.Id)
-            {
-                return;
-            }
-
-            StoreValidDraft();
-            profileService.Activate(value.Id);
-            selectedProfile = profileService.ActiveProfile;
-            OnPropertyChanged();
-            RefreshMonitors();
-        }
-    }
 
     public MonitorChoice? SelectedMonitor
     {
@@ -61,13 +44,32 @@ public sealed class MainViewModel : ViewModelBase
 
             StoreValidDraft();
             selectedMonitor = value;
-            editor = value is null ? null : new LayoutEditorViewModel(value.Layout);
             OnPropertyChanged();
-            OnPropertyChanged(nameof(Editor));
+            RefreshLayouts();
+        }
+    }
+
+    public MonitorLayout? SelectedLayout
+    {
+        get => selectedLayout;
+        set
+        {
+            if (value is null || value.Id == selectedLayout?.Id)
+            {
+                return;
+            }
+
+            StoreValidDraft();
+            var activated = layoutService.ActivateLayout(value.Id);
+            RefreshMonitors(activated.Monitor);
+            StatusMessage = $"Layout «{activated.Name}» auf {GetMonitorDisplayName(activated.Monitor)} aktiv";
+            RequestPersistence();
         }
     }
 
     public LayoutEditorViewModel? Editor => editor;
+    public bool CanDeleteSelectedLayout => selectedMonitor is not null && Layouts.Count > 1;
+    public string LayoutSummary => $"{liveMonitors.Count} Monitore · {layoutService.Configuration.Layouts.Count} Layouts";
 
     public string StatusMessage
     {
@@ -75,112 +77,242 @@ public sealed class MainViewModel : ViewModelBase
         set => SetProperty(ref statusMessage, value);
     }
 
-    public SnapConfiguration Configuration => profileService.Configuration;
+    public SnapConfiguration Configuration => layoutService.Configuration;
 
     public void Save()
     {
         if (Editor is not null)
         {
-            profileService.UpdateMonitorLayout(Editor.CreateSnapshot());
+            layoutService.UpdateLayout(Editor.CreateSnapshot());
         }
 
-        profileService.UpdateSettings(Settings.CreateSettings(profileService.ActiveProfile.Id));
-        RefreshProfiles();
-        StatusMessage = "Änderungen gespeichert";
-        SaveRequested?.Invoke(profileService.Configuration);
+        layoutService.UpdateSettings(Settings.CreateSettings());
+        StatusMessage = "Wird gespeichert …";
+        SaveRequested?.Invoke(layoutService.Configuration);
     }
 
-    public void AddProfile()
+    public void AddLayout()
     {
+        if (selectedLayout is null)
+        {
+            return;
+        }
+
         StoreValidDraft();
         var number = 1;
         string name;
         do
         {
-            name = $"Profil {number++}";
+            name = $"Layout {number++}";
         }
-        while (profileService.Configuration.Profiles.Any(profile => profile.Name == name));
+        while (Layouts.Any(layout => string.Equals(layout.Name, name, StringComparison.CurrentCultureIgnoreCase)));
 
-        profileService.AddProfile(name);
-        RefreshProfiles();
-        selectedProfile = profileService.ActiveProfile;
-        OnPropertyChanged(nameof(SelectedProfile));
-        RefreshMonitors();
-        StatusMessage = $"{name} erstellt";
+        var added = layoutService.AddLayout(selectedLayout.Id, name);
+        RefreshMonitors(added.Monitor);
+        StatusMessage = $"Layout «{added.Name}» erstellt";
+        RequestPersistence();
     }
 
-    public void RenameSelectedProfile(string name)
+    public void RenameSelectedLayout(string name)
     {
-        profileService.RenameProfile(SelectedProfile.Id, name);
-        RefreshProfiles();
-        selectedProfile = profileService.ActiveProfile;
-        OnPropertyChanged(nameof(SelectedProfile));
+        if (selectedLayout is null)
+        {
+            return;
+        }
+
+        var selectedId = selectedLayout.Id;
+        layoutService.RenameLayout(selectedId, name);
+        RefreshMonitors(selectedLayout.Monitor, selectedId);
+        RequestPersistence();
     }
 
-    public void DeleteSelectedProfile()
+    public void RenameSelectedMonitor(string? name)
     {
-        profileService.DeleteProfile(SelectedProfile.Id);
-        RefreshProfiles();
-        selectedProfile = profileService.ActiveProfile;
-        OnPropertyChanged(nameof(SelectedProfile));
-        RefreshMonitors();
-        StatusMessage = "Profil gelöscht";
+        if (selectedMonitor is null)
+        {
+            return;
+        }
+
+        StoreValidDraft();
+        var identity = selectedMonitor.Live.Identity;
+        var selectedLayoutId = selectedLayout?.Id;
+        layoutService.RenameMonitor(identity, name);
+        RefreshMonitors(identity, selectedLayoutId);
+        StatusMessage = $"Monitorname geändert: {selectedMonitor?.UserFacingName}";
+        RequestPersistence();
     }
 
-    public void ActivateProfile(Guid profileId)
+    public string GetMonitorDisplayName(MonitorIdentity monitor)
+    {
+        var choice = Monitors.FirstOrDefault(candidate =>
+            LayoutService.BelongsToMonitor(candidate.Live.Identity, monitor));
+        if (choice is not null)
+        {
+            return choice.UserFacingName;
+        }
+
+        var displayNumber = MonitorNaming.ResolveDisplayNumber(monitor, 1);
+        return MonitorNaming.UserFacingName(layoutService.CustomMonitorNameFor(monitor), displayNumber);
+    }
+
+    public void DeleteSelectedLayout()
+    {
+        if (selectedLayout is null)
+        {
+            return;
+        }
+
+        var monitor = selectedLayout.Monitor;
+        layoutService.DeleteLayout(selectedLayout.Id);
+        RefreshMonitors(monitor);
+        StatusMessage = "Layout gelöscht";
+        RequestPersistence();
+    }
+
+    public void ActivateLayout(Guid layoutId)
     {
         StoreValidDraft();
-        profileService.Activate(profileId);
-        RefreshProfiles();
-        selectedProfile = profileService.ActiveProfile;
-        OnPropertyChanged(nameof(SelectedProfile));
-        RefreshMonitors();
-        StatusMessage = $"Profil «{selectedProfile.Name}» aktiv";
+        var activated = layoutService.ActivateLayout(layoutId);
+        var selectedIdentity = selectedMonitor?.Live.Identity;
+        RefreshMonitors(selectedIdentity);
+        StatusMessage = $"Layout «{activated.Name}» auf {GetMonitorDisplayName(activated.Monitor)} aktiv";
+        RequestPersistence();
     }
 
-    public void DisableSnappingForSafety(string reason)
+    public void ReplaceConfiguration(SnapConfiguration replacement)
     {
-        Settings.SnappingEnabled = false;
-        profileService.UpdateSettings(Settings.CreateSettings(profileService.ActiveProfile.Id));
-        StatusMessage = reason;
+        ArgumentNullException.ThrowIfNull(replacement);
+        suppressPersistence = true;
+        try
+        {
+            layoutService = new LayoutService(replacement);
+            Settings.Apply(layoutService.Configuration.Settings);
+            RefreshMonitors();
+            StatusMessage = "Importierte Konfiguration geladen";
+        }
+        finally
+        {
+            suppressPersistence = false;
+        }
     }
 
     private void StoreValidDraft()
     {
         if (Editor is not null && Editor.CanSave)
         {
-            profileService.UpdateMonitorLayout(Editor.CreateSnapshot());
+            layoutService.UpdateLayout(Editor.CreateSnapshot());
         }
     }
 
-    private void RefreshProfiles()
+    private void RefreshMonitors(MonitorIdentity? preferredMonitor = null, Guid? preferredLayoutId = null)
     {
-        Profiles.Clear();
-        foreach (var profile in profileService.Configuration.Profiles)
-        {
-            Profiles.Add(profile);
-        }
-    }
-
-    private void RefreshMonitors()
-    {
+        var wantedMonitor = preferredMonitor ?? selectedMonitor?.Live.Identity;
         Monitors.Clear();
-        foreach (var live in liveMonitors)
+        for (var index = 0; index < liveMonitors.Count; index++)
         {
-            var layout = profileService.ActiveProfile.Monitors.FirstOrDefault(saved =>
-                string.Equals(saved.Monitor.StableId, live.Identity.StableId, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(saved.Monitor.DeviceName, live.Identity.DeviceName, StringComparison.OrdinalIgnoreCase));
-            layout ??= new MonitorLayout(
+            var live = liveMonitors[index];
+            var active = layoutService.EnsureMonitor(
                 live.Identity,
                 live.WorkArea.Width,
-                live.WorkArea.Height,
-                [new ZoneDefinition(Guid.NewGuid(), "Voll", NormalizedRect.Full)]);
-            Monitors.Add(new MonitorChoice(live, layout));
+                live.WorkArea.Height);
+            var displayNumber = MonitorNaming.ResolveDisplayNumber(live.Identity, index + 1);
+            Monitors.Add(new MonitorChoice(
+                live,
+                active,
+                displayNumber,
+                layoutService.CustomMonitorNameFor(live.Identity)));
         }
 
-        selectedMonitor = Monitors.FirstOrDefault();
-        editor = selectedMonitor is null ? null : new LayoutEditorViewModel(selectedMonitor.Layout);
+        selectedMonitor = wantedMonitor is null
+            ? Monitors.FirstOrDefault()
+            : Monitors.FirstOrDefault(choice => LayoutService.BelongsToMonitor(choice.Live.Identity, wantedMonitor))
+              ?? Monitors.FirstOrDefault();
         OnPropertyChanged(nameof(SelectedMonitor));
-        OnPropertyChanged(nameof(Editor));
+        RefreshLayouts(preferredLayoutId);
+        OnPropertyChanged(nameof(LayoutSummary));
     }
+
+    private void RefreshLayouts(Guid? preferredLayoutId = null)
+    {
+        Layouts.Clear();
+        if (selectedMonitor is null)
+        {
+            selectedLayout = null;
+            ReplaceEditor(null);
+        }
+        else
+        {
+            foreach (var layout in layoutService.LayoutsFor(selectedMonitor.Live.Identity))
+            {
+                Layouts.Add(layout);
+            }
+
+            selectedLayout = preferredLayoutId.HasValue
+                ? Layouts.FirstOrDefault(layout => layout.Id == preferredLayoutId.Value)
+                : null;
+            selectedLayout ??= Layouts.SingleOrDefault(layout => layout.IsActive);
+            ReplaceEditor(selectedLayout is null ? null : new LayoutEditorViewModel(selectedLayout));
+        }
+
+        OnPropertyChanged(nameof(SelectedLayout));
+        OnPropertyChanged(nameof(Editor));
+        OnPropertyChanged(nameof(CanDeleteSelectedLayout));
+    }
+
+    private void ReplaceEditor(LayoutEditorViewModel? replacement)
+    {
+        if (editor is not null)
+        {
+            editor.ConfigurationChanged -= Editor_ConfigurationChanged;
+        }
+
+        editor = replacement;
+        if (editor is not null)
+        {
+            editor.ConfigurationChanged += Editor_ConfigurationChanged;
+        }
+    }
+
+    private void Editor_ConfigurationChanged()
+    {
+        if (editor is null || !editor.IsValid)
+        {
+            return;
+        }
+
+        layoutService.UpdateLayout(editor.CreateSnapshot());
+        RequestPersistence();
+    }
+
+    private void Settings_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (suppressPersistence)
+        {
+            return;
+        }
+
+        var settings = Settings.CreateSettings();
+        if (!IsValidOverlayColor(settings.OverlayColor))
+        {
+            StatusMessage = "Ungültige Eingabe";
+            return;
+        }
+
+        layoutService.UpdateSettings(settings);
+        RequestPersistence();
+    }
+
+    private void RequestPersistence()
+    {
+        StatusMessage = "Wird gespeichert …";
+        SaveRequested?.Invoke(layoutService.Configuration);
+    }
+
+    private static bool IsValidOverlayColor(string value) =>
+        !string.IsNullOrEmpty(value) &&
+        value.Length == 7 &&
+        value[0] == '#' &&
+        value.AsSpan(1).ToString().All(Uri.IsHexDigit);
 }

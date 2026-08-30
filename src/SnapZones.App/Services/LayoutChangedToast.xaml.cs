@@ -3,11 +3,11 @@ using System.Windows.Threading;
 
 namespace SnapZones.App.Services;
 
-public partial class ProfileChangedToast : Window
+public partial class LayoutChangedToast : Window
 {
     private readonly DispatcherTimer timer;
 
-    public ProfileChangedToast()
+    public LayoutChangedToast()
     {
         InitializeComponent();
         timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
@@ -18,9 +18,9 @@ public partial class ProfileChangedToast : Window
         };
     }
 
-    public void ShowProfile(string profileName)
+    public void ShowLayout(string layoutName)
     {
-        ProfileNameText.Text = profileName;
+        LayoutNameText.Text = layoutName;
         var workArea = SystemParameters.WorkArea;
         Left = workArea.Right - Width - 18;
         Top = workArea.Bottom - Height - 18;

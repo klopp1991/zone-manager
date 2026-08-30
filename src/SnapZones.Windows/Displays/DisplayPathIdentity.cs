@@ -5,7 +5,9 @@ namespace SnapZones.Windows.Displays;
 public sealed record DisplayPathIdentity(
     string GdiDeviceName,
     string StableId,
-    string FriendlyName)
+    string FriendlyName,
+    double? PhysicalWidthCentimeters = null,
+    double? PhysicalHeightCentimeters = null)
 {
     public static MonitorIdentity Resolve(
         string gdiDeviceName,
@@ -24,4 +26,3 @@ public sealed record DisplayPathIdentity(
         return new MonitorIdentity(fallbackStableId, gdiDeviceName, fallbackFriendlyName);
     }
 }
-

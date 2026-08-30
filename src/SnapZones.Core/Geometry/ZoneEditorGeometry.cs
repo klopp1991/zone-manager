@@ -8,6 +8,8 @@ public enum MeasurementUnit
     Pixels
 }
 
+public readonly record struct ZoneMeasurement(double Value, MeasurementUnit Unit);
+
 public sealed record ZoneEditorValues(
     double Left,
     double Top,
@@ -57,15 +59,28 @@ public static class ZoneEditorGeometry
         MeasurementUnit unit,
         int monitorWidth,
         int monitorHeight)
+        => FromPositionAndSize(
+            new ZoneMeasurement(left, unit),
+            new ZoneMeasurement(top, unit),
+            new ZoneMeasurement(width, unit),
+            new ZoneMeasurement(height, unit),
+            monitorWidth,
+            monitorHeight);
+
+    public static NormalizedRect FromPositionAndSize(
+        ZoneMeasurement left,
+        ZoneMeasurement top,
+        ZoneMeasurement width,
+        ZoneMeasurement height,
+        int monitorWidth,
+        int monitorHeight)
     {
         ValidateDimensions(monitorWidth, monitorHeight);
-        var horizontalDivisor = unit == MeasurementUnit.Percent ? 100d : monitorWidth;
-        var verticalDivisor = unit == MeasurementUnit.Percent ? 100d : monitorHeight;
         return new NormalizedRect(
-            left / horizontalDivisor,
-            top / verticalDivisor,
-            width / horizontalDivisor,
-            height / verticalDivisor);
+            Normalize(left, monitorWidth),
+            Normalize(top, monitorHeight),
+            Normalize(width, monitorWidth),
+            Normalize(height, monitorHeight));
     }
 
     public static NormalizedRect FromMargins(
@@ -76,20 +91,36 @@ public static class ZoneEditorGeometry
         MeasurementUnit unit,
         int monitorWidth,
         int monitorHeight)
+        => FromMargins(
+            new ZoneMeasurement(left, unit),
+            new ZoneMeasurement(top, unit),
+            new ZoneMeasurement(right, unit),
+            new ZoneMeasurement(bottom, unit),
+            monitorWidth,
+            monitorHeight);
+
+    public static NormalizedRect FromMargins(
+        ZoneMeasurement left,
+        ZoneMeasurement top,
+        ZoneMeasurement right,
+        ZoneMeasurement bottom,
+        int monitorWidth,
+        int monitorHeight)
     {
         ValidateDimensions(monitorWidth, monitorHeight);
-        var horizontalDivisor = unit == MeasurementUnit.Percent ? 100d : monitorWidth;
-        var verticalDivisor = unit == MeasurementUnit.Percent ? 100d : monitorHeight;
-        var normalizedLeft = left / horizontalDivisor;
-        var normalizedTop = top / verticalDivisor;
-        var normalizedRight = right / horizontalDivisor;
-        var normalizedBottom = bottom / verticalDivisor;
+        var normalizedLeft = Normalize(left, monitorWidth);
+        var normalizedTop = Normalize(top, monitorHeight);
+        var normalizedRight = Normalize(right, monitorWidth);
+        var normalizedBottom = Normalize(bottom, monitorHeight);
         return new NormalizedRect(
             normalizedLeft,
             normalizedTop,
             1 - normalizedLeft - normalizedRight,
             1 - normalizedTop - normalizedBottom);
     }
+
+    private static double Normalize(ZoneMeasurement measurement, int monitorPixels) =>
+        measurement.Value / (measurement.Unit == MeasurementUnit.Percent ? 100d : monitorPixels);
 
     private static void ValidateDimensions(int monitorWidth, int monitorHeight)
     {
@@ -99,4 +130,3 @@ public static class ZoneEditorGeometry
         }
     }
 }
-

@@ -4,7 +4,6 @@ namespace SnapZones.App.ViewModels;
 
 public sealed class SettingsViewModel : ViewModelBase
 {
-    private bool snappingEnabled;
     private bool startWithWindows;
     private OverlayScope overlayScope;
     private TriggerMode triggerMode;
@@ -14,14 +13,15 @@ public sealed class SettingsViewModel : ViewModelBase
     private int outerMarginRight;
     private int outerMarginBottom;
     private int zoneGap;
+    private double zoneGapPercent;
     private int magnetThresholdPixels;
+    private double magnetThresholdPercent;
     private bool showZoneNames;
     private string overlayColor;
     private double overlayOpacityPercent;
 
     public SettingsViewModel(AppSettings settings)
     {
-        snappingEnabled = settings.SnappingEnabled;
         startWithWindows = settings.StartWithWindows;
         overlayScope = settings.OverlayScope;
         triggerMode = settings.TriggerMode;
@@ -32,7 +32,9 @@ public sealed class SettingsViewModel : ViewModelBase
         outerMarginRight = margins.Right;
         outerMarginBottom = margins.Bottom;
         zoneGap = settings.ZoneGap;
+        zoneGapPercent = ToPercent(zoneGap, 80);
         magnetThresholdPixels = settings.MagnetThresholdPixels;
+        magnetThresholdPercent = ToPercent(magnetThresholdPixels, 40);
         showZoneNames = settings.ShowZoneNames;
         overlayColor = settings.OverlayColor;
         overlayOpacityPercent = settings.OverlayOpacity * 100;
@@ -41,12 +43,6 @@ public sealed class SettingsViewModel : ViewModelBase
     public IReadOnlyList<OverlayScope> OverlayScopes { get; } = Enum.GetValues<OverlayScope>();
     public IReadOnlyList<TriggerMode> TriggerModes { get; } = Enum.GetValues<TriggerMode>();
     public IReadOnlyList<ThemeMode> ThemeModes { get; } = Enum.GetValues<ThemeMode>();
-
-    public bool SnappingEnabled
-    {
-        get => snappingEnabled;
-        set => SetProperty(ref snappingEnabled, value);
-    }
 
     public bool StartWithWindows
     {
@@ -111,13 +107,53 @@ public sealed class SettingsViewModel : ViewModelBase
     public int ZoneGap
     {
         get => zoneGap;
-        set => SetProperty(ref zoneGap, Math.Clamp(value, 0, 80));
+        set
+        {
+            var normalized = Math.Clamp(value, 0, 80);
+            if (SetProperty(ref zoneGap, normalized))
+            {
+                SetProperty(ref zoneGapPercent, ToPercent(normalized, 80), nameof(ZoneGapPercent));
+            }
+        }
+    }
+
+    public double ZoneGapPercent
+    {
+        get => zoneGapPercent;
+        set
+        {
+            var normalized = NormalizePercent(value, 0, 100);
+            if (SetProperty(ref zoneGapPercent, normalized))
+            {
+                SetProperty(ref zoneGap, FromPercent(normalized, 80), nameof(ZoneGap));
+            }
+        }
     }
 
     public int MagnetThresholdPixels
     {
         get => magnetThresholdPixels;
-        set => SetProperty(ref magnetThresholdPixels, Math.Clamp(value, 0, 40));
+        set
+        {
+            var normalized = Math.Clamp(value, 0, 40);
+            if (SetProperty(ref magnetThresholdPixels, normalized))
+            {
+                SetProperty(ref magnetThresholdPercent, ToPercent(normalized, 40), nameof(MagnetThresholdPercent));
+            }
+        }
+    }
+
+    public double MagnetThresholdPercent
+    {
+        get => magnetThresholdPercent;
+        set
+        {
+            var normalized = NormalizePercent(value, 0, 100);
+            if (SetProperty(ref magnetThresholdPercent, normalized))
+            {
+                SetProperty(ref magnetThresholdPixels, FromPercent(normalized, 40), nameof(MagnetThresholdPixels));
+            }
+        }
     }
 
     public bool ShowZoneNames
@@ -135,12 +171,12 @@ public sealed class SettingsViewModel : ViewModelBase
     public double OverlayOpacityPercent
     {
         get => overlayOpacityPercent;
-        set => SetProperty(ref overlayOpacityPercent, Math.Clamp(value, 8, 75));
+        set => SetProperty(ref overlayOpacityPercent, NormalizePercent(value, 8, 75));
     }
 
-    public AppSettings CreateSettings(Guid activeProfileId) => new(
-        ActiveProfileId: activeProfileId,
-        SnappingEnabled: SnappingEnabled,
+    public AppSettings CreateSettings() => new(
+        ActiveProfileId: Guid.Empty,
+        SnappingEnabled: false,
         StartWithWindows: StartWithWindows,
         OverlayScope: OverlayScope,
         TriggerMode: TriggerMode,
@@ -156,4 +192,40 @@ public sealed class SettingsViewModel : ViewModelBase
             OuterMarginTop,
             OuterMarginRight,
             OuterMarginBottom));
+
+    public void Apply(AppSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        StartWithWindows = settings.StartWithWindows;
+        OverlayScope = settings.OverlayScope;
+        TriggerMode = settings.TriggerMode;
+        ThemeMode = settings.ThemeMode;
+        var margins = settings.EffectiveOuterMargins;
+        OuterMarginLeft = margins.Left;
+        OuterMarginTop = margins.Top;
+        OuterMarginRight = margins.Right;
+        OuterMarginBottom = margins.Bottom;
+        ZoneGap = settings.ZoneGap;
+        MagnetThresholdPixels = settings.MagnetThresholdPixels;
+        ShowZoneNames = settings.ShowZoneNames;
+        OverlayColor = settings.OverlayColor;
+        OverlayOpacityPercent = settings.OverlayOpacity * 100d;
+    }
+
+    private static double ToPercent(int value, int maximum) =>
+        NormalizePercent((double)value / maximum * 100, 0, 100);
+
+    private static int FromPercent(double value, int maximum) =>
+        (int)Math.Round(value / 100 * maximum, MidpointRounding.AwayFromZero);
+
+    private static double NormalizePercent(double value, double minimum, double maximum)
+    {
+        if (!double.IsFinite(value))
+        {
+            return minimum;
+        }
+
+        var clamped = Math.Clamp(value, minimum, maximum);
+        return Math.Round(clamped * 2, MidpointRounding.AwayFromZero) / 2;
+    }
 }

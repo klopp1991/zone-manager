@@ -3,307 +3,583 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:SnapZones.App.Controls"
         xmlns:viewModels="clr-namespace:SnapZones.App.ViewModels"
-        Title="Sascha Window Zones"
-        Icon="/SaschaWindowZones;component/Assets/SaschaWindowZones.ico"
-        Width="1480"
-        Height="900"
-        MinWidth="1120"
-        MinHeight="700"
-        WindowStartupLocation="CenterScreen">
+        Title="Sascha’s Zone Manager"
+        Width="1480" Height="900" MinWidth="1180" MinHeight="720"
+        FontSize="15"
+        WindowStartupLocation="CenterScreen"
+        PreviewKeyDown="Window_PreviewKeyDown">
+    <Window.Icon>
+        <BitmapImage UriSource="/SaschaZoneManager;component/Assets/SaschaWindowZones.ico" DecodePixelWidth="64" />
+    </Window.Icon>
     <Window.Resources>
         <viewModels:EnumDisplayConverter x:Key="EnumDisplayConverter" />
         <DataTemplate x:Key="EnumItemTemplate">
             <TextBlock Text="{Binding Converter={StaticResource EnumDisplayConverter}}" />
         </DataTemplate>
         <DataTemplate x:Key="MonitorItemTemplate">
-            <StackPanel MinWidth="210">
-                <TextBlock Text="{Binding FriendlyName}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                <TextBlock Text="{Binding ResolutionText}" Foreground="{DynamicResource MutedBrush}" FontSize="12" Margin="0,3,0,0" TextWrapping="Wrap" />
+            <StackPanel MinWidth="190">
+                <TextBlock Text="{Binding UserFacingName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding DetailsText}" Foreground="{DynamicResource MutedBrush}" FontSize="13" Margin="0,3,0,0" TextWrapping="Wrap" />
             </StackPanel>
         </DataTemplate>
     </Window.Resources>
 
     <Grid Background="{DynamicResource CanvasBrush}">
         <Grid.RowDefinitions>
-            <RowDefinition Height="76" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="36" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
-            <Grid Margin="22,0">
+        <Border Grid.Row="0" MinHeight="72" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+            <Grid Margin="20,0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="18" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="28" />
-                    <ColumnDefinition Width="280" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" /><ColumnDefinition Width="14" /><ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="36" /><ColumnDefinition Width="260" /><ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Image Width="38" Height="38" Source="/SaschaWindowZones;component/Assets/SaschaWindowZones.ico" VerticalAlignment="Center" />
-                <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                    <TextBlock Text="SASCHA WINDOW ZONES" FontFamily="Segoe UI Variable Display" FontSize="20" FontWeight="SemiBold" />
-                    <TextBlock Text="Flexible window layouts for every screen" Foreground="{DynamicResource MutedBrush}" FontSize="12" />
-                </StackPanel>
-                <ComboBox Grid.Column="4" ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}" DisplayMemberPath="Name" VerticalAlignment="Center" AutomationProperties.Name="Aktives Profil" />
-                <Border Grid.Column="6" x:Name="SafetyBadge" Background="{DynamicResource WarningSoftBrush}" CornerRadius="4" Padding="12,7" Margin="0,0,12,0" VerticalAlignment="Center">
-                    <TextBlock x:Name="SafetyStatus" Text="Snap-Funktion aus" Foreground="{DynamicResource WarningBrush}" FontWeight="SemiBold" />
-                </Border>
-                <Button Grid.Column="7" Content="Speichern" Style="{StaticResource PrimaryButton}" Click="Save_Click" VerticalAlignment="Center" Margin="0" AutomationProperties.Name="Änderungen speichern" />
+                <Image Width="36" Height="36" Source="/SaschaZoneManager;component/Assets/SaschaWindowZones.Header.png"
+                       RenderOptions.BitmapScalingMode="HighQuality" SnapsToDevicePixels="True" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="2" Text="Sascha’s Zone Manager" FontFamily="Segoe UI Variable Display"
+                           FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="4" Text="{Binding LayoutSummary}" Foreground="{DynamicResource MutedBrush}"
+                           VerticalAlignment="Center" AutomationProperties.Name="Layoutübersicht" />
             </Grid>
         </Border>
 
-        <TabControl Grid.Row="1" Margin="18,12,18,8">
-            <TabItem Header="Profile">
-                <Grid Margin="48,32" MaxWidth="860" HorizontalAlignment="Left">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="320" />
-                        <ColumnDefinition Width="36" />
-                        <ColumnDefinition Width="420" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel>
-                        <TextBlock Text="Profile" FontFamily="Segoe UI Variable Display" FontSize="26" FontWeight="SemiBold" />
-                        <TextBlock Text="Ein Profil ist die oberste Ebene und enthält für jeden angeschlossenen Monitor ein eigenes Layout." Style="{StaticResource HelpText}" Margin="0,6,0,20" />
-                        <ListBox ItemsSource="{Binding Profiles}" SelectedItem="{Binding SelectedProfile}" DisplayMemberPath="Name" MinHeight="280" />
-                    </StackPanel>
-                    <Border Grid.Column="2" Style="{StaticResource SectionCard}">
-                        <StackPanel>
-                            <TextBlock Text="Ausgewähltes Profil" Style="{StaticResource SectionTitle}" />
-                            <TextBlock Text="Profilname" Style="{StaticResource FieldLabel}" Margin="0,18,0,5" />
-                            <TextBox x:Name="ProfileNameText" Text="{Binding SelectedProfile.Name}" />
-                            <TextBlock Text="Der Name erscheint im Kopfbereich, im Infobereich und beim schnellen Profilwechsel." Style="{StaticResource HelpText}" />
-                            <Button Content="Name speichern" Click="RenameProfile_Click" Style="{StaticResource PrimaryButton}" Margin="0,18,0,8" />
-                            <Button Content="Neues Profil" Click="AddProfile_Click" Margin="0,0,0,8" />
-                            <Button Content="Profil löschen" Click="DeleteProfile_Click" Margin="0,0,0,8" />
-                            <TextBlock Text="Schnellwahl: Ctrl + Alt + 1–9. Der Schnellwahlplatz wird aus der Profilreihenfolge abgeleitet." Style="{StaticResource HelpText}" Margin="0,10,0,0" />
+        <TabControl Grid.Row="1" Margin="0" TabStripPlacement="Left">
+            <TabItem Header="Layouts">
+                <Grid Margin="12,18,12,16">
+                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                    <Grid Grid.Row="0" Margin="0,0,0,14">
+                        <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Top" Margin="0,0,0,10">
+                            <TextBlock Text="Layouts" Style="{StaticResource PageTitle}" />
+                            <Button x:Name="LayoutInfoButton" Style="{StaticResource InfoButton}" VerticalAlignment="Center" AutomationProperties.Name="Hilfe zu Layouts"
+                                    ToolTip="Jeder Monitor besitzt eigene Layouts. Ein Layoutwechsel wirkt nur auf den gewählten Monitor." />
                         </StackPanel>
-                    </Border>
+                        <WrapPanel Grid.Row="1" Orientation="Horizontal">
+                            <StackPanel Width="190" Margin="0,0,10,10">
+                                <TextBlock Text="Monitor" Style="{StaticResource FieldLabel}" />
+                                 <ComboBox x:Name="LayoutMonitorSelector" ItemsSource="{Binding Monitors}"
+                                           SelectedItem="{Binding SelectedMonitor, Mode=TwoWay}" ItemTemplate="{StaticResource MonitorItemTemplate}"
+                                          SelectionChanged="Monitor_SelectionChanged" AutomationProperties.Name="Monitor wählen" />
+                            </StackPanel>
+                            <StackPanel Width="150" Margin="0,0,10,10">
+                                <TextBlock Text="Aktives Layout" Style="{StaticResource FieldLabel}" />
+                                 <ComboBox x:Name="LayoutSelector" ItemsSource="{Binding Layouts}" SelectedItem="{Binding SelectedLayout, Mode=TwoWay}"
+                                          DisplayMemberPath="Name" SelectionChanged="Layout_SelectionChanged"
+                                          AutomationProperties.Name="Layout für den Monitor wählen" />
+                            </StackPanel>
+                            <StackPanel Width="150" Margin="0,0,10,10">
+                                <TextBlock Text="Layoutname" Style="{StaticResource FieldLabel}" />
+                                <TextBox x:Name="LayoutNameText" Text="{Binding SelectedLayout.Name}" LostFocus="LayoutName_LostFocus"
+                                         AutomationProperties.Name="Layoutname" />
+                            </StackPanel>
+                            <Grid Margin="0,0,0,10">
+                                <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                <TextBlock Text="Aktionen" Style="{StaticResource FieldLabel}" Visibility="Hidden" />
+                                <StackPanel Grid.Row="1" Orientation="Horizontal">
+                                    <Button Content="+ Neues Layout" Click="AddLayout_Click" Margin="0,0,8,0"
+                                            AutomationProperties.Name="Neues Layout erstellen" />
+                                    <Button x:Name="DeleteLayoutButton" Content="Layout löschen" Click="DeleteLayout_Click"
+                                            IsEnabled="{Binding CanDeleteSelectedLayout}" Margin="0"
+                                            AutomationProperties.Name="Ausgewähltes Layout löschen" />
+                                </StackPanel>
+                            </Grid>
+                        </WrapPanel>
+                    </Grid>
+                    <Grid Grid.Row="1">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="320" />
+                        </Grid.ColumnDefinitions>
+                        <Grid Grid.Column="0" x:Name="LayoutEditorArea">
+                            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                            <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                    CornerRadius="8" Padding="12" Margin="0,0,0,10">
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Top" Margin="0,0,0,8">
+                                        <TextBlock Text="{Binding SelectedMonitor.ResolutionText, StringFormat=Vorschläge für {0}}"
+                                                   Style="{StaticResource FieldLabel}" Margin="4,0,8,0" VerticalAlignment="Center" />
+                                        <Button Style="{StaticResource InfoButton}" Margin="0" AutomationProperties.Name="Hilfe zu Layoutvorlagen"
+                                                ToolTip="Die Vorschläge berücksichtigen Seitenverhältnis, Auflösung, Windows-Skalierung und – falls Windows sie liefert – die physische Monitorgrösse. Zu kleine Zonen werden nicht angeboten." />
+                                    </StackPanel>
+                                    <ScrollViewer Grid.Row="1" HorizontalScrollBarVisibility="Auto" VerticalScrollBarVisibility="Disabled"
+                                                  PanningMode="HorizontalOnly" CanContentScroll="False">
+                                        <ItemsControl x:Name="TemplateSuggestions" ItemsSource="{Binding SelectedMonitor.LayoutSuggestions}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Button Click="Template_Click" Width="160" MinHeight="108" Margin="0,0,10,8" Padding="8,6"
+                                                            ToolTip="{Binding Description}" AutomationProperties.Name="{Binding AccessibilityName}"
+                                                            HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                                                        <Grid>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="52" /><RowDefinition Height="Auto" /><RowDefinition Height="Auto" />
+                                                            </Grid.RowDefinitions>
+                                                            <controls:LayoutTemplatePreview Suggestion="{Binding}" Margin="4,0,4,4" />
+                                                            <TextBlock Grid.Row="1" Text="{Binding Name}" FontWeight="SemiBold" FontSize="13"
+                                                                       TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
+                                                            <TextBlock Grid.Row="2" Text="{Binding Description}" Foreground="{DynamicResource MutedBrush}"
+                                                                       FontSize="10.5" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis"
+                                                                       Margin="0,2,0,0" HorizontalAlignment="Center" />
+                                                        </Grid>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Border>
+                            <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8">
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
+                                    <Grid x:Name="LayoutEditorToolbar" MinHeight="58" Margin="18,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding SelectedLayout.Name, StringFormat=Layout: {0}}" Style="{StaticResource SectionTitle}"
+                                                   VerticalAlignment="Center" Margin="0" />
+                                        <Button Grid.Column="1" x:Name="AddZoneButton" Content="+ Zone" Click="AddZone_Click"
+                                                Style="{StaticResource PrimaryButton}" Margin="0" VerticalAlignment="Center"
+                                                AutomationProperties.Name="Neue Zone hinzufügen"
+                                                ToolTip="Fügt in der grössten freien Fläche eine neue Zone hinzu." />
+                                        <Button Grid.Column="3" x:Name="DeleteZoneButton" Content="Auswahl löschen" Click="DeleteZone_Click"
+                                                Margin="0" VerticalAlignment="Center" AutomationProperties.Name="Ausgewählte Zone löschen"
+                                                ToolTip="Löscht die aktuell ausgewählte Zone." />
+                                        <Button Grid.Column="5" Style="{StaticResource InfoButton}" Margin="0" VerticalAlignment="Center"
+                                                AutomationProperties.Name="Hilfe zur Layoutbearbeitung"
+                                                ToolTip="Ziehe eine Zone oder ihre Ränder und Ecken. Gemeinsame Kanten verschieben beide Zonen gleichzeitig. Blaue Hilfslinien zeigen das Andocken; mit Alt pausierst du es." />
+                                    </Grid>
+                                    <controls:LayoutCanvas Grid.Row="1" x:Name="EditorCanvas" MinHeight="390" ZoneSelected="EditorCanvas_ZoneSelected"
+                                                           ZoneChanged="EditorCanvas_ZoneChanged" AutomationProperties.Name="Layout-Editor" />
+                                </Grid>
+                            </Border>
+                        </Grid>
+                        <Border Grid.Column="2" Style="{StaticResource SectionCard}" Margin="0">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <StackPanel>
+                                    <TextBlock Text="Ausgewählte Zone" Style="{StaticResource SectionTitle}" />
+                                    <TextBlock Text="Name" Style="{StaticResource FieldLabel}" Margin="0,16,0,5" />
+                                    <TextBox x:Name="ZoneNameText" AutomationProperties.Name="Zonenname"
+                                             TextChanged="ZoneName_TextChanged" />
+                                    <Border x:Name="ZonePositionGroupBorder" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1"
+                                            CornerRadius="6" Padding="12" Margin="0,14,0,0">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                                <TextBlock Text="Position und Grösse" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                                <Button x:Name="ZonePositionInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Position und Grösse"
+                                                        ToolTip="X und Y bestimmen die linke obere Fensterecke. Breite und Höhe bestimmen die Fenstergrösse. Der Einheitenwechsel gilt für alle acht Werte." />
+                                            </StackPanel>
+                                            <UniformGrid Columns="2">
+                                                <StackPanel Margin="0,0,6,0">
+                                                    <TextBlock Text="X · von links" Style="{StaticResource FieldLabel}" />
+                                                    <Grid>
+                                                        <TextBox x:Name="ZonePositionXText" Tag="PositionAndSize" Padding="10,7,48,7" FontFamily="Cascadia Mono"
+                                                                 AutomationProperties.Name="X-Position" TextChanged="ZoneField_TextChanged"
+                                                                 GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
+                                                        <Button x:Name="ZonePositionXUnitButton" Tag="PositionX" Content="%" Click="ZoneUnitButton_Click"
+                                                                Style="{StaticResource UnitToggleButton}" AutomationProperties.Name="Einheit für X-Position: Prozent" />
+                                                    </Grid>
+                                                </StackPanel>
+                                                <StackPanel Margin="6,0,0,0">
+                                                    <TextBlock Text="Y · von oben" Style="{StaticResource FieldLabel}" />
+                                                    <Grid>
+                                                        <TextBox x:Name="ZonePositionYText" Tag="PositionAndSize" Padding="10,7,48,7" FontFamily="Cascadia Mono"
+                                                                 AutomationProperties.Name="Y-Position" TextChanged="ZoneField_TextChanged"
+                                                                 GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
+                                                        <Button x:Name="ZonePositionYUnitButton" Tag="PositionY" Content="%" Click="ZoneUnitButton_Click"
+                                                                Style="{StaticResource UnitToggleButton}" AutomationProperties.Name="Einheit für Y-Position: Prozent" />
+                                                    </Grid>
+                                                </StackPanel>
+                                                <StackPanel Margin="0,12,6,0">
+                                                    <TextBlock Text="Breite" Style="{StaticResource FieldLabel}" />
+                                                    <Grid>
+                                                        <TextBox x:Name="ZoneWidthText" Tag="PositionAndSize" Padding="10,7,48,7" FontFamily="Cascadia Mono"
+                                                                 AutomationProperties.Name="Breite" TextChanged="ZoneField_TextChanged"
+                                                                 GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
+                                                        <Button x:Name="ZoneWidthUnitButton" Tag="Width" Content="%" Click="ZoneUnitButton_Click"
+                                                                Style="{StaticResource UnitToggleButton}" AutomationProperties.Name="Einheit für Breite: Prozent" />
+                                                    </Grid>
+                                                </StackPanel>
+                                                <StackPanel Margin="6,12,0,0">
+                                                    <TextBlock Text="Höhe" Style="{StaticResource FieldLabel}" />
+                                                    <Grid>
+                                                        <TextBox x:Name="ZoneHeightText" Tag="PositionAndSize" Padding="10,7,48,7" FontFamily="Cascadia Mono"
+                                                                 AutomationProperties.Name="Höhe" TextChanged="ZoneField_TextChanged"
+                                                                 GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
+                                                        <Button x:Name="ZoneHeightUnitButton" Tag="Height" Content="%" Click="ZoneUnitButton_Click"
+                                                                Style="{StaticResource UnitToggleButton}" AutomationProperties.Name="Einheit für Höhe: Prozent" />
+                                                    </Grid>
+                                                </StackPanel>
+                                            </UniformGrid>
+                                        </StackPanel>
+                                    </Border>
+                                    <Border x:Name="ZoneMarginsGroupBorder" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            CornerRadius="6" Padding="12" Margin="0,12,0,0">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                                <TextBlock Text="Abstände zum Rand" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                                <Button x:Name="ZoneMarginsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Randabständen"
+                                                        ToolTip="Die vier Werte bestimmen gemeinsam die Abstände des Fensters zu jeder Seite. Der Einheitenwechsel gilt für alle acht Werte." />
+                                            </StackPanel>
+                                            <UniformGrid Columns="2">
+                                                <StackPanel Margin="0,0,6,0">
+                                                    <TextBlock Text="Links" Style="{StaticResource FieldLabel}" />
+                                                    <Grid>
+                                                        <TextBox x:Name="ZoneMarginLeftText" Tag="Margins" Padding="10,7,48,7" FontFamily="Cascadia Mono"
+                                                                 AutomationProperties.Name="Abstand links" TextChanged="ZoneField_TextChanged"
+                                                                 GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
+                                                        <Button x:Name="ZoneMarginLeftUnitButton" Tag="MarginLeft" Content="%" Click="ZoneUnitButton_Click"
+                                                                Style="{StaticResource UnitToggleButton}" AutomationProperties.Name="Einheit für Abstand links: Prozent" />
+                                                    </Grid>
+                                                </StackPanel>
+                                                <StackPanel Margin="6,0,0,0">
+                                                    <TextBlock Text="Oben" Style="{StaticResource FieldLabel}" />
+                                                    <Grid>
+                                                        <TextBox x:Name="ZoneMarginTopText" Tag="Margins" Padding="10,7,48,7" FontFamily="Cascadia Mono"
+                                                                 AutomationProperties.Name="Abstand oben" TextChanged="ZoneField_TextChanged"
+                                                                 GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
+                                                        <Button x:Name="ZoneMarginTopUnitButton" Tag="MarginTop" Content="%" Click="ZoneUnitButton_Click"
+                                                                Style="{StaticResource UnitToggleButton}" AutomationProperties.Name="Einheit für Abstand oben: Prozent" />
+                                                    </Grid>
+                                                </StackPanel>
+                                                <StackPanel Margin="0,12,6,0">
+                                                    <TextBlock Text="Rechts" Style="{StaticResource FieldLabel}" />
+                                                    <Grid>
+                                                        <TextBox x:Name="ZoneMarginRightText" Tag="Margins" Padding="10,7,48,7" FontFamily="Cascadia Mono"
+                                                                 AutomationProperties.Name="Abstand rechts" TextChanged="ZoneField_TextChanged"
+                                                                 GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
+                                                        <Button x:Name="ZoneMarginRightUnitButton" Tag="MarginRight" Content="%" Click="ZoneUnitButton_Click"
+                                                                Style="{StaticResource UnitToggleButton}" AutomationProperties.Name="Einheit für Abstand rechts: Prozent" />
+                                                    </Grid>
+                                                </StackPanel>
+                                                <StackPanel Margin="6,12,0,0">
+                                                    <TextBlock Text="Unten" Style="{StaticResource FieldLabel}" />
+                                                    <Grid>
+                                                        <TextBox x:Name="ZoneMarginBottomText" Tag="Margins" Padding="10,7,48,7" FontFamily="Cascadia Mono"
+                                                                 AutomationProperties.Name="Abstand unten" TextChanged="ZoneField_TextChanged"
+                                                                 GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
+                                                        <Button x:Name="ZoneMarginBottomUnitButton" Tag="MarginBottom" Content="%" Click="ZoneUnitButton_Click"
+                                                                Style="{StaticResource UnitToggleButton}" AutomationProperties.Name="Einheit für Abstand unten: Prozent" />
+                                                    </Grid>
+                                                </StackPanel>
+                                            </UniformGrid>
+                                        </StackPanel>
+                                    </Border>
+                                    <TextBlock x:Name="ZoneInputErrorText" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="0,10,0,0" />
+                                    <Button Content="Entwurf zurücksetzen" Click="ResetLayout_Click" Margin="0,12,0,8" />
+                                    <TextBlock x:Name="ValidationText" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                </StackPanel>
+                            </ScrollViewer>
+                        </Border>
+                    </Grid>
                 </Grid>
             </TabItem>
 
-            <TabItem Header="Layouts">
-                <Grid Margin="0,14,0,0">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="280" />
-                        <ColumnDefinition Width="12" />
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="12" />
-                        <ColumnDefinition Width="340" />
-                    </Grid.ColumnDefinitions>
-
-                    <Border Grid.Row="0" Grid.Column="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
-                        <DockPanel>
-                            <Button Content="+ Neue Zone" Click="AddZone_Click" Style="{StaticResource PrimaryButton}" Margin="0" DockPanel.Dock="Left" AutomationProperties.Name="Neue Zone hinzufügen" />
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-                                <Button Content="2 Spalten" Tag="TwoColumns" Click="Template_Click" Margin="0,0,6,0" />
-                                <Button Content="3 Spalten" Tag="ThreeColumns" Click="Template_Click" Margin="0,0,6,0" />
-                                <Button Content="Haupt + Seite" Tag="MainAndSide" Click="Template_Click" Margin="0,0,6,0" />
-                                <Button Content="2 × 2" Tag="Grid2x2" Click="Template_Click" Margin="0" />
-                            </StackPanel>
-                        </DockPanel>
-                    </Border>
-
-                    <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="0" Style="{StaticResource SectionCard}" Margin="0">
-                        <DockPanel>
-                            <TextBlock DockPanel.Dock="Top" Text="Monitore" Style="{StaticResource SectionTitle}" Margin="0,0,0,4" />
-                            <TextBlock DockPanel.Dock="Top" Text="Das Layout des gewählten Monitors wird bearbeitet. Name und Auflösung stammen aus dem aktiven Windows-Displaypfad." Style="{StaticResource HelpText}" Margin="0,0,0,14" />
-                            <ListBox ItemsSource="{Binding Monitors}" SelectedItem="{Binding SelectedMonitor}" ItemTemplate="{StaticResource MonitorItemTemplate}" SelectionChanged="Monitor_SelectionChanged" AutomationProperties.Name="Monitore" />
-                        </DockPanel>
-                    </Border>
-
-                    <Border Grid.Row="1" Grid.Column="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6">
+            <TabItem Header="Monitore">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="38,30" MaxWidth="920" HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="Monitore" Style="{StaticResource PageTitle}" />
+                            <Button Style="{StaticResource InfoButton}" VerticalAlignment="Center"
+                                    AutomationProperties.Name="Hilfe zur Monitorverwaltung"
+                                    ToolTip="Eigene Monitornamen werden in Layouts, Hinweisen und im Infobereich verwendet. Die technische Monitor-ID bleibt intern." />
+                        </StackPanel>
+                        <TextBlock Text="Wähle einen Monitor, vergib einen eindeutigen Namen oder zeige die Monitorbezeichnungen auf allen Bildschirmen an."
+                                   Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,22" />
                         <Grid>
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="58" />
-                                <RowDefinition Height="*" />
-                            </Grid.RowDefinitions>
-                            <Grid Margin="18,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="Auto" />
-                                </Grid.ColumnDefinitions>
-                                <TextBlock x:Name="MonitorTitle" Text="Monitor" FontFamily="Segoe UI Variable Display" FontSize="18" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                <TextBlock Grid.Column="1" Text="Ziehen, skalieren oder exakt eingeben · Alt löst Magnetismus" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                            </Grid>
-                            <controls:LayoutCanvas Grid.Row="1" x:Name="EditorCanvas" MinHeight="390" ZoneSelected="EditorCanvas_ZoneSelected" ZoneChanged="EditorCanvas_ZoneChanged" AutomationProperties.Name="Layout-Editor" />
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="360" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="420" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource SectionCard}">
+                                <StackPanel>
+                                    <TextBlock Text="Monitor auswählen" Style="{StaticResource SectionTitle}" />
+                                    <TextBlock Text="Monitor" Style="{StaticResource FieldLabel}" Margin="0,18,0,5" />
+                                    <ListBox x:Name="MonitorManagementList" ItemsSource="{Binding Monitors}"
+                                             SelectedItem="{Binding SelectedMonitor, Mode=TwoWay}"
+                                             ItemTemplate="{StaticResource MonitorItemTemplate}"
+                                             MinHeight="120" MaxHeight="420"
+                                             ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                             AutomationProperties.Name="Alle Monitore" />
+                                    <Button x:Name="IdentifyMonitorsButton" Content="Monitore identifizieren" Click="IdentifyMonitors_Click"
+                                            Margin="0,18,0,0" AutomationProperties.Name="Monitore identifizieren"
+                                            ToolTip="Zeigt den verwendeten Namen drei Sekunden lang auf jedem Monitor an." />
+                                </StackPanel>
+                            </Border>
+                            <Border Grid.Column="2" Style="{StaticResource SectionCard}">
+                                <StackPanel>
+                                    <TextBlock Text="Monitor umbenennen" Style="{StaticResource SectionTitle}" />
+                                    <TextBlock Text="Monitorname" Style="{StaticResource FieldLabel}" Margin="0,18,0,5" />
+                                    <TextBox x:Name="MonitorNameText" Text="{Binding SelectedMonitor.CustomName, Mode=OneWay}"
+                                             LostFocus="MonitorName_LostFocus" AutomationProperties.Name="Eigener Monitorname"
+                                             ToolTip="Leer lassen, um automatisch Monitor 1, Monitor 2 usw. zu verwenden." />
+                                    <TextBlock Text="{Binding SelectedMonitor.DetailsText}" Foreground="{DynamicResource MutedBrush}"
+                                               TextWrapping="Wrap" Margin="0,14,0,0" />
+                                    <TextBlock Text="Ein leerer Name stellt den automatischen Monitornamen wieder her."
+                                               Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
+                                </StackPanel>
+                            </Border>
                         </Grid>
-                    </Border>
-
-                    <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="4" Style="{StaticResource SectionCard}" Margin="0">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
-                            <StackPanel>
-                                <TextBlock Text="Ausgewählte Zone" Style="{StaticResource SectionTitle}" />
-                                <TextBlock Text="Name" Style="{StaticResource FieldLabel}" Margin="0,16,0,5" />
-                                <TextBox x:Name="ZoneNameText" AutomationProperties.Name="Zonenname" />
-
-                                <TextBlock Text="Einheit" Style="{StaticResource FieldLabel}" Margin="0,14,0,5" />
-                                <ComboBox x:Name="ZoneUnitCombo" SelectionChanged="ZoneInputMode_Changed" SelectedIndex="0">
-                                    <ComboBoxItem Content="Prozent" Tag="Percent" />
-                                    <ComboBoxItem Content="Pixel" Tag="Pixels" />
-                                </ComboBox>
-                                <TextBlock Text="Prozent bleibt bei Auflösungswechseln proportional. Pixel bezieht sich auf die aktuell angezeigte Windows-Arbeitsfläche." Style="{StaticResource HelpText}" />
-
-                                <TextBlock Text="Definition" Style="{StaticResource FieldLabel}" Margin="0,14,0,5" />
-                                <ComboBox x:Name="ZoneDefinitionCombo" SelectionChanged="ZoneInputMode_Changed" SelectedIndex="0">
-                                    <ComboBoxItem Content="Position und Grösse" Tag="PositionAndSize" />
-                                    <ComboBoxItem Content="Aussenabstände" Tag="Margins" />
-                                </ComboBox>
-                                <TextBlock Text="Position und Grösse verwendet Links, Oben, Breite und Höhe. Aussenabstände verwendet Links, Oben, Rechts und Unten." Style="{StaticResource HelpText}" />
-
-                                <UniformGrid Columns="2" Margin="0,14,0,0">
-                                    <StackPanel Margin="0,0,6,0">
-                                        <TextBlock Text="Links" Style="{StaticResource FieldLabel}" />
-                                        <TextBox x:Name="ZoneLeftText" FontFamily="Cascadia Mono" />
-                                    </StackPanel>
-                                    <StackPanel Margin="6,0,0,0">
-                                        <TextBlock Text="Oben" Style="{StaticResource FieldLabel}" />
-                                        <TextBox x:Name="ZoneTopText" FontFamily="Cascadia Mono" />
-                                    </StackPanel>
-                                    <StackPanel Margin="0,12,6,0">
-                                        <TextBlock Text="Rechts" Style="{StaticResource FieldLabel}" />
-                                        <TextBox x:Name="ZoneRightText" FontFamily="Cascadia Mono" />
-                                    </StackPanel>
-                                    <StackPanel Margin="6,12,0,0">
-                                        <TextBlock Text="Unten" Style="{StaticResource FieldLabel}" />
-                                        <TextBox x:Name="ZoneBottomText" FontFamily="Cascadia Mono" />
-                                    </StackPanel>
-                                    <StackPanel Margin="0,12,6,0">
-                                        <TextBlock Text="Breite" Style="{StaticResource FieldLabel}" />
-                                        <TextBox x:Name="ZoneWidthText" FontFamily="Cascadia Mono" />
-                                    </StackPanel>
-                                    <StackPanel Margin="6,12,0,0">
-                                        <TextBlock Text="Höhe" Style="{StaticResource FieldLabel}" />
-                                        <TextBox x:Name="ZoneHeightText" FontFamily="Cascadia Mono" />
-                                    </StackPanel>
-                                </UniformGrid>
-                                <Button Content="Werte anwenden" Click="ApplyZoneValues_Click" Style="{StaticResource PrimaryButton}" Margin="0,18,0,8" />
-                                <Button Content="Zone löschen" Click="DeleteZone_Click" Margin="0,0,0,8" />
-                                <Button Content="Entwurf zurücksetzen" Click="ResetLayout_Click" Margin="0,0,0,8" />
-                                <TextBlock x:Name="ValidationText" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="0,8,0,0" />
-                            </StackPanel>
-                        </ScrollViewer>
-                    </Border>
-                </Grid>
+                    </StackPanel>
+                </ScrollViewer>
             </TabItem>
 
             <TabItem Header="Windows-Anzeige">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="48,30" MaxWidth="900" HorizontalAlignment="Left">
-                        <TextBlock Text="Windows-Anzeige" FontFamily="Segoe UI Variable Display" FontSize="26" FontWeight="SemiBold" />
-                        <TextBlock Text="Diese Seite zeigt den gewählten Monitor und führt zu den unterstützten Windows-Einstellungen. Sascha Window Zones verändert keine privaten Explorer- oder DPI-Strukturen." Style="{StaticResource HelpText}" Margin="0,6,0,20" />
-                        <TextBlock Text="Monitor" Style="{StaticResource FieldLabel}" />
-                        <ComboBox ItemsSource="{Binding Monitors}" SelectedItem="{Binding SelectedMonitor}" ItemTemplate="{StaticResource MonitorItemTemplate}" Margin="0,0,0,16" />
-
-                        <Border Style="{StaticResource SectionCard}">
-                            <StackPanel>
-                                <TextBlock Text="Anzeige skalieren" Style="{StaticResource SectionTitle}" />
-                                <TextBlock x:Name="WindowsScaleText" Text="Erkannter Wert" FontSize="18" FontWeight="SemiBold" Margin="0,12,0,0" />
-                                <TextBlock Text="Die normale Windows-Skalierung ist monitorbezogen, verwendet aber nur die von Windows und dem Grafiktreiber angebotenen Werte. Die freie benutzerdefinierte Skalierung von 100 bis 500 % gilt dagegen systemweit und kann eine Abmeldung erfordern." Style="{StaticResource HelpText}" />
-                                <Button Content="Windows-Anzeigeeinstellungen öffnen" Tag="ms-settings:display" Click="OpenSystemSetting_Click" Margin="0,14,0,0" HorizontalAlignment="Left" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource SectionCard}">
-                            <StackPanel>
-                                <TextBlock Text="Textgrösse" Style="{StaticResource SectionTitle}" />
-                                <TextBlock Text="Windows bietet 100 bis 225 %, wendet diesen Wert aber global auf alle Monitore an. Eine freie monitorweise Textskalierung kann eine normale Desktopanwendung nicht sicher setzen." Style="{StaticResource HelpText}" />
-                                <Button Content="Windows-Textgrösse öffnen" Tag="ms-settings:easeofaccess-textsize" Click="OpenSystemSetting_Click" Margin="0,14,0,0" HorizontalAlignment="Left" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource SectionCard}">
-                            <StackPanel>
-                                <TextBlock Text="Taskleiste und Symbole" Style="{StaticResource SectionTitle}" />
-                                <TextBlock Text="Windows 11 stellt keine unterstützte freie oder monitorweise Schnittstelle für Taskleistenhöhe und Symbolgrösse bereit. Drittprogramme erreichen dies durch Explorer-Injektion oder private Registry-Werte; diese instabilen Eingriffe werden bewusst nicht verwendet." Style="{StaticResource HelpText}" />
-                                <Button Content="Windows-Taskleisteneinstellungen öffnen" Tag="ms-settings:taskbar" Click="OpenSystemSetting_Click" Margin="0,14,0,0" HorizontalAlignment="Left" />
-                            </StackPanel>
-                        </Border>
+                    <StackPanel Margin="38,30" MaxWidth="1020" HorizontalAlignment="Left">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,22">
+                            <TextBlock Text="Windows-Anzeige" Style="{StaticResource PageTitle}" />
+                            <Button Style="{StaticResource InfoButton}" VerticalAlignment="Center" AutomationProperties.Name="Hilfe zur Windows-Anzeige"
+                                    ToolTip="Diese Seite zeigt erkannte Monitorwerte und öffnet die passenden Windows-Einstellungen. Das Programm verändert keine privaten Explorer-, DPI- oder Registry-Strukturen." />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
+                            <TextBlock Text="Monitor" Style="{StaticResource FieldLabel}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                            <ComboBox ItemsSource="{Binding Monitors}" SelectedItem="{Binding SelectedMonitor}" ItemTemplate="{StaticResource MonitorItemTemplate}" Width="340" />
+                        </StackPanel>
+                        <UniformGrid Columns="3">
+                            <Border Style="{StaticResource SectionCard}" Margin="0,0,10,0">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="Anzeige skalieren" Style="{StaticResource SectionTitle}" />
+                                        <Button Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Anzeigeskalierung"
+                                                ToolTip="Die normale Windows-Skalierung ist monitorbezogen und bietet nur unterstützte Werte. Eine freie benutzerdefinierte Skalierung gilt systemweit und kann eine Abmeldung erfordern." />
+                                    </StackPanel>
+                                    <TextBlock x:Name="WindowsScaleText" Text="Erkannter Wert" FontSize="22" FontWeight="SemiBold" Margin="0,18,0,18" />
+                                    <Button Content="Anzeigeeinstellungen öffnen" Tag="ms-settings:display" Click="OpenSystemSetting_Click" Margin="0" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource SectionCard}" Margin="0,0,10,0">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="Textgrösse" Style="{StaticResource SectionTitle}" />
+                                        <Button Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Textgrösse"
+                                                ToolTip="Windows bietet eine Textgrösse von 100 bis 225 Prozent, wendet sie jedoch global auf alle Monitore an. Eine sichere freie Einstellung pro Monitor ist nicht verfügbar." />
+                                    </StackPanel>
+                                    <Button Content="Textgrösse öffnen" Tag="ms-settings:easeofaccess-textsize" Click="OpenSystemSetting_Click" Margin="0,58,0,0" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource SectionCard}" Margin="0">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal"><TextBlock Text="Taskleiste" Style="{StaticResource SectionTitle}" />
+                                        <Button Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Taskleiste und Symbolen"
+                                                ToolTip="Windows 11 bietet keine unterstützte freie oder monitorweise Schnittstelle für Taskleistenhöhe und Symbolgrösse. Instabile Explorer-Eingriffe werden nicht verwendet." />
+                                    </StackPanel>
+                                    <Button Content="Taskleisteneinstellungen öffnen" Tag="ms-settings:taskbar" Click="OpenSystemSetting_Click" Margin="0,58,0,0" />
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
 
             <TabItem Header="Einstellungen">
+                <ScrollViewer x:Name="SettingsScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                              HorizontalContentAlignment="Stretch">
+                    <StackPanel x:Name="SettingsContent" Margin="38,30" HorizontalAlignment="Stretch">
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,22">
+                            <TextBlock Text="Einstellungen" Style="{StaticResource PageTitle}" />
+                            <Button Style="{StaticResource InfoButton}" VerticalAlignment="Center" AutomationProperties.Name="Hilfe zu den Einstellungen"
+                                    ToolTip="Gültige Änderungen werden automatisch gespeichert und sofort für die Snap-Funktion wirksam. Die Theme-Vorschau wird direkt angezeigt." />
+                        </StackPanel>
+                        <Border Background="{DynamicResource WarningSoftBrush}" BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1" CornerRadius="8" Padding="18" Margin="0,0,0,12">
+                            <Grid>
+                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Snap-Funktion automatisch aktiv" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    <Button Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Snap-Funktion"
+                                            ToolTip="Die Snap-Funktion läuft automatisch, sobald mindestens ein aktives Layout vorhanden ist. Escape beendet nur den aktuellen Ziehvorgang; der Not-Aus deaktiviert die Snap-Funktion bis zum nächsten Programmstart." />
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" Text="Not-Aus: Ctrl + Alt + Shift + F12" Foreground="{DynamicResource WarningBrush}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                            </Grid>
+                        </Border>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <TextBlock Text="Programm" Style="{StaticResource SectionTitle}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,5">
+                                            <TextBlock Text="Theme" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                            <Button x:Name="ThemeInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Theme"
+                                                    ToolTip="Windows-System folgt automatisch dem App-Modus von Windows. Hell oder Dunkel überschreibt diese Auswahl nur für Sascha’s Zone Manager." />
+                                        </StackPanel>
+                                        <ComboBox ItemsSource="{Binding Settings.ThemeModes}" SelectedItem="{Binding Settings.ThemeMode}" ItemTemplate="{StaticResource EnumItemTemplate}" SelectionChanged="Theme_SelectionChanged" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                                            <CheckBox Content="Mit Windows starten" IsChecked="{Binding Settings.StartWithWindows}" />
+                                            <Button Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Autostart"
+                                                    ToolTip="Erstellt automatisch einen Autostarteintrag nur für den aktuellen Benutzer. Dafür werden weder Administratorrechte noch ein Windows-Dienst benötigt." />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <TextBlock Text="Ziehen und Overlay" Style="{StaticResource SectionTitle}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,5">
+                                            <TextBlock Text="Overlays anzeigen" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                            <Button x:Name="OverlayScopeInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Overlaybereich"
+                                                    ToolTip="Alle Monitore zeigt die Zonen auf jeder aktiven Anzeige. Aktiver Monitor zeigt nur die Zonen des Bildschirms, auf dem sich der Mauszeiger befindet." />
+                                        </StackPanel>
+                                        <ComboBox ItemsSource="{Binding Settings.OverlayScopes}" SelectedItem="{Binding Settings.OverlayScope}" ItemTemplate="{StaticResource EnumItemTemplate}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,5">
+                                            <TextBlock Text="Aktivierung" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                            <Button x:Name="TriggerModeInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Overlayaktivierung"
+                                                    ToolTip="Sofort zeigt die Zonen bei jedem geeigneten Ziehen an der Titelleiste. Umschalttaste zeigt sie nur, wenn du beim Ziehen zusätzlich Shift gedrückt hältst." />
+                                        </StackPanel>
+                                        <ComboBox ItemsSource="{Binding Settings.TriggerModes}" SelectedItem="{Binding Settings.TriggerMode}" ItemTemplate="{StaticResource EnumItemTemplate}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                                            <CheckBox Content="Zonennamen anzeigen" IsChecked="{Binding Settings.ShowZoneNames}" />
+                                            <Button Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Zonennamen"
+                                                    ToolTip="Zeigt beim Verschieben den Namen jeder Zone auf einer kleinen dunklen Beschriftungsfläche. Kontur und Zielfläche bleiben auch ohne Namen sichtbar." />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <TextBlock Text="Overlay-Darstellung" Style="{StaticResource SectionTitle}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,5">
+                                            <TextBlock Text="Farbe" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                            <Button x:Name="OverlayColourInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Overlayfarbe"
+                                                    ToolTip="Gib eine RGB-Farbe im Format #RRGGBB ein. Das neutrale Windows-Grau #707070 wirkt ruhig; eine eigene Farbe bleibt möglich." />
+                                        </StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="38" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border x:Name="OverlayColorPreview" Width="38" Height="38" Background="{Binding Settings.OverlayColor}"
+                                                    BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="5"
+                                                    AutomationProperties.Name="Vorschau der Overlayfarbe" />
+                                            <TextBox x:Name="OverlayColorText" Grid.Column="1" Margin="10,0,0,0"
+                                                     Text="{Binding Settings.OverlayColor, UpdateSourceTrigger=PropertyChanged}" FontFamily="Cascadia Mono"
+                                                     AutomationProperties.Name="Hexwert der Overlayfarbe" />
+                                            <Button x:Name="OverlayColorPickerButton" Grid.Column="2" Content="Farbe wählen" Click="OverlayColorPicker_Click"
+                                                    Margin="10,0,0,0" AutomationProperties.Name="Overlayfarbe auswählen" />
+                                        </Grid>
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,3">
+                                            <TextBlock Text="Deckkraft" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                            <Button x:Name="OverlayOpacityInfoButton" Style="{StaticResource InfoButton}" Margin="7,0,0,0" AutomationProperties.Name="Hilfe zur Overlaydeckkraft"
+                                                    ToolTip="Eine kleine Deckkraft hält das Overlay sehr dezent. Die aktive Zielzone wird nur leicht verstärkt, damit das Ziel erkennbar bleibt, ohne den Bildschirm zu überdecken." />
+                                        </StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="120" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <Slider x:Name="OverlayOpacitySlider" Minimum="8" Maximum="75" Value="{Binding Settings.OverlayOpacityPercent}"
+                                                    TickFrequency="0.5" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" />
+                                            <TextBox x:Name="OverlayOpacityPercentText" Grid.Column="1" Margin="12,0,8,0" TextAlignment="Right"
+                                                     Text="{Binding Settings.OverlayOpacityPercent, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:0.#}}"
+                                                     AutomationProperties.Name="Deckkraft in Prozent" />
+                                            <TextBlock Grid.Column="2" Text="%" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Overlay-Abstände und Andocken" Style="{StaticResource SectionTitle}" />
+                                            <Button x:Name="OuterMarginsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu äusseren Abständen"
+                                                    ToolTip="Diese Werte bestimmen ausschliesslich die zusätzlichen Aussenabstände des Overlays. Fenster und Layoutdefinition bleiben unverändert; das Overlay behält auch bei 0 einen kleinen visuellen Mindestabstand. Zulässig sind 0 bis 400 Pixel." />
+                                        </StackPanel>
+                                        <TextBlock Text="Overlay-Aussenabstände in Pixel" Style="{StaticResource FieldLabel}" Margin="0,16,0,5" />
+                                        <UniformGrid Columns="4">
+                                            <StackPanel Margin="0,0,8,0"><TextBlock Text="Links" Style="{StaticResource FieldLabel}" /><TextBox Text="{Binding Settings.OuterMarginLeft, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                                            <StackPanel Margin="0,0,8,0"><TextBlock Text="Oben" Style="{StaticResource FieldLabel}" /><TextBox Text="{Binding Settings.OuterMarginTop, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                                            <StackPanel Margin="0,0,8,0"><TextBlock Text="Rechts" Style="{StaticResource FieldLabel}" /><TextBox Text="{Binding Settings.OuterMarginRight, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                                            <StackPanel><TextBlock Text="Unten" Style="{StaticResource FieldLabel}" /><TextBox Text="{Binding Settings.OuterMarginBottom, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+                                        </UniformGrid>
+                                        <Grid Margin="0,20,0,3">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <TextBlock Text="Overlay-Zonenabstand" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                            <Button Grid.Column="1" x:Name="ZoneGapInfoButton" Style="{StaticResource InfoButton}" Margin="7,0,0,0" AutomationProperties.Name="Hilfe zum Zonenabstand"
+                                                    ToolTip="Bestimmt den zusätzlichen Abstand zwischen benachbarten Overlayflächen. Fenster folgen exakt der Layoutdefinition; bei 0 behält das Overlay trotzdem seinen visuellen Mindestabstand." />
+                                            <TextBlock Grid.Column="3" Text="{Binding Settings.ZoneGap, StringFormat={}{0} px}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="120" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <Slider x:Name="ZoneGapSlider" Minimum="0" Maximum="100" Value="{Binding Settings.ZoneGapPercent}"
+                                                    TickFrequency="0.5" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" />
+                                            <TextBox x:Name="ZoneGapPercentText" Grid.Column="1" Margin="12,0,8,0" TextAlignment="Right"
+                                                     Text="{Binding Settings.ZoneGapPercent, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:0.#}}"
+                                                     AutomationProperties.Name="Zonenabstand in Prozent" />
+                                            <TextBlock Grid.Column="2" Text="%" VerticalAlignment="Center" />
+                                        </Grid>
+                                        <Grid Margin="0,16,0,3">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <TextBlock Text="Magnetdistanz" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                            <Button Grid.Column="1" x:Name="MagnetDistanceInfoButton" Style="{StaticResource InfoButton}" Margin="7,0,0,0" AutomationProperties.Name="Hilfe zur Magnetdistanz"
+                                                    ToolTip="Kanten innerhalb dieser Distanz docken im Editor automatisch an Monitor- oder Zonenkanten an. 0 deaktiviert das Andocken; Alt pausiert es beim Ziehen." />
+                                            <TextBlock Grid.Column="3" Text="{Binding Settings.MagnetThresholdPixels, StringFormat={}{0} px}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                        </Grid>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="120" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <Slider x:Name="MagnetThresholdSlider" Minimum="0" Maximum="100" Value="{Binding Settings.MagnetThresholdPercent}"
+                                                    TickFrequency="0.5" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" />
+                                            <TextBox x:Name="MagnetThresholdPercentText" Grid.Column="1" Margin="12,0,8,0" TextAlignment="Right"
+                                                     Text="{Binding Settings.MagnetThresholdPercent, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:0.#}}"
+                                                     AutomationProperties.Name="Magnetdistanz in Prozent" />
+                                            <TextBlock Grid.Column="2" Text="%" VerticalAlignment="Center" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Visueller Mindestabstand" Style="{StaticResource SectionTitle}" />
+                                            <Button x:Name="OverlayVisualMarginInfoButton" Style="{StaticResource InfoButton}"
+                                                    AutomationProperties.Name="Hilfe zum visuellen Overlay-Abstand"
+                                                    ToolTip="Dieser Abstand betrifft nur die Vorschau beim Ziehen. Die tatsächlichen Fenster bleiben exakt in den definierten Zonen und können direkt aneinander oder am Bildschirmrand liegen." />
+                                        </StackPanel>
+                                        <TextBlock Text="8 px visuell" FontSize="24" FontWeight="SemiBold" Margin="0,16,0,0" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <TabItem Header="Import / Export">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="48,30" MaxWidth="900" HorizontalAlignment="Left">
-                        <TextBlock Text="Einstellungen" FontFamily="Segoe UI Variable Display" FontSize="26" FontWeight="SemiBold" />
-                        <TextBlock Text="Alle Änderungen werden erst mit «Speichern» dauerhaft und für die Snap-Engine wirksam. Die Theme-Vorschau reagiert sofort." Style="{StaticResource HelpText}" Margin="0,6,0,20" />
-
-                        <Border Background="{DynamicResource WarningSoftBrush}" BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1" CornerRadius="6" Padding="18" Margin="0,0,0,14">
-                            <StackPanel>
-                                <CheckBox Content="Snap-Funktion aktivieren" IsChecked="{Binding Settings.SnappingEnabled}" Checked="SafetySetting_Changed" Unchecked="SafetySetting_Changed" FontWeight="SemiBold" />
-                                <TextBlock Text="Nach dem Speichern beobachtet die Anwendung dokumentierte Windows-Verschiebeereignisse. Not-Aus: Ctrl + Alt + Shift + F12; Escape beendet nur den aktuellen Ziehvorgang." Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap" Margin="24,6,0,0" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource SectionCard}">
-                            <StackPanel>
-                                <TextBlock Text="Programm" Style="{StaticResource SectionTitle}" />
-                                <TextBlock Text="Theme" Style="{StaticResource FieldLabel}" Margin="0,16,0,5" />
-                                <ComboBox ItemsSource="{Binding Settings.ThemeModes}" SelectedItem="{Binding Settings.ThemeMode}" ItemTemplate="{StaticResource EnumItemTemplate}" SelectionChanged="Theme_SelectionChanged" Width="300" HorizontalAlignment="Left" />
-                                <TextBlock Text="Windows-System folgt automatisch dem App-Modus von Windows. Hell und Dunkel überschreiben diese Auswahl nur für Sascha Window Zones." Style="{StaticResource HelpText}" />
-                                <CheckBox Content="Mit Windows starten" IsChecked="{Binding Settings.StartWithWindows}" Margin="0,18,0,0" />
-                                <TextBlock Text="Erstellt nach dem Speichern einen Autostarteintrag für den aktuellen Benutzer. Es werden keine Administratorrechte und kein Windows-Dienst verwendet." Style="{StaticResource HelpText}" Margin="24,5,0,0" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource SectionCard}">
-                            <StackPanel>
-                                <TextBlock Text="Ziehen und Overlay" Style="{StaticResource SectionTitle}" />
-                                <TextBlock Text="Overlays anzeigen" Style="{StaticResource FieldLabel}" Margin="0,16,0,5" />
-                                <ComboBox ItemsSource="{Binding Settings.OverlayScopes}" SelectedItem="{Binding Settings.OverlayScope}" ItemTemplate="{StaticResource EnumItemTemplate}" Width="300" HorizontalAlignment="Left" />
-                                <TextBlock Text="«Alle Monitore» zeigt jede aktive Monitorfläche; «Aktiver Monitor» zeigt nur die Fläche unter dem Mauszeiger." Style="{StaticResource HelpText}" />
-                                <TextBlock Text="Aktivierung" Style="{StaticResource FieldLabel}" Margin="0,16,0,5" />
-                                <ComboBox ItemsSource="{Binding Settings.TriggerModes}" SelectedItem="{Binding Settings.TriggerMode}" ItemTemplate="{StaticResource EnumItemTemplate}" Width="300" HorizontalAlignment="Left" />
-                                <TextBlock Text="Sofort zeigt Zonen bei jedem geeigneten Titelleisten-Ziehen. Die Umschalttaste begrenzt die Aktivierung auf bewusst ausgelöste Vorgänge." Style="{StaticResource HelpText}" />
-                                <CheckBox Content="Zonennamen im Overlay anzeigen" IsChecked="{Binding Settings.ShowZoneNames}" Margin="0,18,0,0" />
-                                <TextBlock Text="Blendet den Namen jeder Zone während des Ziehens ein. Die Zielkontur bleibt auch ohne Namen sichtbar." Style="{StaticResource HelpText}" Margin="24,5,0,0" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource SectionCard}">
-                            <StackPanel>
-                                <TextBlock Text="Abstände und Andocken" Style="{StaticResource SectionTitle}" />
-                                <TextBlock Text="Äussere Abstände in Pixel" Style="{StaticResource FieldLabel}" Margin="0,16,0,5" />
-                                <UniformGrid Columns="4">
-                                    <StackPanel Margin="0,0,8,0"><TextBlock Text="Links" Style="{StaticResource FieldLabel}" /><TextBox Text="{Binding Settings.OuterMarginLeft, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                                    <StackPanel Margin="0,0,8,0"><TextBlock Text="Oben" Style="{StaticResource FieldLabel}" /><TextBox Text="{Binding Settings.OuterMarginTop, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                                    <StackPanel Margin="0,0,8,0"><TextBlock Text="Rechts" Style="{StaticResource FieldLabel}" /><TextBox Text="{Binding Settings.OuterMarginRight, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                                    <StackPanel><TextBlock Text="Unten" Style="{StaticResource FieldLabel}" /><TextBox Text="{Binding Settings.OuterMarginBottom, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                                </UniformGrid>
-                                <TextBlock Text="Reserviert getrennt an jeder Seite Platz innerhalb der Windows-Arbeitsfläche. Gültiger Bereich: 0 bis 400 Pixel; die Taskleiste ist bereits aus der Arbeitsfläche ausgeschlossen." Style="{StaticResource HelpText}" />
-                                <TextBlock Text="Zonenabstand in Pixel" Style="{StaticResource FieldLabel}" Margin="0,16,0,5" />
-                                <Slider Minimum="0" Maximum="80" Value="{Binding Settings.ZoneGap}" TickFrequency="1" IsSnapToTickEnabled="True" />
-                                <TextBlock Text="Verteilt den Abstand gleichmässig zwischen benachbarten Zonen. 0 erzeugt ohne Rundungsreserve direkt aneinanderliegende Fenster." Style="{StaticResource HelpText}" />
-                                <TextBlock Text="Magnetdistanz in Pixel" Style="{StaticResource FieldLabel}" Margin="0,16,0,5" />
-                                <Slider Minimum="0" Maximum="40" Value="{Binding Settings.MagnetThresholdPixels}" TickFrequency="1" IsSnapToTickEnabled="True" />
-                                <TextBlock Text="Kanten innerhalb dieser Distanz docken im Editor an Monitor- oder Zonenkanten an. 0 deaktiviert das Andocken; Alt schaltet es während eines Ziehvorgangs vorübergehend aus." Style="{StaticResource HelpText}" />
-                            </StackPanel>
-                        </Border>
-
-                        <Border Style="{StaticResource SectionCard}">
-                            <StackPanel>
-                                <TextBlock Text="Overlay-Darstellung" Style="{StaticResource SectionTitle}" />
-                                <TextBlock Text="Farbe" Style="{StaticResource FieldLabel}" Margin="0,16,0,5" />
-                                <TextBox Text="{Binding Settings.OverlayColor}" Width="180" HorizontalAlignment="Left" FontFamily="Cascadia Mono" />
-                                <TextBlock Text="Hexadezimale RGB-Farbe im Format #RRGGBB. Sie bestimmt Füllung, Kontur und aktive Zielzone." Style="{StaticResource HelpText}" />
-                                <TextBlock Text="Deckkraft in Prozent" Style="{StaticResource FieldLabel}" Margin="0,16,0,5" />
-                                <Slider Minimum="8" Maximum="75" Value="{Binding Settings.OverlayOpacityPercent}" TickFrequency="1" />
-                                <TextBlock Text="8 % bleibt sehr fein; 75 % hebt Zonen stark hervor. Die aktive Zielzone wird zusätzlich verstärkt." Style="{StaticResource HelpText}" />
-                            </StackPanel>
-                        </Border>
+                    <StackPanel Margin="38,30" MaxWidth="940" HorizontalAlignment="Left">
+                        <TextBlock Text="Import / Export" Style="{StaticResource PageTitle}" Margin="0,0,0,8" />
+                        <TextBlock Text="Sichere die vollständige Konfiguration in einer Datei oder ersetze sie durch eine zuvor exportierte Konfiguration."
+                                   Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,22" />
+                        <UniformGrid Columns="2">
+                            <Border Style="{StaticResource SectionCard}" Margin="0,0,10,0">
+                                <StackPanel>
+                                    <TextBlock Text="Konfiguration exportieren" Style="{StaticResource SectionTitle}" />
+                                    <TextBlock Text="Erstellt ein vollständiges Backup mit Einstellungen, Monitorlayouts und Zonen."
+                                               Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,12,0,18" />
+                                    <Button x:Name="ExportConfigurationButton" Content="Vollständig exportieren"
+                                            Click="ExportConfiguration_Click" Style="{StaticResource PrimaryButton}"
+                                            Margin="0" AutomationProperties.Name="Vollständig exportieren" />
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource SectionCard}" Margin="10,0,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="Konfiguration importieren" Style="{StaticResource SectionTitle}" />
+                                    <TextBlock Text="Prüft ein vollständiges Backup und ersetzt die aktuelle Konfiguration erst nach Bestätigung."
+                                               Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,12,0,18" />
+                                    <Button x:Name="ImportConfigurationButton" Content="Vollständig importieren"
+                                            Click="ImportConfiguration_Click" Margin="0"
+                                            AutomationProperties.Name="Vollständig importieren" />
+                                </StackPanel>
+                            </Border>
+                        </UniformGrid>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
         </TabControl>
 
-        <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
-            <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource MutedBrush}" Margin="22,0" VerticalAlignment="Center" />
+        <Border Grid.Row="2" MinHeight="34" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
+            <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource MutedBrush}" Margin="20,0" VerticalAlignment="Center" FontSize="13" />
         </Border>
     </Grid>
 </Window>

@@ -2,7 +2,7 @@
 
 ## Start
 
-`SnapZones-prototype\SnapZones.exe` startet den Layout-Editor unter Windows 11 x64. Unter **Layouts** lassen sich pro erkanntem Monitor Zonen ziehen, skalieren, numerisch bearbeiten oder aus Vorlagen erzeugen; **Profile** verwaltet getrennte Arbeitskonfigurationen.
+`SaschaZoneManager.exe` startet den Layout-Editor unter Windows 11 x64. Unter **Layouts** besitzt jeder erkannte Monitor eigene Layouts, die unabhängig aktiviert, erstellt, umbenannt, gelöscht und bearbeitet werden können.
 
 ## Sicherheitsstatus
 
@@ -13,4 +13,4 @@
 
 ## Ablage
 
-Gespeicherte Einstellungen liegen unter `%APPDATA%\SnapZones\settings.json`, Protokolle unter `%LOCALAPPDATA%\SnapZones\logs\snapzones.log`.
+Gültige Änderungen werden automatisch gespeichert. Die aktive Konfiguration liegt unter `%APPDATA%\SnapZones\settings.json`, die fünf vorherigen Stände daneben als `settings.backup-1.json` bis `settings.backup-5.json`; **Export** und **Import** übertragen sämtliche Einstellungen, Monitorlayouts, Zonen und IDs in einem vollständigen JSON-Backup. Protokolle liegen unter `%LOCALAPPDATA%\SnapZones\logs\snapzones.log`.

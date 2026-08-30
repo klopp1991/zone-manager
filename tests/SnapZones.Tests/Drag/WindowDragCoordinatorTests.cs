@@ -99,7 +99,7 @@ public sealed class WindowDragCoordinatorTests
             new DragMonitorTarget(first, zones),
             new DragMonitorTarget(second, [new ZoneDefinition(Guid.NewGuid(), "Voll", NormalizedRect.Full)])
         };
-        return new WindowDragCoordinator(targets, new LayoutMetrics(0, 0), OverlayScope.AllMonitors);
+        return new WindowDragCoordinator(targets, OverlayScope.AllMonitors);
     }
 
     private static WindowSnapshot EligibleWindow() => new(true, false, false, false, false, true);

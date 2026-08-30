@@ -79,11 +79,14 @@ public sealed class WindowsMonitorService : IMonitorService
             stableId,
             friendlyName,
             displayPaths);
+        displayPaths.TryGetValue(info.DeviceName, out var displayPath);
         return new LiveMonitor(
             identity,
             workArea,
             dpiX,
             dpiY,
-            (info.Flags & User32.MonitorInfoPrimary) != 0);
+            (info.Flags & User32.MonitorInfoPrimary) != 0,
+            displayPath?.PhysicalWidthCentimeters,
+            displayPath?.PhysicalHeightCentimeters);
     }
 }

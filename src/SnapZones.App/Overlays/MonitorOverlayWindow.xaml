@@ -13,6 +13,6 @@
         WindowStartupLocation="Manual"
         Width="1"
         Height="1"
-        Title="Sascha Window Zones Overlay">
+        Title="Sascha’s Zone Manager Overlay">
     <Canvas x:Name="ZonesCanvas" IsHitTestVisible="False" />
 </Window>

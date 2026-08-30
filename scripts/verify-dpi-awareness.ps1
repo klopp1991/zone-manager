@@ -15,7 +15,7 @@ $settingsPath = Join-Path $env:APPDATA 'SnapZones\settings.json'
 if (Test-Path -LiteralPath $settingsPath) {
     $settings = (Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json).Settings
     if ($settings.SnappingEnabled -eq $true) {
-        throw 'Der DPI-Test startet Sascha Window Zones nur bei ausgeschalteter Snap-Funktion.'
+        throw "Der DPI-Test startet Sascha’s Zone Manager nur bei ausgeschalteter Snap-Funktion."
     }
 }
 
@@ -39,7 +39,7 @@ $process = Start-Process -FilePath $resolvedExecutable -PassThru
 try {
     [void]$process.WaitForInputIdle(5000)
     if ($process.HasExited) {
-        throw "Sascha Window Zones wurde vor dem DPI-Test beendet: ExitCode $($process.ExitCode)"
+        throw "Sascha’s Zone Manager wurde vor dem DPI-Test beendet: ExitCode $($process.ExitCode)"
     }
 
     $awareness = -1
@@ -49,7 +49,7 @@ try {
     }
 
     if ($awareness -ne 2) {
-        throw "Sascha Window Zones ist nicht pro Monitor DPI-bewusst: PROCESS_DPI_AWARENESS=$awareness"
+        throw "Sascha’s Zone Manager ist nicht pro Monitor DPI-bewusst: PROCESS_DPI_AWARENESS=$awareness"
     }
 
     Write-Output 'DPI_OK awareness=PerMonitor'

@@ -13,10 +13,17 @@ public sealed class WindowCandidateEvaluatorTests
         Assert.True(WindowCandidateEvaluator.IsEligible(snapshot));
     }
 
+    [Fact]
+    public void IsEligible_accepts_visible_own_process_titlebar_window()
+    {
+        var snapshot = new WindowSnapshot(true, false, true, false, false, true);
+
+        Assert.True(WindowCandidateEvaluator.IsEligible(snapshot));
+    }
+
     [Theory]
     [InlineData(false, false, false, false, false, true)]
     [InlineData(true, true, false, false, false, true)]
-    [InlineData(true, false, true, false, false, true)]
     [InlineData(true, false, false, true, false, true)]
     [InlineData(true, false, false, false, true, true)]
     [InlineData(true, false, false, false, false, false)]

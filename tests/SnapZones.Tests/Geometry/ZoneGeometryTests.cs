@@ -22,6 +22,18 @@ public sealed class ZoneGeometryTests
     }
 
     [Fact]
+    public void ToPixels_without_overlay_metrics_preserves_exact_layout_bounds()
+    {
+        var area = new MonitorWorkArea(-1920, 20, 1920, 1040);
+
+        var actual = ZoneGeometry.ToPixels(
+            new NormalizedRect(0.5, 0, 0.5, 1),
+            area);
+
+        Assert.Equal(new PixelRect(-960, 20, 960, 1040), actual);
+    }
+
+    [Fact]
     public void Validate_rejects_overlapping_zones()
     {
         var zones = new[]
@@ -41,7 +53,7 @@ public sealed class ZoneGeometryTests
         var zone = Zone("Voll", 0, 0, 1, 1);
         var area = new MonitorWorkArea(0, 0, 1920, 1040);
 
-        var hit = ZoneGeometry.HitTest([zone], area, LayoutMetrics.Default, new PointInt(1911, 1031));
+        var hit = ZoneGeometry.HitTest([zone], area, new PointInt(1919, 1039));
 
         Assert.Equal(zone, hit);
     }

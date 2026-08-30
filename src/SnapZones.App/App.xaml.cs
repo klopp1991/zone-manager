@@ -45,9 +45,14 @@ public partial class App : System.Windows.Application
 
         var context = new DispatcherSynchronizationContext(Dispatcher);
         singleInstance = new SingleInstanceService(ProductInfo.ProcessName, context);
-        if (!singleInstance.IsPrimary)
+        var startupDisposition = StartupPolicy.Decide(eventArgs.Args, singleInstance.IsPrimary);
+        if (startupDisposition is StartupDisposition.ActivateRunningInstance or StartupDisposition.ExitDuplicate)
         {
-            singleInstance.NotifyPrimary();
+            if (startupDisposition == StartupDisposition.ActivateRunningInstance)
+            {
+                singleInstance.NotifyPrimary();
+            }
+
             Shutdown();
             return;
         }
@@ -72,18 +77,36 @@ public partial class App : System.Windows.Application
             singleInstance.ActivationRequested += () =>
             {
                 mainWindow.Show();
+                if (mainWindow.WindowState == WindowState.Minimized)
+                {
+                    mainWindow.WindowState = WindowState.Normal;
+                }
+
                 mainWindow.Activate();
             };
-            DispatcherUnhandledException += (_, exceptionArgs) =>
+            singleInstance.StartListening();
+            DispatcherUnhandledException += async (_, exceptionArgs) =>
             {
                 log.Write("FATAL", "Unbehandelter UI-Fehler.", exceptionArgs.Exception);
-                controller?.EmergencyStop("Sicherheitsstopp nach einem UI-Fehler");
                 exceptionArgs.Handled = true;
+                if (controller is not null)
+                {
+                    controller.EmergencyStop("Sicherheitsstopp nach einem UI-Fehler");
+                    try
+                    {
+                        await controller.FlushAsync(CancellationToken.None);
+                    }
+                    catch (Exception saveException)
+                    {
+                        log.Write("ERROR", "Die Notfallsicherung ist fehlgeschlagen.", saveException);
+                    }
+                }
+
                 Shutdown(4);
             };
 
             MainWindow = mainWindow;
-            if (!eventArgs.Args.Contains("--autostart", StringComparer.OrdinalIgnoreCase))
+            if (startupDisposition == StartupDisposition.StartVisible)
             {
                 mainWindow.Show();
             }

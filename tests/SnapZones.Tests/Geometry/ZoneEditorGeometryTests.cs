@@ -33,5 +33,32 @@ public sealed class ZoneEditorGeometryTests
 
         Assert.Equal(new NormalizedRect(0.1, 0.1, 0.75, 0.7), bounds);
     }
-}
 
+    [Fact]
+    public void FromPositionAndSize_converts_each_value_in_its_own_unit()
+    {
+        var bounds = ZoneEditorGeometry.FromPositionAndSize(
+            new ZoneMeasurement(320, MeasurementUnit.Pixels),
+            new ZoneMeasurement(10, MeasurementUnit.Percent),
+            new ZoneMeasurement(50, MeasurementUnit.Percent),
+            new ZoneMeasurement(540, MeasurementUnit.Pixels),
+            3200,
+            1080);
+
+        Assert.Equal(new NormalizedRect(0.1, 0.1, 0.5, 0.5), bounds);
+    }
+
+    [Fact]
+    public void FromMargins_converts_each_value_in_its_own_unit()
+    {
+        var bounds = ZoneEditorGeometry.FromMargins(
+            new ZoneMeasurement(320, MeasurementUnit.Pixels),
+            new ZoneMeasurement(10, MeasurementUnit.Percent),
+            new ZoneMeasurement(640, MeasurementUnit.Pixels),
+            new ZoneMeasurement(20, MeasurementUnit.Percent),
+            3200,
+            1080);
+
+        Assert.Equal(new NormalizedRect(0.1, 0.1, 0.7, 0.7), bounds);
+    }
+}

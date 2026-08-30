@@ -80,13 +80,15 @@ internal static class DisplayPathIdentityProvider
                 continue;
             }
 
+            var physicalSize = EdidPhysicalSizeReader.Read(target.MonitorDevicePath);
             result[source.ViewGdiDeviceName] = new DisplayPathIdentity(
                 source.ViewGdiDeviceName,
                 target.MonitorDevicePath,
-                target.MonitorFriendlyDeviceName);
+                target.MonitorFriendlyDeviceName,
+                physicalSize?.PhysicalWidthCentimeters,
+                physicalSize?.PhysicalHeightCentimeters);
         }
 
         return result;
     }
 }
-

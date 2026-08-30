@@ -1,16 +1,18 @@
-# Sascha Window Zones
+# Sascha’s Zone Manager
 
-Sascha Window Zones erstellt frei bearbeitbare Fensterbereiche pro Monitor. Beim Ziehen eines geeigneten Fensters an der Titelleiste zeigt die aktivierte Snap-Funktion die Bereiche als Overlay; beim Loslassen füllt das Fenster die gewählte Zone.
+Sascha’s Zone Manager erstellt frei bearbeitbare Fensterbereiche pro Monitor. Sobald mindestens ein aktives Layout vorhanden ist, zeigt die Snap-Funktion beim Ziehen eines geeigneten Fensters an der Titelleiste die Bereiche als Overlay; beim Loslassen füllt das Fenster die gewählte Zone.
 
 ## Schnellstart
 
-1. `outputs/Sascha-Window-Zones-prototype/SaschaWindowZones.exe` starten.
-2. Zuerst unter **Profile** das gewünschte Profil wählen oder erstellen.
-3. Unter **Layouts** einen Monitor wählen, die vorhandene Zone anpassen und mit **+ Neue Zone** die grösste freie Fläche belegen.
+1. `SaschaZoneManager.exe` direkt im Rootverzeichnis starten und die Windows-UAC-Abfrage bestätigen.
+2. Unter **Layouts** einen Monitor und eines seiner Layouts wählen oder ein neues Layout erstellen.
+3. Die vorhandenen Zonen anpassen und mit **+ Neue Zone** die grösste freie Fläche belegen.
 4. Zonen ziehen, über acht Griffe skalieren oder als Prozent/Pixel mit Position/Grösse beziehungsweise vier Aussenabständen eingeben.
-5. Unter **Einstellungen** die Snap-Funktion bewusst aktivieren und **Speichern** wählen.
+5. Die Snap-Funktion läuft mit den aktiven Layouts automatisch; jede gültige Änderung wird sofort gespeichert und angewendet.
 
-Konfiguration und bestehende Installationen bleiben unter `%APPDATA%\SnapZones\settings.json` kompatibel. Snap-Funktion und Autostart sind beim ersten Start ausgeschaltet.
+Konfiguration und bestehende Installationen bleiben unter `%APPDATA%\SnapZones\settings.json` kompatibel. Die fünf letzten Stände liegen daneben als `settings.backup-1.json` bis `settings.backup-5.json`; bei einer beschädigten Hauptdatei wird die neueste gültige Sicherung automatisch wiederhergestellt. Autostart ist beim ersten Start ausgeschaltet.
+
+**Export** schreibt jederzeit ein vollständiges JSON-Backup mit sämtlichen Einstellungen, Monitorlayouts, Zonen, IDs und Parametern. **Import** validiert die komplette Datei, zeigt den exakten Ersetzungsumfang und sichert den bisherigen Zustand unmittelbar vor der bestätigten Übernahme. Bestehende Profilkonfigurationen aus Schema 1 werden beim Laden in unabhängige Layouts pro Monitor migriert.
 
 ## Layouteditor
 
@@ -24,27 +26,27 @@ Konfiguration und bestehende Installationen bleiben unter `%APPDATA%\SnapZones\s
 
 Monitornamen werden bevorzugt aus dem aktiven Displaypfad und den EDID-Daten gelesen. Die Seite **Windows-Anzeige** zeigt den erkannten monitorbezogenen Skalierungswert und öffnet die zuständigen Windows-Seiten.
 
-Windows 11 stellt normalen Desktopanwendungen keine unterstützte Schnittstelle für frei wählbare monitorweise Textskalierung oder monitorweise Taskleisten-/Icongrössen bereit. Benutzerdefinierte Windows-Skalierung von 100 bis 500 % und Textskalierung von 100 bis 225 % sind globale Windows-Einstellungen; Sascha Window Zones verwendet dafür keine Explorer-Injektion, privaten DPI-Pakete oder undokumentierten Registry-Werte.
+Windows 11 stellt normalen Desktopanwendungen keine unterstützte Schnittstelle für frei wählbare monitorweise Textskalierung oder monitorweise Taskleisten-/Icongrössen bereit. Benutzerdefinierte Windows-Skalierung von 100 bis 500 % und Textskalierung von 100 bis 225 % sind globale Windows-Einstellungen; Sascha’s Zone Manager verwendet dafür keine Explorer-Injektion, privaten DPI-Pakete oder undokumentierten Registry-Werte.
 
 ## Einstellungen
 
 - System-, helles oder dunkles Theme; Systemänderungen werden ohne Neustart übernommen.
 - Overlay auf allen Monitoren oder nur auf dem aktiven Monitor.
 - Sofortige Aktivierung oder Aktivierung mit Umschalttaste.
-- Separate äussere Abstände links, oben, rechts und unten, Zonenabstand und Magnetdistanz.
+- Separate Overlay-Aussenabstände links, oben, rechts und unten, Overlay-Zonenabstand und Magnetdistanz für den Layouteditor.
 - Overlayfarbe, Deckkraft und ein-/ausblendbare Zonennamen.
-- Autostart pro Benutzer ohne Administratorrechte.
+- Autostart pro Benutzer; die Windows-UAC-Abfrage muss auch beim Login bestätigt werden.
 
 Jede Einstellung erklärt direkt in der Oberfläche Wirkung, Gültigkeitsbereich und Einschränkungen.
 
 ## Sicherheit und Not-Aus
 
-`Ctrl + Alt + Shift + F12` deaktiviert Hook und Overlays sofort und speichert die Snap-Funktion als ausgeschaltet. `Escape` beendet nur den aktuellen Ziehvorgang. Die Anwendung enthält keinen Treiber, keinen Windows-Dienst und keine Code-Injektion; ein Schutzschalter stoppt die Snap-Funktion bei Callback-Fehlern oder ungewöhnlich vielen Hook-Ereignissen.
+Normale Programmstarts wechseln vor dem Laden der Oberfläche über die Windows-UAC-Abfrage in den Administratormodus. Dadurch kann die Anwendung auch erhöhte Fenster positionieren; der reine Diagnosemodus bleibt absichtlich ohne Elevation. `Ctrl + Alt + Shift + F12` deaktiviert Hook und Overlays bis zum nächsten Programmstart. `Escape` beendet nur den aktuellen Ziehvorgang. Die Anwendung enthält keinen Treiber, keinen Windows-Dienst und keine Code-Injektion; ein Schutzschalter stoppt die Snap-Funktion bei Callback-Fehlern oder ungewöhnlich vielen Hook-Ereignissen.
 
 ## Diagnose
 
 ```powershell
-SaschaWindowZones.exe --diagnostics
+SaschaZoneManager.exe --diagnostics
 ```
 
 Die Diagnose liest Konfigurationsstatus, Monitore, DPI und Autostartstatus. Sie registriert keinen Fenster-Hook und verändert weder Einstellungen noch Registry.
@@ -52,7 +54,7 @@ Die Diagnose liest Konfigurationsstatus, Monitore, DPI und Autostartstatus. Sie 
 ## Einschränkungen
 
 - Nur Windows 11 x64.
-- Fenster mit höheren Administratorrechten können ohne gleich hohe Rechte nicht positioniert werden.
+- Wird die Windows-UAC-Abfrage abgebrochen, startet die Anwendung nicht.
 - Nicht rechteckige oder überlappende Zonen, virtuelle Desktops, Fensterregeln und automatische Updates sind noch nicht enthalten.
 - Eigene Layouts können nicht über eine dokumentierte API in das native Windows-Snap-Popup eingefügt werden; die Anwendung verwendet ein eigenes Overlay.
 - Der Prototyp ist nicht digital signiert und kann beim ersten Start eine Windows-Sicherheitswarnung auslösen.
@@ -65,4 +67,6 @@ Voraussetzung ist das .NET 8 SDK. Der vollständige Prüf- und Publish-Lauf laut
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1
 ```
 
-Das Skript erzeugt das Mehrgrössen-Icon, stellt Pakete wieder her, führt alle Tests aus, baut Release, veröffentlicht selbständig für `win-x64` und prüft Diagnose sowie Per-Monitor-DPI ohne aktivierten Hook.
+Das Skript erzeugt das Mehrgrössen-Icon, stellt Pakete wieder her, führt alle Tests aus, baut Release, veröffentlicht eine selbständige Einzeldatei für `win-x64`, kopiert `SaschaZoneManager.exe` ins Rootverzeichnis und prüft Diagnose sowie Per-Monitor-DPI ohne aktivierten Hook.
+
+Auch ein normaler `dotnet build` oder Build in Visual Studio veröffentlicht nach erfolgreicher Kompilierung automatisch eine selbständige `win-x64`-Einzeldatei als `SaschaZoneManager.exe` direkt ins Rootverzeichnis. Eine dort noch laufende Vorgängerversion wird atomar ersetzt und bis zu ihrem Prozessende als ignorierte Sicherungsdatei beibehalten.

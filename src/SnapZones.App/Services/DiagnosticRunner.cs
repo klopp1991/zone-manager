@@ -1,5 +1,7 @@
 using System.Text.Json;
 using System.IO;
+using SnapZones.App.ViewModels;
+using SnapZones.Core.Models;
 using SnapZones.Windows.Displays;
 using SnapZones.Windows.Startup;
 
@@ -30,11 +32,14 @@ public static class DiagnosticRunner
         }
 
         var monitors = new WindowsMonitorService().GetMonitors();
+        var startupViewModel = new MainViewModel(SnapConfiguration.CreateDefault(), monitors);
         var report = new
         {
-            application = "Sascha Window Zones",
+            application = "Sascha’s Zone Manager",
             configurationStatus,
             schemaVersion,
+            startupConfigurationReady = true,
+            startupLayoutCount = startupViewModel.Configuration.Layouts.Count,
             monitors = monitors.Select(monitor => new
             {
                 monitor.Identity.StableId,

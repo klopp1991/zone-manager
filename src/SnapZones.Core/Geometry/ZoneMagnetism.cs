@@ -12,6 +12,8 @@ public enum ZoneEdges
     Bottom = 8
 }
 
+public readonly record struct ZoneSnapResult(NormalizedRect Bounds, ZoneEdges SnappedEdges);
+
 public static class ZoneMagnetism
 {
     private const double MinimumSize = 0.04;
@@ -21,33 +23,65 @@ public static class ZoneMagnetism
         IReadOnlyList<NormalizedRect> otherZones,
         int thresholdPixels,
         int monitorWidth,
+        int monitorHeight) =>
+        SnapMoveWithResult(moving, otherZones, thresholdPixels, monitorWidth, monitorHeight).Bounds;
+
+    public static ZoneSnapResult SnapMoveWithResult(
+        NormalizedRect moving,
+        IReadOnlyList<NormalizedRect> otherZones,
+        int thresholdPixels,
+        int monitorWidth,
         int monitorHeight)
     {
         if (thresholdPixels <= 0)
         {
-            return moving;
+            return new ZoneSnapResult(moving, ZoneEdges.None);
         }
 
-        var xCandidates = new List<double> { 0, 1 - moving.Width };
-        var yCandidates = new List<double> { 0, 1 - moving.Height };
+        var xCandidates = new List<SnapCandidate>
+        {
+            new(0, ZoneEdges.Left),
+            new(1 - moving.Width, ZoneEdges.Right)
+        };
+        var yCandidates = new List<SnapCandidate>
+        {
+            new(0, ZoneEdges.Top),
+            new(1 - moving.Height, ZoneEdges.Bottom)
+        };
         foreach (var other in otherZones)
         {
-            xCandidates.Add(other.X + other.Width);
-            xCandidates.Add(other.X - moving.Width);
-            yCandidates.Add(other.Y + other.Height);
-            yCandidates.Add(other.Y - moving.Height);
+            xCandidates.Add(new SnapCandidate(other.X + other.Width, ZoneEdges.Left));
+            xCandidates.Add(new SnapCandidate(other.X - moving.Width, ZoneEdges.Right));
+            yCandidates.Add(new SnapCandidate(other.Y + other.Height, ZoneEdges.Top));
+            yCandidates.Add(new SnapCandidate(other.Y - moving.Height, ZoneEdges.Bottom));
         }
 
         var x = Nearest(moving.X, xCandidates, thresholdPixels, monitorWidth);
         var y = Nearest(moving.Y, yCandidates, thresholdPixels, monitorHeight);
-        return moving with
+        var bounds = moving with
         {
-            X = Math.Clamp(x, 0, 1 - moving.Width),
-            Y = Math.Clamp(y, 0, 1 - moving.Height)
+            X = Math.Clamp(x.Value, 0, 1 - moving.Width),
+            Y = Math.Clamp(y.Value, 0, 1 - moving.Height)
         };
+        return new ZoneSnapResult(bounds, x.Edge | y.Edge);
     }
 
     public static NormalizedRect SnapResize(
+        NormalizedRect resizing,
+        IReadOnlyList<NormalizedRect> otherZones,
+        ZoneEdges movingEdges,
+        int thresholdPixels,
+        int monitorWidth,
+        int monitorHeight) =>
+        SnapResizeWithResult(
+            resizing,
+            otherZones,
+            movingEdges,
+            thresholdPixels,
+            monitorWidth,
+            monitorHeight).Bounds;
+
+    public static ZoneSnapResult SnapResizeWithResult(
         NormalizedRect resizing,
         IReadOnlyList<NormalizedRect> otherZones,
         ZoneEdges movingEdges,
@@ -57,55 +91,84 @@ public static class ZoneMagnetism
     {
         if (thresholdPixels <= 0 || movingEdges == ZoneEdges.None)
         {
-            return resizing;
+            return new ZoneSnapResult(resizing, ZoneEdges.None);
         }
 
-        var horizontalEdges = otherZones.SelectMany(zone => new[] { zone.X, zone.X + zone.Width }).Append(0).Append(1).ToArray();
-        var verticalEdges = otherZones.SelectMany(zone => new[] { zone.Y, zone.Y + zone.Height }).Append(0).Append(1).ToArray();
+        var horizontalEdges = otherZones
+            .SelectMany(zone => new[] { zone.X, zone.X + zone.Width })
+            .Append(0)
+            .Append(1)
+            .Select(value => new SnapCandidate(value, ZoneEdges.None))
+            .ToArray();
+        var verticalEdges = otherZones
+            .SelectMany(zone => new[] { zone.Y, zone.Y + zone.Height })
+            .Append(0)
+            .Append(1)
+            .Select(value => new SnapCandidate(value, ZoneEdges.None))
+            .ToArray();
         var left = resizing.X;
         var top = resizing.Y;
         var right = resizing.X + resizing.Width;
         var bottom = resizing.Y + resizing.Height;
+        var snappedEdges = ZoneEdges.None;
 
         if (movingEdges.HasFlag(ZoneEdges.Left))
         {
-            left = Math.Min(Nearest(left, horizontalEdges, thresholdPixels, monitorWidth), right - MinimumSize);
+            var snap = Nearest(left, horizontalEdges, thresholdPixels, monitorWidth);
+            left = Math.Min(snap.Value, right - MinimumSize);
+            if (snap.Snapped && NearlyEqual(left, snap.Value)) snappedEdges |= ZoneEdges.Left;
         }
         if (movingEdges.HasFlag(ZoneEdges.Right))
         {
-            right = Math.Max(Nearest(right, horizontalEdges, thresholdPixels, monitorWidth), left + MinimumSize);
+            var snap = Nearest(right, horizontalEdges, thresholdPixels, monitorWidth);
+            right = Math.Max(snap.Value, left + MinimumSize);
+            if (snap.Snapped && NearlyEqual(right, snap.Value)) snappedEdges |= ZoneEdges.Right;
         }
         if (movingEdges.HasFlag(ZoneEdges.Top))
         {
-            top = Math.Min(Nearest(top, verticalEdges, thresholdPixels, monitorHeight), bottom - MinimumSize);
+            var snap = Nearest(top, verticalEdges, thresholdPixels, monitorHeight);
+            top = Math.Min(snap.Value, bottom - MinimumSize);
+            if (snap.Snapped && NearlyEqual(top, snap.Value)) snappedEdges |= ZoneEdges.Top;
         }
         if (movingEdges.HasFlag(ZoneEdges.Bottom))
         {
-            bottom = Math.Max(Nearest(bottom, verticalEdges, thresholdPixels, monitorHeight), top + MinimumSize);
+            var snap = Nearest(bottom, verticalEdges, thresholdPixels, monitorHeight);
+            bottom = Math.Max(snap.Value, top + MinimumSize);
+            if (snap.Snapped && NearlyEqual(bottom, snap.Value)) snappedEdges |= ZoneEdges.Bottom;
         }
 
         left = Math.Clamp(left, 0, 1);
         top = Math.Clamp(top, 0, 1);
         right = Math.Clamp(right, 0, 1);
         bottom = Math.Clamp(bottom, 0, 1);
-        return new NormalizedRect(left, top, right - left, bottom - top);
+        return new ZoneSnapResult(
+            new NormalizedRect(left, top, right - left, bottom - top),
+            snappedEdges);
     }
 
-    private static double Nearest(double current, IEnumerable<double> candidates, int thresholdPixels, int axisPixels)
+    private static SnapMatch Nearest(
+        double current,
+        IEnumerable<SnapCandidate> candidates,
+        int thresholdPixels,
+        int axisPixels)
     {
-        var best = current;
+        var best = new SnapMatch(current, ZoneEdges.None, false);
         var bestDistance = double.MaxValue;
         foreach (var candidate in candidates)
         {
-            var distance = Math.Abs(candidate - current) * Math.Max(1, axisPixels);
+            var distance = Math.Abs(candidate.Value - current) * Math.Max(1, axisPixels);
             if (distance <= thresholdPixels && distance < bestDistance)
             {
-                best = candidate;
+                best = new SnapMatch(candidate.Value, candidate.Edge, true);
                 bestDistance = distance;
             }
         }
 
         return best;
     }
-}
 
+    private static bool NearlyEqual(double first, double second) => Math.Abs(first - second) <= 0.0000001;
+
+    private readonly record struct SnapCandidate(double Value, ZoneEdges Edge);
+    private readonly record struct SnapMatch(double Value, ZoneEdges Edge, bool Snapped);
+}

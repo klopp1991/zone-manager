@@ -2,12 +2,14 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;
+using SnapZones.Core.Monitors;
 
 namespace SnapZones.Core.Persistence;
 
 public sealed class JsonConfigurationRepository : IConfigurationRepository
 {
     private const string SettingsFileName = "settings.json";
+    private const int BackupCount = 5;
     private readonly string directoryPath;
     private readonly JsonSerializerOptions serializerOptions;
 
@@ -15,12 +17,7 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directoryPath);
         this.directoryPath = directoryPath;
-        serializerOptions = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            PropertyNameCaseInsensitive = true
-        };
-        serializerOptions.Converters.Add(new JsonStringEnumConverter());
+        serializerOptions = CreateSerializerOptions();
     }
 
     public async Task<ConfigurationLoadResult> LoadAsync(CancellationToken cancellationToken)
@@ -28,38 +25,56 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
         var settingsPath = Path.Combine(directoryPath, SettingsFileName);
         if (!File.Exists(settingsPath))
         {
-            return new ConfigurationLoadResult(SnapConfiguration.CreateDefault(), false);
+            var recovered = await RecoverFromBackupAsync(cancellationToken);
+            return recovered ?? new ConfigurationLoadResult(SnapConfiguration.CreateDefault(), false);
         }
 
         try
         {
-            await using var stream = new FileStream(
-                settingsPath,
-                FileMode.Open,
-                FileAccess.Read,
-                FileShare.Read,
-                bufferSize: 4096,
-                FileOptions.Asynchronous | FileOptions.SequentialScan);
-            var configuration = await JsonSerializer.DeserializeAsync<SnapConfiguration>(
-                stream,
-                serializerOptions,
-                cancellationToken);
+            SnapConfiguration? loaded;
+            await using (var stream = new FileStream(
+                             settingsPath,
+                             FileMode.Open,
+                             FileAccess.Read,
+                             FileShare.Read,
+                             bufferSize: 4096,
+                             FileOptions.Asynchronous | FileOptions.SequentialScan))
+            {
+                loaded = await JsonSerializer.DeserializeAsync<SnapConfiguration>(
+                    stream,
+                    serializerOptions,
+                    cancellationToken);
+            }
+
+            var configuration = Upgrade(loaded);
             Validate(configuration);
-            return new ConfigurationLoadResult(configuration!, false);
+            configuration = ApplyCompatibleVisualDefaults(configuration);
+            if (loaded?.SchemaVersion != SnapConfiguration.CurrentSchemaVersion)
+            {
+                await SaveAsync(configuration, cancellationToken);
+            }
+
+            return new ConfigurationLoadResult(configuration, false);
         }
         catch (OperationCanceledException)
         {
             throw;
         }
-        catch (Exception exception) when (exception is JsonException or IOException or InvalidDataException)
+        catch (Exception exception) when (exception is JsonException or InvalidDataException)
         {
             Directory.CreateDirectory(directoryPath);
             var backupName = $"settings.invalid-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmssfff}-{Guid.NewGuid():N}.json";
             File.Move(settingsPath, Path.Combine(directoryPath, backupName));
-            return new ConfigurationLoadResult(
-                SnapConfiguration.CreateDefault(),
-                true,
-                $"Die Konfiguration war ungültig und wurde als {backupName} gesichert.");
+            var recovered = await RecoverFromBackupAsync(cancellationToken);
+            return recovered is null
+                ? new ConfigurationLoadResult(
+                    SnapConfiguration.CreateDefault(),
+                    true,
+                    $"Die Konfiguration war ungültig und wurde als {backupName} gesichert.")
+                : recovered with
+                {
+                    ErrorMessage = $"Die Konfiguration war ungültig, wurde als {backupName} gesichert und aus einer Sicherung wiederhergestellt."
+                };
         }
     }
 
@@ -85,7 +100,15 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
                 await stream.FlushAsync(cancellationToken);
             }
 
-            File.Move(temporaryPath, settingsPath, overwrite: true);
+            if (File.Exists(settingsPath))
+            {
+                RotateBackups();
+                File.Replace(temporaryPath, settingsPath, BackupPath(1), ignoreMetadataErrors: true);
+            }
+            else
+            {
+                File.Move(temporaryPath, settingsPath);
+            }
         }
         finally
         {
@@ -96,7 +119,132 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
         }
     }
 
-    private static void Validate(SnapConfiguration? configuration)
+    private async Task<ConfigurationLoadResult?> RecoverFromBackupAsync(CancellationToken cancellationToken)
+    {
+        for (var index = 1; index <= BackupCount; index++)
+        {
+            var backupPath = BackupPath(index);
+            if (!File.Exists(backupPath))
+            {
+                continue;
+            }
+
+            try
+            {
+                await using var stream = new FileStream(
+                    backupPath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read,
+                    bufferSize: 4096,
+                    FileOptions.Asynchronous | FileOptions.SequentialScan);
+                var loaded = await JsonSerializer.DeserializeAsync<SnapConfiguration>(
+                    stream,
+                    serializerOptions,
+                    cancellationToken);
+                var configuration = Upgrade(loaded);
+                Validate(configuration);
+                var compatible = ApplyCompatibleVisualDefaults(configuration);
+                await SaveAsync(compatible, cancellationToken);
+                return new ConfigurationLoadResult(
+                    compatible,
+                    true,
+                    $"Die Konfiguration wurde aus Sicherung {index} wiederhergestellt.");
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception exception) when (exception is JsonException or IOException or InvalidDataException)
+            {
+                // Eine einzelne beschädigte Sicherung darf ältere Sicherungen nicht blockieren.
+            }
+        }
+
+        return null;
+    }
+
+    private void RotateBackups()
+    {
+        for (var index = BackupCount; index >= 2; index--)
+        {
+            var sourcePath = BackupPath(index - 1);
+            if (File.Exists(sourcePath))
+            {
+                File.Move(sourcePath, BackupPath(index), overwrite: true);
+            }
+        }
+    }
+
+    private string BackupPath(int index) => Path.Combine(directoryPath, $"settings.backup-{index}.json");
+
+    private static SnapConfiguration ApplyCompatibleVisualDefaults(SnapConfiguration configuration)
+    {
+        if (!string.Equals(configuration.Settings.OverlayColor, "#2F6FED", StringComparison.OrdinalIgnoreCase))
+        {
+            return configuration;
+        }
+
+        return configuration with
+        {
+            Settings = configuration.Settings with { OverlayColor = "#707070" }
+        };
+    }
+
+    internal static JsonSerializerOptions CreateSerializerOptions()
+    {
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNameCaseInsensitive = true
+        };
+        options.Converters.Add(new JsonStringEnumConverter());
+        return options;
+    }
+
+    internal static SnapConfiguration Upgrade(SnapConfiguration? configuration)
+    {
+        if (configuration is null)
+        {
+            throw new InvalidDataException("Die Konfiguration ist leer.");
+        }
+
+        if (configuration.SchemaVersion == SnapConfiguration.CurrentSchemaVersion)
+        {
+            return configuration;
+        }
+
+        if (configuration.SchemaVersion != 1 || configuration.LegacyProfiles is not { Count: > 0 } profiles)
+        {
+            throw new InvalidDataException("Die Konfigurationsversion wird nicht unterstützt.");
+        }
+
+        var layouts = profiles
+            .SelectMany(profile => profile.Monitors.Select(monitor => monitor with
+            {
+                Id = monitor.Id == Guid.Empty ? Guid.NewGuid() : monitor.Id,
+                Name = profile.Name.Trim(),
+                IsActive = profile.Id == configuration.Settings.ActiveProfileId
+            }))
+            .ToList();
+
+        foreach (var group in layouts.GroupBy(MonitorKey, StringComparer.OrdinalIgnoreCase))
+        {
+            if (group.Count(layout => layout.IsActive) == 0)
+            {
+                var firstId = group.First().Id;
+                var index = layouts.FindIndex(layout => layout.Id == firstId);
+                layouts[index] = layouts[index] with { IsActive = true };
+            }
+        }
+
+        return new SnapConfiguration(
+            SnapConfiguration.CurrentSchemaVersion,
+            configuration.Settings with { ActiveProfileId = Guid.Empty },
+            layouts);
+    }
+
+    internal static void Validate(SnapConfiguration? configuration)
     {
         if (configuration is null)
         {
@@ -108,25 +256,99 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
             throw new InvalidDataException("Die Konfigurationsversion wird nicht unterstützt.");
         }
 
-        if (configuration.Profiles.Count == 0 || configuration.Profiles.Any(profile => string.IsNullOrWhiteSpace(profile.Name)))
+        if (configuration.Layouts.Any(layout =>
+                layout.Id == Guid.Empty ||
+                string.IsNullOrWhiteSpace(layout.Name)))
         {
-            throw new InvalidDataException("Mindestens ein benanntes Profil ist erforderlich.");
+            throw new InvalidDataException("Jedes Layout benötigt eine ID und einen Namen.");
         }
 
-        if (configuration.Profiles.Select(profile => profile.Id).Distinct().Count() != configuration.Profiles.Count)
+        if (configuration.Layouts.Select(layout => layout.Id).Distinct().Count() != configuration.Layouts.Count)
         {
-            throw new InvalidDataException("Profil-IDs müssen eindeutig sein.");
+            throw new InvalidDataException("Layout-IDs müssen eindeutig sein.");
         }
 
-        foreach (var profile in configuration.Profiles)
+        if (configuration.MonitorNames is null ||
+            configuration.MonitorNames.Any(entry =>
+                string.IsNullOrWhiteSpace(entry.Key) ||
+                string.IsNullOrWhiteSpace(entry.Value) ||
+                entry.Value != entry.Value.Trim() ||
+                entry.Value.Length > MonitorNaming.MaximumCustomNameLength) ||
+            configuration.MonitorNames.Keys.Distinct(StringComparer.OrdinalIgnoreCase).Count() != configuration.MonitorNames.Count)
         {
-            foreach (var monitor in profile.Monitors)
+            throw new InvalidDataException("Die gespeicherten Monitornamen sind ungültig.");
+        }
+
+        foreach (var group in configuration.Layouts.GroupBy(MonitorKey, StringComparer.OrdinalIgnoreCase))
+        {
+            if (group.Count(layout => layout.IsActive) != 1)
             {
-                if (!ZoneGeometry.Validate(monitor.Zones).IsValid)
-                {
-                    throw new InvalidDataException($"Das Profil «{profile.Name}» enthält ungültige Zonen.");
-                }
+                throw new InvalidDataException("Pro Monitor muss genau ein Layout aktiv sein.");
             }
+
+            var duplicateName = group
+                .GroupBy(layout => layout.Name.Trim(), StringComparer.CurrentCultureIgnoreCase)
+                .Any(names => names.Count() > 1);
+            if (duplicateName)
+            {
+                throw new InvalidDataException("Layoutnamen müssen pro Monitor eindeutig sein.");
+            }
+        }
+
+        ValidateSettings(configuration.Settings);
+
+        foreach (var layout in configuration.Layouts)
+        {
+            if (layout.SavedWidth <= 0 || layout.SavedHeight <= 0)
+            {
+                throw new InvalidDataException($"Das Layout «{layout.Name}» enthält eine ungültige Monitorgrösse.");
+            }
+
+            if (!ZoneGeometry.Validate(layout.Zones).IsValid)
+            {
+                throw new InvalidDataException($"Das Layout «{layout.Name}» enthält ungültige Zonen.");
+            }
+        }
+    }
+
+    private static string MonitorKey(MonitorLayout layout) =>
+        !string.IsNullOrWhiteSpace(layout.Monitor.StableId)
+            ? $"stable:{layout.Monitor.StableId}"
+            : $"device:{layout.Monitor.DeviceName}";
+
+    private static void ValidateSettings(AppSettings settings)
+    {
+        if (!Enum.IsDefined(settings.OverlayScope) ||
+            !Enum.IsDefined(settings.TriggerMode) ||
+            !Enum.IsDefined(settings.ThemeMode))
+        {
+            throw new InvalidDataException("Die Konfiguration enthält einen unbekannten Einstellungswert.");
+        }
+
+        if (settings.OuterMargin is < 0 or > 400 ||
+            settings.ZoneGap is < 0 or > 80 ||
+            settings.MagnetThresholdPixels is < 0 or > 40 ||
+            !double.IsFinite(settings.OverlayOpacity) ||
+            settings.OverlayOpacity is < 0.08 or > 0.75)
+        {
+            throw new InvalidDataException("Eine numerische Einstellung liegt ausserhalb des gültigen Bereichs.");
+        }
+
+        if (settings.OuterMargins is { } margins &&
+            (margins.Left is < 0 or > 400 ||
+             margins.Top is < 0 or > 400 ||
+             margins.Right is < 0 or > 400 ||
+             margins.Bottom is < 0 or > 400))
+        {
+            throw new InvalidDataException("Ein äusserer Abstand liegt ausserhalb des gültigen Bereichs.");
+        }
+
+        if (string.IsNullOrEmpty(settings.OverlayColor) ||
+            settings.OverlayColor.Length != 7 ||
+            settings.OverlayColor[0] != '#' ||
+            !settings.OverlayColor.AsSpan(1).ToString().All(Uri.IsHexDigit))
+        {
+            throw new InvalidDataException("Die Overlayfarbe muss das Format #RRGGBB besitzen.");
         }
     }
 }

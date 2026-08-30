@@ -34,6 +34,26 @@ public sealed class LayoutEditorSessionTests
         Assert.True(session.IsDirty);
     }
 
+    [Fact]
+    public void MoveZones_replaces_both_sides_of_a_shared_boundary_together()
+    {
+        var monitor = new MonitorIdentity("DISPLAY-A", "\\\\.\\DISPLAY1", "Hauptmonitor");
+        var left = new ZoneDefinition(Guid.NewGuid(), "Links", new NormalizedRect(0, 0, 0.5, 1));
+        var right = new ZoneDefinition(Guid.NewGuid(), "Rechts", new NormalizedRect(0.5, 0, 0.5, 1));
+        var session = new LayoutEditorSession(new MonitorLayout(monitor, 3440, 1440, [left, right]));
+
+        session.MoveZones(new Dictionary<Guid, NormalizedRect>
+        {
+            [left.Id] = new NormalizedRect(0, 0, 0.6, 1),
+            [right.Id] = new NormalizedRect(0.6, 0, 0.4, 1)
+        });
+
+        Assert.Equal(new NormalizedRect(0, 0, 0.6, 1), session.Zones[0].Bounds);
+        Assert.Equal(new NormalizedRect(0.6, 0, 0.4, 1), session.Zones[1].Bounds);
+        Assert.True(session.Validation.IsValid);
+        Assert.True(session.IsDirty);
+    }
+
     private static MonitorLayout SavedMonitorLayout()
     {
         var monitor = new MonitorIdentity("DISPLAY-A", "\\\\.\\DISPLAY1", "Hauptmonitor");

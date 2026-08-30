@@ -9,6 +9,18 @@ public static class ZoneGeometry
 
     public static PixelRect ToPixels(
         NormalizedRect zone,
+        MonitorWorkArea area)
+    {
+        var left = area.X + (int)Math.Round(zone.X * area.Width);
+        var top = area.Y + (int)Math.Round(zone.Y * area.Height);
+        var right = area.X + (int)Math.Round((zone.X + zone.Width) * area.Width);
+        var bottom = area.Y + (int)Math.Round((zone.Y + zone.Height) * area.Height);
+
+        return new PixelRect(left, top, Math.Max(1, right - left), Math.Max(1, bottom - top));
+    }
+
+    public static PixelRect ToPixels(
+        NormalizedRect zone,
         MonitorWorkArea area,
         LayoutMetrics metrics)
     {
@@ -32,12 +44,11 @@ public static class ZoneGeometry
     public static ZoneDefinition? HitTest(
         IReadOnlyList<ZoneDefinition> zones,
         MonitorWorkArea area,
-        LayoutMetrics metrics,
         PointInt point)
     {
         foreach (var zone in zones)
         {
-            if (ToPixels(zone.Bounds, area, metrics).Contains(point))
+            if (ToPixels(zone.Bounds, area).Contains(point))
             {
                 return zone;
             }

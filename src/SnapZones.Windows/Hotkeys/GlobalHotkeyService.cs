@@ -1,5 +1,4 @@
 using System.Windows.Interop;
-using SnapZones.Core.Profiles;
 using SnapZones.Windows.Native;
 
 namespace SnapZones.Windows.Hotkeys;
@@ -12,32 +11,16 @@ public sealed class GlobalHotkeyService : IGlobalHotkeyService
     private const uint Control = 0x0002;
     private const uint Shift = 0x0004;
     private const uint NoRepeat = 0x4000;
-    private readonly Dictionary<int, Guid> profileById = [];
     private readonly HashSet<int> registeredIds = [];
     private HwndSource? source;
 
-    public event Action<Guid>? ProfileRequested;
     public event Action? EmergencyStopRequested;
 
-    public HotkeyRegistrationResult Configure(QuickSlotRegistrationPlanResult plan, bool emergencyStopEnabled)
+    public HotkeyRegistrationResult Configure(bool emergencyStopEnabled)
     {
         EnsureSource();
         UnregisterAll();
-        var errors = plan.Errors.Select(error => error.Message).ToList();
-        foreach (var registration in plan.Registrations)
-        {
-            var id = 100 + registration.Slot;
-            var virtualKey = (uint)(0x30 + registration.Slot);
-            if (User32.RegisterHotKey(source!.Handle, id, Control | Alt | NoRepeat, virtualKey))
-            {
-                registeredIds.Add(id);
-                profileById[id] = registration.ProfileId;
-            }
-            else
-            {
-                errors.Add($"Ctrl + Alt + {registration.Slot} ist bereits belegt.");
-            }
-        }
+        var errors = new List<string>();
 
         if (emergencyStopEnabled)
         {
@@ -96,11 +79,6 @@ public sealed class GlobalHotkeyService : IGlobalHotkeyService
         {
             EmergencyStopRequested?.Invoke();
         }
-        else if (profileById.TryGetValue(id, out var profileId))
-        {
-            ProfileRequested?.Invoke(profileId);
-        }
-
         return 0;
     }
 
@@ -115,6 +93,5 @@ public sealed class GlobalHotkeyService : IGlobalHotkeyService
         }
 
         registeredIds.Clear();
-        profileById.Clear();
     }
 }

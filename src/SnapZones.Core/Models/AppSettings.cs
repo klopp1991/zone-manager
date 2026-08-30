@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace SnapZones.Core.Models;
 
 public enum OverlayScope
@@ -20,6 +22,7 @@ public enum ThemeMode
 }
 
 public sealed record AppSettings(
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     Guid ActiveProfileId,
     bool SnappingEnabled,
     bool StartWithWindows,
@@ -45,7 +48,7 @@ public sealed record AppSettings(
         TriggerMode.Immediate,
         OuterMargin: 8,
         ZoneGap: 8,
-        OverlayColor: "#2F6FED",
+        OverlayColor: "#707070",
         OverlayOpacity: 0.24,
         ThemeMode: ThemeMode.System,
         MagnetThresholdPixels: 10,

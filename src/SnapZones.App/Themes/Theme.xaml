@@ -23,6 +23,8 @@
     <SolidColorBrush x:Key="DangerBrush" Color="#B52424" />
     <SolidColorBrush x:Key="MonitorFrameBrush" Color="#172033" />
     <SolidColorBrush x:Key="MonitorScreenBrush" Color="#F4F7FB" />
+    <SolidColorBrush x:Key="ZoneFillBrush" Color="#8A8A8A" />
+    <SolidColorBrush x:Key="ZoneBorderBrush" Color="#686868" />
 
     <ControlTemplate x:Key="ButtonTemplate" TargetType="Button">
         <Border x:Name="ButtonBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
@@ -49,8 +51,9 @@
                 BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="5" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="True">
             <Grid>
                 <Border x:Name="FocusBorder" BorderBrush="{DynamicResource AccentInkBrush}" BorderThickness="2" CornerRadius="4" Visibility="Collapsed" />
-                <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                  VerticalAlignment="{TemplateBinding VerticalContentAlignment}" RecognizesAccessKey="True" />
+                <TextBlock Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                           HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                           VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
             </Grid>
         </Border>
         <ControlTemplate.Triggers>
@@ -62,6 +65,46 @@
                 <Setter Property="Foreground" Value="{DynamicResource DisabledInkBrush}" />
             </Trigger>
         </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="UnitToggleButtonTemplate" TargetType="Button">
+        <Border x:Name="UnitBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="1,0,0,0" CornerRadius="0,4,4,0" SnapsToDevicePixels="True">
+            <Grid>
+                <Border x:Name="FocusBorder" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2"
+                        CornerRadius="0,4,4,0" Visibility="Collapsed" />
+                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Grid>
+        </Border>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="UnitBorder" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+            <Trigger Property="IsPressed" Value="True"><Setter TargetName="UnitBorder" Property="Background" Value="{DynamicResource PressedBrush}" /></Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="FocusBorder" Property="Visibility" Value="Visible" /></Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="InfoButtonTemplate" TargetType="Button">
+        <Grid x:Name="InfoGlyph" Width="18" Height="18" Background="Transparent">
+            <Ellipse x:Name="InfoCircle" Margin="1" Fill="Transparent" Stroke="{DynamicResource MutedBrush}" StrokeThickness="1.2" />
+            <TextBlock Text="i" FontFamily="Segoe UI Variable Text" FontSize="11" FontWeight="SemiBold"
+                       Foreground="{DynamicResource MutedBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0,-1,0,0" />
+            <Ellipse x:Name="FocusRing" Stroke="{DynamicResource AccentBrush}" StrokeThickness="2" Visibility="Collapsed" />
+        </Grid>
+        <ControlTemplate.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="InfoCircle" Property="Fill" Value="{DynamicResource HoverBrush}" />
+                <Setter TargetName="InfoCircle" Property="Stroke" Value="{DynamicResource InkBrush}" />
+            </Trigger>
+            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="FocusRing" Property="Visibility" Value="Visible" /></Trigger>
+        </ControlTemplate.Triggers>
+    </ControlTemplate>
+
+    <ControlTemplate x:Key="ToolTipTemplate" TargetType="ToolTip">
+        <Border Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource ControlBorderBrush}"
+                BorderThickness="1" CornerRadius="5" Padding="12,10" SnapsToDevicePixels="True">
+            <TextBlock Text="{TemplateBinding Content}" MaxWidth="360" Foreground="{DynamicResource InkBrush}"
+                       FontFamily="Segoe UI Variable Text" FontSize="14" TextWrapping="Wrap" LineHeight="20" />
+        </Border>
     </ControlTemplate>
 
     <ControlTemplate x:Key="TextBoxTemplate" TargetType="TextBox">
@@ -194,10 +237,15 @@
 
     <ControlTemplate x:Key="TabControlTemplate" TargetType="TabControl">
         <Grid SnapsToDevicePixels="True">
-            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-            <TabPanel Grid.Row="0" IsItemsHost="True" Background="Transparent" KeyboardNavigation.TabIndex="1" />
-            <Border Grid.Row="1" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                    BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="0,5,5,5" Padding="{TemplateBinding Padding}">
+            <Grid.ColumnDefinitions><ColumnDefinition Width="220" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+            <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
+                <DockPanel Margin="8,16,8,10">
+                    <TextBlock DockPanel.Dock="Top" Text="BEREICHE" Foreground="{DynamicResource MutedBrush}"
+                               FontSize="11" FontWeight="SemiBold" Margin="12,0,12,8" />
+                    <TabPanel IsItemsHost="True" Background="Transparent" KeyboardNavigation.TabIndex="1" />
+                </DockPanel>
+            </Border>
+            <Border Grid.Column="1" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
                 <ContentPresenter x:Name="PART_SelectedContentHost" ContentSource="SelectedContent" />
             </Border>
         </Grid>
@@ -205,14 +253,13 @@
 
     <ControlTemplate x:Key="TabItemTemplate" TargetType="TabItem">
         <Border x:Name="HeaderBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                BorderThickness="1" CornerRadius="5,5,0,0" Padding="{TemplateBinding Padding}" Margin="0,0,4,-1" SnapsToDevicePixels="True">
-            <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                BorderThickness="1" CornerRadius="5" Padding="{TemplateBinding Padding}" Margin="0,2" SnapsToDevicePixels="True">
+            <ContentPresenter ContentSource="Header" HorizontalAlignment="Left" VerticalAlignment="Center" />
         </Border>
         <ControlTemplate.Triggers>
             <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
             <Trigger Property="IsSelected" Value="True">
-                <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource CanvasBrush}" />
-                <Setter TargetName="HeaderBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                <Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource HoverBrush}" />
                 <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
             </Trigger>
             <Trigger Property="IsKeyboardFocused" Value="True">
@@ -272,7 +319,7 @@
     </ControlTemplate>
 
     <Style TargetType="Window">
-        <Setter Property="FontFamily" Value="Segoe UI Variable Text" /><Setter Property="FontSize" Value="14" />
+        <Setter Property="FontFamily" Value="Segoe UI Variable Text" /><Setter Property="FontSize" Value="15" />
         <Setter Property="Foreground" Value="{DynamicResource InkBrush}" /><Setter Property="Background" Value="{DynamicResource CanvasBrush}" />
     </Style>
     <Style TargetType="TextBlock"><Setter Property="Foreground" Value="{DynamicResource InkBrush}" /></Style>
@@ -287,6 +334,24 @@
         <Setter Property="Background" Value="{DynamicResource AccentBrush}" /><Setter Property="Foreground" Value="{DynamicResource AccentInkBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" /><Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Template" Value="{StaticResource PrimaryButtonTemplate}" />
+    </Style>
+    <Style x:Key="InfoButton" TargetType="Button">
+        <Setter Property="Width" Value="22" /><Setter Property="Height" Value="22" />
+        <Setter Property="MinWidth" Value="22" /><Setter Property="MinHeight" Value="22" />
+        <Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="7,0,0,0" />
+        <Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Focusable" Value="True" /><Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="ToolTipService.InitialShowDelay" Value="250" /><Setter Property="ToolTipService.BetweenShowDelay" Value="0" />
+        <Setter Property="ToolTipService.ShowDuration" Value="30000" /><Setter Property="Template" Value="{StaticResource InfoButtonTemplate}" />
+    </Style>
+    <Style x:Key="UnitToggleButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Width" Value="42" /><Setter Property="Height" Value="36" />
+        <Setter Property="MinHeight" Value="36" /><Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="0,1,1,1" />
+        <Setter Property="HorizontalAlignment" Value="Right" /><Setter Property="VerticalAlignment" Value="Stretch" />
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" /><Setter Property="Foreground" Value="{DynamicResource AccentStatusBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" /><Setter Property="FontFamily" Value="Cascadia Mono" />
+        <Setter Property="FontSize" Value="12" /><Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Template" Value="{StaticResource UnitToggleButtonTemplate}" />
     </Style>
     <Style TargetType="TextBox">
         <Setter Property="MinHeight" Value="38" /><Setter Property="Padding" Value="10,7" />
@@ -320,14 +385,18 @@
         <Setter Property="VerticalContentAlignment" Value="Center" /><Setter Property="Template" Value="{StaticResource ListBoxItemTemplate}" />
     </Style>
     <Style TargetType="TabControl">
-        <Setter Property="Background" Value="{DynamicResource CanvasBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
-        <Setter Property="BorderThickness" Value="1" /><Setter Property="Template" Value="{StaticResource TabControlTemplate}" />
+        <Setter Property="Background" Value="{DynamicResource CanvasBrush}" /><Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Template" Value="{StaticResource TabControlTemplate}" />
     </Style>
     <Style TargetType="TabItem">
-        <Setter Property="Padding" Value="20,12" /><Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Foreground" Value="{DynamicResource InkBrush}" /><Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" /><Setter Property="FocusVisualStyle" Value="{x:Null}" />
+        <Setter Property="Padding" Value="12,10" /><Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource InkBrush}" /><Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" /><Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="Template" Value="{StaticResource TabItemTemplate}" />
+    </Style>
+    <Style TargetType="ToolTip">
+        <Setter Property="OverridesDefaultStyle" Value="True" /><Setter Property="HasDropShadow" Value="True" />
+        <Setter Property="Placement" Value="Mouse" /><Setter Property="Template" Value="{StaticResource ToolTipTemplate}" />
     </Style>
     <Style TargetType="ScrollViewer"><Setter Property="Background" Value="Transparent" /></Style>
     <Style TargetType="ScrollBar">
@@ -340,16 +409,23 @@
     </Style>
     <Style x:Key="SectionCard" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
-        <Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="6" /><Setter Property="Padding" Value="18" />
-        <Setter Property="Margin" Value="0,0,0,14" />
+        <Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="8" /><Setter Property="Padding" Value="20" />
+        <Setter Property="Margin" Value="0,0,0,12" />
     </Style>
-    <Style x:Key="SectionTitle" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="Segoe UI Variable Display" /><Setter Property="FontSize" Value="18" />
+    <Style x:Key="PageTitle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Segoe UI Variable Display" /><Setter Property="FontSize" Value="30" />
         <Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
     </Style>
-    <Style x:Key="FieldLabel" TargetType="TextBlock"><Setter Property="Foreground" Value="{DynamicResource MutedBrush}" /><Setter Property="Margin" Value="0,0,0,5" /></Style>
+    <Style x:Key="SectionTitle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Segoe UI Variable Display" /><Setter Property="FontSize" Value="19" />
+        <Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+    </Style>
+    <Style x:Key="FieldLabel" TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource InkBrush}" /><Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Margin" Value="0,0,0,5" />
+    </Style>
     <Style x:Key="HelpText" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" /><Setter Property="FontSize" Value="12.5" />
-        <Setter Property="TextWrapping" Value="Wrap" /><Setter Property="LineHeight" Value="18" /><Setter Property="Margin" Value="0,5,0,0" />
+        <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" /><Setter Property="FontSize" Value="13.5" />
+        <Setter Property="TextWrapping" Value="Wrap" /><Setter Property="LineHeight" Value="19" /><Setter Property="Margin" Value="0,5,0,0" />
     </Style>
 </ResourceDictionary>

@@ -19,9 +19,12 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         selectedZoneId = session.Zones.FirstOrDefault()?.Id;
     }
 
+    public event Action? ConfigurationChanged;
+
     public IReadOnlyList<ZoneDefinition> Zones => session.Zones;
     public ZoneDefinition? SelectedZone => Zones.FirstOrDefault(zone => zone.Id == selectedZoneId);
     public bool IsDirty => session.IsDirty;
+    public bool IsValid => session.Validation.IsValid;
     public bool CanSave => IsDirty && session.Validation.IsValid;
     public string ValidationMessage => session.Validation.IsValid
         ? string.Empty
@@ -49,6 +52,7 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         var zone = session.AddZone($"Zone {Zones.Count + 1}", freeArea);
         selectedZoneId = zone.Id;
         NotifyStateChanged();
+        NotifyConfigurationChanged();
         return true;
     }
 
@@ -62,6 +66,7 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         session.DeleteZone(selectedZoneId.Value);
         selectedZoneId = Zones.FirstOrDefault()?.Id;
         NotifyStateChanged();
+        NotifyConfigurationChanged();
     }
 
     public void ApplyTemplate(LayoutTemplate template)
@@ -69,6 +74,7 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         session.ReplaceZones(LayoutTemplates.Create(template));
         selectedZoneId = Zones[0].Id;
         NotifyStateChanged();
+        NotifyConfigurationChanged();
     }
 
     public void UpdateSelectedZone(string name, double xPercent, double yPercent, double widthPercent, double heightPercent)
@@ -87,6 +93,19 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         double width,
         double height,
         MeasurementUnit unit)
+        => UpdateSelectedZoneFromPositionAndSize(
+            name,
+            new ZoneMeasurement(left, unit),
+            new ZoneMeasurement(top, unit),
+            new ZoneMeasurement(width, unit),
+            new ZoneMeasurement(height, unit));
+
+    public void UpdateSelectedZoneFromPositionAndSize(
+        string name,
+        ZoneMeasurement left,
+        ZoneMeasurement top,
+        ZoneMeasurement width,
+        ZoneMeasurement height)
     {
         if (selectedZoneId is null)
         {
@@ -94,9 +113,10 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         }
 
         var bounds = ZoneEditorGeometry.FromPositionAndSize(
-            left, top, width, height, unit, monitorWidth, monitorHeight);
+            left, top, width, height, monitorWidth, monitorHeight);
         session.UpdateZone(selectedZoneId.Value, name, bounds);
         NotifyStateChanged();
+        NotifyConfigurationChanged();
     }
 
     public void UpdateSelectedZoneFromMargins(
@@ -106,6 +126,19 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         double right,
         double bottom,
         MeasurementUnit unit)
+        => UpdateSelectedZoneFromMargins(
+            name,
+            new ZoneMeasurement(left, unit),
+            new ZoneMeasurement(top, unit),
+            new ZoneMeasurement(right, unit),
+            new ZoneMeasurement(bottom, unit));
+
+    public void UpdateSelectedZoneFromMargins(
+        string name,
+        ZoneMeasurement left,
+        ZoneMeasurement top,
+        ZoneMeasurement right,
+        ZoneMeasurement bottom)
     {
         if (selectedZoneId is null)
         {
@@ -113,9 +146,10 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         }
 
         var bounds = ZoneEditorGeometry.FromMargins(
-            left, top, right, bottom, unit, monitorWidth, monitorHeight);
+            left, top, right, bottom, monitorWidth, monitorHeight);
         session.UpdateZone(selectedZoneId.Value, name, bounds);
         NotifyStateChanged();
+        NotifyConfigurationChanged();
     }
 
     public ZoneEditorValues GetSelectedValues(MeasurementUnit unit) => SelectedZone is { } zone
@@ -127,6 +161,29 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         session.MoveZone(zoneId, bounds);
         selectedZoneId = zoneId;
         NotifyStateChanged();
+        NotifyConfigurationChanged();
+    }
+
+    public void MoveOrResizeZones(
+        Guid selectedZone,
+        IReadOnlyDictionary<Guid, NormalizedRect> changedBounds)
+    {
+        session.MoveZones(changedBounds);
+        selectedZoneId = selectedZone;
+        NotifyStateChanged();
+        NotifyConfigurationChanged();
+    }
+
+    public void RenameSelectedZone(string name)
+    {
+        if (selectedZoneId is null || SelectedZone is not { } selectedZone)
+        {
+            return;
+        }
+
+        session.UpdateZone(selectedZoneId.Value, name, selectedZone.Bounds);
+        NotifyStateChanged();
+        NotifyConfigurationChanged();
     }
 
     public void Reset()
@@ -134,6 +191,7 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         session.Reset();
         selectedZoneId = Zones.FirstOrDefault()?.Id;
         NotifyStateChanged();
+        NotifyConfigurationChanged();
     }
 
     public MonitorLayout CreateSnapshot() => session.CreateSnapshot();
@@ -143,7 +201,16 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         OnPropertyChanged(nameof(Zones));
         OnPropertyChanged(nameof(SelectedZone));
         OnPropertyChanged(nameof(IsDirty));
+        OnPropertyChanged(nameof(IsValid));
         OnPropertyChanged(nameof(CanSave));
         OnPropertyChanged(nameof(ValidationMessage));
+    }
+
+    private void NotifyConfigurationChanged()
+    {
+        if (IsValid)
+        {
+            ConfigurationChanged?.Invoke();
+        }
     }
 }

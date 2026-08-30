@@ -29,6 +29,20 @@ public sealed class LayoutEditorSession
 
     public void ResizeZone(Guid zoneId, NormalizedRect bounds) => ReplaceBounds(zoneId, bounds);
 
+    public void MoveZones(IReadOnlyDictionary<Guid, NormalizedRect> changedBounds)
+    {
+        foreach (var zoneId in changedBounds.Keys)
+        {
+            FindIndex(zoneId);
+        }
+
+        zones = zones
+            .Select(zone => changedBounds.TryGetValue(zone.Id, out var bounds)
+                ? zone with { Bounds = bounds }
+                : zone)
+            .ToList();
+    }
+
     public void UpdateZone(Guid zoneId, string name, NormalizedRect bounds)
     {
         var index = FindIndex(zoneId);

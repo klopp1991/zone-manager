@@ -10,19 +10,16 @@ public sealed class TrayIconService : IDisposable
     private readonly Forms.NotifyIcon icon;
     private readonly Drawing.Icon? applicationIcon;
     private readonly MainWindow window;
-    private readonly Action<Guid> activateProfile;
-    private readonly Action<bool> toggleSnapping;
+    private readonly Action<Guid> activateLayout;
     private readonly Action exit;
 
     public TrayIconService(
         MainWindow window,
-        Action<Guid> activateProfile,
-        Action<bool> toggleSnapping,
+        Action<Guid> activateLayout,
         Action exit)
     {
         this.window = window;
-        this.activateProfile = activateProfile;
-        this.toggleSnapping = toggleSnapping;
+        this.activateLayout = activateLayout;
         this.exit = exit;
         applicationIcon = Environment.ProcessPath is { } processPath
             ? Drawing.Icon.ExtractAssociatedIcon(processPath)
@@ -39,27 +36,26 @@ public sealed class TrayIconService : IDisposable
     public void Update(SnapConfiguration configuration)
     {
         var menu = new Forms.ContextMenuStrip();
-        var active = configuration.Profiles.Single(profile => profile.Id == configuration.Settings.ActiveProfileId);
-        menu.Items.Add(new Forms.ToolStripMenuItem($"Profil: {active.Name}") { Enabled = false });
+        var plan = TrayLayoutMenuPlan.Build(configuration);
+        menu.Items.Add(new Forms.ToolStripMenuItem("Layouts pro Monitor") { Enabled = false });
         menu.Items.Add(new Forms.ToolStripSeparator());
-        foreach (var profile in configuration.Profiles)
+        foreach (var monitor in plan.Monitors)
         {
-            var item = new Forms.ToolStripMenuItem(profile.Name)
+            var monitorItem = new Forms.ToolStripMenuItem(monitor.Name);
+            foreach (var layout in monitor.Layouts)
             {
-                Checked = profile.Id == active.Id
-            };
-            item.Click += (_, _) => activateProfile(profile.Id);
-            menu.Items.Add(item);
+                var layoutItem = new Forms.ToolStripMenuItem(layout.Name)
+                {
+                    Checked = layout.IsActive
+                };
+                layoutItem.Click += (_, _) => activateLayout(layout.Id);
+                monitorItem.DropDownItems.Add(layoutItem);
+            }
+
+            menu.Items.Add(monitorItem);
         }
 
         menu.Items.Add(new Forms.ToolStripSeparator());
-        var snapping = new Forms.ToolStripMenuItem("Snap-Funktion aktiv")
-        {
-            Checked = configuration.Settings.SnappingEnabled,
-            CheckOnClick = true
-        };
-        snapping.Click += (_, _) => toggleSnapping(snapping.Checked);
-        menu.Items.Add(snapping);
         menu.Items.Add("Editor öffnen", null, (_, _) => ShowWindow());
         menu.Items.Add(new Forms.ToolStripSeparator());
         menu.Items.Add("Beenden", null, (_, _) => exit());
@@ -67,7 +63,7 @@ public sealed class TrayIconService : IDisposable
         var previous = icon.ContextMenuStrip;
         icon.ContextMenuStrip = menu;
         previous?.Dispose();
-        icon.Text = $"{ProductInfo.Name} · {active.Name}";
+        icon.Text = $"{ProductInfo.Name} · {plan.Monitors.Count} Monitore";
     }
 
     public void Dispose()

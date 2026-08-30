@@ -9,7 +9,7 @@ public sealed class WindowMoveHook : IWindowMoveHook
 {
     private const uint MoveSizeStart = 0x000A;
     private const uint MoveSizeEnd = 0x000B;
-    private const uint SkipOwnProcess = 0x0002;
+    private const uint OutOfContext = 0x0000;
     private readonly SynchronizationContext synchronizationContext;
     private readonly Action<string>? trace;
     private readonly HookCircuitBreaker circuitBreaker = new(100, TimeSpan.FromSeconds(10));
@@ -45,7 +45,7 @@ public sealed class WindowMoveHook : IWindowMoveHook
             callback,
             0,
             0,
-            SkipOwnProcess);
+            OutOfContext);
         if (hookHandle == 0)
         {
             throw new Win32Exception(Marshal.GetLastWin32Error(), "Der Fenster-Hook konnte nicht aktiviert werden.");

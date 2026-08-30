@@ -6,7 +6,6 @@ namespace SnapZones.Core.Drag;
 public sealed class WindowDragCoordinator
 {
     private readonly IReadOnlyList<DragMonitorTarget> targets;
-    private readonly LayoutMetrics metrics;
     private readonly OverlayScope overlayScope;
     private nint windowHandle;
     private DragMonitorTarget? hoverTarget;
@@ -14,11 +13,9 @@ public sealed class WindowDragCoordinator
 
     public WindowDragCoordinator(
         IReadOnlyList<DragMonitorTarget> targets,
-        LayoutMetrics metrics,
         OverlayScope overlayScope)
     {
         this.targets = targets;
-        this.metrics = metrics;
         this.overlayScope = overlayScope;
     }
 
@@ -58,7 +55,7 @@ public sealed class WindowDragCoordinator
         var target = FindTarget(cursor);
         var zone = target is null
             ? null
-            : ZoneGeometry.HitTest(target.Zones, target.Monitor.WorkArea, metrics, cursor);
+            : ZoneGeometry.HitTest(target.Zones, target.Monitor.WorkArea, cursor);
         if (target == hoverTarget && zone == hoverZone)
         {
             return;
@@ -92,7 +89,7 @@ public sealed class WindowDragCoordinator
         ActionRequested?.Invoke(new HideOverlaysAction());
         if (hoverTarget is not null && hoverZone is not null)
         {
-            var bounds = ZoneGeometry.ToPixels(hoverZone.Bounds, hoverTarget.Monitor.WorkArea, metrics);
+            var bounds = ZoneGeometry.ToPixels(hoverZone.Bounds, hoverTarget.Monitor.WorkArea);
             ActionRequested?.Invoke(new SnapWindowAction(windowHandle, bounds));
         }
 
