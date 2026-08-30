@@ -1,7 +1,7 @@
 # Sascha Window Zones: Teilmonitor- und OS-Integrationsarchitektur
 
 **Datum:** 30. August 2026  
-**Status:** Freigegeben  
+**Status:** Freigegeben
 **Zielplattform:** Windows 11 x64  
 **Technologie:** .NET 8, WPF, dokumentierte Win32- und COM-Schnittstellen
 
