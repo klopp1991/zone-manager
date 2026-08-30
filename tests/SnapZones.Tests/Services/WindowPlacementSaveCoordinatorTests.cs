@@ -36,6 +36,49 @@ public sealed class WindowPlacementSaveCoordinatorTests
         Assert.IsType<InvalidOperationException>(exception.InnerException);
     }
 
+    [Fact]
+    public async Task Save_finished_with_zero_debounce_runs_outside_the_coordinator_lock()
+    {
+        var repository = new RecordingPlacementRepository();
+        var coordinator = new WindowPlacementSaveCoordinator(repository, TimeSpan.Zero);
+        var callbackEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var reentrantAttempted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var reentrantCompleted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var callbackCount = 0;
+        var reentrantWasBlocked = false;
+        coordinator.SaveFinished += _ =>
+        {
+            if (Interlocked.Increment(ref callbackCount) != 1)
+            {
+                return;
+            }
+
+            callbackEntered.TrySetResult();
+            var thread = new Thread(() =>
+            {
+                reentrantAttempted.TrySetResult();
+                coordinator.RequestSave(new WindowPlacementCatalog(1, [CreateEntry("reentrant")]));
+                reentrantCompleted.TrySetResult();
+            });
+            thread.IsBackground = true;
+            thread.Start();
+            if (!reentrantCompleted.Task.Wait(TimeSpan.FromMilliseconds(500)))
+            {
+                reentrantWasBlocked = true;
+            }
+        };
+
+        var request = Task.Run(() => coordinator.RequestSave(new WindowPlacementCatalog(1, [CreateEntry("initial")])));
+        await callbackEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await reentrantAttempted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await request.WaitAsync(TimeSpan.FromSeconds(2));
+        await reentrantCompleted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        await coordinator.FlushAsync(CancellationToken.None);
+
+        Assert.False(reentrantWasBlocked);
+        Assert.Equal("reentrant", repository.Saved[^1].Entries[0].Identity.WindowClass);
+    }
+
     private static WindowPlacementEntry CreateEntry(string windowClass) => new(
         new WindowIdentity("app", windowClass, WindowKind.MainWindow),
         "DISPLAY-A",

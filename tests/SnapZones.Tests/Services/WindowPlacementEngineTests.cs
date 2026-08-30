@@ -28,6 +28,24 @@ public sealed class WindowPlacementEngineTests
     }
 
     [Fact]
+    public async Task Shown_fails_closed_when_the_handle_identity_changes_before_placement()
+    {
+        var fixture = EngineFixture.WithRememberedWindow(maximized: false);
+        var original = fixture.Windows.CurrentSnapshot!;
+        fixture.Windows.InspectionResults.Enqueue(original);
+        fixture.Windows.InspectionResults.Enqueue(original with
+        {
+            Identity = new WindowIdentity("C:\\Apps\\replacement.exe", "Replacement", WindowKind.MainWindow)
+        });
+        fixture.Engine.Start();
+
+        fixture.Hook.Raise(42, WindowLifecycleEventKind.Shown);
+        await fixture.DrainAsync();
+
+        Assert.Empty(fixture.Windows.Placements);
+    }
+
+    [Fact]
     public async Task Exclusion_neither_places_nor_learns_the_window()
     {
         var fixture = EngineFixture.WithRule(WindowPlacementMode.Exclude);
@@ -247,6 +265,29 @@ public sealed class WindowPlacementEngineTests
     }
 
     [Fact]
+    public async Task Minimized_snapshot_does_not_replace_the_last_visible_cache_used_by_destroyed()
+    {
+        var fixture = EngineFixture.WithCurrentWindow();
+        var visibleBounds = fixture.Windows.CurrentSnapshot!.NormalBounds;
+        fixture.Engine.Start();
+        fixture.Hook.Raise(42, WindowLifecycleEventKind.Shown);
+        await fixture.DrainAsync();
+        fixture.Windows.CurrentSnapshot = fixture.Windows.CurrentSnapshot with
+        {
+            NormalBounds = new PixelRect(-32000, -32000, 160, 120),
+            IsMinimized = true
+        };
+        fixture.Hook.Raise(42, WindowLifecycleEventKind.MoveSizeEnded);
+        await fixture.DrainAsync();
+        fixture.Windows.CurrentSnapshot = null;
+
+        fixture.Hook.Raise(42, WindowLifecycleEventKind.Destroyed);
+        await fixture.DrainAsync();
+
+        Assert.Equal(visibleBounds, Assert.Single(fixture.Engine.Catalog.Entries).NormalBoundsPixels);
+    }
+
+    [Fact]
     public async Task Stop_is_idempotent_unhooks_and_cancels_pending_window_work()
     {
         var controlledDelay = new ControlledDelay();
@@ -269,6 +310,25 @@ public sealed class WindowPlacementEngineTests
     }
 
     [Fact]
+    public async Task Flush_observes_an_operation_before_its_delegate_reaches_the_first_await()
+    {
+        var blockingDelay = new BlockingStartDelay();
+        var fixture = EngineFixture.WithRememberedWindow(maximized: false, delay: blockingDelay);
+        fixture.Engine.Start();
+        var raise = Task.Run(() => fixture.Hook.Raise(42, WindowLifecycleEventKind.Shown));
+        await blockingDelay.Entered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        var flush = fixture.Engine.FlushAsync(CancellationToken.None);
+        var flushCompletedBeforeOperationWasReleased = flush.IsCompleted;
+        blockingDelay.AllowReturn.TrySetResult();
+        blockingDelay.Complete.TrySetResult();
+        await raise.WaitAsync(TimeSpan.FromSeconds(2));
+        await flush.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.False(flushCompletedBeforeOperationWasReleased);
+    }
+
+    [Fact]
     public void Emergency_stop_is_idempotent_and_prevents_restarting_the_hook()
     {
         var fixture = EngineFixture.WithCurrentWindow();
@@ -285,6 +345,64 @@ public sealed class WindowPlacementEngineTests
     }
 
     [Fact]
+    public async Task Stop_is_serialized_behind_an_in_flight_start()
+    {
+        var fixture = EngineFixture.WithCurrentWindow();
+        fixture.Hook.BlockEnable();
+        var start = Task.Run(fixture.Engine.Start);
+        await fixture.Hook.EnableEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        var stop = Task.Run(fixture.Engine.Stop);
+        var stopCompletedBeforeEnableWasReleased = stop.IsCompleted;
+        fixture.Hook.AllowEnable.TrySetResult();
+        await start.WaitAsync(TimeSpan.FromSeconds(2));
+        await stop.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.False(stopCompletedBeforeEnableWasReleased);
+        Assert.False(fixture.Hook.IsEnabled);
+        Assert.Equal(0, fixture.Hook.EventSubscriberCount);
+    }
+
+    [Fact]
+    public async Task Restart_is_serialized_after_an_in_flight_stop_and_remains_enabled()
+    {
+        var fixture = EngineFixture.WithCurrentWindow();
+        fixture.Engine.Start();
+        fixture.Hook.BlockDisable();
+        var stop = Task.Run(fixture.Engine.Stop);
+        await fixture.Hook.DisableEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        var restart = Task.Run(fixture.Engine.Start);
+        var restartCompletedBeforeDisableWasReleased = restart.IsCompleted;
+        fixture.Hook.AllowDisable.TrySetResult();
+        await stop.WaitAsync(TimeSpan.FromSeconds(2));
+        await restart.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.False(restartCompletedBeforeDisableWasReleased);
+        Assert.True(fixture.Hook.IsEnabled);
+        Assert.Equal(1, fixture.Hook.EventSubscriberCount);
+    }
+
+    [Fact]
+    public async Task Emergency_stop_is_serialized_behind_an_in_flight_start_and_stays_disabled()
+    {
+        var fixture = EngineFixture.WithCurrentWindow();
+        fixture.Hook.BlockEnable();
+        var start = Task.Run(fixture.Engine.Start);
+        await fixture.Hook.EnableEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        var emergency = Task.Run(fixture.Engine.EmergencyStop);
+        var emergencyCompletedBeforeEnableWasReleased = emergency.IsCompleted;
+        fixture.Hook.AllowEnable.TrySetResult();
+        await start.WaitAsync(TimeSpan.FromSeconds(2));
+        await emergency.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.False(emergencyCompletedBeforeEnableWasReleased);
+        Assert.False(fixture.Hook.IsEnabled);
+        Assert.Equal(0, fixture.Hook.EventSubscriberCount);
+    }
+
+    [Fact]
     public async Task Hook_emergency_signal_stops_the_engine_without_leaving_subscriptions()
     {
         var fixture = EngineFixture.WithCurrentWindow();
@@ -296,6 +414,121 @@ public sealed class WindowPlacementEngineTests
         Assert.Equal(1, fixture.Hook.DisableCalls);
         Assert.Equal(0, fixture.Hook.EventSubscriberCount);
         Assert.Contains("Hook-Schutzschalter", fixture.Log);
+    }
+
+    [Fact]
+    public async Task Stop_invalidates_apply_now_while_its_window_inspection_is_in_flight()
+    {
+        var fixture = EngineFixture.WithRememberedWindow(maximized: false);
+        fixture.Windows.EligibleWindows.Add(42);
+        fixture.Windows.BlockInspection(1);
+        fixture.Engine.Start();
+        var apply = Task.Run(() => fixture.Engine.ApplyNowAsync(
+            fixture.Windows.CurrentSnapshot!.Identity,
+            CancellationToken.None));
+        await fixture.Windows.InspectionEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        fixture.Engine.Stop();
+        fixture.Windows.AllowInspection.TrySetResult();
+        await apply.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Empty(fixture.Windows.Placements);
+    }
+
+    [Fact]
+    public async Task Destroyed_invalidates_apply_now_for_the_previous_handle_epoch()
+    {
+        var fixture = EngineFixture.WithRememberedWindow(maximized: false);
+        fixture.Windows.EligibleWindows.Add(42);
+        fixture.Windows.BlockInspection(1);
+        fixture.Engine.Start();
+        var apply = Task.Run(() => fixture.Engine.ApplyNowAsync(
+            fixture.Windows.CurrentSnapshot!.Identity,
+            CancellationToken.None));
+        await fixture.Windows.InspectionEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        fixture.Hook.Raise(42, WindowLifecycleEventKind.Destroyed);
+        fixture.Windows.AllowInspection.TrySetResult();
+        await apply.WaitAsync(TimeSpan.FromSeconds(2));
+        await fixture.DrainAsync();
+
+        Assert.Empty(fixture.Windows.Placements);
+    }
+
+    [Fact]
+    public async Task Replace_catalog_invalidates_apply_now_from_the_previous_engine_generation()
+    {
+        var fixture = EngineFixture.WithRememberedWindow(maximized: false);
+        fixture.Windows.EligibleWindows.Add(42);
+        fixture.Windows.BlockInspection(1);
+        var apply = Task.Run(() => fixture.Engine.ApplyNowAsync(
+            fixture.Windows.CurrentSnapshot!.Identity,
+            CancellationToken.None));
+        await fixture.Windows.InspectionEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        fixture.Engine.ReplaceCatalog(WindowPlacementCatalog.Empty);
+        fixture.Windows.AllowInspection.TrySetResult();
+        await apply.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.Empty(fixture.Windows.Placements);
+    }
+
+    [Fact]
+    public async Task Stop_invalidates_a_capture_after_its_entry_was_built()
+    {
+        var fixture = EngineFixture.WithCurrentWindow();
+        fixture.Clock.BlockRead(2);
+        fixture.Engine.Start();
+        var capture = Task.Run(() => fixture.Hook.Raise(42, WindowLifecycleEventKind.MoveSizeEnded));
+        await fixture.Clock.ReadEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        fixture.Engine.Stop();
+        fixture.Clock.AllowRead.TrySetResult();
+        await capture.WaitAsync(TimeSpan.FromSeconds(2));
+        await fixture.DrainAsync();
+
+        Assert.Empty(fixture.Engine.Catalog.Entries);
+    }
+
+    [Fact]
+    public async Task Destroyed_rejects_an_older_capture_and_keeps_its_newer_visible_state()
+    {
+        var fixture = EngineFixture.WithCurrentWindow();
+        fixture.Clock.BlockRead(2);
+        fixture.Engine.Start();
+        var oldCapture = Task.Run(() => fixture.Hook.Raise(42, WindowLifecycleEventKind.MoveSizeEnded));
+        await fixture.Clock.ReadEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        fixture.Windows.CurrentSnapshot = fixture.Windows.CurrentSnapshot! with
+        {
+            NormalBounds = new PixelRect(420, 260, 900, 640),
+            CurrentBounds = new PixelRect(420, 260, 900, 640)
+        };
+
+        fixture.Hook.Raise(42, WindowLifecycleEventKind.Destroyed);
+        fixture.Clock.AllowRead.TrySetResult();
+        await oldCapture.WaitAsync(TimeSpan.FromSeconds(2));
+        await fixture.DrainAsync();
+
+        Assert.Equal(
+            new PixelRect(420, 260, 900, 640),
+            Assert.Single(fixture.Engine.Catalog.Entries).NormalBoundsPixels);
+    }
+
+    [Fact]
+    public async Task New_shown_invalidates_an_older_capture_for_the_same_handle()
+    {
+        var fixture = EngineFixture.WithCurrentWindow();
+        fixture.Clock.BlockRead(2);
+        fixture.Engine.Start();
+        var oldCapture = Task.Run(() => fixture.Hook.Raise(42, WindowLifecycleEventKind.MoveSizeEnded));
+        await fixture.Clock.ReadEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        fixture.Hook.Raise(42, WindowLifecycleEventKind.Shown);
+        fixture.Clock.AllowRead.TrySetResult();
+        await oldCapture.WaitAsync(TimeSpan.FromSeconds(2));
+        await fixture.DrainAsync();
+
+        Assert.Empty(fixture.Engine.Catalog.Entries);
     }
 
     [Fact]
@@ -327,6 +560,23 @@ public sealed class WindowPlacementEngineTests
 
         var placement = Assert.Single(fixture.Windows.Placements);
         Assert.Equal((nint)42, placement.WindowHandle);
+    }
+
+    [Fact]
+    public async Task Apply_now_fails_closed_when_the_first_match_reuses_its_handle_before_placement()
+    {
+        var fixture = EngineFixture.WithRememberedWindow(maximized: false);
+        var original = fixture.Windows.CurrentSnapshot!;
+        fixture.Windows.EligibleWindows.Add(42);
+        fixture.Windows.InspectionResults.Enqueue(original);
+        fixture.Windows.InspectionResults.Enqueue(original with
+        {
+            Identity = new WindowIdentity("C:\\Apps\\replacement.exe", "Replacement", WindowKind.MainWindow)
+        });
+
+        await fixture.Engine.ApplyNowAsync(original.Identity, CancellationToken.None);
+
+        Assert.Empty(fixture.Windows.Placements);
     }
 
     [Fact]
@@ -387,6 +637,65 @@ public sealed class WindowPlacementEngineTests
         Assert.DoesNotContain(fixture.Engine.Catalog.Entries, entry => entry.Identity == forgotten);
         Assert.Single(fixture.Engine.Catalog.Entries);
         Assert.Single(fixture.Repository.Saved);
+    }
+
+    [Fact]
+    public async Task Reentrant_catalog_change_publishes_and_saves_the_newest_catalog_last()
+    {
+        var fixture = EngineFixture.WithCatalogEntries(2);
+        var firstIdentity = fixture.Engine.Catalog.Entries[0].Identity;
+        var secondIdentity = fixture.Engine.Catalog.Entries[1].Identity;
+        var callbackCount = 0;
+        fixture.Engine.CatalogChanged += _ =>
+        {
+            if (Interlocked.Increment(ref callbackCount) == 1)
+            {
+                fixture.Engine.Forget(secondIdentity);
+            }
+        };
+
+        fixture.Engine.Forget(firstIdentity);
+        await fixture.DrainAsync();
+
+        Assert.Empty(fixture.Engine.Catalog.Entries);
+        Assert.Empty(fixture.Repository.Saved[^1].Entries);
+    }
+
+    [Fact]
+    public async Task Parallel_catalog_change_publishes_and_saves_the_newest_catalog_last()
+    {
+        var fixture = EngineFixture.WithCatalogEntries(2);
+        var firstIdentity = fixture.Engine.Catalog.Entries[0].Identity;
+        var secondIdentity = fixture.Engine.Catalog.Entries[1].Identity;
+        var firstCallbackEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseFirstCallback = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var callbackCount = 0;
+        fixture.Engine.CatalogChanged += _ =>
+        {
+            if (Interlocked.Increment(ref callbackCount) == 1)
+            {
+                firstCallbackEntered.TrySetResult();
+                releaseFirstCallback.Task.GetAwaiter().GetResult();
+            }
+        };
+
+        var firstMutation = Task.Run(() => fixture.Engine.Forget(firstIdentity));
+        await firstCallbackEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        var secondMutation = Task.Run(() => fixture.Engine.Forget(secondIdentity));
+        try
+        {
+            await secondMutation.WaitAsync(TimeSpan.FromSeconds(2));
+        }
+        finally
+        {
+            releaseFirstCallback.TrySetResult();
+        }
+
+        await firstMutation.WaitAsync(TimeSpan.FromSeconds(2));
+        await fixture.DrainAsync();
+
+        Assert.Empty(fixture.Engine.Catalog.Entries);
+        Assert.Empty(fixture.Repository.Saved[^1].Entries);
     }
 
     [Fact]
@@ -678,6 +987,22 @@ public sealed class WindowPlacementEngineTests
         }
     }
 
+    private sealed class BlockingStartDelay : IEngineDelay
+    {
+        public TaskCompletionSource Entered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource AllowReturn { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Complete { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public IReadOnlyList<TimeSpan> Delays { get; private set; } = [];
+
+        public Task WaitAsync(TimeSpan delay, CancellationToken cancellationToken)
+        {
+            Delays = [delay];
+            Entered.TrySetResult();
+            AllowReturn.Task.GetAwaiter().GetResult();
+            return Complete.Task.WaitAsync(cancellationToken);
+        }
+    }
+
     private sealed class FakeLifecycleHook : IWindowLifecycleHook
     {
         private Action<WindowLifecycleEvent>? eventReceived;
@@ -700,10 +1025,27 @@ public sealed class WindowPlacementEngineTests
         public int DisableCalls { get; private set; }
         public int EventSubscriberCount => eventReceived?.GetInvocationList().Length ?? 0;
         public int EmergencySubscriberCount => emergencyStopped?.GetInvocationList().Length ?? 0;
+        public TaskCompletionSource EnableEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource AllowEnable { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource DisableEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource AllowDisable { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private bool blockEnable;
+        private bool blockDisable;
+
+        public void BlockEnable() => blockEnable = true;
+
+        public void BlockDisable() => blockDisable = true;
 
         public void Enable()
         {
             EnableCalls++;
+            if (blockEnable)
+            {
+                blockEnable = false;
+                EnableEntered.TrySetResult();
+                AllowEnable.Task.GetAwaiter().GetResult();
+            }
+
             IsEnabled = true;
         }
 
@@ -715,6 +1057,13 @@ public sealed class WindowPlacementEngineTests
             }
 
             DisableCalls++;
+            if (blockDisable)
+            {
+                blockDisable = false;
+                DisableEntered.TrySetResult();
+                AllowDisable.Task.GetAwaiter().GetResult();
+            }
+
             IsEnabled = false;
         }
 
@@ -729,14 +1078,31 @@ public sealed class WindowPlacementEngineTests
     private sealed class FakePlacementWindowService : IPlacementWindowService
     {
         public PlacementWindowSnapshot? CurrentSnapshot { get; set; }
+        public Queue<PlacementWindowSnapshot?> InspectionResults { get; } = [];
         public Dictionary<nint, PlacementWindowSnapshot> Snapshots { get; } = [];
         public List<nint> EligibleWindows { get; } = [];
         public List<PlacementCall> Placements { get; } = [];
         public int InspectCalls { get; private set; }
+        public TaskCompletionSource InspectionEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource AllowInspection { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int blockedInspectionCall = -1;
+
+        public void BlockInspection(int callNumber) => blockedInspectionCall = callNumber;
 
         public PlacementWindowSnapshot? Inspect(nint windowHandle, int excludedProcessId)
         {
             InspectCalls++;
+            if (InspectCalls == blockedInspectionCall)
+            {
+                InspectionEntered.TrySetResult();
+                AllowInspection.Task.GetAwaiter().GetResult();
+            }
+
+            if (InspectionResults.Count != 0)
+            {
+                return InspectionResults.Dequeue();
+            }
+
             if (Snapshots.TryGetValue(windowHandle, out var snapshot))
             {
                 return snapshot;
@@ -802,8 +1168,24 @@ public sealed class WindowPlacementEngineTests
     private sealed class AdjustableTimeProvider(DateTimeOffset initialTime) : TimeProvider
     {
         private DateTimeOffset currentTime = initialTime;
+        private int readCount;
+        private int blockedRead = -1;
 
-        public override DateTimeOffset GetUtcNow() => currentTime;
+        public TaskCompletionSource ReadEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource AllowRead { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public override DateTimeOffset GetUtcNow()
+        {
+            if (Interlocked.Increment(ref readCount) == blockedRead)
+            {
+                ReadEntered.TrySetResult();
+                AllowRead.Task.GetAwaiter().GetResult();
+            }
+
+            return currentTime;
+        }
+
+        public void BlockRead(int readNumber) => blockedRead = readNumber;
 
         public void Advance(TimeSpan duration) => currentTime += duration;
     }

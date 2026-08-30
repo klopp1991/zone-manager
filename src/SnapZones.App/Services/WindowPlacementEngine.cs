@@ -27,15 +27,20 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
     private readonly Func<TimeSpan, CancellationToken, Task> delay;
     private readonly TimeProvider timeProvider;
     private readonly object synchronization = new();
+    private readonly object lifecycleSynchronization = new();
     private readonly Dictionary<nint, HandleState> handleStates = [];
+    private readonly Dictionary<nint, long> handleEpochs = [];
     private readonly HashSet<nint> processedHandles = [];
     private readonly HashSet<nint> pendingShownHandles = [];
     private readonly HashSet<Task> operations = [];
+    private readonly Queue<CatalogPublication> pendingCatalogPublications = [];
 
-    private CancellationTokenSource runCancellation = new();
     private bool running;
     private bool emergencyStopped;
     private bool subscribed;
+    private bool publishingCatalogs;
+    private long catalogVersion;
+    private long engineGeneration;
 
     public WindowPlacementEngine(
         IWindowLifecycleHook lifecycleHook,
@@ -65,33 +70,68 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
 
     public void Start()
     {
-        lock (synchronization)
+        lock (lifecycleSynchronization)
         {
-            if (running || emergencyStopped)
+            HandleState[] staleHandleStates;
+            lock (synchronization)
             {
-                return;
+                if (running || emergencyStopped)
+                {
+                    return;
+                }
+
+                staleHandleStates = handleStates.Values.ToArray();
+                handleStates.Clear();
+                handleEpochs.Clear();
+                pendingShownHandles.Clear();
+                processedHandles.Clear();
+                engineGeneration++;
+                running = true;
+                lifecycleHook.EventReceived += OnLifecycleEvent;
+                lifecycleHook.EmergencyStopped += OnHookEmergencyStopped;
+                subscribed = true;
             }
 
-            runCancellation.Dispose();
-            runCancellation = new CancellationTokenSource();
-            running = true;
-            lifecycleHook.EventReceived += OnLifecycleEvent;
-            lifecycleHook.EmergencyStopped += OnHookEmergencyStopped;
-            subscribed = true;
-        }
+            foreach (var staleState in staleHandleStates)
+            {
+                Cancel(staleState.CaptureCancellation);
+                Cancel(staleState.LifetimeCancellation);
+            }
 
-        try
-        {
-            lifecycleHook.Enable();
-        }
-        catch
-        {
-            Stop();
-            throw;
+            try
+            {
+                lifecycleHook.Enable();
+            }
+            catch
+            {
+                StopCoreLocked();
+                throw;
+            }
         }
     }
 
     public void Stop()
+    {
+        lock (lifecycleSynchronization)
+        {
+            StopCoreLocked();
+        }
+    }
+
+    public void EmergencyStop()
+    {
+        lock (lifecycleSynchronization)
+        {
+            lock (synchronization)
+            {
+                emergencyStopped = true;
+            }
+
+            StopCoreLocked();
+        }
+    }
+
+    private void StopCoreLocked()
     {
         CancellationTokenSource[] cancellations;
         var removeSubscriptions = false;
@@ -103,14 +143,15 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             }
 
             running = false;
+            engineGeneration++;
             cancellations = handleStates.Values
                 .SelectMany(state => state.CaptureCancellation is null
                     ? new[] { state.LifetimeCancellation }
                     : new[] { state.LifetimeCancellation, state.CaptureCancellation })
-                .Prepend(runCancellation)
                 .Distinct()
                 .ToArray();
             handleStates.Clear();
+            handleEpochs.Clear();
             pendingShownHandles.Clear();
             processedHandles.Clear();
             removeSubscriptions = subscribed;
@@ -131,19 +172,10 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         lifecycleHook.Disable();
     }
 
-    public void EmergencyStop()
-    {
-        lock (synchronization)
-        {
-            emergencyStopped = true;
-        }
-
-        Stop();
-    }
-
     public void ReplaceCatalog(WindowPlacementCatalog catalog)
     {
         ArgumentNullException.ThrowIfNull(catalog);
+        var publish = false;
         lock (synchronization)
         {
             if (running)
@@ -152,60 +184,90 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             }
 
             Catalog = catalog;
+            engineGeneration++;
+            publish = QueueCatalogPublicationLocked(catalog, persist: false);
         }
 
-        RaiseCatalogChanged(catalog);
+        if (publish)
+        {
+            PublishCatalogsInOrder();
+        }
     }
 
-    public async Task ApplyNowAsync(WindowIdentity identity, CancellationToken cancellationToken)
+    public Task ApplyNowAsync(WindowIdentity identity, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(identity);
-        cancellationToken.ThrowIfCancellationRequested();
-        var entry = FindCatalogEntry(identity);
-        if (entry is null)
-        {
-            return;
-        }
-
-        var environment = environmentFactory();
-        foreach (var windowHandle in windowService.EnumerateEligibleWindows(ownProcessId))
+        return RunOperation(async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var snapshot = windowService.Inspect(windowHandle, ownProcessId);
-            if (snapshot?.Identity != identity)
+            var entry = FindCatalogEntry(identity);
+            if (entry is null)
             {
-                continue;
+                return;
             }
 
-            var bounds = PlacementGeometry.Resolve(entry, environment.Monitors, environment.Zones);
-            if (windowService.TryPlace(windowHandle, bounds, entry.WasMaximized))
+            var environment = environmentFactory();
+            foreach (var windowHandle in windowService.EnumerateEligibleWindows(ownProcessId))
             {
-                MarkOwnPlacement(windowHandle);
+                cancellationToken.ThrowIfCancellationRequested();
+                OperationContext context;
+                lock (synchronization)
+                {
+                    var state = GetOrCreateHandleStateLocked(windowHandle);
+                    context = CreateContextLocked(windowHandle, state);
+                }
+
+                var snapshot = windowService.Inspect(windowHandle, ownProcessId);
+                if (snapshot?.Identity != identity)
+                {
+                    continue;
+                }
+
+                var bounds = PlacementGeometry.Resolve(entry, environment.Monitors, environment.Zones);
+                var currentSnapshot = windowService.Inspect(windowHandle, ownProcessId);
+                if (currentSnapshot?.Identity != identity || currentSnapshot.IsMinimized)
+                {
+                    return;
+                }
+
+                lock (synchronization)
+                {
+                    if (!IsContextValidLocked(context))
+                    {
+                        return;
+                    }
+                }
+
+                if (windowService.TryPlace(windowHandle, bounds, entry.WasMaximized))
+                {
+                    MarkOwnPlacement(context);
+                }
+
+                return;
             }
 
-            return;
-        }
-
-        await Task.CompletedTask;
+            await Task.CompletedTask;
+        }, propagateExceptions: true);
     }
 
     public void Forget(WindowIdentity identity)
     {
         ArgumentNullException.ThrowIfNull(identity);
-        WindowPlacementCatalog? changedCatalog = null;
+        var publish = false;
         lock (synchronization)
         {
             var retained = Catalog.Entries.Where(entry => entry.Identity != identity).ToArray();
             if (retained.Length != Catalog.Entries.Count)
             {
-                changedCatalog = new WindowPlacementCatalog(WindowPlacementCatalog.CurrentSchemaVersion, retained);
+                var changedCatalog = new WindowPlacementCatalog(WindowPlacementCatalog.CurrentSchemaVersion, retained);
                 Catalog = changedCatalog;
+                publish = QueueCatalogPublicationLocked(changedCatalog, persist: true);
             }
         }
 
-        if (changedCatalog is not null)
+        if (publish)
         {
-            PersistCatalogChange(changedCatalog);
+            PublishCatalogsInOrder();
         }
     }
 
@@ -214,6 +276,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         ArgumentException.ThrowIfNullOrWhiteSpace(monitorStableId);
         CancellationToken cancellationToken;
         HandleState state;
+        OperationContext context;
         lock (synchronization)
         {
             if (!running)
@@ -223,9 +286,10 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
 
             state = GetOrCreateHandleStateLocked(windowHandle);
             cancellationToken = state.LifetimeCancellation.Token;
+            context = CreateContextLocked(windowHandle, state);
         }
 
-        RunOperation(async () =>
+        _ = RunOperation(async () =>
         {
             cancellationToken.ThrowIfCancellationRequested();
             var snapshot = windowService.Inspect(windowHandle, ownProcessId);
@@ -235,8 +299,8 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             }
 
             SetCachedSnapshot(windowHandle, state, snapshot);
-            await CaptureSnapshotAsync(snapshot, profileId, monitorStableId, zoneId, cancellationToken).ConfigureAwait(false);
-        });
+            await CaptureSnapshotAsync(snapshot, profileId, monitorStableId, zoneId, context, cancellationToken).ConfigureAwait(false);
+        }, propagateExceptions: false);
     }
 
     public async Task FlushAsync(CancellationToken cancellationToken)
@@ -292,33 +356,50 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
     private void ScheduleShown(nint windowHandle)
     {
         HandleState state;
+        HandleState? previousState;
+        OperationContext context;
         lock (synchronization)
         {
-            if (!running || processedHandles.Contains(windowHandle) || !pendingShownHandles.Add(windowHandle))
+            if (!running || processedHandles.Contains(windowHandle))
             {
                 return;
             }
 
-            state = GetOrCreateHandleStateLocked(windowHandle);
+            handleStates.TryGetValue(windowHandle, out previousState);
+            state = CreateNextHandleStateLocked(windowHandle, lastSnapshot: null);
+            pendingShownHandles.Add(windowHandle);
+            context = CreateContextLocked(windowHandle, state);
         }
 
-        RunOperation(async () =>
+        if (previousState is not null)
+        {
+            Cancel(previousState.CaptureCancellation);
+            Cancel(previousState.LifetimeCancellation);
+        }
+        _ = RunOperation(async () =>
         {
             try
             {
-                await RestoreShownAsync(windowHandle, state, state.LifetimeCancellation.Token).ConfigureAwait(false);
+                await RestoreShownAsync(windowHandle, state, context, state.LifetimeCancellation.Token).ConfigureAwait(false);
             }
             finally
             {
                 lock (synchronization)
                 {
-                    pendingShownHandles.Remove(windowHandle);
+                    if (IsContextValidLocked(context))
+                    {
+                        pendingShownHandles.Remove(windowHandle);
+                    }
                 }
             }
-        });
+        }, propagateExceptions: false);
     }
 
-    private async Task RestoreShownAsync(nint windowHandle, HandleState state, CancellationToken cancellationToken)
+    private async Task RestoreShownAsync(
+        nint windowHandle,
+        HandleState state,
+        OperationContext context,
+        CancellationToken cancellationToken)
     {
         PlacementWindowSnapshot? snapshot = null;
         foreach (var inspectionDelay in InspectionDelays)
@@ -351,13 +432,13 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         if (resolution.HasConflict)
         {
             log($"Regelkonflikt für {snapshot.Identity.ApplicationKey}.");
-            MarkProcessed(windowHandle);
+            MarkProcessed(context);
             return;
         }
 
         if (resolution.Rule?.Action == WindowPlacementMode.Exclude)
         {
-            MarkProcessed(windowHandle);
+            MarkProcessed(context);
             return;
         }
 
@@ -369,7 +450,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             if (targetZone is null)
             {
                 log($"Die Zielzone für {snapshot.Identity.ApplicationKey} ist nicht verfügbar.");
-                MarkProcessed(windowHandle);
+                MarkProcessed(context);
                 return;
             }
 
@@ -380,7 +461,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             var entry = FindCatalogEntry(snapshot.Identity);
             if (entry is null)
             {
-                MarkProcessed(windowHandle);
+                MarkProcessed(context);
                 return;
             }
 
@@ -388,12 +469,29 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             maximize = entry.WasMaximized;
         }
 
+        var currentSnapshot = windowService.Inspect(windowHandle, ownProcessId);
+        if (currentSnapshot is null ||
+            currentSnapshot.IsMinimized ||
+            currentSnapshot.Identity != snapshot.Identity)
+        {
+            return;
+        }
+
+        SetCachedSnapshot(windowHandle, state, currentSnapshot);
         cancellationToken.ThrowIfCancellationRequested();
+        lock (synchronization)
+        {
+            if (!IsContextValidLocked(context))
+            {
+                return;
+            }
+        }
+
         if (windowService.TryPlace(windowHandle, targetBounds, maximize))
         {
             lock (synchronization)
             {
-                if (handleStates.TryGetValue(windowHandle, out var currentState) && ReferenceEquals(currentState, state))
+                if (IsContextValidLocked(context))
                 {
                     state.SuppressCaptureUntilUtc = timeProvider.GetUtcNow() + OwnPlacementSuppression;
                     processedHandles.Add(windowHandle);
@@ -405,6 +503,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
     private void ScheduleDelayedCapture(nint windowHandle)
     {
         HandleState state;
+        OperationContext context;
         CancellationTokenSource captureCancellation;
         CancellationTokenSource? previousCapture;
         lock (synchronization)
@@ -415,19 +514,21 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             }
 
             state = GetOrCreateHandleStateLocked(windowHandle);
+            context = CreateContextLocked(windowHandle, state);
             previousCapture = state.CaptureCancellation;
             captureCancellation = CancellationTokenSource.CreateLinkedTokenSource(state.LifetimeCancellation.Token);
             state.CaptureCancellation = captureCancellation;
         }
 
-        previousCapture?.Cancel();
+        Cancel(previousCapture);
 
-        RunOperation(async () =>
+        _ = RunOperation(async () =>
         {
+            var disposeCapture = false;
             try
             {
                 await delay(CaptureDelay, captureCancellation.Token).ConfigureAwait(false);
-                await CaptureWindowAsync(windowHandle, state, allowCachedSnapshot: false, captureCancellation.Token).ConfigureAwait(false);
+                await CaptureWindowAsync(windowHandle, state, context, allowCachedSnapshot: false, captureCancellation.Token).ConfigureAwait(false);
             }
             finally
             {
@@ -438,17 +539,22 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
                         ReferenceEquals(state.CaptureCancellation, captureCancellation))
                     {
                         state.CaptureCancellation = null;
+                        disposeCapture = true;
                     }
                 }
 
-                captureCancellation.Dispose();
+                if (disposeCapture)
+                {
+                    captureCancellation.Dispose();
+                }
             }
-        });
+        }, propagateExceptions: false);
     }
 
     private void ScheduleImmediateCapture(nint windowHandle, bool removeAfterCapture)
     {
         HandleState state;
+        OperationContext context;
         CancellationTokenSource? pendingCapture;
         lock (synchronization)
         {
@@ -458,18 +564,21 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             }
 
             state = GetOrCreateHandleStateLocked(windowHandle);
+            context = CreateContextLocked(windowHandle, state);
             pendingCapture = state.CaptureCancellation;
+            state.CaptureCancellation = null;
         }
 
-        pendingCapture?.Cancel();
+        Cancel(pendingCapture);
 
-        RunOperation(async () =>
+        _ = RunOperation(async () =>
         {
             try
             {
                 await CaptureWindowAsync(
                     windowHandle,
                     state,
+                    context,
                     allowCachedSnapshot: true,
                     state.LifetimeCancellation.Token).ConfigureAwait(false);
             }
@@ -480,13 +589,14 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
                     RemoveHandle(windowHandle, state);
                 }
             }
-        });
+        }, propagateExceptions: false);
     }
 
     private void ScheduleDestroyedCapture(nint windowHandle)
     {
         HandleState state;
-        CancellationToken runToken;
+        HandleState previousState;
+        OperationContext context;
         CancellationTokenSource? pendingCapture;
         lock (synchronization)
         {
@@ -495,30 +605,37 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
                 return;
             }
 
-            state = GetOrCreateHandleStateLocked(windowHandle);
-            pendingCapture = state.CaptureCancellation;
-            runToken = runCancellation.Token;
+            previousState = GetOrCreateHandleStateLocked(windowHandle);
+            pendingCapture = previousState.CaptureCancellation;
+            state = CreateNextHandleStateLocked(windowHandle, previousState.LastSnapshot);
+            context = CreateContextLocked(windowHandle, state);
         }
 
-        pendingCapture?.Cancel();
-        state.LifetimeCancellation.Cancel();
+        Cancel(pendingCapture);
+        Cancel(previousState.LifetimeCancellation);
 
-        RunOperation(async () =>
+        _ = RunOperation(async () =>
         {
             try
             {
-                await CaptureWindowAsync(windowHandle, state, allowCachedSnapshot: true, runToken).ConfigureAwait(false);
+                await CaptureWindowAsync(
+                    windowHandle,
+                    state,
+                    context,
+                    allowCachedSnapshot: true,
+                    state.LifetimeCancellation.Token).ConfigureAwait(false);
             }
             finally
             {
                 RemoveHandle(windowHandle, state);
             }
-        });
+        }, propagateExceptions: false);
     }
 
     private async Task CaptureWindowAsync(
         nint windowHandle,
         HandleState state,
+        OperationContext context,
         bool allowCachedSnapshot,
         CancellationToken cancellationToken)
     {
@@ -541,7 +658,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             return;
         }
 
-        await CaptureSnapshotAsync(snapshot, null, null, null, cancellationToken).ConfigureAwait(false);
+        await CaptureSnapshotAsync(snapshot, null, null, null, context, cancellationToken).ConfigureAwait(false);
     }
 
     private Task CaptureSnapshotAsync(
@@ -549,6 +666,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         Guid? explicitProfileId,
         string? explicitMonitorStableId,
         Guid? explicitZoneId,
+        OperationContext context,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -618,7 +736,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             PlacementGeometry.Normalize(snapshot.NormalBounds, monitor.WorkArea),
             snapshot.IsMaximized,
             timeProvider.GetUtcNow());
-        StoreEntry(entry);
+        StoreEntry(entry, context);
         return Task.CompletedTask;
     }
 
@@ -662,12 +780,17 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         return best ?? monitors.FirstOrDefault(monitor => monitor.IsPrimary) ?? monitors.FirstOrDefault();
     }
 
-    private void StoreEntry(WindowPlacementEntry entry)
+    private void StoreEntry(WindowPlacementEntry entry, OperationContext context)
     {
-        WindowPlacementCatalog changedCatalog;
+        var publish = false;
         lock (synchronization)
         {
-            changedCatalog = new WindowPlacementCatalog(
+            if (!IsContextValidLocked(context))
+            {
+                return;
+            }
+
+            var changedCatalog = new WindowPlacementCatalog(
                 WindowPlacementCatalog.CurrentSchemaVersion,
                 Catalog.Entries
                     .Where(existing => existing.Identity != entry.Identity)
@@ -678,15 +801,49 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
                     .Take(MaximumCatalogEntries)
                     .ToArray());
             Catalog = changedCatalog;
+            publish = QueueCatalogPublicationLocked(changedCatalog, persist: true);
         }
 
-        PersistCatalogChange(changedCatalog);
+        if (publish)
+        {
+            PublishCatalogsInOrder();
+        }
     }
 
-    private void PersistCatalogChange(WindowPlacementCatalog catalog)
+    private bool QueueCatalogPublicationLocked(WindowPlacementCatalog catalog, bool persist)
     {
-        RaiseCatalogChanged(catalog);
-        saveCoordinator.RequestSave(catalog);
+        pendingCatalogPublications.Enqueue(new CatalogPublication(++catalogVersion, catalog, persist));
+        if (publishingCatalogs)
+        {
+            return false;
+        }
+
+        publishingCatalogs = true;
+        return true;
+    }
+
+    private void PublishCatalogsInOrder()
+    {
+        while (true)
+        {
+            CatalogPublication publication;
+            lock (synchronization)
+            {
+                if (pendingCatalogPublications.Count == 0)
+                {
+                    publishingCatalogs = false;
+                    return;
+                }
+
+                publication = pendingCatalogPublications.Dequeue();
+            }
+
+            RaiseCatalogChanged(publication.Catalog);
+            if (publication.Persist)
+            {
+                saveCoordinator.RequestSave(publication.Catalog);
+            }
+        }
     }
 
     private void RaiseCatalogChanged(WindowPlacementCatalog catalog)
@@ -709,20 +866,25 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         }
     }
 
-    private void MarkProcessed(nint windowHandle)
+    private void MarkProcessed(OperationContext context)
     {
         lock (synchronization)
         {
-            processedHandles.Add(windowHandle);
+            if (IsContextValidLocked(context))
+            {
+                processedHandles.Add(context.WindowHandle);
+            }
         }
     }
 
-    private void MarkOwnPlacement(nint windowHandle)
+    private void MarkOwnPlacement(OperationContext context)
     {
         lock (synchronization)
         {
-            var state = GetOrCreateHandleStateLocked(windowHandle);
-            state.SuppressCaptureUntilUtc = timeProvider.GetUtcNow() + OwnPlacementSuppression;
+            if (IsContextValidLocked(context) && handleStates.TryGetValue(context.WindowHandle, out var state))
+            {
+                state.SuppressCaptureUntilUtc = timeProvider.GetUtcNow() + OwnPlacementSuppression;
+            }
         }
     }
 
@@ -746,6 +908,11 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
 
     private void SetCachedSnapshot(nint windowHandle, HandleState state, PlacementWindowSnapshot snapshot)
     {
+        if (snapshot.IsMinimized)
+        {
+            return;
+        }
+
         lock (synchronization)
         {
             if (handleStates.TryGetValue(windowHandle, out var currentState) && ReferenceEquals(currentState, state))
@@ -759,15 +926,41 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
     {
         if (!handleStates.TryGetValue(windowHandle, out var state))
         {
-            state = new HandleState(CancellationTokenSource.CreateLinkedTokenSource(runCancellation.Token));
-            handleStates.Add(windowHandle, state);
+            state = CreateNextHandleStateLocked(windowHandle, lastSnapshot: null);
         }
 
         return state;
     }
 
+    private HandleState CreateNextHandleStateLocked(nint windowHandle, PlacementWindowSnapshot? lastSnapshot)
+    {
+        var epoch = handleEpochs.TryGetValue(windowHandle, out var previousEpoch)
+            ? previousEpoch + 1
+            : 1;
+        handleEpochs[windowHandle] = epoch;
+        var state = new HandleState(
+            epoch,
+            new CancellationTokenSource())
+        {
+            LastSnapshot = lastSnapshot
+        };
+        handleStates[windowHandle] = state;
+        return state;
+    }
+
+    private OperationContext CreateContextLocked(nint windowHandle, HandleState state) =>
+        new(engineGeneration, windowHandle, state.Epoch);
+
+    private bool IsContextValidLocked(OperationContext context) =>
+        context.Generation == engineGeneration &&
+        handleEpochs.TryGetValue(context.WindowHandle, out var epoch) &&
+        epoch == context.HandleEpoch &&
+        handleStates.TryGetValue(context.WindowHandle, out var state) &&
+        state.Epoch == context.HandleEpoch;
+
     private void RemoveHandle(nint windowHandle, HandleState state)
     {
+        var removed = false;
         lock (synchronization)
         {
             if (!handleStates.TryGetValue(windowHandle, out var currentState) || !ReferenceEquals(currentState, state))
@@ -778,60 +971,81 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             handleStates.Remove(windowHandle);
             pendingShownHandles.Remove(windowHandle);
             processedHandles.Remove(windowHandle);
+            removed = true;
         }
 
-        state.CaptureCancellation?.Cancel();
-        state.CaptureCancellation?.Dispose();
-        state.LifetimeCancellation.Dispose();
+        if (removed)
+        {
+            Cancel(state.CaptureCancellation);
+            Cancel(state.LifetimeCancellation);
+        }
     }
 
-    private void RunOperation(Func<Task> operation)
+    private static void Cancel(CancellationTokenSource? cancellation)
     {
+        cancellation?.Cancel();
+    }
+
+    private Task RunOperation(Func<Task> operation, bool propagateExceptions)
+    {
+        var trackingCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var callerCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        lock (synchronization)
+        {
+            operations.Add(trackingCompletion.Task);
+        }
+
         async Task ExecuteAsync()
         {
+            Exception? failure = null;
             try
             {
                 await operation().ConfigureAwait(false);
             }
-            catch (OperationCanceledException)
-            {
-            }
             catch (Exception exception)
             {
-                log($"Fensterplatzierung fehlgeschlagen: {exception.Message}");
-            }
-        }
-
-        var task = ExecuteAsync();
-        lock (synchronization)
-        {
-            if (!task.IsCompleted)
-            {
-                operations.Add(task);
-            }
-        }
-
-        if (!task.IsCompleted)
-        {
-            _ = task.ContinueWith(
-                completedTask =>
+                failure = exception;
+                if (!propagateExceptions && exception is not OperationCanceledException)
                 {
-                    lock (synchronization)
-                    {
-                        operations.Remove(completedTask);
-                    }
-                },
-                CancellationToken.None,
-                TaskContinuationOptions.ExecuteSynchronously,
-                TaskScheduler.Default);
+                    log($"Fensterplatzierung fehlgeschlagen: {exception.Message}");
+                }
+            }
+            finally
+            {
+                lock (synchronization)
+                {
+                    operations.Remove(trackingCompletion.Task);
+                }
+
+                trackingCompletion.TrySetResult();
+                if (failure is OperationCanceledException canceled)
+                {
+                    callerCompletion.TrySetCanceled(canceled.CancellationToken);
+                }
+                else if (failure is not null && propagateExceptions)
+                {
+                    callerCompletion.TrySetException(failure);
+                }
+                else
+                {
+                    callerCompletion.TrySetResult();
+                }
+            }
         }
+
+        _ = ExecuteAsync();
+        return propagateExceptions ? callerCompletion.Task : trackingCompletion.Task;
     }
 
-    private sealed class HandleState(CancellationTokenSource lifetimeCancellation)
+    private sealed class HandleState(long epoch, CancellationTokenSource lifetimeCancellation)
     {
+        public long Epoch { get; } = epoch;
         public CancellationTokenSource LifetimeCancellation { get; } = lifetimeCancellation;
         public CancellationTokenSource? CaptureCancellation { get; set; }
         public PlacementWindowSnapshot? LastSnapshot { get; set; }
         public DateTimeOffset SuppressCaptureUntilUtc { get; set; }
     }
+
+    private sealed record CatalogPublication(long Version, WindowPlacementCatalog Catalog, bool Persist);
+    private sealed record OperationContext(long Generation, nint WindowHandle, long HandleEpoch);
 }

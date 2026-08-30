@@ -38,7 +38,7 @@ public sealed class WindowPlacementSaveCoordinator
             if (!workerRunning)
             {
                 workerRunning = true;
-                workerTask = ProcessPendingAsync();
+                workerTask = Task.Run(ProcessPendingAsync);
             }
         }
     }
