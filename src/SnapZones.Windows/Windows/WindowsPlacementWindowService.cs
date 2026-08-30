@@ -20,10 +20,13 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
     private const uint DefaultToNearestMonitor = 2;
     private const uint ShowMinimized = 2;
     private const uint ShowMaximized = 3;
+    private const int ShowWithoutActivation = 4;
     private const uint Minimize = 6;
     private const uint ShowMinimizedWithoutActivation = 7;
     private const uint ForceMinimize = 11;
-    private const uint ShowNormal = 1;
+    private const uint NoZOrder = 0x0004;
+    private const uint NoActivate = 0x0010;
+    private const uint NoOwnerZOrder = 0x0200;
 
     private static readonly HashSet<string> ShellWindowClasses = new(StringComparer.OrdinalIgnoreCase)
     {
@@ -31,6 +34,18 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
         "WorkerW",
         "Shell_TrayWnd"
     };
+
+    private readonly IWindowStyleReader styleReader;
+
+    public WindowsPlacementWindowService()
+        : this(new User32WindowStyleReader())
+    {
+    }
+
+    internal WindowsPlacementWindowService(IWindowStyleReader styleReader)
+    {
+        this.styleReader = styleReader ?? throw new ArgumentNullException(nameof(styleReader));
+    }
 
     public PlacementWindowSnapshot? Inspect(nint windowHandle, int excludedProcessId)
     {
@@ -87,23 +102,35 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
                 return false;
             }
 
-            var screenRectangle = ToNativeRect(normalBounds);
-            var monitor = User32.MonitorFromRect(ref screenRectangle, DefaultToNearestMonitor);
-            if (!TryReadMonitorInfo(monitor, out var monitorInfo))
+            if (maximize && User32.GetForegroundWindow() != windowHandle)
             {
                 return false;
             }
 
-            var placement = CreatePlacement();
-            if (!User32.GetWindowPlacement(windowHandle, ref placement))
+            _ = User32.ShowWindow(windowHandle, ShowWithoutActivation);
+            if (!User32.SetWindowPos(
+                    windowHandle,
+                    0,
+                    normalBounds.X,
+                    normalBounds.Y,
+                    normalBounds.Width,
+                    normalBounds.Height,
+                    NoActivate | NoZOrder | NoOwnerZOrder))
             {
                 return false;
             }
 
-            var workspaceBounds = ScreenToWorkspace(normalBounds, monitorInfo.Monitor, monitorInfo.Work);
-            placement.NormalPosition = ToNativeRect(workspaceBounds);
-            placement.ShowCommand = maximize ? ShowMaximized : ShowNormal;
-            return User32.SetWindowPlacement(windowHandle, ref placement);
+            if (maximize)
+            {
+                if (User32.GetForegroundWindow() != windowHandle)
+                {
+                    return false;
+                }
+
+                _ = User32.ShowWindow(windowHandle, (int)ShowMaximized);
+            }
+
+            return true;
         }
         catch (Exception)
         {
@@ -144,7 +171,7 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
             bounds.Width,
             bounds.Height);
 
-    // Beim Schreiben wird der Work-Area-Abstand abgezogen, damit SetWindowPlacement denselben Bildschirmbereich erhält.
+    // Die inverse Konvertierung bleibt für Workspace-basierte Placement-Pfade und den Offset-Regressionstest erhalten.
     internal static PixelRect ScreenToWorkspace(PixelRect bounds, RectNative monitor, RectNative workArea) =>
         new(
             checked(bounds.X - workArea.Left + monitor.Left),
@@ -152,7 +179,7 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
             bounds.Width,
             bounds.Height);
 
-    private static bool TryReadEligibleWindow(
+    private bool TryReadEligibleWindow(
         nint window,
         int excludedProcessId,
         out uint processId,
@@ -166,8 +193,12 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
         }
 
         var root = User32.GetAncestor(window, RootAncestor);
-        var style = User32.GetWindowLongPtr(window, StyleIndex).ToInt64();
-        var extendedStyle = User32.GetWindowLongPtr(window, ExtendedStyleIndex).ToInt64();
+        if (!styleReader.TryRead(window, StyleIndex, out var style) ||
+            !styleReader.TryRead(window, ExtendedStyleIndex, out var extendedStyle))
+        {
+            return false;
+        }
+
         if ((root != 0 && root != window) ||
             (style & ChildStyle) != 0 ||
             (extendedStyle & ToolWindowStyle) != 0)
