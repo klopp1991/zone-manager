@@ -71,6 +71,8 @@ public sealed record ApplicationControllerDependencies(
     IWindowDragCoordinatorFactory DragCoordinatorFactory,
     IWindowPlacementEngine PlacementEngine,
     IWindowLifecycleHook PlacementLifecycleHook,
+    Action CancelStartup,
+    Action ShutdownApplication,
     Action<string, string, Exception?> Log)
 {
     public static ApplicationControllerDependencies CreateDefault(
@@ -79,6 +81,7 @@ public sealed record ApplicationControllerDependencies(
         IWindowPlacementRepository placementRepository,
         IReadOnlyList<LiveMonitor> monitors,
         Func<SnapConfiguration> configurationFactory,
+        Action cancelStartup,
         Action<Guid> activateProfile,
         Action<bool> toggleSnapping,
         Action requestExit,
@@ -89,6 +92,7 @@ public sealed record ApplicationControllerDependencies(
         ArgumentNullException.ThrowIfNull(placementRepository);
         ArgumentNullException.ThrowIfNull(monitors);
         ArgumentNullException.ThrowIfNull(configurationFactory);
+        ArgumentNullException.ThrowIfNull(cancelStartup);
         ArgumentNullException.ThrowIfNull(log);
 
         var synchronizationContext = SynchronizationContext.Current
@@ -117,6 +121,8 @@ public sealed record ApplicationControllerDependencies(
             new WindowDragCoordinatorFactory(),
             placementEngine,
             lifecycleHook,
+            cancelStartup,
+            () => System.Windows.Application.Current.Shutdown(),
             log.Write);
     }
 

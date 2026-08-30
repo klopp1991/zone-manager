@@ -108,6 +108,84 @@ public sealed class ApplicationControllerPlacementTests
     }
 
     [Fact]
+    public void Emergency_stop_never_reenables_the_move_hook_or_saves_an_intermediate_state()
+    {
+        Run(fixture =>
+        {
+            fixture.Controller.InitializeWindowPlacements(new(WindowPlacementCatalog.Empty, false));
+            fixture.MoveHook.Operations.Clear();
+            fixture.ConfigurationSaveCoordinator.RequestedConfigurations.Clear();
+
+            fixture.Controller.EmergencyStop("Test");
+
+            Assert.DoesNotContain("Enable", fixture.MoveHook.Operations);
+            Assert.NotEmpty(fixture.ConfigurationSaveCoordinator.RequestedConfigurations);
+            Assert.All(fixture.ConfigurationSaveCoordinator.RequestedConfigurations, saved =>
+            {
+                Assert.False(saved.Settings.RestoreWindowPlacementEnabled);
+                Assert.False(saved.Settings.SnappingEnabled);
+            });
+        });
+    }
+
+    [Fact]
+    public void Queued_drag_action_after_emergency_stop_never_reaches_TrySnap()
+    {
+        Run(fixture =>
+        {
+            fixture.Controller.InitializeWindowPlacements(new(WindowPlacementCatalog.Empty, false));
+            fixture.Controller.EmergencyStop("Test");
+
+            fixture.DragCoordinator.Raise(new SnapWindowAction(
+                42,
+                new PixelRect(0, 0, 800, 600),
+                "DISPLAY-1",
+                Guid.NewGuid()));
+
+            Assert.Equal(0, fixture.WindowService.TrySnapCalls);
+            Assert.Null(fixture.PlacementEngine.LastExplicitZone);
+        });
+    }
+
+    [Fact]
+    public void Queued_drag_action_after_snapping_is_disabled_never_reaches_TrySnap()
+    {
+        Run(fixture =>
+        {
+            fixture.Controller.InitializeWindowPlacements(new(WindowPlacementCatalog.Empty, false));
+            fixture.ViewModel.Settings.SnappingEnabled = false;
+
+            fixture.DragCoordinator.Raise(new SnapWindowAction(
+                42,
+                new PixelRect(0, 0, 800, 600),
+                "DISPLAY-1",
+                Guid.NewGuid()));
+
+            Assert.Equal(0, fixture.WindowService.TrySnapCalls);
+        });
+    }
+
+    [Fact]
+    public void Captured_drag_callback_after_dispose_never_reaches_TrySnap()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var fixture = ControllerFixture.Create();
+            fixture.Controller.InitializeWindowPlacements(new(WindowPlacementCatalog.Empty, false));
+            var queuedCallback = fixture.DragCoordinator.Capture(new SnapWindowAction(
+                42,
+                new PixelRect(0, 0, 800, 600),
+                "DISPLAY-1",
+                Guid.NewGuid()));
+
+            fixture.Controller.Dispose();
+            queuedCallback();
+
+            Assert.Equal(0, fixture.WindowService.TrySnapCalls);
+        });
+    }
+
+    [Fact]
     public async Task Flush_flushes_configuration_and_placement_catalog()
     {
         ControllerFixture? fixture = null;
@@ -157,6 +235,57 @@ public sealed class ApplicationControllerPlacementTests
     }
 
     [Fact]
+    public async Task Exit_during_placement_load_cancels_and_rejects_the_late_load_continuation()
+    {
+        ControllerFixture? fixture = null;
+        WpfThemeHost.Invoke(() => fixture = ControllerFixture.Create());
+        using (fixture!)
+        {
+            var repository = new LateCompletingPlacementRepository();
+            var load = WindowPlacementStartupLoad.Start(repository, fixture!.StartupCancellation.Token);
+            await repository.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+            fixture!.Controller.RequestExit();
+            await fixture.ShutdownRequested.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            var saveCallsAfterExit = fixture.ConfigurationSaveCoordinator.RequestedConfigurations.Count;
+            repository.Result.TrySetResult(new(WindowPlacementCatalog.Empty, false));
+            var lateResult = await load;
+
+            fixture.Controller.InitializeWindowPlacements(lateResult);
+
+            Assert.True(fixture.StartupCancellation.IsCancellationRequested);
+            Assert.Equal(0, fixture.PlacementEngine.StartCalls);
+            Assert.False(fixture.MoveHook.IsEnabled);
+            Assert.Equal(saveCallsAfterExit, fixture.ConfigurationSaveCoordinator.RequestedConfigurations.Count);
+        }
+    }
+
+    [Fact]
+    public async Task Exit_waits_for_configuration_and_placement_flush_before_shutdown()
+    {
+        ControllerFixture? fixture = null;
+        WpfThemeHost.Invoke(() => fixture = ControllerFixture.Create());
+        using (fixture!)
+        {
+            var configurationGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var placementGate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            fixture!.ConfigurationSaveCoordinator.FlushCompletion = configurationGate.Task;
+            fixture.PlacementEngine.FlushCompletion = placementGate.Task;
+
+            fixture.Controller.RequestExit();
+            await Task.WhenAll(
+                fixture.ConfigurationSaveCoordinator.FlushStarted.Task,
+                fixture.PlacementEngine.FlushStarted.Task).WaitAsync(TimeSpan.FromSeconds(10));
+
+            Assert.False(fixture.ShutdownRequested.Task.IsCompleted);
+            configurationGate.TrySetResult();
+            Assert.False(fixture.ShutdownRequested.Task.IsCompleted);
+            placementGate.TrySetResult();
+            await fixture.ShutdownRequested.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        }
+    }
+
+    [Fact]
     public void Recovered_placement_catalog_is_applied_while_stopped_and_reported()
     {
         Run(fixture =>
@@ -192,7 +321,9 @@ public sealed class ApplicationControllerPlacementTests
             RecordingMoveHook moveHook,
             RecordingDragCoordinator dragCoordinator,
             IReadOnlyList<string> logMessages,
-            Guid activeProfileId)
+            Guid activeProfileId,
+            CancellationTokenSource startupCancellation,
+            TaskCompletionSource shutdownRequested)
         {
             Controller = controller;
             ViewModel = viewModel;
@@ -203,6 +334,8 @@ public sealed class ApplicationControllerPlacementTests
             DragCoordinator = dragCoordinator;
             LogMessages = logMessages;
             ActiveProfileId = activeProfileId;
+            StartupCancellation = startupCancellation;
+            ShutdownRequested = shutdownRequested;
         }
 
         public ApplicationController Controller { get; }
@@ -214,6 +347,8 @@ public sealed class ApplicationControllerPlacementTests
         public RecordingDragCoordinator DragCoordinator { get; }
         public IReadOnlyList<string> LogMessages { get; }
         public Guid ActiveProfileId { get; }
+        public CancellationTokenSource StartupCancellation { get; }
+        public TaskCompletionSource ShutdownRequested { get; }
 
         public static ControllerFixture Create()
         {
@@ -245,6 +380,8 @@ public sealed class ApplicationControllerPlacementTests
             var dragCoordinator = new RecordingDragCoordinator();
             var dragFactory = new RecordingDragCoordinatorFactory(dragCoordinator);
             var logs = new List<string>();
+            var startupCancellation = new CancellationTokenSource();
+            var shutdownRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var dependencies = new ApplicationControllerDependencies(
                 configurationSaveCoordinator,
                 moveHook,
@@ -256,6 +393,8 @@ public sealed class ApplicationControllerPlacementTests
                 dragFactory,
                 placementEngine,
                 new RecordingLifecycleHook(),
+                startupCancellation.Cancel,
+                () => shutdownRequested.TrySetResult(),
                 (level, message, exception) => logs.Add($"{level}: {message}"));
             var controller = new ApplicationController(
                 window,
@@ -273,7 +412,9 @@ public sealed class ApplicationControllerPlacementTests
                 moveHook,
                 dragCoordinator,
                 logs,
-                profileId);
+                profileId,
+                startupCancellation,
+                shutdownRequested);
         }
 
         public void Dispose() => Controller.Dispose();
@@ -283,13 +424,21 @@ public sealed class ApplicationControllerPlacementTests
     {
         public int FlushCalls { get; private set; }
         public SnapConfiguration? LastRequested { get; private set; }
+        public List<SnapConfiguration> RequestedConfigurations { get; } = [];
         public Task FlushCompletion { get; set; } = Task.CompletedTask;
+        public TaskCompletionSource FlushStarted { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
         public event Action<Exception?>? SaveFinished { add { } remove { } }
-        public void RequestSave(SnapConfiguration configuration) => LastRequested = configuration;
+        public void RequestSave(SnapConfiguration configuration)
+        {
+            LastRequested = configuration;
+            RequestedConfigurations.Add(configuration);
+        }
         public Task FlushAsync(CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
             FlushCalls++;
+            FlushStarted.TrySetResult();
             return FlushCompletion;
         }
         public void Dispose() { }
@@ -304,6 +453,9 @@ public sealed class ApplicationControllerPlacementTests
         public int StopCalls { get; private set; }
         public int EmergencyStopCalls { get; private set; }
         public int FlushCalls { get; private set; }
+        public Task FlushCompletion { get; set; } = Task.CompletedTask;
+        public TaskCompletionSource FlushStarted { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
         public int RunningReplaceCalls { get; private set; }
         public WindowPlacementCatalog? ReplacedCatalog { get; private set; }
         public (nint WindowHandle, Guid ProfileId, string MonitorStableId, Guid ZoneId)? LastExplicitZone { get; private set; }
@@ -325,7 +477,8 @@ public sealed class ApplicationControllerPlacementTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             FlushCalls++;
-            return Task.CompletedTask;
+            FlushStarted.TrySetResult();
+            return FlushCompletion;
         }
     }
 
@@ -344,14 +497,24 @@ public sealed class ApplicationControllerPlacementTests
         public void End() { }
         public void End(PointInt finalCursor) { }
         public void Raise(DragAction action) => ActionRequested?.Invoke(action);
+        public Action Capture(DragAction action)
+        {
+            var callback = ActionRequested;
+            return () => callback?.Invoke(action);
+        }
         public void Dispose() => ActionRequested = null;
     }
 
     private sealed class RecordingWindowService : IWindowService
     {
         public bool SnapSucceeds { get; set; } = true;
+        public int TrySnapCalls { get; private set; }
         public WindowSnapshot? Inspect(nint window, PointInt cursor, int ownProcessId) => null;
-        public bool TrySnap(nint window, PixelRect bounds) => SnapSucceeds;
+        public bool TrySnap(nint window, PixelRect bounds)
+        {
+            TrySnapCalls++;
+            return SnapSucceeds;
+        }
         public bool TryGetCursorPosition(out PointInt point) { point = default; return false; }
         public bool IsEscapePressed() => false;
         public bool IsShiftPressed() => false;
@@ -363,8 +526,17 @@ public sealed class ApplicationControllerPlacementTests
         public event Action<nint>? MoveEnded { add { } remove { } }
         public event Action<string>? EmergencyStopped { add { } remove { } }
         public bool IsEnabled { get; private set; }
-        public void Enable() => IsEnabled = true;
-        public void Disable() => IsEnabled = false;
+        public List<string> Operations { get; } = [];
+        public void Enable()
+        {
+            Operations.Add("Enable");
+            IsEnabled = true;
+        }
+        public void Disable()
+        {
+            Operations.Add("Disable");
+            IsEnabled = false;
+        }
         public void Dispose() { }
     }
 
@@ -411,5 +583,22 @@ public sealed class ApplicationControllerPlacementTests
     {
         public bool IsEnabled { get; private set; }
         public void SetEnabled(bool enabled) => IsEnabled = enabled;
+    }
+
+    private sealed class LateCompletingPlacementRepository : IWindowPlacementRepository
+    {
+        public TaskCompletionSource Started { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource<WindowPlacementLoadResult> Result { get; } =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public Task<WindowPlacementLoadResult> LoadAsync(CancellationToken cancellationToken)
+        {
+            _ = cancellationToken;
+            Started.TrySetResult();
+            return Result.Task;
+        }
+
+        public Task SaveAsync(WindowPlacementCatalog catalog, CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 }

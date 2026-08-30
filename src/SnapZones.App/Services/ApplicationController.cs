@@ -31,15 +31,20 @@ public sealed class ApplicationController : IDisposable
     private IWindowDragCoordinatorFactory dragCoordinatorFactory = null!;
     private IWindowPlacementEngine placementEngine = null!;
     private IWindowLifecycleHook placementLifecycleHook = null!;
+    private Action cancelStartup = null!;
+    private Action shutdownApplication = null!;
     private DispatcherTimer cursorTimer = null!;
     private IConfigurationSaveCoordinator saveCoordinator = null!;
     private readonly ConfigurationTransferService transferService = new();
+    private readonly object lifecycleGate = new();
+    private readonly object automationGate = new();
     private IWindowDragCoordinator? coordinator;
     private SnapConfiguration configuration;
     private int exitRequested;
     private bool allowClose;
     private bool disposed;
     private bool placementsInitialized;
+    private int safetyStopped;
 
     public ApplicationController(
         MainWindow window,
@@ -48,6 +53,7 @@ public sealed class ApplicationController : IDisposable
         IWindowPlacementRepository placementRepository,
         IReadOnlyList<LiveMonitor> monitors,
         IStartupService startupService,
+        Action cancelStartup,
         FileLog log)
     {
         this.window = window;
@@ -61,6 +67,7 @@ public sealed class ApplicationController : IDisposable
             placementRepository,
             monitors,
             () => configuration,
+            cancelStartup,
             ActivateProfile,
             ToggleSnapping,
             RequestExit,
@@ -98,6 +105,8 @@ public sealed class ApplicationController : IDisposable
         dragCoordinatorFactory = dependencies.DragCoordinatorFactory;
         placementEngine = dependencies.PlacementEngine;
         placementLifecycleHook = dependencies.PlacementLifecycleHook;
+        cancelStartup = dependencies.CancelStartup;
+        shutdownApplication = dependencies.ShutdownApplication;
         cursorTimer = new DispatcherTimer(DispatcherPriority.Input, window.Dispatcher)
         {
             Interval = TimeSpan.FromMilliseconds(33)
@@ -119,16 +128,21 @@ public sealed class ApplicationController : IDisposable
 
     public void EmergencyStop(string reason)
     {
-        if (disposed)
+        lock (automationGate)
         {
-            return;
+            if (disposed)
+            {
+                return;
+            }
+
+            Volatile.Write(ref safetyStopped, 1);
+            cursorTimer.Stop();
+            coordinator?.Cancel();
+            overlays.HideAll();
+            moveHook.Disable();
+            placementEngine.EmergencyStop();
         }
 
-        cursorTimer.Stop();
-        coordinator?.Cancel();
-        overlays.HideAll();
-        moveHook.Disable();
-        placementEngine.EmergencyStop();
         viewModel.DisableSnappingForSafety(reason);
         configuration = viewModel.Configuration;
         _ = hotkeys.Configure(QuickSlotRegistrationPlan.Build(configuration), emergencyStopEnabled: false);
@@ -140,32 +154,47 @@ public sealed class ApplicationController : IDisposable
     public void InitializeWindowPlacements(WindowPlacementLoadResult loadResult)
     {
         ArgumentNullException.ThrowIfNull(loadResult);
-        ObjectDisposedException.ThrowIf(disposed, this);
-        placementEngine.Stop();
-        placementEngine.ReplaceCatalog(loadResult.Catalog);
-        placementsInitialized = true;
-        if (loadResult.RecoveredFromError)
+        lock (lifecycleGate)
         {
-            var message = loadResult.ErrorMessage ?? "Die Fensterplatzierungen wurden zurückgesetzt.";
-            viewModel.StatusMessage = message;
-            log("WARN", message, null);
-        }
+            if (disposed || Volatile.Read(ref exitRequested) != 0)
+            {
+                return;
+            }
 
-        Reconfigure();
+            placementEngine.Stop();
+            placementEngine.ReplaceCatalog(loadResult.Catalog);
+            placementsInitialized = true;
+            if (loadResult.RecoveredFromError)
+            {
+                var message = loadResult.ErrorMessage ?? "Die Fensterplatzierungen wurden zurückgesetzt.";
+                viewModel.StatusMessage = message;
+                log("WARN", message, null);
+            }
+
+            ReconfigureCore();
+        }
     }
 
     public void Dispose()
     {
-        if (disposed)
+        lock (automationGate)
         {
-            return;
-        }
+            if (disposed)
+            {
+                return;
+            }
 
-        disposed = true;
+            disposed = true;
+            Volatile.Write(ref safetyStopped, 1);
+        }
         allowClose = true;
         cursorTimer.Stop();
         cursorTimer.Tick -= CursorTimer_Tick;
-        placementEngine.Stop();
+        lock (lifecycleGate)
+        {
+            placementEngine.Stop();
+            moveHook.Disable();
+        }
         placementLifecycleHook.EmergencyStopped -= PlacementLifecycleHook_EmergencyStopped;
         moveHook.MoveStarted -= MoveStarted;
         moveHook.MoveEnded -= MoveHook_MoveEnded;
@@ -174,7 +203,6 @@ public sealed class ApplicationController : IDisposable
         hotkeys.EmergencyStopRequested -= Hotkeys_EmergencyStopRequested;
         viewModel.SaveRequested -= SaveRequested;
         window.Closing -= Window_Closing;
-        moveHook.Disable();
         overlays.HideAll();
         coordinator?.Dispose();
         coordinator = null;
@@ -222,6 +250,13 @@ public sealed class ApplicationController : IDisposable
         if (Interlocked.Exchange(ref exitRequested, 1) != 0)
         {
             return;
+        }
+
+        cancelStartup();
+        lock (lifecycleGate)
+        {
+            moveHook.Disable();
+            placementEngine.Stop();
         }
 
         _ = window.Dispatcher.InvokeAsync(
@@ -300,8 +335,18 @@ public sealed class ApplicationController : IDisposable
 
     public void Reconfigure()
     {
-        if (disposed)
+        lock (lifecycleGate)
         {
+            ReconfigureCore();
+        }
+    }
+
+    private void ReconfigureCore()
+    {
+        if (disposed || Volatile.Read(ref exitRequested) != 0)
+        {
+            moveHook.Disable();
+            placementEngine.Stop();
             return;
         }
 
@@ -328,7 +373,9 @@ public sealed class ApplicationController : IDisposable
             viewModel.StatusMessage = string.Join(" ", hotkeyResult.Errors);
         }
 
-        if (placementsInitialized && configuration.Settings.SnappingEnabled)
+        if (placementsInitialized &&
+            configuration.Settings.SnappingEnabled &&
+            Volatile.Read(ref safetyStopped) == 0)
         {
             try
             {
@@ -341,7 +388,9 @@ public sealed class ApplicationController : IDisposable
             }
         }
 
-        if (placementsInitialized && configuration.Settings.RestoreWindowPlacementEnabled)
+        if (placementsInitialized &&
+            configuration.Settings.RestoreWindowPlacementEnabled &&
+            Volatile.Read(ref safetyStopped) == 0)
         {
             try
             {
@@ -467,22 +516,29 @@ public sealed class ApplicationController : IDisposable
                 overlays.HideAll();
                 break;
             case SnapWindowAction snap:
-                if (!placementsInitialized)
+                lock (automationGate)
                 {
-                    log("DEBUG", "Fensteraktion vor Abschluss der Platzierungsinitialisierung verworfen.", null);
-                }
-                else if (windowService.TrySnap(snap.WindowHandle, snap.Bounds))
-                {
-                    placementEngine.RememberExplicitZone(
-                        snap.WindowHandle,
-                        configuration.Settings.ActiveProfileId,
-                        snap.MonitorStableId,
-                        snap.ZoneId);
-                    log("DEBUG", $"Fenster 0x{snap.WindowHandle:X} eingerastet: {snap.Bounds}.", null);
-                }
-                else
-                {
-                    log("WARN", "Ein Fenster konnte nicht positioniert werden.", null);
+                    if (disposed ||
+                        Volatile.Read(ref exitRequested) != 0 ||
+                        Volatile.Read(ref safetyStopped) != 0 ||
+                        !placementsInitialized ||
+                        !configuration.Settings.SnappingEnabled)
+                    {
+                        log("DEBUG", "Fensteraktion bei deaktivierter Automatik verworfen.", null);
+                    }
+                    else if (windowService.TrySnap(snap.WindowHandle, snap.Bounds))
+                    {
+                        placementEngine.RememberExplicitZone(
+                            snap.WindowHandle,
+                            configuration.Settings.ActiveProfileId,
+                            snap.MonitorStableId,
+                            snap.ZoneId);
+                        log("DEBUG", $"Fenster 0x{snap.WindowHandle:X} eingerastet: {snap.Bounds}.", null);
+                    }
+                    else
+                    {
+                        log("WARN", "Ein Fenster konnte nicht positioniert werden.", null);
+                    }
                 }
                 break;
         }
@@ -515,6 +571,12 @@ public sealed class ApplicationController : IDisposable
         window.IsEnabled = false;
         try
         {
+            lock (lifecycleGate)
+            {
+                moveHook.Disable();
+                placementEngine.Stop();
+            }
+
             viewModel.Save();
             using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
             await FlushAsync(cancellation.Token);
@@ -525,6 +587,6 @@ public sealed class ApplicationController : IDisposable
         }
 
         allowClose = true;
-        System.Windows.Application.Current.Shutdown();
+        shutdownApplication();
     }
 }

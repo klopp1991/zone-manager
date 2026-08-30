@@ -18,6 +18,7 @@ public partial class App : System.Windows.Application
     private ApplicationController? controller;
     private FileLog? log;
     private ThemeService? themeService;
+    private CancellationTokenSource? startupLifetime;
 
     public void ApplyTheme(ThemeMode mode) => themeService?.Apply(mode);
 
@@ -30,11 +31,39 @@ public partial class App : System.Windows.Application
             executablePath,
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+        var diagnosticsRequested = eventArgs.Args.Contains("--diagnostics", StringComparer.OrdinalIgnoreCase);
+        startupLifetime = new CancellationTokenSource();
+        var placementRepository = new JsonWindowPlacementRepository(paths.ConfigurationDirectory);
+        var placementLoadTask = diagnosticsRequested
+            ? null
+            : WindowPlacementStartupLoad.Start(placementRepository, startupLifetime.Token);
         log = new FileLog(paths.LogDirectory);
         var startupService = new WindowsStartupService(executablePath);
 
-        if (eventArgs.Args.Contains("--diagnostics", StringComparer.OrdinalIgnoreCase))
+        async Task CancelPlacementLoadAsync()
         {
+            startupLifetime.Cancel();
+            if (placementLoadTask is null)
+            {
+                return;
+            }
+
+            try
+            {
+                await placementLoadTask;
+            }
+            catch (OperationCanceledException) when (startupLifetime.IsCancellationRequested)
+            {
+            }
+            catch (Exception exception)
+            {
+                log.Write("WARN", "Der frühe Platzierungs-Load wurde mit einem Fehler beendet.", exception);
+            }
+        }
+
+        if (diagnosticsRequested)
+        {
+            await CancelPlacementLoadAsync();
             var exitCode = await DiagnosticRunner.RunAsync(paths.ConfigurationDirectory, startupService);
             Shutdown(exitCode);
             return;
@@ -42,6 +71,7 @@ public partial class App : System.Windows.Application
 
         if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
         {
+            await CancelPlacementLoadAsync();
             System.Windows.MessageBox.Show($"{ProductInfo.Name} benötigt Windows 11.", "Nicht unterstütztes System", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(3);
             return;
@@ -52,6 +82,7 @@ public partial class App : System.Windows.Application
         var startupDisposition = StartupPolicy.Decide(eventArgs.Args, singleInstance.IsPrimary);
         if (startupDisposition == StartupDisposition.ExitDuplicate)
         {
+            await CancelPlacementLoadAsync();
             Shutdown();
             return;
         }
@@ -60,6 +91,7 @@ public partial class App : System.Windows.Application
         {
             if (!singleInstance.RequestRestartAndTakeOwnership(RestartTakeoverTimeout))
             {
+                await CancelPlacementLoadAsync();
                 singleInstance.NotifyPrimary();
                 log.Write("ERROR", "Die laufende Instanz hat die Neustartanforderung nicht rechtzeitig abgeschlossen.");
                 System.Windows.MessageBox.Show(
@@ -77,8 +109,6 @@ public partial class App : System.Windows.Application
         try
         {
             var repository = new JsonConfigurationRepository(paths.ConfigurationDirectory);
-            var placementRepository = new JsonWindowPlacementRepository(paths.ConfigurationDirectory);
-            var placementLoadTask = placementRepository.LoadAsync(CancellationToken.None);
             var loadResult = await repository.LoadAsync(CancellationToken.None);
             themeService = new ThemeService();
             themeService.Apply(loadResult.Configuration.Settings.ThemeMode);
@@ -99,6 +129,7 @@ public partial class App : System.Windows.Application
                 placementRepository,
                 monitors,
                 startupService,
+                startupLifetime.Cancel,
                 log);
             singleInstance.ActivationRequested += () =>
             {
@@ -138,11 +169,16 @@ public partial class App : System.Windows.Application
                 mainWindow.Show();
             }
 
-            var placementLoad = await placementLoadTask;
+            var placementLoad = await placementLoadTask!;
+            startupLifetime.Token.ThrowIfCancellationRequested();
             controller.InitializeWindowPlacements(placementLoad);
+        }
+        catch (OperationCanceledException) when (startupLifetime.IsCancellationRequested)
+        {
         }
         catch (Exception exception)
         {
+            startupLifetime.Cancel();
             log.Write("FATAL", $"{ProductInfo.Name} konnte nicht gestartet werden.", exception);
             System.Windows.MessageBox.Show(exception.Message, $"{ProductInfo.Name} konnte nicht gestartet werden", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(5);
@@ -151,9 +187,11 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs eventArgs)
     {
+        startupLifetime?.Cancel();
         controller?.Dispose();
         themeService?.Dispose();
         singleInstance?.Dispose();
+        startupLifetime?.Dispose();
         base.OnExit(eventArgs);
     }
 }

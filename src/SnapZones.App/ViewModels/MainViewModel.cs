@@ -147,8 +147,17 @@ public sealed class MainViewModel : ViewModelBase
 
     public void DisableSnappingForSafety(string reason)
     {
-        Settings.RestoreWindowPlacementEnabled = false;
-        Settings.SnappingEnabled = false;
+        suppressPersistence = true;
+        try
+        {
+            Settings.RestoreWindowPlacementEnabled = false;
+            Settings.SnappingEnabled = false;
+        }
+        finally
+        {
+            suppressPersistence = false;
+        }
+
         profileService.UpdateSettings(Settings.CreateSettings(profileService.ActiveProfile.Id));
         StatusMessage = reason;
     }
