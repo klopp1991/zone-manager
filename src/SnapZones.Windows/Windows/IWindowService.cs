@@ -7,4 +7,7 @@ public interface IWindowService
 {
     WindowSnapshot? Inspect(nint window, PointInt cursor, int ownProcessId);
     bool TrySnap(nint window, PixelRect bounds);
+    bool TryGetCursorPosition(out PointInt point);
+    bool IsEscapePressed();
+    bool IsShiftPressed();
 }

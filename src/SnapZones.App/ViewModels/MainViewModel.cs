@@ -127,6 +127,24 @@ public sealed class MainViewModel : ViewModelBase
         StatusMessage = "Profil gelöscht";
     }
 
+    public void ActivateProfile(Guid profileId)
+    {
+        StoreValidDraft();
+        profileService.Activate(profileId);
+        RefreshProfiles();
+        selectedProfile = profileService.ActiveProfile;
+        OnPropertyChanged(nameof(SelectedProfile));
+        RefreshMonitors();
+        StatusMessage = $"Profil «{selectedProfile.Name}» aktiv";
+    }
+
+    public void DisableSnappingForSafety(string reason)
+    {
+        Settings.SnappingEnabled = false;
+        profileService.UpdateSettings(Settings.CreateSettings(profileService.ActiveProfile.Id));
+        StatusMessage = reason;
+    }
+
     private void StoreValidDraft()
     {
         if (Editor is not null && Editor.CanSave)

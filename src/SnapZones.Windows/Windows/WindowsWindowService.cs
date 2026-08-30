@@ -63,6 +63,22 @@ public sealed class WindowsWindowService : IWindowService
             NoZOrder | NoActivate | NoOwnerZOrder | AsyncWindowPosition);
     }
 
+    public bool TryGetCursorPosition(out PointInt point)
+    {
+        if (User32.GetCursorPos(out var nativePoint))
+        {
+            point = new PointInt(nativePoint.X, nativePoint.Y);
+            return true;
+        }
+
+        point = default;
+        return false;
+    }
+
+    public bool IsEscapePressed() => (User32.GetAsyncKeyState(0x1B) & 0x8000) != 0;
+
+    public bool IsShiftPressed() => (User32.GetAsyncKeyState(0x10) & 0x8000) != 0;
+
     private static bool IsTitleBarDrag(nint window, PointInt cursor)
     {
         var packedPoint = (nint)(((long)(cursor.Y & 0xffff) << 16) | (uint)(cursor.X & 0xffff));

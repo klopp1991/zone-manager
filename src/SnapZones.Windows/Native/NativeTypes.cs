@@ -42,3 +42,10 @@ internal struct DisplayDevice
     [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
     public string DeviceKey;
 }
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct PointNative
+{
+    public int X;
+    public int Y;
+}
