@@ -19,6 +19,8 @@ public partial class App : System.Windows.Application
     private FileLog? log;
     private ThemeService? themeService;
     private CancellationTokenSource? startupLifetime;
+    private DpiProbeLifetime? dpiProbeLifetime;
+    private DispatcherTimer? dpiProbeTimer;
 
     public void ApplyTheme(ThemeMode mode) => themeService?.Apply(mode);
 
@@ -29,8 +31,7 @@ public partial class App : System.Windows.Application
         var startupMode = StartupModeResolver.Resolve(eventArgs.Args);
         if (startupMode == StartupMode.DpiProbe)
         {
-            await Task.Delay(TimeSpan.FromSeconds(3));
-            Shutdown(0);
+            StartDpiProbeLifetime();
             return;
         }
 
@@ -188,6 +189,34 @@ public partial class App : System.Windows.Application
             System.Windows.MessageBox.Show(exception.Message, $"{ProductInfo.Name} konnte nicht gestartet werden", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(5);
         }
+    }
+
+    private void StartDpiProbeLifetime()
+    {
+        dpiProbeLifetime = new DpiProbeLifetime(
+            TimeSpan.FromSeconds(1),
+            ScheduleDpiProbeShutdown,
+            () => Shutdown(0));
+        dpiProbeLifetime.Start();
+    }
+
+    private void ScheduleDpiProbeShutdown(TimeSpan delay, Action shutdown)
+    {
+        var timer = new DispatcherTimer(DispatcherPriority.Send, Dispatcher)
+        {
+            Interval = delay
+        };
+        EventHandler? handler = null;
+        handler = (_, _) =>
+        {
+            timer.Stop();
+            timer.Tick -= handler;
+            dpiProbeTimer = null;
+            shutdown();
+        };
+        dpiProbeTimer = timer;
+        timer.Tick += handler;
+        timer.Start();
     }
 
     protected override void OnExit(ExitEventArgs eventArgs)

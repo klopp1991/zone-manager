@@ -98,8 +98,8 @@ function Assert-CleanTestRun($TestRun) {
     )
     if ($TestRun.ExitCode -ne 0 -or $TestRun.Total -ne $TestRun.Executed -or $TestRun.Total -ne $TestRun.Passed -or
         $TestRun.Results.Count -ne $TestRun.Total -or
-        $null -ne ($TestRun.Results | Where-Object Outcome -ne 'Passed') -or
-        $null -ne ($nonSuccessCounters | Where-Object { $TestRun.$_ -ne 0 })) {
+        @($TestRun.Results | Where-Object Outcome -ne 'Passed').Count -ne 0 -or
+        @($nonSuccessCounters | Where-Object { $TestRun.$_ -ne 0 }).Count -ne 0) {
         throw "Der Testlauf ist nicht vollständig grün. TRX: $($TestRun.TrxPath)"
     }
 }
@@ -129,12 +129,37 @@ function Invoke-TestRun([string]$Name, [string]$Filter) {
 function Assert-ExpectedIconBaselines($TestRun) {
     $failedNames = @($TestRun.Results | Where-Object Outcome -eq 'Failed' | ForEach-Object Name | Sort-Object)
     $expectedNames = @($expectedIconBaselines | Sort-Object)
-    if ($TestRun.Error -ne 0 -or $TestRun.Failed -ne $expectedNames.Count -or
+    $nonFailureResults = @($TestRun.Results | Where-Object Outcome -ne 'Failed')
+    $unexpectedCounters = @(
+        'Error', 'Timeout', 'Aborted', 'Inconclusive', 'PassedButRunAborted',
+        'NotRunnable', 'NotExecuted', 'Disconnected', 'Warning', 'Completed', 'InProgress', 'Pending'
+    )
+    if ($TestRun.ExitCode -eq 0 -or $TestRun.Total -ne $TestRun.Executed -or
+        $TestRun.Failed -ne $expectedNames.Count -or $TestRun.Passed -ne ($TestRun.Total - $expectedNames.Count) -or
         $failedNames.Count -ne $expectedNames.Count -or
         $TestRun.Results.Count -ne $TestRun.Total -or
-        $null -ne ($TestRun.Results | Where-Object { $_.Outcome -notin @('Passed', 'Failed') }) -or
-        $null -ne (Compare-Object -ReferenceObject $expectedNames -DifferenceObject $failedNames)) {
+        @($TestRun.Results | Where-Object { $_.Outcome -notin @('Passed', 'Failed') }).Count -ne 0 -or
+        @($nonFailureResults | Where-Object Outcome -ne 'Passed').Count -ne 0 -or
+        @($unexpectedCounters | Where-Object { $TestRun.$_ -ne 0 }).Count -ne 0 -or
+        @((Compare-Object -ReferenceObject $expectedNames -DifferenceObject $failedNames)).Count -ne 0) {
         throw "Der Volltest enthält nicht exakt die zwei dokumentierten Icon-Baselines. TRX: $($TestRun.TrxPath)"
+    }
+}
+
+function Assert-VerificationTestRuns($FullTest, $RemainingTest) {
+    if ($FullTest.ExitCode -eq 0) {
+        Assert-CleanTestRun $FullTest
+        throw "Der Volltest ist unerwartet vollständig grün. Die dokumentierte Icon-Baseline-Policy muss aktualisiert werden. TRX: $($FullTest.TrxPath)"
+    }
+
+    Assert-ExpectedIconBaselines $FullTest
+    if ($null -eq $RemainingTest) {
+        throw 'Der Gegenlauf ohne die zwei dokumentierten Icon-Baselines fehlt.'
+    }
+
+    Assert-CleanTestRun $RemainingTest
+    if ($RemainingTest.Total -ne ($FullTest.Total - $expectedIconBaselines.Count)) {
+        throw "Der Gegenlauf enthält nicht exakt alle übrigen Tests. TRX: $($RemainingTest.TrxPath)"
     }
 }
 
@@ -200,12 +225,15 @@ function Invoke-PortableDiagnosticsProbe([string]$ExecutablePath) {
     }
 }
 
-function Write-SyntheticTrx([string]$Path, [hashtable]$Counters, [string]$Outcome) {
+function Write-SyntheticTrx([string]$Path, [hashtable]$Counters, [object[]]$Results) {
     $attributes = ($Counters.GetEnumerator() | Sort-Object Key | ForEach-Object { '{0}="{1}"' -f $_.Key, $_.Value }) -join ' '
+    $resultNodes = ($Results | ForEach-Object { '    <UnitTestResult testName="{0}" outcome="{1}" />' -f $_.Name, $_.Outcome }) -join "`n"
     @"
 <?xml version="1.0" encoding="utf-8"?>
 <TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
-  <Results><UnitTestResult testName="Synthetic.Test" outcome="$Outcome" /></Results>
+  <Results>
+$resultNodes
+  </Results>
   <ResultSummary outcome="Completed"><Counters $attributes /></ResultSummary>
 </TestRun>
 "@ | Set-Content -LiteralPath $Path -Encoding utf8
@@ -228,15 +256,60 @@ function Invoke-VerificationSelfTest {
         New-Item -ItemType Directory -Path $directory -Force | Out-Null
         $validCounters = @{ total = 1; executed = 1; passed = 1; failed = 0; error = 0; timeout = 0; aborted = 0; inconclusive = 0; passedButRunAborted = 0; notRunnable = 0; notExecuted = 0; disconnected = 0; warning = 0; completed = 0; inProgress = 0; pending = 0 }
         $validTrx = Join-Path $directory 'valid.trx'
-        Write-SyntheticTrx $validTrx $validCounters 'Passed'
-        Assert-CleanTestRun (Read-TestRun $validTrx 0)
+        Write-SyntheticTrx $validTrx $validCounters @([pscustomobject]@{ Name = 'Synthetic.Clean'; Outcome = 'Passed' })
+        $validTest = Read-TestRun $validTrx 0
+        Assert-CleanTestRun $validTest
 
         $skippedCounters = @{} + $validCounters
         $skippedCounters.passed = 0
         $skippedCounters.notExecuted = 1
         $skippedTrx = Join-Path $directory 'skipped.trx'
-        Write-SyntheticTrx $skippedTrx $skippedCounters 'NotExecuted'
+        Write-SyntheticTrx $skippedTrx $skippedCounters @([pscustomobject]@{ Name = 'Synthetic.Skipped'; Outcome = 'NotExecuted' })
         Assert-Throws { Assert-CleanTestRun (Read-TestRun $skippedTrx 0) } 'notExecuted'
+
+        $inconsistentCounters = @{} + $validCounters
+        $inconsistentCounters.executed = 0
+        $inconsistentTrx = Join-Path $directory 'inconsistent.trx'
+        Write-SyntheticTrx $inconsistentTrx $inconsistentCounters @([pscustomobject]@{ Name = 'Synthetic.Inconsistent'; Outcome = 'Passed' })
+        Assert-Throws { Assert-CleanTestRun (Read-TestRun $inconsistentTrx 0) } 'inconsistent-executed'
+
+        $passedMismatchCounters = @{} + $validCounters
+        $passedMismatchCounters.passed = 0
+        $passedMismatchTrx = Join-Path $directory 'passed-mismatch.trx'
+        Write-SyntheticTrx $passedMismatchTrx $passedMismatchCounters @([pscustomobject]@{ Name = 'Synthetic.PassedMismatch'; Outcome = 'Passed' })
+        Assert-Throws { Assert-CleanTestRun (Read-TestRun $passedMismatchTrx 0) } 'inconsistent-passed'
+
+        $otherOutcomeTrx = Join-Path $directory 'other-outcome.trx'
+        Write-SyntheticTrx $otherOutcomeTrx $validCounters @([pscustomobject]@{ Name = 'Synthetic.OtherOutcome'; Outcome = 'Inconclusive' })
+        Assert-Throws { Assert-CleanTestRun (Read-TestRun $otherOutcomeTrx 0) } 'other-outcome'
+
+        $baselineCounters = @{} + $validCounters
+        $baselineCounters.total = 3
+        $baselineCounters.executed = 3
+        $baselineCounters.passed = 1
+        $baselineCounters.failed = 2
+        $baselineTrx = Join-Path $directory 'baseline.trx'
+        Write-SyntheticTrx $baselineTrx $baselineCounters @(
+            [pscustomobject]@{ Name = $expectedIconBaselines[0]; Outcome = 'Failed' }
+            [pscustomobject]@{ Name = $expectedIconBaselines[1]; Outcome = 'Failed' }
+            [pscustomobject]@{ Name = 'Synthetic.Remaining'; Outcome = 'Passed' }
+        )
+        $baselineTest = Read-TestRun $baselineTrx 1
+        Assert-VerificationTestRuns $baselineTest $validTest
+
+        $additionalFailureCounters = @{} + $baselineCounters
+        $additionalFailureCounters.total = 4
+        $additionalFailureCounters.executed = 4
+        $additionalFailureCounters.failed = 3
+        $additionalFailureTrx = Join-Path $directory 'additional-failure.trx'
+        Write-SyntheticTrx $additionalFailureTrx $additionalFailureCounters @(
+            [pscustomobject]@{ Name = $expectedIconBaselines[0]; Outcome = 'Failed' }
+            [pscustomobject]@{ Name = $expectedIconBaselines[1]; Outcome = 'Failed' }
+            [pscustomobject]@{ Name = 'Synthetic.UnexpectedFailure'; Outcome = 'Failed' }
+            [pscustomobject]@{ Name = 'Synthetic.Remaining'; Outcome = 'Passed' }
+        )
+        Assert-Throws { Assert-VerificationTestRuns (Read-TestRun $additionalFailureTrx 1) $validTest } 'additional-failure'
+        Assert-Throws { Assert-VerificationTestRuns $validTest $null } 'unexpected-green-full-suite'
 
         $unsafeDiagnostic = [pscustomobject]@{
             hookRegistered = $false
@@ -290,21 +363,14 @@ if ($LASTEXITCODE -ne 0) { throw 'Die win-x64-Laufzeitwiederherstellung ist fehl
 if ($LASTEXITCODE -ne 0) { throw 'Das Programmicon konnte nicht erzeugt werden.' }
 
 $fullTest = Invoke-TestRun 'full-suite' ''
-$testStatus = 'passed'
-if ($fullTest.ExitCode -ne 0) {
-    Assert-ExpectedIconBaselines $fullTest
-    $nonBaselineFilter = ($expectedIconBaselines | ForEach-Object { "FullyQualifiedName!=$_" }) -join '&'
-    $remainingTests = Invoke-TestRun 'without-icon-baselines' $nonBaselineFilter
-    if ($remainingTests.ExitCode -ne 0 -or $remainingTests.Failed -ne 0 -or $remainingTests.Error -ne 0 -or
-        $remainingTests.Total -ne ($fullTest.Total - $expectedIconBaselines.Count)) {
-        throw "Der Gegenlauf ohne die zwei exakten Icon-Baselines ist nicht vollständig grün. TRX: $($remainingTests.TrxPath)"
-    }
+if ($fullTest.ExitCode -eq 0) {
+    Assert-VerificationTestRuns $fullTest $null
+}
 
-    $testStatus = 'passed-with-two-documented-icon-baselines'
-}
-elseif ($fullTest.Failed -ne 0 -or $fullTest.Error -ne 0) {
-    throw "Der erfolgreiche Volltest meldet dennoch Fehler. TRX: $($fullTest.TrxPath)"
-}
+$nonBaselineFilter = ($expectedIconBaselines | ForEach-Object { "FullyQualifiedName!=$_" }) -join '&'
+$remainingTests = Invoke-TestRun 'without-icon-baselines' $nonBaselineFilter
+Assert-VerificationTestRuns $fullTest $remainingTests
+$testStatus = 'passed-with-two-documented-icon-baselines'
 
 dotnet build $solutionPath -c Release --no-restore -p:SkipRootExecutablePublish=true
 if ($LASTEXITCODE -ne 0) { throw 'Der Release-Build ist fehlgeschlagen.' }
