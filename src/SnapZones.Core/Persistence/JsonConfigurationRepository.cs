@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
+using SnapZones.Core.AppRules;
 
 namespace SnapZones.Core.Persistence;
 
@@ -211,7 +212,30 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
 
         if (configuration.SchemaVersion == SnapConfiguration.CurrentSchemaVersion)
         {
-            return configuration;
+            return configuration with
+            {
+                MonitorOrder = configuration.MonitorOrder ?? [],
+                AppRules = configuration.AppRules ?? []
+            };
+        }
+
+        if (configuration.SchemaVersion == 3)
+        {
+            return configuration with
+            {
+                SchemaVersion = SnapConfiguration.CurrentSchemaVersion,
+                MonitorOrder = [],
+                AppRules = configuration.AppRules ?? []
+            };
+        }
+
+        if (configuration.SchemaVersion == 2)
+        {
+            return configuration with
+            {
+                SchemaVersion = SnapConfiguration.CurrentSchemaVersion,
+                AppRules = []
+            };
         }
 
         if (configuration.SchemaVersion != 1 || configuration.LegacyProfiles is not { Count: > 0 } profiles)
@@ -279,6 +303,14 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
             throw new InvalidDataException("Die gespeicherten Monitornamen sind ungültig.");
         }
 
+        if (configuration.MonitorOrder is null ||
+            configuration.MonitorOrder.Any(string.IsNullOrWhiteSpace) ||
+            configuration.MonitorOrder.Any(key => key != key.Trim()) ||
+            configuration.MonitorOrder.Distinct(StringComparer.OrdinalIgnoreCase).Count() != configuration.MonitorOrder.Count)
+        {
+            throw new InvalidDataException("Die gespeicherte Monitorreihenfolge ist ungültig.");
+        }
+
         foreach (var group in configuration.Layouts.GroupBy(MonitorKey, StringComparer.OrdinalIgnoreCase))
         {
             if (group.Count(layout => layout.IsActive) != 1)
@@ -296,6 +328,7 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
         }
 
         ValidateSettings(configuration.Settings);
+        ValidateAppRules(configuration.AppRules);
 
         foreach (var layout in configuration.Layouts)
         {
@@ -351,4 +384,30 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
             throw new InvalidDataException("Die Overlayfarbe muss das Format #RRGGBB besitzen.");
         }
     }
+
+    private static void ValidateAppRules(IReadOnlyList<AppRule>? rules)
+    {
+        if (rules is null ||
+            rules.Any(rule =>
+                rule.Id == Guid.Empty ||
+                string.IsNullOrWhiteSpace(rule.ProcessPath) ||
+                rule.ProcessPath != rule.ProcessPath.Trim() ||
+                rule.ProcessPath.Length > 1024 ||
+                rule.TargetLayoutId == Guid.Empty ||
+                rule.TargetZoneId == Guid.Empty ||
+                !Enum.IsDefined(rule.Event) ||
+                rule.DelayMilliseconds is < 0 or > 30000 ||
+                rule.RetryCount is < 0 or > 3 ||
+                rule.Priority is < 0 or > 100 ||
+                InvalidOptionalPattern(rule.WindowTitlePattern, 512) ||
+                InvalidOptionalPattern(rule.WindowClass, 256)) ||
+            rules.Select(rule => rule.Id).Distinct().Count() != rules.Count)
+        {
+            throw new InvalidDataException("Die gespeicherten App-Regeln sind ungültig.");
+        }
+    }
+
+    private static bool InvalidOptionalPattern(string? value, int maximumLength) =>
+        value is not null &&
+        (string.IsNullOrWhiteSpace(value) || value != value.Trim() || value.Length > maximumLength);
 }

@@ -12,6 +12,7 @@ $projectPath = Join-Path $projectRoot 'src\SnapZones.App\SnapZones.App.csproj'
 $outputPath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'outputs\Sascha-Zone-Manager-prototype'))
 $expectedOutputParent = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'outputs'))
 $rootExecutablePath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'SaschaZoneManager.exe'))
+$maximumExecutableBytes = 100000000
 
 if (-not $outputPath.StartsWith($expectedOutputParent + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
     throw 'Der Publish-Pfad liegt ausserhalb des Ausgabeordners.'
@@ -49,6 +50,11 @@ if (-not (Test-Path -LiteralPath $publishedExecutablePath -PathType Leaf)) {
     throw 'SaschaZoneManager.exe fehlt im Publish-Ordner.'
 }
 
+$publishedExecutableBytes = (Get-Item -LiteralPath $publishedExecutablePath).Length
+if ($publishedExecutableBytes -gt $maximumExecutableBytes) {
+    throw "Die veröffentlichte EXE ist mit $publishedExecutableBytes Bytes grösser als das erlaubte Maximum von $maximumExecutableBytes Bytes."
+}
+
 & (Join-Path $scriptDirectory 'install-root-executable.ps1') `
     -PublishedExecutablePath $publishedExecutablePath `
     -RootExecutablePath $rootExecutablePath
@@ -83,4 +89,4 @@ else {
 
 $files = Get-ChildItem -LiteralPath $outputPath -File -Recurse
 $bytes = ($files | Measure-Object -Property Length -Sum).Sum
-Write-Output "VERIFY_OK tests=passed dpi=$dpiStatus monitors=$(@($diagnostic.monitors).Count) startupLayouts=$($diagnostic.startupLayoutCount) files=$($files.Count) bytes=$bytes rootExe=$rootExecutablePath hookRegistered=false settingsChanged=false"
+Write-Output "VERIFY_OK tests=passed dpi=$dpiStatus monitors=$(@($diagnostic.monitors).Count) startupLayouts=$($diagnostic.startupLayoutCount) files=$($files.Count) bytes=$bytes maximumExecutableBytes=$maximumExecutableBytes rootExe=$rootExecutablePath hookRegistered=false settingsChanged=false"

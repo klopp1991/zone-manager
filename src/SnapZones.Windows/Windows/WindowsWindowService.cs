@@ -1,6 +1,9 @@
 using SnapZones.Core.Drag;
 using SnapZones.Core.Geometry;
+using SnapZones.Core.Layouts;
+using SnapZones.Core.AppRules;
 using SnapZones.Windows.Native;
+using System.Text;
 
 namespace SnapZones.Windows.Windows;
 
@@ -62,6 +65,61 @@ public sealed class WindowsWindowService : IWindowService
             NoZOrder | NoActivate | NoOwnerZOrder | AsyncWindowPosition);
     }
 
+    public IReadOnlyList<WindowPlacement> GetMovableTopLevelWindows(int ownProcessId)
+    {
+        var windows = new List<WindowPlacement>();
+        _ = User32.EnumWindows((window, _) =>
+        {
+            if (!TryGetMovableTopLevelWindow(window, ownProcessId, out var placement))
+            {
+                return true;
+            }
+
+            windows.Add(placement);
+            return true;
+        }, 0);
+        return windows;
+    }
+
+    public WindowRuleCandidate? InspectRuleCandidate(nint window, int ownProcessId)
+    {
+        if (!IsEligibleTopLevelWindow(window, ownProcessId, out var processId))
+        {
+            return null;
+        }
+
+        var processPath = ReadProcessPath(processId);
+        var windowClass = ReadWindowClass(window);
+        if (processPath is null || windowClass is null)
+        {
+            return null;
+        }
+
+        return new WindowRuleCandidate(
+            window,
+            new AppWindowIdentity(
+                checked((int)processId),
+                processPath,
+                ReadWindowTitle(window),
+                windowClass));
+    }
+
+    public IReadOnlyList<WindowRuleCandidate> GetRuleCandidates(int ownProcessId)
+    {
+        var windows = new List<WindowRuleCandidate>();
+        _ = User32.EnumWindows((window, _) =>
+        {
+            var candidate = InspectRuleCandidate(window, ownProcessId);
+            if (candidate is not null)
+            {
+                windows.Add(candidate);
+            }
+
+            return true;
+        }, 0);
+        return windows;
+    }
+
     public bool TryGetCursorPosition(out PointInt point)
     {
         if (User32.GetCursorPos(out var nativePoint))
@@ -77,6 +135,93 @@ public sealed class WindowsWindowService : IWindowService
     public bool IsEscapePressed() => (User32.GetAsyncKeyState(0x1B) & 0x8000) != 0;
 
     public bool IsShiftPressed() => (User32.GetAsyncKeyState(0x10) & 0x8000) != 0;
+
+    private static bool TryGetMovableTopLevelWindow(nint window, int ownProcessId, out WindowPlacement placement)
+    {
+        placement = default!;
+        if (window == 0 || !User32.IsWindow(window) || !User32.IsWindowVisible(window))
+        {
+            return false;
+        }
+
+        var root = User32.GetAncestor(window, RootAncestor);
+        User32.GetWindowThreadProcessId(window, out var processId);
+        var style = User32.GetWindowLongPtr(window, StyleIndex).ToInt64();
+        var extendedStyle = User32.GetWindowLongPtr(window, ExtendedStyleIndex).ToInt64();
+        var cloaked = 0;
+        _ = DwmApi.DwmGetWindowAttribute(window, CloakedAttribute, out cloaked, sizeof(int));
+        if ((root != 0 && root != window) || processId == (uint)ownProcessId ||
+            (style & ChildStyle) != 0 || (extendedStyle & ToolWindowStyle) != 0 || cloaked != 0 ||
+            !User32.GetWindowRect(window, out var rectangle))
+        {
+            return false;
+        }
+
+        var bounds = new PixelRect(
+            rectangle.Left,
+            rectangle.Top,
+            Math.Max(0, rectangle.Right - rectangle.Left),
+            Math.Max(0, rectangle.Bottom - rectangle.Top));
+        if (bounds.Width < 1 || bounds.Height < 1)
+        {
+            return false;
+        }
+
+        placement = new WindowPlacement(window, bounds);
+        return true;
+    }
+
+    private static bool IsEligibleTopLevelWindow(nint window, int ownProcessId, out uint processId)
+    {
+        processId = 0;
+        if (window == 0 || !User32.IsWindow(window) || !User32.IsWindowVisible(window))
+        {
+            return false;
+        }
+
+        var root = User32.GetAncestor(window, RootAncestor);
+        User32.GetWindowThreadProcessId(window, out processId);
+        var style = User32.GetWindowLongPtr(window, StyleIndex).ToInt64();
+        var extendedStyle = User32.GetWindowLongPtr(window, ExtendedStyleIndex).ToInt64();
+        var cloaked = 0;
+        _ = DwmApi.DwmGetWindowAttribute(window, CloakedAttribute, out cloaked, sizeof(int));
+        return (root == 0 || root == window) &&
+            processId != (uint)ownProcessId &&
+            (style & ChildStyle) == 0 &&
+            (extendedStyle & ToolWindowStyle) == 0 &&
+            cloaked == 0;
+    }
+
+    private static string? ReadProcessPath(uint processId)
+    {
+        using var process = Kernel32.OpenProcess(Kernel32.QueryLimitedInformation, false, processId);
+        if (process.IsInvalid)
+        {
+            return null;
+        }
+
+        var capacity = 32768;
+        var path = new StringBuilder(capacity);
+        return Kernel32.QueryFullProcessImageName(process, 0, path, ref capacity)
+            ? path.ToString()
+            : null;
+    }
+
+    private static string ReadWindowTitle(nint window)
+    {
+        var capacity = Math.Clamp(User32.GetWindowTextLength(window) + 1, 1, 32768);
+        var title = new StringBuilder(capacity);
+        _ = User32.GetWindowText(window, title, capacity);
+        return title.ToString();
+    }
+
+    private static string? ReadWindowClass(nint window)
+    {
+        var className = new StringBuilder(256);
+        return User32.GetClassName(window, className, className.Capacity) > 0
+            ? className.ToString()
+            : null;
+    }
 
     private static bool IsTitleBarDrag(nint window, PointInt cursor)
     {

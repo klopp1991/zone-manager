@@ -49,6 +49,27 @@ public sealed class TrayLayoutMenuPlanTests
         Assert.Equal("Rechts", Assert.Single(plan.Monitors).Name);
     }
 
+    [Fact]
+    public void Build_uses_the_saved_monitor_order_instead_of_the_windows_display_numbers()
+    {
+        var first = new MonitorIdentity("DISPLAY-A", "\\\\.\\DISPLAY1", "Monitor A");
+        var second = new MonitorIdentity("DISPLAY-B", "\\\\.\\DISPLAY2", "Monitor B");
+        var configuration = new SnapConfiguration(
+            SnapConfiguration.CurrentSchemaVersion,
+            AppSettings.Default(Guid.Empty),
+            [
+                Layout("11111111-1111-1111-1111-111111111111", "Arbeit", first, true),
+                Layout("22222222-2222-2222-2222-222222222222", "Gaming", second, true)
+            ]) with
+        {
+            MonitorOrder = ["stable:DISPLAY-B", "stable:DISPLAY-A"]
+        };
+
+        var plan = TrayLayoutMenuPlan.Build(configuration);
+
+        Assert.Equal(["Monitor 2", "Monitor 1"], plan.Monitors.Select(monitor => monitor.Name));
+    }
+
     private static MonitorLayout Layout(string id, string name, MonitorIdentity monitor, bool active) =>
         new(monitor, 1920, 1080, [new ZoneDefinition(Guid.NewGuid(), "Voll", NormalizedRect.Full)])
         {

@@ -14,7 +14,8 @@ public sealed record TrayLayoutMenuPlan(IReadOnlyList<TrayMonitorMenu> Monitors)
         ArgumentNullException.ThrowIfNull(configuration);
         var monitors = configuration.Layouts
             .GroupBy(MonitorKey, StringComparer.OrdinalIgnoreCase)
-            .OrderBy(group => MonitorNaming.ResolveDisplayNumber(group.First().Monitor, int.MaxValue))
+            .OrderBy(group => MonitorOrderIndex(configuration.MonitorOrder, MonitorKey(group.First())))
+            .ThenBy(group => MonitorNaming.ResolveDisplayNumber(group.First().Monitor, int.MaxValue))
             .Select(group => new TrayMonitorMenu(
                 MonitorNaming.UserFacingName(
                     MonitorNaming.CustomNameFor(configuration, group.First().Monitor),
@@ -28,4 +29,17 @@ public sealed record TrayLayoutMenuPlan(IReadOnlyList<TrayMonitorMenu> Monitors)
         !string.IsNullOrWhiteSpace(layout.Monitor.StableId)
             ? $"stable:{layout.Monitor.StableId}"
             : $"device:{layout.Monitor.DeviceName}";
+
+    private static int MonitorOrderIndex(IReadOnlyList<string> monitorOrder, string monitorKey)
+    {
+        for (var index = 0; index < monitorOrder.Count; index++)
+        {
+            if (string.Equals(monitorOrder[index], monitorKey, StringComparison.OrdinalIgnoreCase))
+            {
+                return index;
+            }
+        }
+
+        return int.MaxValue;
+    }
 }

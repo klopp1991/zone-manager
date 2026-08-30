@@ -34,6 +34,19 @@ public sealed class ZoneGeometryTests
     }
 
     [Fact]
+    public void Default_metrics_render_adjacent_zones_without_a_pixel_gap()
+    {
+        var area = new MonitorWorkArea(0, 0, 1920, 1080);
+
+        var left = ZoneGeometry.ToPixels(
+            new NormalizedRect(0, 0, 0.5, 1), area, LayoutMetrics.Default);
+        var right = ZoneGeometry.ToPixels(
+            new NormalizedRect(0.5, 0, 0.5, 1), area, LayoutMetrics.Default);
+
+        Assert.Equal(left.Right, right.X);
+    }
+
+    [Fact]
     public void Validate_rejects_overlapping_zones()
     {
         var zones = new[]

@@ -1,3 +1,7 @@
+param(
+    [long]$MaximumExecutableBytes = 100000000
+)
+
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
@@ -44,8 +48,12 @@ try {
     }
 
     $bytes = (Get-Item -LiteralPath $testExecutable).Length
+    if ($bytes -gt $MaximumExecutableBytes) {
+        throw "Die Root-EXE ist mit $bytes Bytes grösser als das erlaubte Maximum von $MaximumExecutableBytes Bytes."
+    }
+
     $hash = (Get-FileHash -LiteralPath $testExecutable -Algorithm SHA256).Hash
-    Write-Output "ROOT_BUILD_OK path=$testExecutable bytes=$bytes sha256=$hash"
+    Write-Output "ROOT_BUILD_OK path=$testExecutable bytes=$bytes maximumBytes=$MaximumExecutableBytes sha256=$hash"
 }
 finally {
     if (Test-Path -LiteralPath $testDirectory) {

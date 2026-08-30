@@ -107,6 +107,22 @@ public sealed class MainViewModelPersistenceTests
     }
 
     [Fact]
+    public void Moving_the_selected_monitor_up_persists_the_order_and_reorders_all_monitor_choices()
+    {
+        var viewModel = CreateViewModel();
+        SnapConfiguration? requested = null;
+        viewModel.SaveRequested += configuration => requested = configuration;
+        viewModel.SelectedMonitor = viewModel.Monitors[1];
+
+        viewModel.MoveSelectedMonitorUp();
+
+        Assert.NotNull(requested);
+        Assert.Equal(["stable:DISPLAY-B", "stable:DISPLAY-A"], requested.MonitorOrder);
+        Assert.Equal(["DISPLAY-B", "DISPLAY-A"], viewModel.Monitors.Select(monitor => monitor.Live.Identity.StableId));
+        Assert.Equal("DISPLAY-B", viewModel.SelectedMonitor!.Live.Identity.StableId);
+    }
+
+    [Fact]
     public void Deleting_the_active_layout_activates_another_layout_only_on_that_monitor()
     {
         var viewModel = CreateViewModel();

@@ -132,7 +132,9 @@ public sealed class ApplicationController : IDisposable
 
     private void SaveRequested(SnapConfiguration newConfiguration)
     {
+        var previousConfiguration = configuration;
         configuration = newConfiguration;
+        ReflowWindowsForChangedActiveLayouts(previousConfiguration, newConfiguration);
         Reconfigure(configuration);
         try
         {
@@ -148,6 +150,50 @@ public sealed class ApplicationController : IDisposable
         }
 
         saveCoordinator.RequestSave(newConfiguration);
+    }
+
+    private void ReflowWindowsForChangedActiveLayouts(
+        SnapConfiguration previousConfiguration,
+        SnapConfiguration newConfiguration)
+    {
+        try
+        {
+            var windows = windowService.GetMovableTopLevelWindows(Environment.ProcessId);
+            var oldMetrics = new LayoutMetrics(
+                previousConfiguration.Settings.EffectiveOuterMargins,
+                previousConfiguration.Settings.ZoneGap);
+            var newMetrics = new LayoutMetrics(
+                newConfiguration.Settings.EffectiveOuterMargins,
+                newConfiguration.Settings.ZoneGap);
+            foreach (var monitor in monitors)
+            {
+                var oldLayout = previousConfiguration.Layouts.FirstOrDefault(layout =>
+                    layout.IsActive && LayoutService.BelongsToMonitor(layout.Monitor, monitor.Identity));
+                var newLayout = newConfiguration.Layouts.FirstOrDefault(layout =>
+                    layout.IsActive && layout.Id == oldLayout?.Id);
+                if (oldLayout is null || newLayout is null)
+                {
+                    continue;
+                }
+
+                foreach (var target in LayoutWindowReflow.Plan(
+                    oldLayout, newLayout, monitor.WorkArea, oldMetrics, newMetrics, windows))
+                {
+                    if (windowService.TrySnap(target.WindowHandle, target.Bounds))
+                    {
+                        log.Write("DEBUG", $"Fenster 0x{target.WindowHandle:X} an geänderte Zone angepasst: {target.Bounds}.");
+                    }
+                    else
+                    {
+                        log.Write("WARN", $"Fenster 0x{target.WindowHandle:X} konnte nicht an die geänderte Zone angepasst werden.");
+                    }
+                }
+            }
+        }
+        catch (Exception exception)
+        {
+            log.Write("WARN", "Fenster konnten nach einer Layoutänderung nicht vollständig angepasst werden.", exception);
+        }
     }
 
     public Task FlushAsync(CancellationToken cancellationToken) =>

@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Media;
 using SnapZones.App.Controls;
@@ -13,6 +14,64 @@ namespace SnapZones.Tests.Theme;
 
 public sealed class LayoutSuggestionPresentationTests
 {
+    [Fact]
+    public void Main_window_header_omits_the_layout_summary()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var window = new MainWindow();
+            var root = Assert.IsType<Grid>(window.Content);
+
+            Assert.DoesNotContain(
+                VisualDescendants<TextBlock>(root),
+                textBlock => AutomationProperties.GetName(textBlock) == "Layoutübersicht");
+        });
+    }
+
+    [Fact]
+    public void Layout_header_controls_share_one_height_without_monitor_details()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var monitor = new LiveMonitor(
+                new MonitorIdentity("MONITOR-A", "DISPLAY1", "Monitor A"),
+                new MonitorWorkArea(0, 0, 5120, 1380),
+                96,
+                96,
+                true,
+                119,
+                34);
+            var viewModel = new MainViewModel(SnapConfiguration.CreateDefault(), [monitor]);
+            var window = new MainWindow();
+            window.AttachViewModel(viewModel);
+            var root = Assert.IsType<Grid>(window.Content);
+            var tabs = Assert.Single(root.Children.OfType<TabControl>());
+            var layoutTab = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Layouts"));
+            tabs.SelectedItem = layoutTab;
+
+            root.Measure(new Size(1480, 900));
+            root.Arrange(new Rect(0, 0, 1480, 900));
+            root.UpdateLayout();
+
+            var addButton = LogicalDescendants<Button>(layoutTab)
+                .Single(button => AutomationProperties.GetName(button) == "Neues Layout erstellen");
+            var controls = new FrameworkElement[]
+            {
+                Assert.IsType<ComboBox>(window.FindName("LayoutMonitorSelector")),
+                Assert.IsType<ComboBox>(window.FindName("LayoutSelector")),
+                Assert.IsType<TextBox>(window.FindName("LayoutNameText")),
+                addButton,
+                Assert.IsType<Button>(window.FindName("DeleteLayoutButton"))
+            };
+            var expectedHeight = controls[0].ActualHeight;
+
+            Assert.All(controls, control => Assert.Equal(expectedHeight, control.ActualHeight, 3));
+            Assert.DoesNotContain(
+                VisualDescendants<TextBlock>(controls[0]),
+                textBlock => textBlock.Text == viewModel.Monitors[0].DetailsText);
+        });
+    }
+
     [Fact]
     public void Main_window_exposes_monitor_layout_management_without_a_profile_page()
     {
@@ -203,6 +262,22 @@ public sealed class LayoutSuggestionPresentationTests
             }
 
             foreach (var descendant in VisualDescendants<T>(child))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    private static IEnumerable<T> LogicalDescendants<T>(DependencyObject parent) where T : DependencyObject
+    {
+        foreach (var child in LogicalTreeHelper.GetChildren(parent).OfType<DependencyObject>())
+        {
+            if (child is T match)
+            {
+                yield return match;
+            }
+
+            foreach (var descendant in LogicalDescendants<T>(child))
             {
                 yield return descendant;
             }

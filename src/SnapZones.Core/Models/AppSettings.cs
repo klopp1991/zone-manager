@@ -33,7 +33,7 @@ public sealed record AppSettings(
     string OverlayColor,
     double OverlayOpacity,
     ThemeMode ThemeMode = ThemeMode.System,
-    int MagnetThresholdPixels = 10,
+    int MagnetThresholdPixels = 20,
     bool ShowZoneNames = true,
     EdgeInsets? OuterMargins = null)
 {
@@ -47,11 +47,11 @@ public sealed record AppSettings(
         OverlayScope.AllMonitors,
         TriggerMode.Immediate,
         OuterMargin: 8,
-        ZoneGap: 8,
+        ZoneGap: 0,
         OverlayColor: "#707070",
         OverlayOpacity: 0.24,
         ThemeMode: ThemeMode.System,
-        MagnetThresholdPixels: 10,
+        MagnetThresholdPixels: 20,
         ShowZoneNames: true,
         OuterMargins: EdgeInsets.Uniform(8));
 }

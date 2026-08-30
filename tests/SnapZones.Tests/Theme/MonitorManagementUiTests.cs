@@ -77,6 +77,39 @@ public sealed class MonitorManagementUiTests
     }
 
     [Fact]
+    public void Monitor_page_moves_the_selected_monitor_and_updates_the_shared_dropdown_order()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var firstIdentity = new MonitorIdentity("FIRST", "DISPLAY1", "Erster Monitor");
+            var secondIdentity = new MonitorIdentity("SECOND", "DISPLAY2", "Zweiter Monitor");
+            var monitors = new[]
+            {
+                new LiveMonitor(firstIdentity, new MonitorWorkArea(0, 0, 2560, 1440), 96, 96, true),
+                new LiveMonitor(secondIdentity, new MonitorWorkArea(2560, 0, 1920, 1080), 96, 96, false)
+            };
+            var configuration = new SnapConfiguration(
+                SnapConfiguration.CurrentSchemaVersion,
+                AppSettings.Default(Guid.Empty),
+                [
+                    new MonitorLayout(firstIdentity, 2560, 1440, [new ZoneDefinition(Guid.NewGuid(), "Voll", NormalizedRect.Full)]),
+                    new MonitorLayout(secondIdentity, 1920, 1080, [new ZoneDefinition(Guid.NewGuid(), "Voll", NormalizedRect.Full)])
+                ]);
+            var viewModel = new MainViewModel(configuration, monitors);
+            var window = new MainWindow();
+            window.AttachViewModel(viewModel);
+            viewModel.SelectedMonitor = viewModel.Monitors[1];
+            var upButton = Assert.IsType<Button>(window.FindName("MoveMonitorUpButton"));
+
+            upButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+            Assert.Equal(["SECOND", "FIRST"], viewModel.Monitors.Select(monitor => monitor.Live.Identity.StableId));
+            Assert.Equal("SECOND", viewModel.SelectedMonitor!.Live.Identity.StableId);
+            Assert.Equal(["stable:SECOND", "stable:FIRST"], viewModel.Configuration.MonitorOrder);
+        });
+    }
+
+    [Fact]
     public void Monitor_template_binds_the_user_facing_name_instead_of_an_identifier()
     {
         WpfThemeHost.Invoke(() =>

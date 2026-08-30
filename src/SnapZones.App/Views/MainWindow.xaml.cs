@@ -420,6 +420,20 @@ public partial class MainWindow : Window
         IdentifyMonitorsRequested?.Invoke();
     }
 
+    private void MoveMonitorUp_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.MoveSelectedMonitorUp();
+    }
+
+    private void MoveMonitorDown_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.MoveSelectedMonitorDown();
+    }
+
     private void DeleteLayout_Click(object sender, RoutedEventArgs eventArgs)
     {
         if (viewModel?.SelectedLayout is null || viewModel.SelectedMonitor is null)

@@ -341,8 +341,7 @@ public sealed class ThemeResourceTests
                 "ZoneGapInfoButton",
                 "MagnetDistanceInfoButton",
                 "OverlayColourInfoButton",
-                "OverlayOpacityInfoButton",
-                "OverlayVisualMarginInfoButton"
+                "OverlayOpacityInfoButton"
             };
 
             foreach (var name in requiredHelpButtons)
@@ -359,6 +358,7 @@ public sealed class ThemeResourceTests
             Assert.DoesNotContain(
                 LogicalDescendants<TextBlock>(window),
                 textBlock => ReferenceEquals(textBlock.Style, helpStyle));
+            Assert.Null(window.FindName("OverlayVisualMarginInfoButton"));
         });
     }
 
@@ -481,6 +481,29 @@ public sealed class ThemeResourceTests
             var content = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("SettingsContent"));
             Assert.True(content.ActualWidth >= 1100,
                 $"Der Einstellungsbereich nutzt nur {content.ActualWidth:0} von 1480 Pixel Fensterbreite.");
+        });
+    }
+
+    [Fact]
+    public void Settings_page_groups_all_available_options_and_does_not_explain_window_snapping()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var window = new MainWindow();
+            var root = Assert.IsType<Grid>(window.Content);
+            var tabs = Assert.Single(root.Children.OfType<TabControl>());
+            var settingsPage = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Einstellungen"));
+            var text = string.Join("\n", LogicalDescendants<TextBlock>(settingsPage)
+                .Select(textBlock => textBlock.Text)
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+            foreach (var heading in new[] { "Programm", "Beim Ziehen", "Darstellung", "Abstände" })
+            {
+                Assert.Contains(heading, text);
+            }
+
+            Assert.DoesNotContain("Snap-Funktion", text, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Änderungen werden sofort gespeichert.", text);
         });
     }
 
