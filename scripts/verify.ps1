@@ -1,3 +1,7 @@
+param(
+    [switch]$SelfTest
+)
+
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
@@ -9,6 +13,7 @@ $outputPath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'outputs\Sas
 $expectedOutputParent = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'outputs'))
 $rootExecutablePath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'SaschaWindowZones.exe'))
 $testResultsPath = Join-Path $projectRoot 'outputs\verify-test-results'
+$portableProbePrefix = [System.IO.Path]::GetFullPath((Join-Path ([System.IO.Path]::GetTempPath()) 'SnapZones.verify-portable'))
 $expectedIconBaselines = @(
     'SnapZones.Tests.Theme.ThemeResourceTests.Brand_icon_uses_only_neutral_greys',
     'SnapZones.Tests.Theme.ThemeResourceTests.Brand_icon_uses_two_wide_lower_tiles_instead_of_a_monitor_stand'
@@ -28,11 +33,25 @@ function Get-DirectoryState([string]$Path) {
     }
 
     return @(
+        'D:.'
+        Get-ChildItem -LiteralPath $Path -Directory -Recurse | ForEach-Object {
+            $relativePath = $_.FullName.Substring($Path.Length).TrimStart([System.IO.Path]::DirectorySeparatorChar)
+            "D:${relativePath}"
+        }
         Get-ChildItem -LiteralPath $Path -File -Recurse | ForEach-Object {
             $relativePath = $_.FullName.Substring($Path.Length).TrimStart([System.IO.Path]::DirectorySeparatorChar)
-            "${relativePath}:$((Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName).Hash)"
+            "F:${relativePath}:$((Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName).Hash)"
         } | Sort-Object
     ) -join "`n"
+}
+
+function Get-TrxCounterValue($Counter, [string]$Name) {
+    $value = $Counter.GetAttribute($Name)
+    if ([string]::IsNullOrEmpty($value)) {
+        return 0
+    }
+
+    return [int]$value
 }
 
 function Read-TestRun([string]$TrxPath, [int]$ExitCode) {
@@ -56,7 +75,32 @@ function Read-TestRun([string]$TrxPath, [int]$ExitCode) {
         Passed = [int]$counter.passed
         Failed = [int]$counter.failed
         Error = [int]$counter.error
+        Executed = Get-TrxCounterValue $counter 'executed'
+        Timeout = Get-TrxCounterValue $counter 'timeout'
+        Aborted = Get-TrxCounterValue $counter 'aborted'
+        Inconclusive = Get-TrxCounterValue $counter 'inconclusive'
+        PassedButRunAborted = Get-TrxCounterValue $counter 'passedButRunAborted'
+        NotRunnable = Get-TrxCounterValue $counter 'notRunnable'
+        NotExecuted = Get-TrxCounterValue $counter 'notExecuted'
+        Disconnected = Get-TrxCounterValue $counter 'disconnected'
+        Warning = Get-TrxCounterValue $counter 'warning'
+        Completed = Get-TrxCounterValue $counter 'completed'
+        InProgress = Get-TrxCounterValue $counter 'inProgress'
+        Pending = Get-TrxCounterValue $counter 'pending'
         Results = $results
+    }
+}
+
+function Assert-CleanTestRun($TestRun) {
+    $nonSuccessCounters = @(
+        'Failed', 'Error', 'Timeout', 'Aborted', 'Inconclusive', 'PassedButRunAborted',
+        'NotRunnable', 'NotExecuted', 'Disconnected', 'Warning', 'Completed', 'InProgress', 'Pending'
+    )
+    if ($TestRun.ExitCode -ne 0 -or $TestRun.Total -ne $TestRun.Executed -or $TestRun.Total -ne $TestRun.Passed -or
+        $TestRun.Results.Count -ne $TestRun.Total -or
+        $null -ne ($TestRun.Results | Where-Object Outcome -ne 'Passed') -or
+        $null -ne ($nonSuccessCounters | Where-Object { $TestRun.$_ -ne 0 })) {
+        throw "Der Testlauf ist nicht vollständig grün. TRX: $($TestRun.TrxPath)"
     }
 }
 
@@ -87,47 +131,129 @@ function Assert-ExpectedIconBaselines($TestRun) {
     $expectedNames = @($expectedIconBaselines | Sort-Object)
     if ($TestRun.Error -ne 0 -or $TestRun.Failed -ne $expectedNames.Count -or
         $failedNames.Count -ne $expectedNames.Count -or
+        $TestRun.Results.Count -ne $TestRun.Total -or
+        $null -ne ($TestRun.Results | Where-Object { $_.Outcome -notin @('Passed', 'Failed') }) -or
         $null -ne (Compare-Object -ReferenceObject $expectedNames -DifferenceObject $failedNames)) {
         throw "Der Volltest enthält nicht exakt die zwei dokumentierten Icon-Baselines. TRX: $($TestRun.TrxPath)"
     }
 }
 
+function Assert-DiagnosticSafety($Diagnostic) {
+    if ($Diagnostic.hookRegistered -isnot [bool] -or $Diagnostic.hookRegistered -ne $false -or
+        $Diagnostic.settingsChanged -isnot [bool] -or $Diagnostic.settingsChanged -ne $false -or
+        $Diagnostic.windowPlacement.lifecycleHookRegistered -isnot [bool] -or
+        $Diagnostic.windowPlacement.lifecycleHookRegistered -ne $false) {
+        throw 'Die Diagnose meldet keinen schreibgeschützten Sicherheitsstatus.'
+    }
+}
+
+function Remove-PortableProbeDirectory([string]$Path) {
+    $prefix = [System.IO.Path]::GetFullPath($portableProbePrefix).TrimEnd([System.IO.Path]::DirectorySeparatorChar)
+    $target = [System.IO.Path]::GetFullPath($Path).TrimEnd([System.IO.Path]::DirectorySeparatorChar)
+    if ($target -eq $prefix -or -not $target.StartsWith($prefix + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Der portable Probeordner liegt ausserhalb des expliziten Temp-Präfixes.'
+    }
+
+    if (Test-Path -LiteralPath $target -PathType Container) {
+        Remove-Item -LiteralPath $target -Recurse -Force
+    }
+}
+
 function Invoke-PortableDiagnosticsProbe([string]$ExecutablePath) {
-    $probeDirectory = Join-Path $testResultsPath 'portable-diagnostics-probe'
+    $probeDirectory = Join-Path $portableProbePrefix "probe-$PID-$([Guid]::NewGuid().ToString('N'))"
     $probeExecutable = Join-Path $probeDirectory 'SaschaWindowZones.exe'
     $probeDataDirectory = Join-Path $probeDirectory 'Data'
     $probeOutputPath = Join-Path $testResultsPath 'portable-diagnostics.json'
-    New-Item -ItemType Directory -Path $probeDataDirectory -Force | Out-Null
-    Copy-Item -LiteralPath $ExecutablePath -Destination $probeExecutable
-    New-Item -ItemType File -Path (Join-Path $probeDirectory 'portable.flag') | Out-Null
-    Set-Content -LiteralPath (Join-Path $probeDataDirectory 'settings.json') -Encoding utf8 -NoNewline -Value '{"schemaVersion":2,"settings":{"restoreWindowPlacementEnabled":false,"windowPlacementRules":[{},{}]}}'
-    Set-Content -LiteralPath (Join-Path $probeDataDirectory 'placements.json') -Encoding utf8 -NoNewline -Value '{"schemaVersion":1,"entries":[{},{}]}'
-    $before = Get-DirectoryState $probeDirectory
+    try {
+        New-Item -ItemType Directory -Path $probeDataDirectory -Force | Out-Null
+        Copy-Item -LiteralPath $ExecutablePath -Destination $probeExecutable
+        New-Item -ItemType File -Path (Join-Path $probeDirectory 'portable.flag') | Out-Null
+        Set-Content -LiteralPath (Join-Path $probeDataDirectory 'settings.json') -Encoding utf8 -NoNewline -Value '{"schemaVersion":2,"settings":{"restoreWindowPlacementEnabled":false,"windowPlacementRules":[{},{}]}}'
+        Set-Content -LiteralPath (Join-Path $probeDataDirectory 'placements.json') -Encoding utf8 -NoNewline -Value '{"schemaVersion":1,"entries":[{},{}]}'
+        $before = Get-DirectoryState $probeDirectory
 
-    $process = Start-Process -FilePath $probeExecutable -ArgumentList '--diagnostics' -PassThru -RedirectStandardOutput $probeOutputPath -WindowStyle Hidden
-    if (-not $process.WaitForExit(10000)) {
-        Stop-Process -Id $process.Id -ErrorAction SilentlyContinue
-        throw 'Die portable Diagnose hat das Zeitlimit überschritten.'
+        $process = Start-Process -FilePath $probeExecutable -ArgumentList '--diagnostics' -PassThru -RedirectStandardOutput $probeOutputPath -WindowStyle Hidden
+        if (-not $process.WaitForExit(10000)) {
+            Stop-Process -Id $process.Id -ErrorAction SilentlyContinue
+            throw 'Die portable Diagnose hat das Zeitlimit überschritten.'
+        }
+        $process.Refresh()
+        $exitCode = [int]$process.ExitCode
+        if ($exitCode -ne 0) {
+            throw "Die portable Diagnose ist fehlgeschlagen: ExitCode $exitCode"
+        }
+        if ($before -ne (Get-DirectoryState $probeDirectory)) {
+            throw 'Die portable Diagnose hat Dateien oder Verzeichnisse verändert.'
+        }
+
+        $diagnostic = Get-Content -LiteralPath $probeOutputPath -Raw | ConvertFrom-Json
+        if ($diagnostic.windowPlacement.enabled -ne $false -or
+            $diagnostic.windowPlacement.learnedEntryCount -ne 2 -or
+            $diagnostic.windowPlacement.ruleCount -ne 2) {
+            throw 'Die portable Diagnose meldet keinen erwarteten Platzierungsstatus.'
+        }
+        Assert-DiagnosticSafety $diagnostic
+        return $diagnostic
     }
-    $process.Refresh()
-    $exitCode = [int]$process.ExitCode
-    if ($exitCode -ne 0) {
-        throw "Die portable Diagnose ist fehlgeschlagen: ExitCode $exitCode"
+    finally {
+        Remove-PortableProbeDirectory $probeDirectory
     }
-    if ($before -ne (Get-DirectoryState $probeDirectory)) {
-        throw 'Die portable Diagnose hat Dateien oder Verzeichnisse verändert.'
+}
+
+function Write-SyntheticTrx([string]$Path, [hashtable]$Counters, [string]$Outcome) {
+    $attributes = ($Counters.GetEnumerator() | Sort-Object Key | ForEach-Object { '{0}="{1}"' -f $_.Key, $_.Value }) -join ' '
+    @"
+<?xml version="1.0" encoding="utf-8"?>
+<TestRun xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Results><UnitTestResult testName="Synthetic.Test" outcome="$Outcome" /></Results>
+  <ResultSummary outcome="Completed"><Counters $attributes /></ResultSummary>
+</TestRun>
+"@ | Set-Content -LiteralPath $Path -Encoding utf8
+}
+
+function Assert-Throws([scriptblock]$Action, [string]$Name) {
+    try {
+        & $Action
+    }
+    catch {
+        return
     }
 
-    $diagnostic = Get-Content -LiteralPath $probeOutputPath -Raw | ConvertFrom-Json
-    if ($diagnostic.windowPlacement.enabled -ne $false -or
-        $diagnostic.windowPlacement.learnedEntryCount -ne 2 -or
-        $diagnostic.windowPlacement.ruleCount -ne 2 -or
-        $diagnostic.hookRegistered -ne $false -or
-        $diagnostic.windowPlacement.lifecycleHookRegistered -ne $false) {
-        throw 'Die portable Diagnose meldet keinen sicheren erwarteten Platzierungsstatus.'
-    }
+    throw "Der Selbsttest hat den ungültigen Fall nicht abgewiesen: $Name"
+}
 
-    return $diagnostic
+function Invoke-VerificationSelfTest {
+    $directory = Join-Path $portableProbePrefix "selftest-$PID-$([Guid]::NewGuid().ToString('N'))"
+    try {
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+        $validCounters = @{ total = 1; executed = 1; passed = 1; failed = 0; error = 0; timeout = 0; aborted = 0; inconclusive = 0; passedButRunAborted = 0; notRunnable = 0; notExecuted = 0; disconnected = 0; warning = 0; completed = 0; inProgress = 0; pending = 0 }
+        $validTrx = Join-Path $directory 'valid.trx'
+        Write-SyntheticTrx $validTrx $validCounters 'Passed'
+        Assert-CleanTestRun (Read-TestRun $validTrx 0)
+
+        $skippedCounters = @{} + $validCounters
+        $skippedCounters.passed = 0
+        $skippedCounters.notExecuted = 1
+        $skippedTrx = Join-Path $directory 'skipped.trx'
+        Write-SyntheticTrx $skippedTrx $skippedCounters 'NotExecuted'
+        Assert-Throws { Assert-CleanTestRun (Read-TestRun $skippedTrx 0) } 'notExecuted'
+
+        $unsafeDiagnostic = [pscustomobject]@{
+            hookRegistered = $false
+            settingsChanged = $true
+            windowPlacement = [pscustomobject]@{ lifecycleHookRegistered = $false }
+        }
+        Assert-Throws { Assert-DiagnosticSafety $unsafeDiagnostic } 'settingsChanged=true'
+        Write-Output 'VERIFY_SELFTEST_OK'
+    }
+    finally {
+        Remove-PortableProbeDirectory $directory
+    }
+}
+
+if ($SelfTest) {
+    Invoke-VerificationSelfTest
+    exit 0
 }
 
 if (-not $outputPath.StartsWith($expectedOutputParent + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
