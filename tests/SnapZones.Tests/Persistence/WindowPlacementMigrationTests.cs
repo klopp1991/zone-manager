@@ -139,4 +139,51 @@ public sealed class WindowPlacementMigrationTests
         Assert.True(result.Configuration.Settings.RestoreWindowPlacementEnabled);
         Assert.Equal([rule], result.Configuration.Settings.EffectiveWindowPlacementRules);
     }
+
+    [Fact]
+    public async Task Load_recovers_from_primary_with_null_window_placement_rule()
+    {
+        using var directory = new TemporaryDirectory();
+        await File.WriteAllTextAsync(Path.Combine(directory.Path, "settings.json"), SchemaTwoWithNullRule());
+
+        var result = await new JsonConfigurationRepository(directory.Path).LoadAsync(CancellationToken.None);
+
+        Assert.True(result.RecoveredFromError);
+        Assert.Equal(2, result.Configuration.SchemaVersion);
+        Assert.Empty(result.Configuration.Settings.EffectiveWindowPlacementRules);
+        Assert.Single(Directory.GetFiles(directory.Path, "settings.invalid-*.json"));
+    }
+
+    [Fact]
+    public async Task Load_skips_backup_with_null_window_placement_rule_and_recovers_next_backup()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = new JsonConfigurationRepository(directory.Path);
+        var valid = ConfigurationSamples.TwoProfiles();
+        await repository.SaveAsync(valid, CancellationToken.None);
+        File.Move(
+            Path.Combine(directory.Path, "settings.json"),
+            Path.Combine(directory.Path, "settings.backup-2.json"));
+        await File.WriteAllTextAsync(Path.Combine(directory.Path, "settings.backup-1.json"), SchemaTwoWithNullRule());
+
+        var result = await repository.LoadAsync(CancellationToken.None);
+
+        Assert.True(result.RecoveredFromError);
+        Assert.Equal(valid.Profiles.Select(profile => profile.Id), result.Configuration.Profiles.Select(profile => profile.Id));
+        Assert.True(File.Exists(Path.Combine(directory.Path, "settings.json")));
+    }
+
+    private static string SchemaTwoWithNullRule()
+    {
+        const string profileId = "11111111-1111-1111-1111-111111111111";
+        return $$"""
+        { "SchemaVersion": 2, "Settings": {
+          "ActiveProfileId": "{{profileId}}", "SnappingEnabled": false,
+          "StartWithWindows": false, "OverlayScope": "AllMonitors",
+          "TriggerMode": "Immediate", "OuterMargin": 8, "ZoneGap": 8,
+          "OverlayColor": "#707070", "OverlayOpacity": 0.24,
+          "WindowPlacementRules": [null] },
+          "Profiles": [{ "Id": "{{profileId}}", "Name": "Standard", "QuickSlot": 1, "Monitors": [] }] }
+        """;
+    }
 }
