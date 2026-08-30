@@ -39,6 +39,52 @@ public sealed class MainViewModelPersistenceTests
     }
 
     [Fact]
+    public void Layout_change_refreshes_window_placement_zones_from_the_current_profile_snapshot()
+    {
+        var viewModel = CreateViewModel();
+
+        viewModel.Editor!.ApplyTemplate(LayoutTemplate.ThreeColumns);
+
+        Assert.Equal(3, viewModel.WindowPlacement.TargetZones.Count);
+        Assert.Equal(viewModel.Editor.Zones.Select(zone => zone.Id), viewModel.WindowPlacement.TargetZones.Select(zone => zone.Id));
+    }
+
+    [Fact]
+    public void Imported_title_specific_rules_remain_distinct_when_one_selector_is_edited()
+    {
+        var viewModel = CreateViewModel();
+        var identity = new WindowIdentity("editor.exe", "EditorMain", WindowKind.MainWindow);
+        var report = new WindowPlacementRule(
+            Guid.NewGuid(), true, identity.ApplicationKey, identity.WindowClass, identity.Kind, "Report*",
+            WindowPlacementMode.RememberLast, null, null, null);
+        var invoice = report with { Id = Guid.NewGuid(), TitlePattern = "Invoice*", Action = WindowPlacementMode.Exclude };
+        var imported = viewModel.Configuration with
+        {
+            Settings = viewModel.Configuration.Settings with { WindowPlacementRules = [report, invoice] }
+        };
+        viewModel.ReplaceConfiguration(imported);
+        viewModel.WindowPlacement.ReplaceCatalog(new(WindowPlacementCatalog.CurrentSchemaVersion, [
+            new WindowPlacementEntry(
+                identity,
+                viewModel.SelectedMonitor!.Live.Identity.StableId,
+                viewModel.Editor!.Zones[0].Id,
+                viewModel.SelectedMonitor.Live.WorkArea,
+                new PixelRect(0, 0, 800, 600),
+                NormalizedRect.Full,
+                false,
+                DateTimeOffset.UtcNow)
+        ]));
+        viewModel.WindowPlacement.SelectedItem = viewModel.WindowPlacement.Items[0];
+        viewModel.WindowPlacement.TitlePattern = "Report*";
+
+        viewModel.WindowPlacement.ExcludeSelected();
+
+        Assert.Equal(2, viewModel.WindowPlacement.Rules.Count);
+        Assert.Equal(report.Id, viewModel.WindowPlacement.Rules.Single(rule => rule.TitlePattern == "Report*").Id);
+        Assert.Equal(invoice.Id, viewModel.WindowPlacement.Rules.Single(rule => rule.TitlePattern == "Invoice*").Id);
+    }
+
+    [Fact]
     public void Valid_layout_change_requests_persistence_of_the_complete_configuration()
     {
         var viewModel = CreateViewModel();

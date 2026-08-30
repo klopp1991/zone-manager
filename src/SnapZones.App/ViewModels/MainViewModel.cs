@@ -179,7 +179,6 @@ public sealed class MainViewModel : ViewModelBase
         {
             profileService = new ProfileService(replacement);
             Settings.Apply(profileService.Configuration.Settings);
-            windowPlacement?.ReplaceRules(Settings.WindowPlacementRules);
             RefreshProfiles();
             selectedProfile = profileService.ActiveProfile;
             OnPropertyChanged(nameof(SelectedProfile));
@@ -208,7 +207,7 @@ public sealed class MainViewModel : ViewModelBase
             Profiles.Add(profile);
         }
 
-        windowPlacement?.ReplaceTargets(Profiles, Monitors);
+        RefreshWindowPlacement();
     }
 
     private void RefreshMonitors()
@@ -231,7 +230,7 @@ public sealed class MainViewModel : ViewModelBase
         ReplaceEditor(selectedMonitor is null ? null : new LayoutEditorViewModel(selectedMonitor.Layout));
         OnPropertyChanged(nameof(SelectedMonitor));
         OnPropertyChanged(nameof(Editor));
-        windowPlacement?.ReplaceTargets(Profiles, Monitors);
+        RefreshWindowPlacement();
     }
 
     private void ReplaceEditor(LayoutEditorViewModel? replacement)
@@ -256,6 +255,7 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         profileService.UpdateMonitorLayout(editor.CreateSnapshot());
+        RefreshProfiles();
         RequestPersistence();
     }
 
@@ -276,11 +276,21 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         profileService.UpdateSettings(settings);
+        RefreshWindowPlacement();
         RequestPersistence();
     }
 
     private void WindowPlacement_RulesChanged(IReadOnlyList<WindowPlacementRule> rules) =>
         Settings.ReplaceWindowPlacementRules(rules);
+
+    private void RefreshWindowPlacement()
+    {
+        windowPlacement?.Refresh(
+            windowPlacement.Catalog,
+            Settings.WindowPlacementRules,
+            profileService.Configuration.Profiles,
+            Monitors);
+    }
 
     private void RequestPersistence()
     {

@@ -154,33 +154,42 @@ public sealed class WindowPlacementViewModel : ViewModelBase
 
     public void ReplaceCatalog(WindowPlacementCatalog replacement)
     {
-        ArgumentNullException.ThrowIfNull(replacement);
-        var selectedIdentity = SelectedItem?.Identity;
-        catalog = replacement;
-        OnPropertyChanged(nameof(Catalog));
-        RebuildItems(selectedIdentity);
+        Refresh(replacement, rules, profiles, monitors);
     }
 
     public void ReplaceRules(IReadOnlyList<WindowPlacementRule> replacement)
     {
-        ArgumentNullException.ThrowIfNull(replacement);
-        rules = replacement.ToArray();
-        OnPropertyChanged(nameof(Rules));
-        RebuildItems(SelectedItem?.Identity);
+        Refresh(catalog, replacement, profiles, monitors);
     }
 
     public void ReplaceTargets(
         IReadOnlyList<LayoutProfile> replacementProfiles,
         IReadOnlyList<MonitorChoice> replacementMonitors)
     {
+        Refresh(catalog, rules, replacementProfiles, replacementMonitors);
+    }
+
+    public void Refresh(
+        WindowPlacementCatalog replacementCatalog,
+        IReadOnlyList<WindowPlacementRule> replacementRules,
+        IReadOnlyList<LayoutProfile> replacementProfiles,
+        IReadOnlyList<MonitorChoice> replacementMonitors)
+    {
+        ArgumentNullException.ThrowIfNull(replacementCatalog);
+        ArgumentNullException.ThrowIfNull(replacementRules);
         ArgumentNullException.ThrowIfNull(replacementProfiles);
         ArgumentNullException.ThrowIfNull(replacementMonitors);
+        var selectedIdentity = SelectedItem?.Identity;
         var profileId = SelectedTargetProfile?.Id;
         var monitorId = SelectedTargetMonitor?.Live.Identity.StableId;
         var zoneId = SelectedTargetZone?.Id;
+        catalog = replacementCatalog;
+        rules = replacementRules.ToArray();
         profiles = replacementProfiles.ToArray();
         monitors = replacementMonitors.ToArray();
-        RebuildItems(SelectedItem?.Identity);
+        OnPropertyChanged(nameof(Catalog));
+        OnPropertyChanged(nameof(Rules));
+        RebuildItems(selectedIdentity);
         RefreshTargetProfiles(profileId, monitorId, zoneId);
     }
 
@@ -195,12 +204,15 @@ public sealed class WindowPlacementViewModel : ViewModelBase
             return;
         }
 
+        var normalizedPattern = WindowPlacementItemViewModel.NormalizeTitlePattern(TitlePattern);
         var exactIndexes = rules
             .Select((rule, index) => (rule, index))
-            .Where(candidate => WindowPlacementItemViewModel.IsExactIdentityRule(candidate.rule, item.Identity))
+            .Where(candidate => WindowPlacementItemViewModel.IsSameSelector(
+                candidate.rule,
+                item.Identity,
+                normalizedPattern))
             .ToArray();
         var existing = exactIndexes.FirstOrDefault().rule;
-        var normalizedPattern = string.IsNullOrEmpty(TitlePattern) ? null : TitlePattern;
         var replacement = new WindowPlacementRule(
             existing?.Id ?? Guid.NewGuid(),
             true,
@@ -219,7 +231,7 @@ public sealed class WindowPlacementViewModel : ViewModelBase
 
         var insertIndex = exactIndexes.Length == 0 ? rules.Count : exactIndexes[0].index;
         var updated = rules
-            .Where(rule => !WindowPlacementItemViewModel.IsExactIdentityRule(rule, item.Identity))
+            .Where(rule => !WindowPlacementItemViewModel.IsSameSelector(rule, item.Identity, normalizedPattern))
             .ToList();
         insertIndex = Math.Min(insertIndex, updated.Count);
         updated.Insert(insertIndex, replacement);
@@ -246,9 +258,10 @@ public sealed class WindowPlacementViewModel : ViewModelBase
 
     private void LoadRuleEditor()
     {
-        var rule = SelectedItem is { } item
-            ? rules.FirstOrDefault(candidate => WindowPlacementItemViewModel.IsExactIdentityRule(candidate, item.Identity))
-            : null;
+        var matchingRules = SelectedItem is { } item
+            ? rules.Where(candidate => WindowPlacementItemViewModel.IsExactIdentityRule(candidate, item.Identity)).ToArray()
+            : [];
+        var rule = matchingRules.Length == 1 ? matchingRules[0] : null;
         loadingRuleEditor = true;
         try
         {
@@ -282,10 +295,9 @@ public sealed class WindowPlacementViewModel : ViewModelBase
         {
             foreach (var monitor in monitors)
             {
-                var layout = profile.Monitors.FirstOrDefault(candidate => string.Equals(
-                    candidate.Monitor.StableId,
-                    monitor.Live.Identity.StableId,
-                    StringComparison.OrdinalIgnoreCase));
+                var layout = profile.Monitors.FirstOrDefault(candidate =>
+                    string.Equals(candidate.Monitor.StableId, monitor.Live.Identity.StableId, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(candidate.Monitor.DeviceName, monitor.Live.Identity.DeviceName, StringComparison.OrdinalIgnoreCase));
                 if (layout is not null)
                 {
                     TargetMonitors.Add(new MonitorChoice(monitor.Live, layout));

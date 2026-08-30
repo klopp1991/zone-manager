@@ -129,7 +129,9 @@ public sealed record ApplicationControllerDependencies(
             () => System.Windows.Application.Current.Shutdown(),
             log.Write,
             placementWindowService,
-            new WindowSelectionService(placementWindowService),
+            new WindowSelectionService(
+                placementWindowService,
+                message => log.Write("WARN", message)),
             () =>
             {
                 if (!window.IsVisible)

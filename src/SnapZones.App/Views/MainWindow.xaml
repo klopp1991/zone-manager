@@ -292,7 +292,7 @@
             </TabItem>
 
             <TabItem Header="Fensterplatzierung">
-                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <ScrollViewer x:Name="PlacementScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
                     <Grid Margin="38,30" MaxWidth="1120" HorizontalAlignment="Left">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -410,6 +410,11 @@
                                     <TextBlock x:Name="PlacementRuleStatusText" Text="{Binding WindowPlacement.SelectedItem.RuleStatusText}"
                                                Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,0"
                                                AutomationProperties.Name="Regelstatus" />
+                                    <TextBlock Text="Status" Style="{StaticResource FieldLabel}" Margin="0,14,0,5" />
+                                    <TextBox x:Name="PlacementOperationStatusText"
+                                             Text="{Binding StatusMessage, Mode=OneWay}"
+                                             IsReadOnly="True" TextWrapping="Wrap" AcceptsReturn="True"
+                                             AutomationProperties.Name="Fensterplatzierungsstatus" />
                                 </StackPanel>
                             </Border>
                         </Grid>

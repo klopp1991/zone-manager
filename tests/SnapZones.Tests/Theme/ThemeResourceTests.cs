@@ -2,6 +2,7 @@ using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Threading;
@@ -334,6 +335,8 @@ public sealed class ThemeResourceTests
             var applicationKey = Assert.IsType<TextBox>(window.FindName("PlacementApplicationKeyText"));
             var windowClass = Assert.IsType<TextBox>(window.FindName("PlacementWindowClassText"));
             var status = Assert.IsType<TextBlock>(window.FindName("PlacementRuleStatusText"));
+            var operationStatus = Assert.IsType<TextBox>(window.FindName("PlacementOperationStatusText"));
+            var placementScroller = Assert.IsType<ScrollViewer>(window.FindName("PlacementScroller"));
             foreach (var button in new[] { apply, remember, exclude, forget, fix })
             {
                 button.GetBindingExpression(UIElement.IsEnabledProperty)?.UpdateTarget();
@@ -345,6 +348,16 @@ public sealed class ThemeResourceTests
             Assert.True(applicationKey.IsReadOnly);
             Assert.True(windowClass.IsReadOnly);
             Assert.NotNull(status.GetBindingExpression(TextBlock.TextProperty));
+            Assert.True(operationStatus.IsReadOnly);
+            Assert.Equal(BindingMode.OneWay,
+                operationStatus.GetBindingExpression(TextBox.TextProperty)!.ParentBinding.Mode);
+            Assert.Equal(ScrollBarVisibility.Auto, placementScroller.HorizontalScrollBarVisibility);
+            window.Width = window.MinWidth;
+            window.Height = window.MinHeight;
+            window.UpdateLayout();
+            Assert.True(placementScroller.ViewportWidth > 0);
+            Assert.True(placementScroller.ScrollableWidth > 0);
+            Assert.Equal(Visibility.Visible, placementScroller.ComputedHorizontalScrollBarVisibility);
             Assert.Equal(Application.Current.Resources["SurfaceBrush"],
                 Assert.IsType<Border>(window.FindName("PlacementLearnedCard")).Background);
             }

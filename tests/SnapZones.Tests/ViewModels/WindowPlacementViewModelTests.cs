@@ -43,30 +43,43 @@ public sealed class WindowPlacementViewModelTests
     }
 
     [Fact]
-    public void Specific_rule_action_replaces_duplicates_and_preserves_other_rules()
+    public void Rule_action_replaces_only_the_same_normalized_selector_and_preserves_other_title_rules()
     {
         var identity = Identity("editor.exe", "EditorMain");
-        var other = Rule(Identity("other.exe", "Other"), WindowPlacementMode.Exclude);
-        var duplicateOne = Rule(identity, WindowPlacementMode.RememberLast);
-        var duplicateTwo = Rule(identity, WindowPlacementMode.FixedZone) with
+        var report = Rule(identity, WindowPlacementMode.RememberLast) with { TitlePattern = "Report*" };
+        var invoice = Rule(identity, WindowPlacementMode.FixedZone) with
         {
-            TitlePattern = "Old*",
+            TitlePattern = "Invoice*",
             ProfileId = Guid.NewGuid(),
-            MonitorStableId = "OLD",
+            MonitorStableId = "DISPLAY-1",
             ZoneId = Guid.NewGuid()
         };
-        var viewModel = CreateViewModel([duplicateOne, other, duplicateTwo]);
+        var viewModel = CreateViewModel([report, invoice]);
         viewModel.SelectedItem = viewModel.Items.Single(item => item.Identity == identity);
-        viewModel.TitlePattern = "Document*";
+        viewModel.TitlePattern = "  Report*  ";
 
         viewModel.ExcludeSelected();
 
         Assert.Equal(2, viewModel.Rules.Count);
-        Assert.Same(other, viewModel.Rules[1]);
-        var replacement = viewModel.Rules[0];
-        Assert.Equal(duplicateOne.Id, replacement.Id);
-        Assert.Equal("Document*", replacement.TitlePattern);
+        var replacement = viewModel.Rules.Single(rule => rule.TitlePattern == "Report*");
+        Assert.Equal(report.Id, replacement.Id);
         Assert.Equal(WindowPlacementMode.Exclude, replacement.Action);
+        Assert.Same(invoice, viewModel.Rules.Single(rule => rule.TitlePattern == "Invoice*"));
+    }
+
+    [Fact]
+    public void Distinct_title_patterns_are_reported_neutrally_without_a_current_window_title()
+    {
+        var identity = Identity("editor.exe", "EditorMain");
+        var viewModel = CreateViewModel([
+            Rule(identity, WindowPlacementMode.Exclude) with { TitlePattern = "Report*" },
+            Rule(identity, WindowPlacementMode.RememberLast) with { TitlePattern = "Invoice*" }
+        ]);
+
+        var status = viewModel.Items.Single(item => item.Identity == identity).RuleStatusText;
+
+        Assert.DoesNotContain("Konflikt", status, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Titel", status, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -163,6 +176,68 @@ public sealed class WindowPlacementViewModelTests
         Assert.Contains("Voll", item.PlacementText, StringComparison.Ordinal);
         Assert.False(string.IsNullOrWhiteSpace(item.LastUpdatedText));
         Assert.Same(item.Entry, viewModel.Catalog.Entries[0]);
+    }
+
+    [Fact]
+    public void Refresh_resolves_saved_monitor_by_device_name_and_requires_a_current_monitor_for_fixed_targets()
+    {
+        var zone = new ZoneDefinition(Guid.NewGuid(), "Arbeit", NormalizedRect.Full);
+        var savedIdentity = new MonitorIdentity("OLD-ID", "DISPLAY1", "Gespeichert");
+        var liveIdentity = new MonitorIdentity("NEW-ID", "DISPLAY1", "Aktueller Monitor");
+        var profile = new LayoutProfile(
+            Guid.NewGuid(),
+            "Standard",
+            1,
+            [new MonitorLayout(savedIdentity, 1920, 1080, [zone])]);
+        var live = new LiveMonitor(liveIdentity, new MonitorWorkArea(0, 0, 1920, 1040), 96, 96, true);
+        var monitor = new MonitorChoice(live, profile.Monitors[0]);
+        var identity = Identity("editor.exe", "EditorMain");
+        var entry = Entry(identity, liveIdentity.StableId, DateTimeOffset.UtcNow) with { ZoneId = zone.Id };
+        var fixedRule = Rule(identity, WindowPlacementMode.FixedZone) with
+        {
+            ProfileId = profile.Id,
+            MonitorStableId = liveIdentity.StableId,
+            ZoneId = zone.Id
+        };
+        var viewModel = new WindowPlacementViewModel(
+            new(WindowPlacementCatalog.CurrentSchemaVersion, [entry]),
+            [fixedRule],
+            [profile],
+            [monitor]);
+
+        Assert.Single(viewModel.TargetMonitors);
+        Assert.Contains("Arbeit", viewModel.Items[0].PlacementText, StringComparison.Ordinal);
+        Assert.DoesNotContain("nicht verfügbar", viewModel.Items[0].RuleStatusText, StringComparison.OrdinalIgnoreCase);
+
+        viewModel.Refresh(viewModel.Catalog, viewModel.Rules, [profile], []);
+
+        Assert.Empty(viewModel.TargetMonitors);
+        Assert.Contains("nicht verfügbar", viewModel.Items[0].RuleStatusText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Refresh_replaces_all_sources_and_preserves_item_and_target_selection_by_stable_ids()
+    {
+        var viewModel = CreateViewModel();
+        viewModel.SelectedItem = viewModel.Items[0];
+        var identity = viewModel.SelectedItem.Identity;
+        var profileId = viewModel.SelectedTargetProfile!.Id;
+        var monitorId = viewModel.SelectedTargetMonitor!.Live.Identity.StableId;
+        var zoneId = viewModel.SelectedTargetZone!.Id;
+        var refreshedEntry = viewModel.Catalog.Entries[0] with { LastUpdatedUtc = DateTimeOffset.UtcNow };
+        var refreshedRule = Rule(identity, WindowPlacementMode.Exclude);
+
+        viewModel.Refresh(
+            new(WindowPlacementCatalog.CurrentSchemaVersion, [refreshedEntry]),
+            [refreshedRule],
+            viewModel.TargetProfiles.ToArray(),
+            viewModel.TargetMonitors.ToArray());
+
+        Assert.Same(refreshedEntry, viewModel.SelectedItem!.Entry);
+        Assert.Equal(profileId, viewModel.SelectedTargetProfile!.Id);
+        Assert.Equal(monitorId, viewModel.SelectedTargetMonitor!.Live.Identity.StableId);
+        Assert.Equal(zoneId, viewModel.SelectedTargetZone!.Id);
+        Assert.Same(refreshedRule, Assert.Single(viewModel.Rules));
     }
 
     private static WindowPlacementViewModel CreateViewModel(IReadOnlyList<WindowPlacementRule>? rules = null)

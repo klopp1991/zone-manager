@@ -42,6 +42,7 @@ public sealed class ApplicationController : IDisposable
     private readonly ConfigurationTransferService transferService = new();
     private readonly object lifecycleGate = new();
     private readonly object automationGate = new();
+    private readonly object placementUiGate = new();
     private IWindowDragCoordinator? coordinator;
     private SnapConfiguration configuration;
     private int exitRequested;
@@ -50,6 +51,8 @@ public sealed class ApplicationController : IDisposable
     private bool placementsInitialized;
     private int safetyStopped;
     private readonly CancellationTokenSource placementUiCancellation = new();
+    private Task? placementSelectionOperation;
+    private Task? placementApplyOperation;
 
     public ApplicationController(
         MainWindow window,
@@ -273,6 +276,7 @@ public sealed class ApplicationController : IDisposable
             return;
         }
 
+        placementUiCancellation.Cancel();
         cancelStartup();
         lock (lifecycleGate)
         {
@@ -514,20 +518,39 @@ public sealed class ApplicationController : IDisposable
         _ = window.Dispatcher.InvokeAsync(() => viewModel.WindowPlacement.ReplaceCatalog(catalog));
     }
 
-    private async void PlacementApplyNowRequested(WindowIdentity identity)
+    private void PlacementApplyNowRequested(WindowIdentity identity)
+    {
+        lock (placementUiGate)
+        {
+            if (!IsPlacementUiActive() || placementApplyOperation is { IsCompleted: false })
+            {
+                return;
+            }
+
+            placementApplyOperation = ApplyPlacementFromUiAsync(identity);
+        }
+    }
+
+    private async Task ApplyPlacementFromUiAsync(WindowIdentity identity)
     {
         try
         {
             await placementEngine.ApplyNowAsync(identity, placementUiCancellation.Token);
-            viewModel.StatusMessage = "Fensterplatzierung angewendet";
+            if (IsPlacementUiActive())
+            {
+                viewModel.StatusMessage = "Fensterplatzierung angewendet";
+            }
         }
         catch (OperationCanceledException) when (placementUiCancellation.IsCancellationRequested)
         {
         }
         catch (Exception exception)
         {
-            log("ERROR", "Die Fensterplatzierung konnte nicht angewendet werden.", exception);
-            viewModel.StatusMessage = $"Fensterplatzierung fehlgeschlagen: {exception.Message}";
+            if (IsPlacementUiActive())
+            {
+                log("ERROR", "Die Fensterplatzierung konnte nicht angewendet werden.", exception);
+                viewModel.StatusMessage = $"Fensterplatzierung fehlgeschlagen: {exception.Message}";
+            }
         }
     }
 
@@ -545,15 +568,33 @@ public sealed class ApplicationController : IDisposable
         }
     }
 
-    private async void PlacementSelectWindowRequested()
+    private void PlacementSelectWindowRequested()
     {
-        viewModel.StatusMessage = "Zielfenster auswählen";
+        lock (placementUiGate)
+        {
+            if (!IsPlacementUiActive() || placementSelectionOperation is { IsCompleted: false })
+            {
+                return;
+            }
+
+            viewModel.StatusMessage = "Zielfenster auswählen";
+            placementSelectionOperation = SelectWindowFromUiAsync();
+        }
+    }
+
+    private async Task SelectWindowFromUiAsync()
+    {
         try
         {
             var windowHandle = await windowSelectionService.SelectNextAsync(
                 Environment.ProcessId,
                 TimeSpan.FromSeconds(10),
                 placementUiCancellation.Token);
+            if (!IsPlacementUiActive())
+            {
+                return;
+            }
+
             if (windowHandle == 0)
             {
                 viewModel.StatusMessage = "Kein Zielfenster ausgewählt";
@@ -579,12 +620,15 @@ public sealed class ApplicationController : IDisposable
         }
         catch (Exception exception)
         {
-            log("ERROR", "Das Zielfenster konnte nicht ausgewählt werden.", exception);
-            viewModel.StatusMessage = $"Fensterauswahl fehlgeschlagen: {exception.Message}";
+            if (IsPlacementUiActive())
+            {
+                log("ERROR", "Das Zielfenster konnte nicht ausgewählt werden.", exception);
+                viewModel.StatusMessage = $"Fensterauswahl fehlgeschlagen: {exception.Message}";
+            }
         }
         finally
         {
-            if (!disposed)
+            if (IsPlacementUiActive())
             {
                 reactivateMainWindow();
             }
@@ -604,6 +648,41 @@ public sealed class ApplicationController : IDisposable
 
         _ = window.Activate();
         _ = window.Focus();
+    }
+
+    private bool IsPlacementUiActive() =>
+        !disposed &&
+        Volatile.Read(ref exitRequested) == 0 &&
+        !placementUiCancellation.IsCancellationRequested;
+
+    private async Task AwaitPlacementUiOperationsAsync()
+    {
+        Task[] pending;
+        lock (placementUiGate)
+        {
+            pending = new[] { placementSelectionOperation, placementApplyOperation }
+                .Where(task => task is { IsCompleted: false })
+                .Cast<Task>()
+                .ToArray();
+        }
+
+        if (pending.Length == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            await Task.WhenAll(pending).WaitAsync(TimeSpan.FromSeconds(1));
+        }
+        catch (TimeoutException)
+        {
+            log("WARN", "Laufende Fensterplatzierungsaktionen wurden beim Beenden verworfen.", null);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            log("WARN", "Eine Fensterplatzierungsaktion endete beim Beenden mit einem Fehler.", exception);
+        }
     }
 
     private void CursorTimer_Tick(object? sender, EventArgs eventArgs)
@@ -695,6 +774,7 @@ public sealed class ApplicationController : IDisposable
         window.IsEnabled = false;
         try
         {
+            await AwaitPlacementUiOperationsAsync();
             lock (lifecycleGate)
             {
                 moveHook.Disable();

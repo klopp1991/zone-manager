@@ -19,7 +19,7 @@ public sealed class WindowPlacementItemViewModel
         WindowKindText = WindowKindTextFor(Identity.Kind);
         PlacementText = BuildPlacementText(entry, profiles, monitors);
         LastUpdatedText = entry.LastUpdatedUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
-        RuleStatusText = BuildRuleStatus(Identity, rules, profiles);
+        RuleStatusText = BuildRuleStatus(Identity, rules, profiles, monitors);
     }
 
     public WindowPlacementEntry Entry { get; }
@@ -54,13 +54,14 @@ public sealed class WindowPlacementItemViewModel
                 entry.MonitorStableId,
                 StringComparison.OrdinalIgnoreCase))
             ?.FriendlyName ?? entry.MonitorStableId;
+        var liveMonitor = monitors.FirstOrDefault(monitor => string.Equals(
+            monitor.Live.Identity.StableId,
+            entry.MonitorStableId,
+            StringComparison.OrdinalIgnoreCase));
         var zoneName = entry.ZoneId is { } zoneId
             ? profiles
                 .SelectMany(profile => profile.Monitors)
-                .Where(layout => string.Equals(
-                    layout.Monitor.StableId,
-                    entry.MonitorStableId,
-                    StringComparison.OrdinalIgnoreCase))
+                .Where(layout => MonitorMatches(layout.Monitor, entry.MonitorStableId, liveMonitor?.Live.Identity))
                 .SelectMany(layout => layout.Zones)
                 .FirstOrDefault(zone => zone.Id == zoneId)
                 ?.Name ?? "Zielzone fehlt"
@@ -72,17 +73,24 @@ public sealed class WindowPlacementItemViewModel
     private static string BuildRuleStatus(
         WindowIdentity identity,
         IReadOnlyList<WindowPlacementRule> rules,
-        IReadOnlyList<LayoutProfile> profiles)
+        IReadOnlyList<LayoutProfile> profiles,
+        IReadOnlyList<MonitorChoice> monitors)
     {
         var exact = rules.Where(rule => rule.IsEnabled && IsExactIdentityRule(rule, identity)).ToArray();
-        if (exact.Length > 1)
+        var unconditional = exact.Where(rule => NormalizeTitlePattern(rule.TitlePattern) is null).ToArray();
+        if (unconditional.Length > 1)
         {
             return "Regelkonflikt: mehrere gleich spezifische Regeln";
         }
 
-        var resolution = exact.Length == 1
-            ? new RuleResolution(exact[0], false)
-            : PlacementRuleResolver.Resolve(identity, string.Empty, rules);
+        if (unconditional.Length == 0 && exact.Length > 0)
+        {
+            return exact.Length == 1 ? "Titelabhängige Regel" : $"{exact.Length} titelabhängige Regeln";
+        }
+
+        var resolution = unconditional.Length == 1
+            ? new RuleResolution(unconditional[0], false)
+            : PlacementRuleResolver.Resolve(identity, string.Empty, rules.Where(rule => NormalizeTitlePattern(rule.TitlePattern) is null).ToArray());
         if (resolution.HasConflict)
         {
             return "Regelkonflikt: mehrere gleich spezifische Regeln";
@@ -97,7 +105,7 @@ public sealed class WindowPlacementItemViewModel
         {
             WindowPlacementMode.Exclude => "Nicht verwalten",
             WindowPlacementMode.RememberLast => "Letzte Platzierung",
-            WindowPlacementMode.FixedZone when !FixedTargetExists(rule, profiles) =>
+            WindowPlacementMode.FixedZone when !FixedTargetExists(rule, profiles, monitors) =>
                 "Feste Zone: Ziel nicht verfügbar",
             WindowPlacementMode.FixedZone => "Feste Zone",
             _ => rule.Action.ToString()
@@ -109,7 +117,23 @@ public sealed class WindowPlacementItemViewModel
         string.Equals(rule.WindowClass, identity.WindowClass, StringComparison.Ordinal) &&
         rule.WindowKind == identity.Kind;
 
-    private static bool FixedTargetExists(WindowPlacementRule rule, IReadOnlyList<LayoutProfile> profiles)
+    internal static string? NormalizeTitlePattern(string? titlePattern) =>
+        string.IsNullOrWhiteSpace(titlePattern) ? null : titlePattern.Trim();
+
+    internal static bool IsSameSelector(
+        WindowPlacementRule rule,
+        WindowIdentity identity,
+        string? titlePattern) =>
+        IsExactIdentityRule(rule, identity) &&
+        string.Equals(
+            NormalizeTitlePattern(rule.TitlePattern),
+            NormalizeTitlePattern(titlePattern),
+            StringComparison.OrdinalIgnoreCase);
+
+    private static bool FixedTargetExists(
+        WindowPlacementRule rule,
+        IReadOnlyList<LayoutProfile> profiles,
+        IReadOnlyList<MonitorChoice> monitors)
     {
         if (rule.ProfileId is not { } profileId ||
             rule.MonitorStableId is not { } monitorId ||
@@ -119,10 +143,30 @@ public sealed class WindowPlacementItemViewModel
         }
 
         var profile = profiles.FirstOrDefault(candidate => candidate.Id == profileId);
-        var layout = profile?.Monitors.FirstOrDefault(candidate => string.Equals(
-            candidate.Monitor.StableId,
+        var layoutBySavedId = profile?.Monitors.FirstOrDefault(candidate => string.Equals(
+            candidate.Monitor.StableId, monitorId, StringComparison.OrdinalIgnoreCase));
+        var activeMonitor = monitors.FirstOrDefault(candidate =>
+            string.Equals(candidate.Live.Identity.StableId, monitorId, StringComparison.OrdinalIgnoreCase) ||
+            (layoutBySavedId is not null && string.Equals(
+                candidate.Live.Identity.DeviceName,
+                layoutBySavedId.Monitor.DeviceName,
+                StringComparison.OrdinalIgnoreCase)));
+        if (activeMonitor is null)
+        {
+            return false;
+        }
+
+        var layout = profile?.Monitors.FirstOrDefault(candidate => MonitorMatches(
+            candidate.Monitor,
             monitorId,
-            StringComparison.OrdinalIgnoreCase));
+            activeMonitor.Live.Identity));
         return layout?.Zones.Any(zone => zone.Id == zoneId) == true;
     }
+
+    internal static bool MonitorMatches(
+        MonitorIdentity saved,
+        string requestedStableId,
+        MonitorIdentity? live) =>
+        string.Equals(saved.StableId, requestedStableId, StringComparison.OrdinalIgnoreCase) ||
+        (live is not null && string.Equals(saved.DeviceName, live.DeviceName, StringComparison.OrdinalIgnoreCase));
 }

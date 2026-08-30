@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using SnapZones.Windows.Native;
 
 namespace SnapZones.Windows.Windows;
@@ -10,18 +11,24 @@ public interface IWindowSelectionService
 public sealed class WindowSelectionService : IWindowSelectionService
 {
     private const uint EventSystemForeground = 0x0003;
+    private static readonly ConcurrentQueue<User32.WinEventProc> RetainedFailedUnhookCallbacks = new();
     private readonly IPlacementWindowService windows;
     private readonly IWinEventHookApi nativeApi;
+    private readonly Action<string>? diagnostic;
 
-    public WindowSelectionService(IPlacementWindowService windows)
-        : this(windows, new User32WinEventHookApi())
+    public WindowSelectionService(IPlacementWindowService windows, Action<string>? diagnostic = null)
+        : this(windows, new User32WinEventHookApi(), diagnostic)
     {
     }
 
-    internal WindowSelectionService(IPlacementWindowService windows, IWinEventHookApi nativeApi)
+    internal WindowSelectionService(
+        IPlacementWindowService windows,
+        IWinEventHookApi nativeApi,
+        Action<string>? diagnostic = null)
     {
         this.windows = windows ?? throw new ArgumentNullException(nameof(windows));
         this.nativeApi = nativeApi ?? throw new ArgumentNullException(nameof(nativeApi));
+        this.diagnostic = diagnostic;
     }
 
     public async Task<nint> SelectNextAsync(
@@ -39,9 +46,13 @@ public sealed class WindowSelectionService : IWindowSelectionService
         }
 
         var completion = new TaskCompletionSource<nint>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var callbackActive = 1;
         User32.WinEventProc callback = (_, eventType, window, _, _, _, _) =>
         {
-            if (eventType != EventSystemForeground || window == 0 || completion.Task.IsCompleted)
+            if (Volatile.Read(ref callbackActive) == 0 ||
+                eventType != EventSystemForeground ||
+                window == 0 ||
+                completion.Task.IsCompleted)
             {
                 return;
             }
@@ -69,6 +80,7 @@ public sealed class WindowSelectionService : IWindowSelectionService
             User32.WinEventOutOfContext);
         if (hook == 0)
         {
+            Volatile.Write(ref callbackActive, 0);
             return 0;
         }
 
@@ -86,8 +98,37 @@ public sealed class WindowSelectionService : IWindowSelectionService
         }
         finally
         {
-            _ = nativeApi.UnhookWinEvent(hook);
+            Volatile.Write(ref callbackActive, 0);
+            var released = false;
+            string? cleanupFailure = null;
+            try
+            {
+                released = nativeApi.UnhookWinEvent(hook);
+            }
+            catch (Exception exception)
+            {
+                cleanupFailure = $"Der Fensterwahl-Hook konnte nicht gelöst werden: {exception.Message}";
+            }
+
+            if (!released)
+            {
+                RetainedFailedUnhookCallbacks.Enqueue(callback);
+                ReportCleanupFailure(cleanupFailure ?? "Der Fensterwahl-Hook konnte nicht gelöst werden und bleibt deaktiviert.");
+            }
+
             GC.KeepAlive(callback);
+        }
+    }
+
+    private void ReportCleanupFailure(string message)
+    {
+        try
+        {
+            diagnostic?.Invoke(message);
+        }
+        catch (Exception)
+        {
+            // Diagnosefehler dürfen den fail-closed Cleanup nicht rückgängig machen.
         }
     }
 }

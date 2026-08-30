@@ -67,12 +67,47 @@ public sealed class WindowSelectionServiceTests
         Assert.Equal(0, native.UnhookCalls);
     }
 
+    [Fact]
+    public async Task Failed_unhook_deactivates_the_callback_and_reports_the_cleanup_failure()
+    {
+        var native = new RecordingHookApi { UnhookResult = false };
+        var windows = new RecordingPlacementWindowService();
+        windows.ReadableHandles.Add(42);
+        var diagnostics = new List<string>();
+        var service = new WindowSelectionService(windows, native, diagnostics.Add);
+
+        var selected = await service.SelectNextAsync(123, TimeSpan.FromMilliseconds(20), CancellationToken.None);
+        native.Raise(42);
+
+        Assert.Equal(nint.Zero, selected);
+        Assert.Empty(windows.ExcludedProcessIds);
+        Assert.Single(diagnostics);
+        Assert.Contains("Hook", diagnostics[0], StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task Failed_unhook_keeps_the_inactive_native_delegate_rooted()
+    {
+        var native = new RecordingHookApi { UnhookResult = false };
+        var service = new WindowSelectionService(new RecordingPlacementWindowService(), native, _ => { });
+
+        _ = await service.SelectNextAsync(123, TimeSpan.Zero, CancellationToken.None);
+        native.ReleaseStrongCallback();
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
+        Assert.True(native.CallbackReference!.TryGetTarget(out _));
+    }
+
     private sealed class RecordingHookApi : IWinEventHookApi
     {
         private User32.WinEventProc? callback;
         public nint RegistrationHandle { get; set; } = 77;
+        public bool UnhookResult { get; set; } = true;
         public List<Registration> Registrations { get; } = [];
         public int UnhookCalls { get; private set; }
+        public WeakReference<User32.WinEventProc>? CallbackReference { get; private set; }
 
         public nint SetWinEventHook(
             uint eventMinimum,
@@ -84,6 +119,7 @@ public sealed class WindowSelectionServiceTests
             uint flags)
         {
             this.callback = callback;
+            CallbackReference = new(callback);
             Registrations.Add(new(eventMinimum, eventMaximum, flags));
             return RegistrationHandle;
         }
@@ -92,10 +128,21 @@ public sealed class WindowSelectionServiceTests
         {
             Assert.Equal(RegistrationHandle, hook);
             UnhookCalls++;
-            return true;
+            return UnhookResult;
         }
 
-        public void Raise(nint window) => callback?.Invoke(RegistrationHandle, 0x0003, window, 0, 0, 0, 0);
+        public void Raise(nint window)
+        {
+            var target = callback;
+            if (target is null)
+            {
+                _ = CallbackReference?.TryGetTarget(out target);
+            }
+
+            target?.Invoke(RegistrationHandle, 0x0003, window, 0, 0, 0, 0);
+        }
+
+        public void ReleaseStrongCallback() => callback = null;
 
         public sealed record Registration(uint EventMinimum, uint EventMaximum, uint Flags);
     }
