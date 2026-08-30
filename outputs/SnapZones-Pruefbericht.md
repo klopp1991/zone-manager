@@ -4,7 +4,7 @@ Stand: 30.08.2026
 
 ## Automatisierte Prüfung
 
-`scripts\verify.ps1` stellte Pakete wieder her, führte den Volltest aus, baute und veröffentlichte die `win-x64`-EXE und prüfte die hashgleiche Root- und Publish-EXE sowie den schreibgeschützten Diagnosevertrag. Ergebnis: 327 Tests ausgeführt, davon 325 bestanden und exakt zwei dokumentierte Icon-Baselines fehlgeschlagen: `Brand_icon_uses_only_neutral_greys` und `Brand_icon_uses_two_wide_lower_tiles_instead_of_a_monitor_stand`. Der strukturierte TRX-Gegenlauf schloss ausschliesslich diese zwei vollständigen Testnamen aus und bestätigte 325/325 weitere Tests.
+`scripts\verify.ps1` stellte Pakete wieder her, führte den Volltest aus, baute und veröffentlichte die `win-x64`-EXE und prüfte die hashgleiche Root- und Publish-EXE sowie den schreibgeschützten Diagnosevertrag. Ergebnis: 341 Tests ausgeführt, davon 339 bestanden und exakt zwei dokumentierte Icon-Baselines fehlgeschlagen: `Brand_icon_uses_only_neutral_greys` und `Brand_icon_uses_two_wide_lower_tiles_instead_of_a_monitor_stand`. Der strukturierte TRX-Gegenlauf schloss ausschliesslich diese zwei vollständigen Testnamen aus und bestätigte 339/339 weitere Tests.
 
 Die Diagnose meldet `windowPlacement.enabled`, `learnedEntryCount`, `ruleCount` und `lifecycleHookRegistered=false`. Sie startet keinen Hook, keine Engine und keinen Recovery-Schreibpfad; `settings.json` und `placements.json` bleiben unverändert, auch bei beschädigter Platzierungsdatei.
 
