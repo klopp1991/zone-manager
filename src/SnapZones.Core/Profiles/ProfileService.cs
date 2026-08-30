@@ -65,6 +65,100 @@ public sealed class ProfileService
         Configuration = Configuration with { Profiles = profiles };
     }
 
+    public void UpdateMonitorLayout(MonitorLayout layout)
+    {
+        var profileIndex = Configuration.Profiles.ToList().FindIndex(profile => profile.Id == ActiveProfile.Id);
+        var profile = Configuration.Profiles[profileIndex];
+        var monitorLayouts = profile.Monitors.ToList();
+        var monitorIndex = monitorLayouts.FindIndex(existing =>
+            string.Equals(existing.Monitor.StableId, layout.Monitor.StableId, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(existing.Monitor.DeviceName, layout.Monitor.DeviceName, StringComparison.OrdinalIgnoreCase));
+        if (monitorIndex >= 0)
+        {
+            monitorLayouts[monitorIndex] = layout;
+        }
+        else
+        {
+            monitorLayouts.Add(layout);
+        }
+
+        ReplaceProfile(profileIndex, profile with { Monitors = monitorLayouts.ToArray() });
+    }
+
+    public LayoutProfile AddProfile(string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        var trimmedName = name.Trim();
+        if (Configuration.Profiles.Any(profile => string.Equals(profile.Name, trimmedName, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            throw new InvalidOperationException("Ein Profil mit diesem Namen ist bereits vorhanden.");
+        }
+
+        var copiedMonitors = ActiveProfile.Monitors.Select(monitor => monitor with
+        {
+            Zones = monitor.Zones.Select(zone => zone with { Id = Guid.NewGuid() }).ToArray()
+        }).ToArray();
+        var profile = new LayoutProfile(Guid.NewGuid(), trimmedName, null, copiedMonitors);
+        Configuration = Configuration with { Profiles = [.. Configuration.Profiles, profile] };
+        return Activate(profile.Id);
+    }
+
+    public void DeleteProfile(Guid profileId)
+    {
+        if (Configuration.Profiles.Count == 1)
+        {
+            throw new InvalidOperationException("Das letzte Profil kann nicht gelöscht werden.");
+        }
+
+        var profiles = Configuration.Profiles.Where(profile => profile.Id != profileId).ToArray();
+        if (profiles.Length == Configuration.Profiles.Count)
+        {
+            throw new KeyNotFoundException("Das Profil wurde nicht gefunden.");
+        }
+
+        var activeId = Configuration.Settings.ActiveProfileId == profileId
+            ? profiles[0].Id
+            : Configuration.Settings.ActiveProfileId;
+        Configuration = Configuration with
+        {
+            Profiles = profiles,
+            Settings = Configuration.Settings with { ActiveProfileId = activeId }
+        };
+    }
+
+    public void RenameProfile(Guid profileId, string name)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        var trimmedName = name.Trim();
+        if (Configuration.Profiles.Any(profile =>
+            profile.Id != profileId &&
+            string.Equals(profile.Name, trimmedName, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            throw new InvalidOperationException("Ein Profil mit diesem Namen ist bereits vorhanden.");
+        }
+
+        var index = Configuration.Profiles.ToList().FindIndex(profile => profile.Id == profileId);
+        if (index < 0)
+        {
+            throw new KeyNotFoundException("Das Profil wurde nicht gefunden.");
+        }
+
+        ReplaceProfile(index, Configuration.Profiles[index] with { Name = trimmedName });
+    }
+
+    public void UpdateSettings(AppSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        Configuration = Configuration with { Settings = settings };
+    }
+
+    private void ReplaceProfile(int index, LayoutProfile profile)
+    {
+        var profiles = Configuration.Profiles.ToArray();
+        profiles[index] = profile;
+        Configuration = Configuration with { Profiles = profiles };
+    }
+
     private static void EnsureValidSlot(int slot)
     {
         if (slot is < 1 or > 9)

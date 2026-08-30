@@ -29,6 +29,14 @@ public sealed class LayoutEditorSession
 
     public void ResizeZone(Guid zoneId, NormalizedRect bounds) => ReplaceBounds(zoneId, bounds);
 
+    public void UpdateZone(Guid zoneId, string name, NormalizedRect bounds)
+    {
+        var index = FindIndex(zoneId);
+        zones[index] = zones[index] with { Name = name.Trim(), Bounds = bounds };
+    }
+
+    public void ReplaceZones(IReadOnlyList<ZoneDefinition> replacement) => zones = [.. replacement];
+
     public void DeleteZone(Guid zoneId)
     {
         if (zones.RemoveAll(zone => zone.Id == zoneId) == 0)
@@ -51,12 +59,13 @@ public sealed class LayoutEditorSession
 
     private void ReplaceBounds(Guid zoneId, NormalizedRect bounds)
     {
-        var index = zones.FindIndex(zone => zone.Id == zoneId);
-        if (index < 0)
-        {
-            throw new KeyNotFoundException("Die Zone wurde nicht gefunden.");
-        }
-
+        var index = FindIndex(zoneId);
         zones[index] = zones[index] with { Bounds = bounds };
+    }
+
+    private int FindIndex(Guid zoneId)
+    {
+        var index = zones.FindIndex(zone => zone.Id == zoneId);
+        return index >= 0 ? index : throw new KeyNotFoundException("Die Zone wurde nicht gefunden.");
     }
 }
