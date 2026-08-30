@@ -126,13 +126,14 @@ WindowPlacementRule
 └─ ZoneId                  nur FixedZone
 ```
 
-Beim Öffnen gilt folgende feste Priorität:
+Beim Öffnen wählt der Regelauflöser zuerst die spezifischste passende Regel. Danach gilt folgende feste Priorität:
 
 1. Not-Aus oder global deaktivierte Wiederherstellung: keine Aktion;
-2. passende Ausschlussregel: weder wiederherstellen noch lernen;
-3. passende feste Zonenregel: aktuelle Geometrie der Zielzone verwenden;
-4. passende `RememberLast`-Regel oder globaler Standard: letzten gelernten Eintrag verwenden;
-5. kein gelernter Eintrag: Fenster unverändert lassen und ab dann beobachten.
+2. mehrere gleich spezifische Regeln: Konflikt melden und keine Aktion ausführen;
+3. ausgewählte Ausschlussregel: weder wiederherstellen noch lernen;
+4. ausgewählte feste Zonenregel: aktuelle Geometrie der Zielzone verwenden;
+5. ausgewählte `RememberLast`-Regel oder keine passende Regel: nach globalem Standard den letzten gelernten Eintrag verwenden;
+6. kein gelernter Eintrag: Fenster unverändert lassen und ab dann beobachten.
 
 Spezifischere Regeln gewinnen vor allgemeineren Regeln. Die Reihenfolge lautet Titelmuster, Fensterklasse und Fensterart, Anwendung allein. Gleich spezifische Konflikte werden in der Oberfläche als Fehler markiert und nicht stillschweigend nach Listenreihenfolge entschieden.
 
