@@ -144,9 +144,12 @@ public sealed class JsonConfigurationRepositoryTests
         var result = await repository.LoadAsync(CancellationToken.None);
 
         Assert.False(result.RecoveredFromError);
+        Assert.Equal(2, result.Configuration.SchemaVersion);
         Assert.Equal(ThemeMode.System, result.Configuration.Settings.ThemeMode);
         Assert.Equal(10, result.Configuration.Settings.MagnetThresholdPixels);
         Assert.True(result.Configuration.Settings.ShowZoneNames);
+        Assert.True(result.Configuration.Settings.RestoreWindowPlacementEnabled);
+        Assert.Empty(result.Configuration.Settings.EffectiveWindowPlacementRules);
         Assert.Equal("#707070", result.Configuration.Settings.OverlayColor);
         Assert.Equal(EdgeInsets.Uniform(8), result.Configuration.Settings.EffectiveOuterMargins);
     }

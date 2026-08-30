@@ -37,10 +37,10 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
                 FileShare.Read,
                 bufferSize: 4096,
                 FileOptions.Asynchronous | FileOptions.SequentialScan);
-            var configuration = await JsonSerializer.DeserializeAsync<SnapConfiguration>(
+            var configuration = Migrate(await JsonSerializer.DeserializeAsync<SnapConfiguration>(
                 stream,
                 serializerOptions,
-                cancellationToken);
+                cancellationToken) ?? throw new InvalidDataException("Die Konfiguration ist leer."));
             Validate(configuration);
             return new ConfigurationLoadResult(ApplyCompatibleVisualDefaults(configuration!), false);
         }
@@ -126,10 +126,10 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
                     FileShare.Read,
                     bufferSize: 4096,
                     FileOptions.Asynchronous | FileOptions.SequentialScan);
-                var configuration = await JsonSerializer.DeserializeAsync<SnapConfiguration>(
+                var configuration = Migrate(await JsonSerializer.DeserializeAsync<SnapConfiguration>(
                     stream,
                     serializerOptions,
-                    cancellationToken);
+                    cancellationToken) ?? throw new InvalidDataException("Die Konfiguration ist leer."));
                 Validate(configuration);
                 var compatible = ApplyCompatibleVisualDefaults(configuration!);
                 await SaveAsync(compatible, cancellationToken);
@@ -177,6 +177,21 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
             Settings = configuration.Settings with { OverlayColor = "#707070" }
         };
     }
+
+    private static SnapConfiguration Migrate(SnapConfiguration configuration) => configuration.SchemaVersion switch
+    {
+        1 => configuration with
+        {
+            SchemaVersion = SnapConfiguration.CurrentSchemaVersion,
+            Settings = configuration.Settings with
+            {
+                RestoreWindowPlacementEnabled = true,
+                WindowPlacementRules = configuration.Settings.EffectiveWindowPlacementRules
+            }
+        },
+        SnapConfiguration.CurrentSchemaVersion => configuration,
+        _ => throw new InvalidDataException("Die Konfigurationsversion wird nicht unterstützt.")
+    };
 
     internal static JsonSerializerOptions CreateSerializerOptions()
     {
@@ -268,6 +283,17 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
             !settings.OverlayColor.AsSpan(1).ToString().All(Uri.IsHexDigit))
         {
             throw new InvalidDataException("Die Overlayfarbe muss das Format #RRGGBB besitzen.");
+        }
+
+        if (settings.EffectiveWindowPlacementRules.Any(rule => string.IsNullOrWhiteSpace(rule.ApplicationKey)))
+        {
+            throw new InvalidDataException("Fensterplatzierungsregeln benötigen einen Anwendungsschlüssel.");
+        }
+
+        if (settings.EffectiveWindowPlacementRules.Select(rule => rule.Id).Distinct().Count() !=
+            settings.EffectiveWindowPlacementRules.Count)
+        {
+            throw new InvalidDataException("Fensterplatzierungsregel-IDs müssen eindeutig sein.");
         }
     }
 }

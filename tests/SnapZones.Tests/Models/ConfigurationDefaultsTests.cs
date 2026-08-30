@@ -18,6 +18,8 @@ public sealed class ConfigurationDefaultsTests
         Assert.Equal(ThemeMode.System, configuration.Settings.ThemeMode);
         Assert.Equal(10, configuration.Settings.MagnetThresholdPixels);
         Assert.True(configuration.Settings.ShowZoneNames);
+        Assert.True(configuration.Settings.RestoreWindowPlacementEnabled);
+        Assert.Empty(configuration.Settings.EffectiveWindowPlacementRules);
         Assert.Equal("#707070", configuration.Settings.OverlayColor);
         Assert.Equal(EdgeInsets.Uniform(8), configuration.Settings.EffectiveOuterMargins);
         Assert.Equal(0.0, NormalizedRect.Full.X);

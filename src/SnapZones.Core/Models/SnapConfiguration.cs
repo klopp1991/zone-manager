@@ -5,7 +5,7 @@ public sealed record SnapConfiguration(
     AppSettings Settings,
     IReadOnlyList<LayoutProfile> Profiles)
 {
-    public const int CurrentSchemaVersion = 1;
+    public const int CurrentSchemaVersion = 2;
 
     public static SnapConfiguration CreateDefault()
     {

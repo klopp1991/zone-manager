@@ -1,3 +1,5 @@
+using SnapZones.Core.Placement;
+
 namespace SnapZones.Core.Models;
 
 public enum OverlayScope
@@ -32,10 +34,14 @@ public sealed record AppSettings(
     ThemeMode ThemeMode = ThemeMode.System,
     int MagnetThresholdPixels = 10,
     bool ShowZoneNames = true,
-    EdgeInsets? OuterMargins = null)
+    EdgeInsets? OuterMargins = null,
+    bool RestoreWindowPlacementEnabled = true,
+    IReadOnlyList<WindowPlacementRule>? WindowPlacementRules = null)
 {
     public EdgeInsets EffectiveOuterMargins =>
         (OuterMargins ?? EdgeInsets.Uniform(OuterMargin)).Clamp(0, 400);
+
+    public IReadOnlyList<WindowPlacementRule> EffectiveWindowPlacementRules => WindowPlacementRules ?? [];
 
     public static AppSettings Default(Guid activeProfileId) => new(
         activeProfileId,
@@ -50,5 +56,6 @@ public sealed record AppSettings(
         ThemeMode: ThemeMode.System,
         MagnetThresholdPixels: 10,
         ShowZoneNames: true,
-        OuterMargins: EdgeInsets.Uniform(8));
+        OuterMargins: EdgeInsets.Uniform(8),
+        RestoreWindowPlacementEnabled: true);
 }
