@@ -73,6 +73,21 @@ public sealed class PlacementGeometryTests
         Assert.Equal(larger, PlacementGeometry.ClassifyZone(new PixelRect(0, 0, 1000, 1001), zones));
     }
 
+    [Fact]
+    public void ClassifyZone_handles_maximum_positive_pixel_dimensions_without_overflow()
+    {
+        var profile = Guid.NewGuid();
+        var qualifyingZone = Guid.NewGuid();
+        var zones = new[]
+        {
+            new PlacementZoneTarget(profile, qualifyingZone, "DISPLAY-A", new PixelRect(0, 0, int.MaxValue, int.MaxValue))
+        };
+
+        Assert.Equal(
+            qualifyingZone,
+            PlacementGeometry.ClassifyZone(new PixelRect(0, 0, int.MaxValue, int.MaxValue), zones));
+    }
+
     private static WindowPlacementEntry Entry(string monitorId, PixelRect bounds) => new(
         Identity, monitorId, null, new MonitorWorkArea(0, 0, 1920, 1080), bounds,
         PlacementGeometry.Normalize(bounds, new MonitorWorkArea(0, 0, 1920, 1080)),

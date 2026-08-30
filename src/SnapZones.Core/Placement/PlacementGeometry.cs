@@ -68,10 +68,15 @@ public static class PlacementGeometry
         var tied = false;
         foreach (var zone in zones)
         {
-            var overlapWidth = Math.Max(0, Math.Min(bounds.Right, zone.Bounds.Right) - Math.Max(bounds.X, zone.Bounds.X));
-            var overlapHeight = Math.Max(0, Math.Min(bounds.Bottom, zone.Bounds.Bottom) - Math.Max(bounds.Y, zone.Bounds.Y));
+            var boundsRight = (long)bounds.X + bounds.Width;
+            var boundsBottom = (long)bounds.Y + bounds.Height;
+            var zoneRight = (long)zone.Bounds.X + zone.Bounds.Width;
+            var zoneBottom = (long)zone.Bounds.Y + zone.Bounds.Height;
+            var overlapWidth = Math.Max(0L, Math.Min(boundsRight, zoneRight) - Math.Max((long)bounds.X, zone.Bounds.X));
+            var overlapHeight = Math.Max(0L, Math.Min(boundsBottom, zoneBottom) - Math.Max((long)bounds.Y, zone.Bounds.Y));
             var overlapArea = (long)overlapWidth * overlapHeight;
-            if (overlapArea * 4 < windowArea)
+            var minimumArea = windowArea / 4 + (windowArea % 4 == 0 ? 0 : 1);
+            if (overlapArea < minimumArea)
             {
                 continue;
             }
