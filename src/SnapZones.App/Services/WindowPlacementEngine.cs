@@ -28,9 +28,10 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
     private readonly TimeProvider timeProvider;
     private readonly object synchronization = new();
     private readonly object lifecycleSynchronization = new();
+    private readonly object sideEffectSynchronization = new();
     private readonly Dictionary<nint, HandleState> handleStates = [];
     private readonly Dictionary<nint, long> handleEpochs = [];
-    private readonly HashSet<nint> processedHandles = [];
+    private readonly Dictionary<nint, WindowIdentity> processedIdentities = [];
     private readonly HashSet<nint> pendingShownHandles = [];
     private readonly HashSet<Task> operations = [];
     private readonly Queue<CatalogPublication> pendingCatalogPublications = [];
@@ -39,6 +40,9 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
     private bool emergencyStopped;
     private bool subscribed;
     private bool publishingCatalogs;
+    private TaskCompletionSource? catalogPublicationCompletion;
+    private TaskCompletionSource? activeSideEffectCompletion;
+    private int activeSideEffectThreadId;
     private long catalogVersion;
     private long engineGeneration;
 
@@ -72,8 +76,9 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
     {
         lock (lifecycleSynchronization)
         {
-            HandleState[] staleHandleStates;
-            lock (synchronization)
+            HandleState[] staleHandleStates = [];
+            var started = false;
+            ExecuteInvalidation(() =>
             {
                 if (running || emergencyStopped)
                 {
@@ -84,12 +89,18 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
                 handleStates.Clear();
                 handleEpochs.Clear();
                 pendingShownHandles.Clear();
-                processedHandles.Clear();
+                processedIdentities.Clear();
                 engineGeneration++;
                 running = true;
                 lifecycleHook.EventReceived += OnLifecycleEvent;
                 lifecycleHook.EmergencyStopped += OnHookEmergencyStopped;
                 subscribed = true;
+                started = true;
+            });
+
+            if (!started)
+            {
+                return;
             }
 
             foreach (var staleState in staleHandleStates)
@@ -122,21 +133,22 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
     {
         lock (lifecycleSynchronization)
         {
-            lock (synchronization)
+            StopCoreLocked(emergencyStop: true);
+        }
+    }
+
+    private void StopCoreLocked(bool emergencyStop = false)
+    {
+        CancellationTokenSource[] cancellations = [];
+        var removeSubscriptions = false;
+        var stopped = false;
+        ExecuteInvalidation(() =>
+        {
+            if (emergencyStop)
             {
                 emergencyStopped = true;
             }
 
-            StopCoreLocked();
-        }
-    }
-
-    private void StopCoreLocked()
-    {
-        CancellationTokenSource[] cancellations;
-        var removeSubscriptions = false;
-        lock (synchronization)
-        {
             if (!running && !subscribed)
             {
                 return;
@@ -153,9 +165,15 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             handleStates.Clear();
             handleEpochs.Clear();
             pendingShownHandles.Clear();
-            processedHandles.Clear();
+            processedIdentities.Clear();
             removeSubscriptions = subscribed;
             subscribed = false;
+            stopped = true;
+        });
+
+        if (!stopped)
+        {
+            return;
         }
 
         foreach (var cancellation in cancellations)
@@ -176,7 +194,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
     {
         ArgumentNullException.ThrowIfNull(catalog);
         var publish = false;
-        lock (synchronization)
+        ExecuteInvalidation(() =>
         {
             if (running)
             {
@@ -186,7 +204,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             Catalog = catalog;
             engineGeneration++;
             publish = QueueCatalogPublicationLocked(catalog, persist: false);
-        }
+        });
 
         if (publish)
         {
@@ -211,9 +229,10 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 OperationContext context;
+                HandleState state;
                 lock (synchronization)
                 {
-                    var state = GetOrCreateHandleStateLocked(windowHandle);
+                    state = GetOrCreateHandleStateLocked(windowHandle);
                     context = CreateContextLocked(windowHandle, state);
                 }
 
@@ -224,24 +243,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
                 }
 
                 var bounds = PlacementGeometry.Resolve(entry, environment.Monitors, environment.Zones);
-                var currentSnapshot = windowService.Inspect(windowHandle, ownProcessId);
-                if (currentSnapshot?.Identity != identity || currentSnapshot.IsMinimized)
-                {
-                    return;
-                }
-
-                lock (synchronization)
-                {
-                    if (!IsContextValidLocked(context))
-                    {
-                        return;
-                    }
-                }
-
-                if (windowService.TryPlace(windowHandle, bounds, entry.WasMaximized))
-                {
-                    MarkOwnPlacement(context);
-                }
+                TryPlaceIfCurrent(windowHandle, state, context, identity, bounds, entry.WasMaximized);
 
                 return;
             }
@@ -299,7 +301,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             }
 
             SetCachedSnapshot(windowHandle, state, snapshot);
-            await CaptureSnapshotAsync(snapshot, profileId, monitorStableId, zoneId, context, cancellationToken).ConfigureAwait(false);
+            await CaptureSnapshotAsync(snapshot, profileId, monitorStableId, zoneId, context, allowMissingCurrentWindow: false, cancellationToken).ConfigureAwait(false);
         }, propagateExceptions: false);
     }
 
@@ -308,20 +310,33 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         while (true)
         {
             Task[] pending;
+            Task? pendingPublication;
             lock (synchronization)
             {
                 pending = operations.Where(operation => !operation.IsCompleted).ToArray();
+                pendingPublication = publishingCatalogs ? catalogPublicationCompletion?.Task : null;
             }
 
-            if (pending.Length == 0)
+            if (pending.Length != 0 || pendingPublication is not null)
             {
-                break;
+                var pendingWork = pendingPublication is null
+                    ? pending
+                    : pending.Append(pendingPublication).ToArray();
+                await Task.WhenAll(pendingWork).WaitAsync(cancellationToken).ConfigureAwait(false);
+                continue;
             }
 
-            await Task.WhenAll(pending).WaitAsync(cancellationToken).ConfigureAwait(false);
+            await saveCoordinator.FlushAsync(cancellationToken).ConfigureAwait(false);
+            lock (synchronization)
+            {
+                if (!operations.Any(operation => !operation.IsCompleted) &&
+                    !publishingCatalogs &&
+                    pendingCatalogPublications.Count == 0)
+                {
+                    return;
+                }
+            }
         }
-
-        await saveCoordinator.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private void OnLifecycleEvent(WindowLifecycleEvent lifecycleEvent)
@@ -355,20 +370,57 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
 
     private void ScheduleShown(nint windowHandle)
     {
-        HandleState state;
-        HandleState? previousState;
-        OperationContext context;
+        HandleState state = null!;
+        HandleState? previousState = null;
+        OperationContext context = null!;
+        WindowIdentity? processedIdentity = null;
         lock (synchronization)
         {
-            if (!running || processedHandles.Contains(windowHandle))
+            if (!running || pendingShownHandles.Contains(windowHandle))
             {
                 return;
+            }
+
+            if (processedIdentities.TryGetValue(windowHandle, out var knownIdentity))
+            {
+                processedIdentity = knownIdentity;
+            }
+        }
+
+        PlacementWindowSnapshot? currentSnapshot = null;
+        if (processedIdentity is not null)
+        {
+            currentSnapshot = windowService.Inspect(windowHandle, ownProcessId);
+        }
+
+        var scheduled = false;
+        ExecuteInvalidation(() =>
+        {
+            if (!running || pendingShownHandles.Contains(windowHandle))
+            {
+                return;
+            }
+
+            if (processedIdentities.TryGetValue(windowHandle, out var currentProcessedIdentity))
+            {
+                if (currentSnapshot?.Identity == currentProcessedIdentity)
+                {
+                    return;
+                }
+
+                processedIdentities.Remove(windowHandle);
             }
 
             handleStates.TryGetValue(windowHandle, out previousState);
             state = CreateNextHandleStateLocked(windowHandle, lastSnapshot: null);
             pendingShownHandles.Add(windowHandle);
             context = CreateContextLocked(windowHandle, state);
+            scheduled = true;
+        });
+
+        if (!scheduled)
+        {
+            return;
         }
 
         if (previousState is not null)
@@ -432,13 +484,13 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         if (resolution.HasConflict)
         {
             log($"Regelkonflikt für {snapshot.Identity.ApplicationKey}.");
-            MarkProcessed(context);
+            MarkProcessed(context, snapshot.Identity);
             return;
         }
 
         if (resolution.Rule?.Action == WindowPlacementMode.Exclude)
         {
-            MarkProcessed(context);
+            MarkProcessed(context, snapshot.Identity);
             return;
         }
 
@@ -450,7 +502,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             if (targetZone is null)
             {
                 log($"Die Zielzone für {snapshot.Identity.ApplicationKey} ist nicht verfügbar.");
-                MarkProcessed(context);
+                MarkProcessed(context, snapshot.Identity);
                 return;
             }
 
@@ -461,7 +513,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             var entry = FindCatalogEntry(snapshot.Identity);
             if (entry is null)
             {
-                MarkProcessed(context);
+                MarkProcessed(context, snapshot.Identity);
                 return;
             }
 
@@ -469,35 +521,8 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             maximize = entry.WasMaximized;
         }
 
-        var currentSnapshot = windowService.Inspect(windowHandle, ownProcessId);
-        if (currentSnapshot is null ||
-            currentSnapshot.IsMinimized ||
-            currentSnapshot.Identity != snapshot.Identity)
-        {
-            return;
-        }
-
-        SetCachedSnapshot(windowHandle, state, currentSnapshot);
         cancellationToken.ThrowIfCancellationRequested();
-        lock (synchronization)
-        {
-            if (!IsContextValidLocked(context))
-            {
-                return;
-            }
-        }
-
-        if (windowService.TryPlace(windowHandle, targetBounds, maximize))
-        {
-            lock (synchronization)
-            {
-                if (IsContextValidLocked(context))
-                {
-                    state.SuppressCaptureUntilUtc = timeProvider.GetUtcNow() + OwnPlacementSuppression;
-                    processedHandles.Add(windowHandle);
-                }
-            }
-        }
+        TryPlaceIfCurrent(windowHandle, state, context, snapshot.Identity, targetBounds, maximize);
     }
 
     private void ScheduleDelayedCapture(nint windowHandle)
@@ -594,11 +619,12 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
 
     private void ScheduleDestroyedCapture(nint windowHandle)
     {
-        HandleState state;
-        HandleState previousState;
-        OperationContext context;
-        CancellationTokenSource? pendingCapture;
-        lock (synchronization)
+        HandleState state = null!;
+        HandleState previousState = null!;
+        OperationContext context = null!;
+        CancellationTokenSource? pendingCapture = null;
+        var scheduled = false;
+        ExecuteInvalidation(() =>
         {
             if (!running)
             {
@@ -609,6 +635,12 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             pendingCapture = previousState.CaptureCancellation;
             state = CreateNextHandleStateLocked(windowHandle, previousState.LastSnapshot);
             context = CreateContextLocked(windowHandle, state);
+            scheduled = true;
+        });
+
+        if (!scheduled)
+        {
+            return;
         }
 
         Cancel(pendingCapture);
@@ -641,6 +673,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
     {
         cancellationToken.ThrowIfCancellationRequested();
         var snapshot = windowService.Inspect(windowHandle, ownProcessId);
+        var usesCachedSnapshot = false;
         if (snapshot is not null)
         {
             SetCachedSnapshot(windowHandle, state, snapshot);
@@ -648,6 +681,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         else if (allowCachedSnapshot)
         {
             snapshot = state.LastSnapshot;
+            usesCachedSnapshot = snapshot is not null;
         }
 
         if (snapshot is null ||
@@ -658,7 +692,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             return;
         }
 
-        await CaptureSnapshotAsync(snapshot, null, null, null, context, cancellationToken).ConfigureAwait(false);
+        await CaptureSnapshotAsync(snapshot, null, null, null, context, usesCachedSnapshot, cancellationToken).ConfigureAwait(false);
     }
 
     private Task CaptureSnapshotAsync(
@@ -667,6 +701,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         string? explicitMonitorStableId,
         Guid? explicitZoneId,
         OperationContext context,
+        bool allowMissingCurrentWindow,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -736,7 +771,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             PlacementGeometry.Normalize(snapshot.NormalBounds, monitor.WorkArea),
             snapshot.IsMaximized,
             timeProvider.GetUtcNow());
-        StoreEntry(entry, context);
+        StoreEntry(entry, context, snapshot.Identity, allowMissingCurrentWindow);
         return Task.CompletedTask;
     }
 
@@ -780,8 +815,20 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         return best ?? monitors.FirstOrDefault(monitor => monitor.IsPrimary) ?? monitors.FirstOrDefault();
     }
 
-    private void StoreEntry(WindowPlacementEntry entry, OperationContext context)
+    private void StoreEntry(
+        WindowPlacementEntry entry,
+        OperationContext context,
+        WindowIdentity expectedIdentity,
+        bool allowMissingCurrentWindow)
     {
+        var currentSnapshot = windowService.Inspect(context.WindowHandle, ownProcessId);
+        if (currentSnapshot is null && !allowMissingCurrentWindow ||
+            currentSnapshot is not null &&
+            (currentSnapshot.IsMinimized || currentSnapshot.Identity != expectedIdentity))
+        {
+            return;
+        }
+
         var publish = false;
         lock (synchronization)
         {
@@ -819,6 +866,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         }
 
         publishingCatalogs = true;
+        catalogPublicationCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         return true;
     }
 
@@ -826,19 +874,29 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
     {
         while (true)
         {
-            CatalogPublication publication;
+            CatalogPublication? publication = null;
+            TaskCompletionSource? completion = null;
             lock (synchronization)
             {
                 if (pendingCatalogPublications.Count == 0)
                 {
                     publishingCatalogs = false;
-                    return;
+                    completion = catalogPublicationCompletion;
+                    catalogPublicationCompletion = null;
                 }
-
-                publication = pendingCatalogPublications.Dequeue();
+                else
+                {
+                    publication = pendingCatalogPublications.Dequeue();
+                }
             }
 
-            RaiseCatalogChanged(publication.Catalog);
+            if (completion is not null)
+            {
+                completion.TrySetResult();
+                return;
+            }
+
+            RaiseCatalogChanged(publication!.Catalog);
             if (publication.Persist)
             {
                 saveCoordinator.RequestSave(publication.Catalog);
@@ -866,24 +924,114 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         }
     }
 
-    private void MarkProcessed(OperationContext context)
+    private void TryPlaceIfCurrent(
+        nint windowHandle,
+        HandleState state,
+        OperationContext context,
+        WindowIdentity expectedIdentity,
+        PixelRect targetBounds,
+        bool maximize)
+    {
+        var currentSnapshot = windowService.Inspect(windowHandle, ownProcessId);
+        if (currentSnapshot is null ||
+            currentSnapshot.IsMinimized ||
+            currentSnapshot.Identity != expectedIdentity)
+        {
+            return;
+        }
+
+        SetCachedSnapshot(windowHandle, state, currentSnapshot);
+        TaskCompletionSource reservation;
+        while (true)
+        {
+            Task? waitForActiveSideEffect = null;
+            lock (sideEffectSynchronization)
+            {
+                if (activeSideEffectCompletion is null)
+                {
+                    lock (synchronization)
+                    {
+                        if (!IsContextValidLocked(context))
+                        {
+                            return;
+                        }
+                    }
+
+                    reservation = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+                    activeSideEffectCompletion = reservation;
+                    activeSideEffectThreadId = Environment.CurrentManagedThreadId;
+                    break;
+                }
+
+                waitForActiveSideEffect = activeSideEffectCompletion.Task;
+            }
+
+            waitForActiveSideEffect.GetAwaiter().GetResult();
+        }
+
+        try
+        {
+            if (!windowService.TryPlace(windowHandle, targetBounds, maximize))
+            {
+                return;
+            }
+
+            lock (synchronization)
+            {
+                if (IsContextValidLocked(context))
+                {
+                    state.SuppressCaptureUntilUtc = timeProvider.GetUtcNow() + OwnPlacementSuppression;
+                    processedIdentities[windowHandle] = expectedIdentity;
+                }
+            }
+        }
+        finally
+        {
+            lock (sideEffectSynchronization)
+            {
+                if (ReferenceEquals(activeSideEffectCompletion, reservation))
+                {
+                    activeSideEffectCompletion = null;
+                    activeSideEffectThreadId = 0;
+                }
+            }
+
+            reservation.TrySetResult();
+        }
+    }
+
+    private void ExecuteInvalidation(Action action)
+    {
+        while (true)
+        {
+            Task? waitForActiveSideEffect = null;
+            lock (sideEffectSynchronization)
+            {
+                if (activeSideEffectCompletion is null ||
+                    activeSideEffectThreadId == Environment.CurrentManagedThreadId)
+                {
+                    lock (synchronization)
+                    {
+                        action();
+                    }
+
+                    return;
+                }
+
+                waitForActiveSideEffect = activeSideEffectCompletion.Task;
+            }
+
+            waitForActiveSideEffect.GetAwaiter().GetResult();
+        }
+    }
+
+    private void MarkProcessed(OperationContext context, WindowIdentity identity)
     {
         lock (synchronization)
         {
             if (IsContextValidLocked(context))
             {
-                processedHandles.Add(context.WindowHandle);
-            }
-        }
-    }
-
-    private void MarkOwnPlacement(OperationContext context)
-    {
-        lock (synchronization)
-        {
-            if (IsContextValidLocked(context) && handleStates.TryGetValue(context.WindowHandle, out var state))
-            {
-                state.SuppressCaptureUntilUtc = timeProvider.GetUtcNow() + OwnPlacementSuppression;
+                processedIdentities[context.WindowHandle] = identity;
             }
         }
     }
@@ -970,7 +1118,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
 
             handleStates.Remove(windowHandle);
             pendingShownHandles.Remove(windowHandle);
-            processedHandles.Remove(windowHandle);
+            processedIdentities.Remove(windowHandle);
             removed = true;
         }
 

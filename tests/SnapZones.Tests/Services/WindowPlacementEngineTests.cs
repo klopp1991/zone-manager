@@ -28,6 +28,40 @@ public sealed class WindowPlacementEngineTests
     }
 
     [Fact]
+    public async Task Duplicate_shown_while_pending_does_not_start_a_second_restore_sequence()
+    {
+        var delay = new ControlledDelay();
+        var fixture = EngineFixture.WithRememberedWindow(maximized: false, delay: delay);
+        fixture.Engine.Start();
+
+        fixture.Hook.Raise(42, WindowLifecycleEventKind.Shown);
+        await delay.WaitForCallsAsync(1);
+        fixture.Hook.Raise(42, WindowLifecycleEventKind.Shown);
+
+        Assert.Single(delay.Calls);
+        delay.CompleteAll();
+        await fixture.DrainAsync();
+    }
+
+    [Fact]
+    public async Task Processed_handle_with_a_new_identity_starts_a_new_shown_sequence()
+    {
+        var fixture = EngineFixture.WithRememberedWindow(maximized: false);
+        fixture.Engine.Start();
+        fixture.Hook.Raise(42, WindowLifecycleEventKind.Shown);
+        await fixture.DrainAsync();
+        fixture.Windows.CurrentSnapshot = fixture.Windows.CurrentSnapshot! with
+        {
+            Identity = new WindowIdentity("C:\\Apps\\replacement.exe", "Replacement", WindowKind.MainWindow)
+        };
+
+        fixture.Hook.Raise(42, WindowLifecycleEventKind.Shown);
+        await fixture.DrainAsync();
+
+        Assert.Equal(2, fixture.Delay.Delays.Count);
+    }
+
+    [Fact]
     public async Task Shown_fails_closed_when_the_handle_identity_changes_before_placement()
     {
         var fixture = EngineFixture.WithRememberedWindow(maximized: false);
@@ -265,6 +299,26 @@ public sealed class WindowPlacementEngineTests
     }
 
     [Fact]
+    public async Task Capture_does_not_store_a_snapshot_when_the_handle_was_reused_before_store()
+    {
+        var fixture = EngineFixture.WithCurrentWindow();
+        fixture.Clock.BlockRead(2);
+        fixture.Engine.Start();
+        var capture = Task.Run(() => fixture.Hook.Raise(42, WindowLifecycleEventKind.MoveSizeEnded));
+        await fixture.Clock.ReadEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        fixture.Windows.CurrentSnapshot = fixture.Windows.CurrentSnapshot! with
+        {
+            Identity = new WindowIdentity("C:\\Apps\\replacement.exe", "Replacement", WindowKind.MainWindow)
+        };
+
+        fixture.Clock.AllowRead.TrySetResult();
+        await capture.WaitAsync(TimeSpan.FromSeconds(2));
+        await fixture.DrainAsync();
+
+        Assert.Empty(fixture.Engine.Catalog.Entries);
+    }
+
+    [Fact]
     public async Task Minimized_snapshot_does_not_replace_the_last_visible_cache_used_by_destroyed()
     {
         var fixture = EngineFixture.WithCurrentWindow();
@@ -433,6 +487,63 @@ public sealed class WindowPlacementEngineTests
         await apply.WaitAsync(TimeSpan.FromSeconds(2));
 
         Assert.Empty(fixture.Windows.Placements);
+    }
+
+    [Fact]
+    public async Task Stop_waits_for_a_placement_that_has_passed_its_final_validation()
+    {
+        var fixture = EngineFixture.WithRememberedWindow(maximized: false);
+        fixture.Windows.BlockPlacement();
+        fixture.Engine.Start();
+        var shown = Task.Run(() => fixture.Hook.Raise(42, WindowLifecycleEventKind.Shown));
+        await fixture.Windows.PlacementEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        var stop = Task.Run(fixture.Engine.Stop);
+        var stopCompletedBeforePlacementWasReleased = stop.IsCompleted;
+        fixture.Windows.AllowPlacement.TrySetResult();
+        await shown.WaitAsync(TimeSpan.FromSeconds(2));
+        await stop.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.False(stopCompletedBeforePlacementWasReleased);
+    }
+
+    [Fact]
+    public async Task Destroyed_waits_for_a_placement_that_has_passed_its_final_validation()
+    {
+        var fixture = EngineFixture.WithRememberedWindow(maximized: false);
+        fixture.Windows.BlockPlacement();
+        fixture.Engine.Start();
+        var shown = Task.Run(() => fixture.Hook.Raise(42, WindowLifecycleEventKind.Shown));
+        await fixture.Windows.PlacementEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        var destroyed = Task.Run(() => fixture.Hook.Raise(42, WindowLifecycleEventKind.Destroyed));
+        var destroyedCompletedBeforePlacementWasReleased = destroyed.IsCompleted;
+        fixture.Windows.AllowPlacement.TrySetResult();
+        await shown.WaitAsync(TimeSpan.FromSeconds(2));
+        await destroyed.WaitAsync(TimeSpan.FromSeconds(2));
+        await fixture.DrainAsync();
+
+        Assert.False(destroyedCompletedBeforePlacementWasReleased);
+    }
+
+    [Fact]
+    public async Task Replace_catalog_waits_for_apply_now_that_has_passed_its_final_validation()
+    {
+        var fixture = EngineFixture.WithRememberedWindow(maximized: false);
+        fixture.Windows.EligibleWindows.Add(42);
+        fixture.Windows.BlockPlacement();
+        var apply = Task.Run(async () => await fixture.Engine.ApplyNowAsync(
+            fixture.Windows.CurrentSnapshot!.Identity,
+            CancellationToken.None));
+        await fixture.Windows.PlacementEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+
+        var replace = Task.Run(() => fixture.Engine.ReplaceCatalog(WindowPlacementCatalog.Empty));
+        var replaceCompletedBeforePlacementWasReleased = replace.IsCompleted;
+        fixture.Windows.AllowPlacement.TrySetResult();
+        await apply.WaitAsync(TimeSpan.FromSeconds(2));
+        await replace.WaitAsync(TimeSpan.FromSeconds(2));
+
+        Assert.False(replaceCompletedBeforePlacementWasReleased);
     }
 
     [Fact]
@@ -695,6 +806,36 @@ public sealed class WindowPlacementEngineTests
         await fixture.DrainAsync();
 
         Assert.Empty(fixture.Engine.Catalog.Entries);
+        Assert.Empty(fixture.Repository.Saved[^1].Entries);
+    }
+
+    [Fact]
+    public async Task Flush_waits_for_a_blocked_catalog_callback_and_a_queued_newer_mutation()
+    {
+        var fixture = EngineFixture.WithCatalogEntries(2);
+        var firstIdentity = fixture.Engine.Catalog.Entries[0].Identity;
+        var secondIdentity = fixture.Engine.Catalog.Entries[1].Identity;
+        var callbackEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseCallback = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var callbacks = 0;
+        fixture.Engine.CatalogChanged += _ =>
+        {
+            if (Interlocked.Increment(ref callbacks) == 1)
+            {
+                callbackEntered.TrySetResult();
+                releaseCallback.Task.GetAwaiter().GetResult();
+            }
+        };
+
+        var first = Task.Run(() => fixture.Engine.Forget(firstIdentity));
+        await callbackEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        fixture.Engine.Forget(secondIdentity);
+        var flush = fixture.Engine.FlushAsync(CancellationToken.None);
+
+        Assert.False(flush.IsCompleted);
+        releaseCallback.TrySetResult();
+        await first.WaitAsync(TimeSpan.FromSeconds(2));
+        await flush.WaitAsync(TimeSpan.FromSeconds(2));
         Assert.Empty(fixture.Repository.Saved[^1].Entries);
     }
 
@@ -1085,9 +1226,14 @@ public sealed class WindowPlacementEngineTests
         public int InspectCalls { get; private set; }
         public TaskCompletionSource InspectionEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource AllowInspection { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource PlacementEntered { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource AllowPlacement { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int blockedInspectionCall = -1;
+        private bool blockPlacement;
 
         public void BlockInspection(int callNumber) => blockedInspectionCall = callNumber;
+
+        public void BlockPlacement() => blockPlacement = true;
 
         public PlacementWindowSnapshot? Inspect(nint windowHandle, int excludedProcessId)
         {
@@ -1113,6 +1259,13 @@ public sealed class WindowPlacementEngineTests
 
         public bool TryPlace(nint windowHandle, PixelRect normalBounds, bool maximize)
         {
+            if (blockPlacement)
+            {
+                blockPlacement = false;
+                PlacementEntered.TrySetResult();
+                AllowPlacement.Task.GetAwaiter().GetResult();
+            }
+
             Placements.Add(new PlacementCall(windowHandle, normalBounds, maximize));
             if (CurrentSnapshot?.WindowHandle == windowHandle)
             {
