@@ -20,7 +20,7 @@ public sealed class MainViewModel : ViewModelBase
         layoutService = new LayoutService(configuration);
         liveMonitors = monitors;
         Settings = new SettingsViewModel(layoutService.Configuration.Settings);
-        Settings.PropertyChanged += Settings_PropertyChanged;
+        Settings.ValueChanged += Settings_ValueChanged;
         Monitors = [];
         Layouts = [];
         RefreshMonitors();
@@ -284,7 +284,7 @@ public sealed class MainViewModel : ViewModelBase
         RequestPersistence();
     }
 
-    private void Settings_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs eventArgs)
+    private void Settings_ValueChanged(object? sender, EventArgs eventArgs)
     {
         _ = sender;
         _ = eventArgs;
