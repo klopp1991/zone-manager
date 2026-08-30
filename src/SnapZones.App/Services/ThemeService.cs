@@ -65,29 +65,31 @@ public sealed class ThemeService : IDisposable
         var colours = isDark
             ? new Dictionary<string, string>
             {
-                ["CanvasBrush"] = "#0F141D",
-                ["SurfaceBrush"] = "#171E29",
-                ["SurfaceRaisedBrush"] = "#202938",
-                ["BorderBrush"] = "#344052",
-                ["ControlBorderBrush"] = "#718198",
-                ["InkBrush"] = "#F3F6FB",
-                ["MutedBrush"] = "#A8B3C4",
-                ["AccentBrush"] = "#78A4FF",
-                ["AccentInkBrush"] = "#0A1424",
-                ["AccentHoverBrush"] = "#8DB3FF",
-                ["AccentPressedBrush"] = "#6795F0",
-                ["AccentStatusBrush"] = "#78A4FF",
-                ["AccentSoftBrush"] = "#20365F",
-                ["HoverBrush"] = "#253247",
-                ["PressedBrush"] = "#30425C",
-                ["DisabledSurfaceBrush"] = "#252D39",
-                ["DisabledInkBrush"] = "#8994A5",
-                ["DisabledCheckBrush"] = "#A8B3C4",
-                ["WarningSoftBrush"] = "#3B2C16",
+                ["CanvasBrush"] = "#202020",
+                ["SurfaceBrush"] = "#2B2B2B",
+                ["SurfaceRaisedBrush"] = "#333333",
+                ["BorderBrush"] = "#454545",
+                ["ControlBorderBrush"] = "#7D7D7D",
+                ["InkBrush"] = "#F3F3F3",
+                ["MutedBrush"] = "#C6C6C6",
+                ["AccentBrush"] = "#A6A6A6",
+                ["AccentInkBrush"] = "#202020",
+                ["AccentHoverBrush"] = "#B8B8B8",
+                ["AccentPressedBrush"] = "#929292",
+                ["AccentStatusBrush"] = "#D0D0D0",
+                ["AccentSoftBrush"] = "#3A3A3A",
+                ["HoverBrush"] = "#3A3A3A",
+                ["PressedBrush"] = "#414141",
+                ["DisabledSurfaceBrush"] = "#383838",
+                ["DisabledInkBrush"] = "#A6A6A6",
+                ["DisabledCheckBrush"] = "#B7B7B7",
+                ["WarningSoftBrush"] = "#3A3124",
                 ["WarningBrush"] = "#FFD28A",
                 ["DangerBrush"] = "#FF8D8D",
-                ["MonitorFrameBrush"] = "#070A10",
-                ["MonitorScreenBrush"] = "#121A26"
+                ["MonitorFrameBrush"] = "#111111",
+                ["MonitorScreenBrush"] = "#262626",
+                ["ZoneFillBrush"] = "#707070",
+                ["ZoneBorderBrush"] = "#A0A0A0"
             }
             : new Dictionary<string, string>
             {
@@ -113,7 +115,9 @@ public sealed class ThemeService : IDisposable
                 ["WarningBrush"] = "#754900",
                 ["DangerBrush"] = "#B52424",
                 ["MonitorFrameBrush"] = "#172033",
-                ["MonitorScreenBrush"] = "#F4F7FB"
+                ["MonitorScreenBrush"] = "#F4F7FB",
+                ["ZoneFillBrush"] = "#8A8A8A",
+                ["ZoneBorderBrush"] = "#686868"
             };
 
         foreach (var pair in colours)

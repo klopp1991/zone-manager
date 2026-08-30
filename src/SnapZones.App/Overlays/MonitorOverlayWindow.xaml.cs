@@ -11,6 +11,7 @@ namespace SnapZones.App.Overlays;
 
 public partial class MonitorOverlayWindow : Window
 {
+    private const double VisualInset = 8d;
     private DragMonitorTarget? target;
     private LayoutMetrics metrics = LayoutMetrics.Default;
     private string accent = "#2F6FED";
@@ -79,32 +80,41 @@ public partial class MonitorOverlayWindow : Window
         {
             var pixels = ZoneGeometry.ToPixels(zone.Bounds, target.Monitor.WorkArea, metrics);
             var active = zone.Id == highlightedZoneId;
+            var rawWidth = pixels.Width * scaleX;
+            var rawHeight = pixels.Height * scaleY;
+            var insetX = Math.Min(VisualInset, Math.Max(0, (rawWidth - 1) / 2));
+            var insetY = Math.Min(VisualInset, Math.Max(0, (rawHeight - 1) / 2));
             var border = new Border
             {
-                Width = pixels.Width * scaleX,
-                Height = pixels.Height * scaleY,
-                Background = new SolidColorBrush(colour) { Opacity = active ? Math.Min(0.72, overlayOpacity * 2.4) : overlayOpacity },
-                BorderBrush = new SolidColorBrush(colour) { Opacity = active ? 1 : 0.68 },
-                BorderThickness = new Thickness(active ? 3 : 1.5),
-                CornerRadius = new CornerRadius(6),
-                Child = showZoneNames ? new TextBlock
+                Width = Math.Max(1, rawWidth - insetX * 2),
+                Height = Math.Max(1, rawHeight - insetY * 2),
+                Background = new SolidColorBrush(colour)
                 {
-                    Text = zone.Name,
-                    Foreground = System.Windows.Media.Brushes.White,
-                    FontFamily = new System.Windows.Media.FontFamily("Segoe UI Variable Text"),
-                    FontSize = 14,
-                    FontWeight = FontWeights.SemiBold,
-                    Margin = new Thickness(14, 10, 14, 10),
-                    Effect = new System.Windows.Media.Effects.DropShadowEffect
+                    Opacity = active ? Math.Min(0.55, overlayOpacity + 0.12) : overlayOpacity
+                },
+                BorderBrush = new SolidColorBrush(colour) { Opacity = active ? 0.95 : 0.62 },
+                BorderThickness = new Thickness(active ? 2 : 1),
+                CornerRadius = new CornerRadius(4),
+                Child = showZoneNames ? new Border
+                {
+                    HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
+                    VerticalAlignment = System.Windows.VerticalAlignment.Top,
+                    Margin = new Thickness(8),
+                    Padding = new Thickness(9, 5, 9, 5),
+                    Background = new SolidColorBrush(System.Windows.Media.Color.FromArgb(210, 32, 32, 32)),
+                    CornerRadius = new CornerRadius(3),
+                    Child = new TextBlock
                     {
-                        BlurRadius = 4,
-                        ShadowDepth = 1,
-                        Opacity = 0.7
+                        Text = zone.Name,
+                        Foreground = System.Windows.Media.Brushes.White,
+                        FontFamily = new System.Windows.Media.FontFamily("Segoe UI Variable Text"),
+                        FontSize = 13,
+                        FontWeight = FontWeights.Medium
                     }
                 } : null
             };
-            Canvas.SetLeft(border, (pixels.X - target.Monitor.WorkArea.X) * scaleX);
-            Canvas.SetTop(border, (pixels.Y - target.Monitor.WorkArea.Y) * scaleY);
+            Canvas.SetLeft(border, (pixels.X - target.Monitor.WorkArea.X) * scaleX + insetX);
+            Canvas.SetTop(border, (pixels.Y - target.Monitor.WorkArea.Y) * scaleY + insetY);
             ZonesCanvas.Children.Add(border);
         }
     }

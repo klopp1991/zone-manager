@@ -45,7 +45,7 @@ public sealed record AppSettings(
         TriggerMode.Immediate,
         OuterMargin: 8,
         ZoneGap: 8,
-        OverlayColor: "#2F6FED",
+        OverlayColor: "#707070",
         OverlayOpacity: 0.24,
         ThemeMode: ThemeMode.System,
         MagnetThresholdPixels: 10,

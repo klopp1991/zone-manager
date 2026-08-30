@@ -13,6 +13,7 @@ namespace SnapZones.App;
 
 public partial class App : System.Windows.Application
 {
+    private static readonly TimeSpan RestartTakeoverTimeout = TimeSpan.FromSeconds(10);
     private SingleInstanceService? singleInstance;
     private ApplicationController? controller;
     private FileLog? log;
@@ -45,11 +46,29 @@ public partial class App : System.Windows.Application
 
         var context = new DispatcherSynchronizationContext(Dispatcher);
         singleInstance = new SingleInstanceService(ProductInfo.ProcessName, context);
-        if (!singleInstance.IsPrimary)
+        var startupDisposition = StartupPolicy.Decide(eventArgs.Args, singleInstance.IsPrimary);
+        if (startupDisposition == StartupDisposition.ExitDuplicate)
         {
-            singleInstance.NotifyPrimary();
             Shutdown();
             return;
+        }
+
+        if (startupDisposition == StartupDisposition.ReplaceRunningInstance)
+        {
+            if (!singleInstance.RequestRestartAndTakeOwnership(RestartTakeoverTimeout))
+            {
+                singleInstance.NotifyPrimary();
+                log.Write("ERROR", "Die laufende Instanz hat die Neustartanforderung nicht rechtzeitig abgeschlossen.");
+                System.Windows.MessageBox.Show(
+                    "Die laufende Instanz konnte nicht innerhalb von 10 Sekunden beendet werden. Ihr Fenster wurde stattdessen angefordert.",
+                    $"{ProductInfo.Name} konnte nicht neu gestartet werden",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Warning);
+                Shutdown(6);
+                return;
+            }
+
+            startupDisposition = StartupDisposition.StartVisible;
         }
 
         try
@@ -72,18 +91,37 @@ public partial class App : System.Windows.Application
             singleInstance.ActivationRequested += () =>
             {
                 mainWindow.Show();
+                if (mainWindow.WindowState == WindowState.Minimized)
+                {
+                    mainWindow.WindowState = WindowState.Normal;
+                }
+
                 mainWindow.Activate();
             };
-            DispatcherUnhandledException += (_, exceptionArgs) =>
+            singleInstance.RestartRequested += controller.RequestExit;
+            singleInstance.StartListening();
+            DispatcherUnhandledException += async (_, exceptionArgs) =>
             {
                 log.Write("FATAL", "Unbehandelter UI-Fehler.", exceptionArgs.Exception);
-                controller?.EmergencyStop("Sicherheitsstopp nach einem UI-Fehler");
                 exceptionArgs.Handled = true;
+                if (controller is not null)
+                {
+                    controller.EmergencyStop("Sicherheitsstopp nach einem UI-Fehler");
+                    try
+                    {
+                        await controller.FlushAsync(CancellationToken.None);
+                    }
+                    catch (Exception saveException)
+                    {
+                        log.Write("ERROR", "Die Notfallsicherung ist fehlgeschlagen.", saveException);
+                    }
+                }
+
                 Shutdown(4);
             };
 
             MainWindow = mainWindow;
-            if (!eventArgs.Args.Contains("--autostart", StringComparer.OrdinalIgnoreCase))
+            if (startupDisposition == StartupDisposition.StartVisible)
             {
                 mainWindow.Show();
             }

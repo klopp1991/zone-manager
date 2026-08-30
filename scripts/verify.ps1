@@ -7,6 +7,7 @@ $solutionPath = Join-Path $projectRoot 'SnapZones.sln'
 $projectPath = Join-Path $projectRoot 'src\SnapZones.App\SnapZones.App.csproj'
 $outputPath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'outputs\Sascha-Window-Zones-prototype'))
 $expectedOutputParent = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'outputs'))
+$rootExecutablePath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'SaschaWindowZones.exe'))
 
 if (-not $outputPath.StartsWith($expectedOutputParent + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
     throw 'Der Publish-Pfad liegt ausserhalb des Ausgabeordners.'
@@ -38,13 +39,25 @@ if ($LASTEXITCODE -ne 0) { throw 'Der Release-Build ist fehlgeschlagen.' }
 dotnet publish $projectPath -c Release -r win-x64 --self-contained true --no-restore -o $outputPath
 if ($LASTEXITCODE -ne 0) { throw 'Der Publish ist fehlgeschlagen.' }
 
-$executablePath = Join-Path $outputPath 'SaschaWindowZones.exe'
+$publishedExecutablePath = Join-Path $outputPath 'SaschaWindowZones.exe'
 $diagnosticPath = Join-Path $projectRoot 'outputs\sascha-window-zones-diagnostics.json'
-if (-not (Test-Path -LiteralPath $executablePath -PathType Leaf)) {
+if (-not (Test-Path -LiteralPath $publishedExecutablePath -PathType Leaf)) {
     throw 'SaschaWindowZones.exe fehlt im Publish-Ordner.'
 }
 
-& $executablePath --diagnostics | Out-File -LiteralPath $diagnosticPath -Encoding utf8
+& (Join-Path $scriptDirectory 'install-root-executable.ps1') `
+    -PublishedExecutablePath $publishedExecutablePath `
+    -RootExecutablePath $rootExecutablePath
+if ($LASTEXITCODE -ne 0) { throw 'Die Root-EXE konnte nicht aktualisiert werden.' }
+if (-not (Test-Path -LiteralPath $rootExecutablePath -PathType Leaf)) {
+    throw 'SaschaWindowZones.exe fehlt im Rootverzeichnis.'
+}
+
+if ((Get-FileHash -LiteralPath $publishedExecutablePath).Hash -ne (Get-FileHash -LiteralPath $rootExecutablePath).Hash) {
+    throw 'Die EXE im Rootverzeichnis stimmt nicht mit dem Publish-Artefakt ueberein.'
+}
+
+& $rootExecutablePath --diagnostics | Out-File -LiteralPath $diagnosticPath -Encoding utf8
 if ($LASTEXITCODE -ne 0) { throw 'Die Diagnose ist fehlgeschlagen.' }
 
 $diagnostic = Get-Content -LiteralPath $diagnosticPath -Raw | ConvertFrom-Json
@@ -53,9 +66,9 @@ if ($diagnostic.hookRegistered -ne $false) { throw 'Die Diagnose hat unerwartet 
 if ($diagnostic.settingsChanged -ne $false) { throw 'Die Diagnose hat unerwartet Einstellungen verändert.' }
 if (@($diagnostic.monitors).Count -lt 1) { throw 'Die Diagnose hat keinen Monitor erkannt.' }
 
-& (Join-Path $scriptDirectory 'verify-dpi-awareness.ps1') -ExecutablePath $executablePath
+& (Join-Path $scriptDirectory 'verify-dpi-awareness.ps1') -ExecutablePath $rootExecutablePath
 if ($LASTEXITCODE -ne 0) { throw 'Die DPI-Prüfung ist fehlgeschlagen.' }
 
 $files = Get-ChildItem -LiteralPath $outputPath -File -Recurse
 $bytes = ($files | Measure-Object -Property Length -Sum).Sum
-Write-Output "VERIFY_OK tests=passed monitors=$(@($diagnostic.monitors).Count) files=$($files.Count) bytes=$bytes hookRegistered=false settingsChanged=false"
+Write-Output "VERIFY_OK tests=passed monitors=$(@($diagnostic.monitors).Count) files=$($files.Count) bytes=$bytes rootExe=$rootExecutablePath hookRegistered=false settingsChanged=false"

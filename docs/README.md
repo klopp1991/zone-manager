@@ -4,13 +4,15 @@ Sascha Window Zones erstellt frei bearbeitbare Fensterbereiche pro Monitor. Beim
 
 ## Schnellstart
 
-1. `outputs/Sascha-Window-Zones-prototype/SaschaWindowZones.exe` starten.
+1. `SaschaWindowZones.exe` direkt im Rootverzeichnis starten.
 2. Zuerst unter **Profile** das gewünschte Profil wählen oder erstellen.
 3. Unter **Layouts** einen Monitor wählen, die vorhandene Zone anpassen und mit **+ Neue Zone** die grösste freie Fläche belegen.
 4. Zonen ziehen, über acht Griffe skalieren oder als Prozent/Pixel mit Position/Grösse beziehungsweise vier Aussenabständen eingeben.
-5. Unter **Einstellungen** die Snap-Funktion bewusst aktivieren und **Speichern** wählen.
+5. Unter **Einstellungen** die Snap-Funktion bewusst aktivieren; jede gültige Änderung wird automatisch gespeichert.
 
-Konfiguration und bestehende Installationen bleiben unter `%APPDATA%\SnapZones\settings.json` kompatibel. Snap-Funktion und Autostart sind beim ersten Start ausgeschaltet.
+Konfiguration und bestehende Installationen bleiben unter `%APPDATA%\SnapZones\settings.json` kompatibel. Die fünf letzten Stände liegen daneben als `settings.backup-1.json` bis `settings.backup-5.json`; bei einer beschädigten Hauptdatei wird die neueste gültige Sicherung automatisch wiederhergestellt. Snap-Funktion und Autostart sind beim ersten Start ausgeschaltet.
+
+**Export** schreibt jederzeit ein vollständiges JSON-Backup mit sämtlichen Einstellungen, Profilen, Monitorlayouts, Zonen, IDs und Parametern. **Import** validiert die komplette Datei, zeigt den exakten Ersetzungsumfang und sichert den bisherigen Zustand unmittelbar vor der bestätigten Übernahme.
 
 ## Layouteditor
 
@@ -31,7 +33,7 @@ Windows 11 stellt normalen Desktopanwendungen keine unterstützte Schnittstelle 
 - System-, helles oder dunkles Theme; Systemänderungen werden ohne Neustart übernommen.
 - Overlay auf allen Monitoren oder nur auf dem aktiven Monitor.
 - Sofortige Aktivierung oder Aktivierung mit Umschalttaste.
-- Separate äussere Abstände links, oben, rechts und unten, Zonenabstand und Magnetdistanz.
+- Separate Overlay-Aussenabstände links, oben, rechts und unten, Overlay-Zonenabstand und Magnetdistanz für den Layouteditor.
 - Overlayfarbe, Deckkraft und ein-/ausblendbare Zonennamen.
 - Autostart pro Benutzer ohne Administratorrechte.
 
@@ -65,4 +67,6 @@ Voraussetzung ist das .NET 8 SDK. Der vollständige Prüf- und Publish-Lauf laut
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1
 ```
 
-Das Skript erzeugt das Mehrgrössen-Icon, stellt Pakete wieder her, führt alle Tests aus, baut Release, veröffentlicht selbständig für `win-x64` und prüft Diagnose sowie Per-Monitor-DPI ohne aktivierten Hook.
+Das Skript erzeugt das Mehrgrössen-Icon, stellt Pakete wieder her, führt alle Tests aus, baut Release, veröffentlicht eine selbständige Einzeldatei für `win-x64`, kopiert `SaschaWindowZones.exe` ins Rootverzeichnis und prüft Diagnose sowie Per-Monitor-DPI ohne aktivierten Hook.
+
+Auch ein normaler `dotnet build` oder Build in Visual Studio veröffentlicht nach erfolgreicher Kompilierung automatisch eine selbständige `win-x64`-Einzeldatei als `SaschaWindowZones.exe` direkt ins Rootverzeichnis. Eine dort noch laufende Vorgängerversion wird atomar ersetzt und bis zu ihrem Prozessende als ignorierte Sicherungsdatei beibehalten.

@@ -1,5 +1,6 @@
 param(
-    [string]$OutputPath
+    [string]$OutputPath,
+    [string]$HeaderOutputPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -10,10 +11,17 @@ $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $scriptDirectory '..'))
 if ([string]::IsNullOrWhiteSpace($OutputPath)) {
     $OutputPath = Join-Path $projectRoot 'src\SnapZones.App\Assets\SaschaWindowZones.ico'
 }
+if ([string]::IsNullOrWhiteSpace($HeaderOutputPath)) {
+    $HeaderOutputPath = Join-Path $projectRoot 'src\SnapZones.App\Assets\SaschaWindowZones.Header.png'
+}
 $resolvedOutput = [System.IO.Path]::GetFullPath($OutputPath)
+$resolvedHeaderOutput = [System.IO.Path]::GetFullPath($HeaderOutputPath)
 $expectedDirectory = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'src\SnapZones.App\Assets'))
 if (-not $resolvedOutput.StartsWith($expectedDirectory + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
     throw 'Der Icon-Pfad liegt ausserhalb des vorgesehenen Asset-Ordners.'
+}
+if (-not $resolvedHeaderOutput.StartsWith($expectedDirectory + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw 'Der Header-Icon-Pfad liegt ausserhalb des vorgesehenen Asset-Ordners.'
 }
 
 Add-Type -AssemblyName PresentationCore, WindowsBase
@@ -24,20 +32,29 @@ function New-IconPng {
     $visual = [System.Windows.Media.DrawingVisual]::new()
     $drawing = $visual.RenderOpen()
     try {
-        $scale = $Size / 256.0
-        $drawing.PushTransform([System.Windows.Media.ScaleTransform]::new($scale, $scale))
-        $blue = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(47, 111, 237))
-        $navy = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(18, 32, 58))
-        $white = [System.Windows.Media.Brushes]::White
-        $soft = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(143, 178, 255))
-        $drawing.DrawRoundedRectangle($blue, $null, [System.Windows.Rect]::new(8, 8, 240, 240), 54, 54)
-        $drawing.DrawRoundedRectangle($navy, [System.Windows.Media.Pen]::new($white, 10), [System.Windows.Rect]::new(34, 44, 188, 142), 20, 20)
-        $drawing.DrawRoundedRectangle($white, $null, [System.Windows.Rect]::new(48, 58, 67, 51), 8, 8)
-        $drawing.DrawRoundedRectangle($soft, $null, [System.Windows.Rect]::new(123, 58, 85, 51), 8, 8)
-        $drawing.DrawRoundedRectangle($soft, $null, [System.Windows.Rect]::new(48, 117, 86, 55), 8, 8)
-        $drawing.DrawRoundedRectangle($soft, $null, [System.Windows.Rect]::new(142, 117, 66, 55), 8, 8)
-        $drawing.DrawRoundedRectangle($white, $null, [System.Windows.Rect]::new(122, 184, 12, 28), 6, 6)
-        $drawing.DrawRoundedRectangle($white, $null, [System.Windows.Rect]::new(84, 207, 88, 13), 6.5, 6.5)
+        # Die Geometrie wird je Zielgroesse auf ganze Pixel gesetzt, damit kleine Taskbar-Icons scharf bleiben.
+        $margin = [Math]::Max(1, [int][Math]::Round($Size * 8.0 / 256.0, [MidpointRounding]::AwayFromZero))
+        $iconSize = $Size - (2 * $margin)
+        $gap = [Math]::Max(1, [int][Math]::Round($Size * 7.0 / 256.0, [MidpointRounding]::AwayFromZero))
+        $zoneArea = $iconSize - $gap
+        $leftWidth = [int][Math]::Round($zoneArea * 132.0 / 233.0, [MidpointRounding]::AwayFromZero)
+        $rightWidth = $zoneArea - $leftWidth
+        $topHeight = [int][Math]::Round($zoneArea * 107.0 / 233.0, [MidpointRounding]::AwayFromZero)
+        $bottomHeight = $zoneArea - $topHeight
+        $rightX = $margin + $leftWidth + $gap
+        $bottomY = $margin + $topHeight + $gap
+        $cornerRadius = [Math]::Max(2, [int][Math]::Round($iconSize * 46.0 / 240.0, [MidpointRounding]::AwayFromZero))
+
+        $graphite = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(41, 45, 51))
+        $orange = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(255, 90, 31))
+        $lightGrey = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(144, 149, 157))
+        $darkGrey = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(81, 87, 96))
+        $iconBounds = [System.Windows.Rect]::new($margin, $margin, $iconSize, $iconSize)
+        $drawing.PushClip([System.Windows.Media.RectangleGeometry]::new($iconBounds, $cornerRadius, $cornerRadius))
+        $drawing.DrawRectangle($graphite, $null, [System.Windows.Rect]::new($margin, $margin, $leftWidth, $topHeight))
+        $drawing.DrawRectangle($orange, $null, [System.Windows.Rect]::new($rightX, $margin, $rightWidth, $topHeight))
+        $drawing.DrawRectangle($lightGrey, $null, [System.Windows.Rect]::new($margin, $bottomY, $leftWidth, $bottomHeight))
+        $drawing.DrawRectangle($darkGrey, $null, [System.Windows.Rect]::new($rightX, $bottomY, $rightWidth, $bottomHeight))
         $drawing.Pop()
     }
     finally {
@@ -58,7 +75,7 @@ function New-IconPng {
     }
 }
 
-$sizes = @(16, 20, 24, 32, 48, 64, 128, 256)
+$sizes = @(16, 20, 24, 32, 40, 48, 64, 96, 128, 256)
 $images = foreach ($size in $sizes) {
     [pscustomobject]@{ Size = $size; Bytes = (New-IconPng -Size $size) }
 }
@@ -92,4 +109,7 @@ finally {
     $file.Dispose()
 }
 
-Write-Output "ICON_OK path=$resolvedOutput sizes=$($sizes -join ',')"
+$headerImage = $images | Where-Object Size -eq 256 | Select-Object -First 1
+[System.IO.File]::WriteAllBytes($resolvedHeaderOutput, $headerImage.Bytes)
+
+Write-Output "ICON_OK path=$resolvedOutput header=$resolvedHeaderOutput sizes=$($sizes -join ',')"

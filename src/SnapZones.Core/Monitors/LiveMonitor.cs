@@ -8,4 +8,6 @@ public sealed record LiveMonitor(
     MonitorWorkArea WorkArea,
     uint DpiX,
     uint DpiY,
-    bool IsPrimary);
+    bool IsPrimary,
+    double? PhysicalWidthCentimeters = null,
+    double? PhysicalHeightCentimeters = null);

@@ -13,4 +13,4 @@
 
 ## Ablage
 
-Gespeicherte Einstellungen liegen unter `%APPDATA%\SnapZones\settings.json`, Protokolle unter `%LOCALAPPDATA%\SnapZones\logs\snapzones.log`.
+Gültige Änderungen werden automatisch gespeichert. Die aktive Konfiguration liegt unter `%APPDATA%\SnapZones\settings.json`, die fünf vorherigen Stände daneben als `settings.backup-1.json` bis `settings.backup-5.json`; **Export** und **Import** übertragen sämtliche Einstellungen, Profile, Monitorlayouts, Zonen und IDs in einem vollständigen JSON-Backup. Protokolle liegen unter `%LOCALAPPDATA%\SnapZones\logs\snapzones.log`.

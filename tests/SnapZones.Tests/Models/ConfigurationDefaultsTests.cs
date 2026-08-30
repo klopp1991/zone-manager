@@ -18,6 +18,7 @@ public sealed class ConfigurationDefaultsTests
         Assert.Equal(ThemeMode.System, configuration.Settings.ThemeMode);
         Assert.Equal(10, configuration.Settings.MagnetThresholdPixels);
         Assert.True(configuration.Settings.ShowZoneNames);
+        Assert.Equal("#707070", configuration.Settings.OverlayColor);
         Assert.Equal(EdgeInsets.Uniform(8), configuration.Settings.EffectiveOuterMargins);
         Assert.Equal(0.0, NormalizedRect.Full.X);
         Assert.Equal(1.0, NormalizedRect.Full.Width);

@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.IO;
 using System.Windows.Threading;
 using SnapZones.App.Overlays;
 using SnapZones.App.ViewModels;
@@ -19,7 +20,6 @@ public sealed class ApplicationController : IDisposable
 {
     private readonly MainWindow window;
     private readonly MainViewModel viewModel;
-    private readonly IConfigurationRepository repository;
     private readonly IReadOnlyList<LiveMonitor> monitors;
     private readonly IStartupService startupService;
     private readonly FileLog log;
@@ -30,9 +30,11 @@ public sealed class ApplicationController : IDisposable
     private readonly TrayIconService tray;
     private readonly ProfileChangedToast toast = new();
     private readonly DispatcherTimer cursorTimer;
-    private readonly SemaphoreSlim saveGate = new(1, 1);
+    private readonly ConfigurationSaveCoordinator saveCoordinator;
+    private readonly ConfigurationTransferService transferService = new();
     private WindowDragCoordinator? coordinator;
     private SnapConfiguration configuration;
+    private int exitRequested;
     private bool allowClose;
     private bool disposed;
 
@@ -46,10 +48,11 @@ public sealed class ApplicationController : IDisposable
     {
         this.window = window;
         this.viewModel = viewModel;
-        this.repository = repository;
         this.monitors = monitors;
         this.startupService = startupService;
         this.log = log;
+        saveCoordinator = new ConfigurationSaveCoordinator(repository);
+        saveCoordinator.SaveFinished += SaveFinished;
         configuration = viewModel.Configuration;
         overlays = new OverlayManager();
         windowService = new WindowsWindowService();
@@ -62,9 +65,11 @@ public sealed class ApplicationController : IDisposable
             Interval = TimeSpan.FromMilliseconds(33)
         };
         cursorTimer.Tick += CursorTimer_Tick;
-        tray = new TrayIconService(window, ActivateProfile, ToggleSnapping, ExitApplication);
+        tray = new TrayIconService(window, ActivateProfile, ToggleSnapping, RequestExit);
 
         viewModel.SaveRequested += SaveRequested;
+        window.ExportConfigurationRequested += ExportConfigurationAsync;
+        window.ImportConfigurationRequested += ImportConfigurationAsync;
         moveHook.MoveStarted += MoveStarted;
         moveHook.MoveEnded += _ => MoveEnded();
         moveHook.EmergencyStopped += reason => EmergencyStop(reason);
@@ -86,7 +91,7 @@ public sealed class ApplicationController : IDisposable
         _ = hotkeys.Configure(QuickSlotRegistrationPlan.Build(configuration), emergencyStopEnabled: false);
         tray.Update(configuration);
         log.Write("WARN", reason);
-        _ = PersistAsync(configuration, updateStartup: false);
+        saveCoordinator.RequestSave(configuration);
     }
 
     public void Dispose()
@@ -106,37 +111,113 @@ public sealed class ApplicationController : IDisposable
         moveHook.Dispose();
         overlays.Dispose();
         toast.Close();
-        saveGate.Dispose();
+        saveCoordinator.SaveFinished -= SaveFinished;
+        window.ExportConfigurationRequested -= ExportConfigurationAsync;
+        window.ImportConfigurationRequested -= ImportConfigurationAsync;
     }
 
     private void SaveRequested(SnapConfiguration newConfiguration)
     {
         configuration = newConfiguration;
         Reconfigure(configuration);
-        _ = PersistAsync(configuration, updateStartup: true);
-    }
-
-    private async Task PersistAsync(SnapConfiguration newConfiguration, bool updateStartup)
-    {
-        await saveGate.WaitAsync();
         try
         {
-            if (updateStartup && startupService.IsEnabled != newConfiguration.Settings.StartWithWindows)
+            if (startupService.IsEnabled != newConfiguration.Settings.StartWithWindows)
             {
                 startupService.SetEnabled(newConfiguration.Settings.StartWithWindows);
             }
-
-            await repository.SaveAsync(newConfiguration, CancellationToken.None);
         }
         catch (Exception exception)
         {
+            log.Write("ERROR", "Die Autostart-Einstellung konnte nicht übernommen werden.", exception);
+            viewModel.StatusMessage = $"Autostart konnte nicht geändert werden: {exception.Message}";
+        }
+
+        saveCoordinator.RequestSave(newConfiguration);
+    }
+
+    public Task FlushAsync(CancellationToken cancellationToken) =>
+        saveCoordinator.FlushAsync(cancellationToken);
+
+    public void RequestExit()
+    {
+        if (Interlocked.Exchange(ref exitRequested, 1) != 0)
+        {
+            return;
+        }
+
+        _ = window.Dispatcher.InvokeAsync(
+            new Action(() => _ = ExitApplicationAsync()),
+            DispatcherPriority.ContextIdle);
+    }
+
+    private async Task ExportConfigurationAsync(string filePath)
+    {
+        viewModel.Save();
+        await saveCoordinator.FlushAsync(CancellationToken.None);
+        var productVersion = typeof(ApplicationController).Assembly.GetName().Version?.ToString() ?? "0.0.0";
+        await transferService.ExportAsync(
+            filePath,
+            viewModel.Configuration,
+            productVersion,
+            CancellationToken.None);
+        viewModel.StatusMessage = $"Vollbackup exportiert: {Path.GetFileName(filePath)}";
+    }
+
+    private async Task ImportConfigurationAsync(string filePath)
+    {
+        viewModel.Save();
+        await saveCoordinator.FlushAsync(CancellationToken.None);
+        var imported = await transferService.ImportAsync(filePath, CancellationToken.None);
+        var monitorCount = imported.Profiles.Sum(profile => profile.Monitors.Count);
+        var zoneCount = imported.Profiles.Sum(profile => profile.Monitors.Sum(monitor => monitor.Zones.Count));
+        var impact =
+            $"Der Import ersetzt sämtliche aktuellen Einstellungen, Profile und Layouts.\n\n" +
+            $"Importdatei: {imported.Profiles.Count} Profile, {monitorCount} Monitorlayouts, {zoneCount} Zonen.\n" +
+            "Der bisherige Zustand wird unmittelbar davor automatisch gesichert.";
+        if (System.Windows.MessageBox.Show(
+                impact,
+                "Vollständige Konfiguration importieren",
+                System.Windows.MessageBoxButton.OKCancel,
+                System.Windows.MessageBoxImage.Warning) != System.Windows.MessageBoxResult.OK)
+        {
+            viewModel.StatusMessage = "Import abgebrochen";
+            return;
+        }
+
+        viewModel.Save();
+        await saveCoordinator.FlushAsync(CancellationToken.None);
+        saveCoordinator.RequestSave(imported);
+        await saveCoordinator.FlushAsync(CancellationToken.None);
+        viewModel.ReplaceConfiguration(imported);
+        configuration = viewModel.Configuration;
+        if (System.Windows.Application.Current is App application)
+        {
+            application.ApplyTheme(configuration.Settings.ThemeMode);
+        }
+
+        if (startupService.IsEnabled != configuration.Settings.StartWithWindows)
+        {
+            startupService.SetEnabled(configuration.Settings.StartWithWindows);
+        }
+
+        Reconfigure(configuration);
+        viewModel.StatusMessage = $"Vollbackup importiert: {Path.GetFileName(filePath)}";
+    }
+
+    private void SaveFinished(Exception? exception)
+    {
+        _ = window.Dispatcher.InvokeAsync(() =>
+        {
+            if (exception is null)
+            {
+                viewModel.StatusMessage = "✓ Gespeichert";
+                return;
+            }
+
             log.Write("ERROR", "Konfiguration konnte nicht gespeichert werden.", exception);
             viewModel.StatusMessage = $"Speichern fehlgeschlagen: {exception.Message}";
-        }
-        finally
-        {
-            saveGate.Release();
-        }
+        });
     }
 
     private void Reconfigure(SnapConfiguration newConfiguration)
@@ -149,7 +230,6 @@ public sealed class ApplicationController : IDisposable
         overlays.UpdateTargets(targets);
         coordinator = new WindowDragCoordinator(
             targets,
-            new LayoutMetrics(newConfiguration.Settings.EffectiveOuterMargins, newConfiguration.Settings.ZoneGap),
             newConfiguration.Settings.OverlayScope);
         coordinator.ActionRequested += HandleDragAction;
 
@@ -284,16 +364,12 @@ public sealed class ApplicationController : IDisposable
     private void ActivateProfile(Guid profileId)
     {
         viewModel.ActivateProfile(profileId);
-        configuration = viewModel.Configuration;
-        Reconfigure(configuration);
         toast.ShowProfile(viewModel.SelectedProfile.Name);
-        _ = PersistAsync(configuration, updateStartup: false);
     }
 
     private void ToggleSnapping(bool enabled)
     {
         viewModel.Settings.SnappingEnabled = enabled;
-        viewModel.Save();
     }
 
     private void Window_Closing(object? sender, CancelEventArgs eventArgs)
@@ -307,8 +383,20 @@ public sealed class ApplicationController : IDisposable
         }
     }
 
-    private void ExitApplication()
+    private async Task ExitApplicationAsync()
     {
+        window.IsEnabled = false;
+        try
+        {
+            viewModel.Save();
+            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            await saveCoordinator.FlushAsync(cancellation.Token);
+        }
+        catch (Exception exception)
+        {
+            log.Write("ERROR", "Die Applikation wird ohne abschliessend bestätigte Speicherung beendet.", exception);
+        }
+
         allowClose = true;
         System.Windows.Application.Current.Shutdown();
     }

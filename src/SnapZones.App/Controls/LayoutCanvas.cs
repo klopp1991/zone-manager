@@ -191,12 +191,15 @@ public sealed class LayoutCanvas : FrameworkElement
     {
         var rectangle = ToCanvasRect(zone.Bounds, screen);
         var selected = zone.Id == SelectedZoneId;
-        var colour = ResourceBrush(
-            invalid ? "DangerBrush" : "AccentBrush",
-            invalid ? System.Windows.Media.Color.FromRgb(198, 54, 54) : System.Windows.Media.Color.FromRgb(47, 111, 237)).Color;
+        var fillColour = ResourceBrush(
+            invalid ? "DangerBrush" : "ZoneFillBrush",
+            invalid ? System.Windows.Media.Color.FromRgb(198, 54, 54) : System.Windows.Media.Color.FromRgb(112, 112, 112)).Color;
+        var borderColour = ResourceBrush(
+            invalid ? "DangerBrush" : selected ? "AccentBrush" : "ZoneBorderBrush",
+            invalid ? System.Windows.Media.Color.FromRgb(198, 54, 54) : System.Windows.Media.Color.FromRgb(160, 160, 160)).Color;
         context.DrawRoundedRectangle(
-            new SolidColorBrush(colour) { Opacity = selected ? 0.32 : 0.16 },
-            new System.Windows.Media.Pen(new SolidColorBrush(colour), selected ? 3 : 1.5),
+            new SolidColorBrush(fillColour) { Opacity = selected ? 0.32 : 0.18 },
+            new System.Windows.Media.Pen(new SolidColorBrush(borderColour), selected ? 3 : 1.5),
             rectangle,
             6,
             6);
@@ -218,7 +221,7 @@ public sealed class LayoutCanvas : FrameworkElement
         {
             foreach (var handle in HandlePoints(rectangle))
             {
-                context.DrawRectangle(new SolidColorBrush(colour), new System.Windows.Media.Pen(System.Windows.Media.Brushes.White, 1), new Rect(handle.X - 4, handle.Y - 4, 8, 8));
+                context.DrawRectangle(new SolidColorBrush(borderColour), new System.Windows.Media.Pen(System.Windows.Media.Brushes.White, 1), new Rect(handle.X - 4, handle.Y - 4, 8, 8));
             }
         }
     }

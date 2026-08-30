@@ -7,12 +7,13 @@ namespace SnapZones.App.ViewModels;
 
 public sealed class MainViewModel : ViewModelBase
 {
-    private readonly ProfileService profileService;
+    private ProfileService profileService;
     private readonly IReadOnlyList<LiveMonitor> liveMonitors;
     private LayoutProfile selectedProfile;
     private MonitorChoice? selectedMonitor;
     private LayoutEditorViewModel? editor;
     private string statusMessage = "Bereit";
+    private bool suppressPersistence;
 
     public MainViewModel(SnapConfiguration configuration, IReadOnlyList<LiveMonitor> monitors)
     {
@@ -20,6 +21,7 @@ public sealed class MainViewModel : ViewModelBase
         liveMonitors = monitors;
         selectedProfile = profileService.ActiveProfile;
         Settings = new SettingsViewModel(profileService.Configuration.Settings);
+        Settings.PropertyChanged += Settings_PropertyChanged;
         Profiles = new ObservableCollection<LayoutProfile>(profileService.Configuration.Profiles);
         Monitors = [];
         RefreshMonitors();
@@ -46,6 +48,7 @@ public sealed class MainViewModel : ViewModelBase
             selectedProfile = profileService.ActiveProfile;
             OnPropertyChanged();
             RefreshMonitors();
+            RequestPersistence();
         }
     }
 
@@ -61,7 +64,7 @@ public sealed class MainViewModel : ViewModelBase
 
             StoreValidDraft();
             selectedMonitor = value;
-            editor = value is null ? null : new LayoutEditorViewModel(value.Layout);
+            ReplaceEditor(value is null ? null : new LayoutEditorViewModel(value.Layout));
             OnPropertyChanged();
             OnPropertyChanged(nameof(Editor));
         }
@@ -86,7 +89,7 @@ public sealed class MainViewModel : ViewModelBase
 
         profileService.UpdateSettings(Settings.CreateSettings(profileService.ActiveProfile.Id));
         RefreshProfiles();
-        StatusMessage = "Änderungen gespeichert";
+        StatusMessage = "Wird gespeichert …";
         SaveRequested?.Invoke(profileService.Configuration);
     }
 
@@ -107,6 +110,7 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectedProfile));
         RefreshMonitors();
         StatusMessage = $"{name} erstellt";
+        RequestPersistence();
     }
 
     public void RenameSelectedProfile(string name)
@@ -115,6 +119,7 @@ public sealed class MainViewModel : ViewModelBase
         RefreshProfiles();
         selectedProfile = profileService.ActiveProfile;
         OnPropertyChanged(nameof(SelectedProfile));
+        RequestPersistence();
     }
 
     public void DeleteSelectedProfile()
@@ -125,6 +130,7 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectedProfile));
         RefreshMonitors();
         StatusMessage = "Profil gelöscht";
+        RequestPersistence();
     }
 
     public void ActivateProfile(Guid profileId)
@@ -136,6 +142,7 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(SelectedProfile));
         RefreshMonitors();
         StatusMessage = $"Profil «{selectedProfile.Name}» aktiv";
+        RequestPersistence();
     }
 
     public void DisableSnappingForSafety(string reason)
@@ -143,6 +150,26 @@ public sealed class MainViewModel : ViewModelBase
         Settings.SnappingEnabled = false;
         profileService.UpdateSettings(Settings.CreateSettings(profileService.ActiveProfile.Id));
         StatusMessage = reason;
+    }
+
+    public void ReplaceConfiguration(SnapConfiguration replacement)
+    {
+        ArgumentNullException.ThrowIfNull(replacement);
+        suppressPersistence = true;
+        try
+        {
+            profileService = new ProfileService(replacement);
+            Settings.Apply(profileService.Configuration.Settings);
+            RefreshProfiles();
+            selectedProfile = profileService.ActiveProfile;
+            OnPropertyChanged(nameof(SelectedProfile));
+            RefreshMonitors();
+            StatusMessage = "Importierte Konfiguration geladen";
+        }
+        finally
+        {
+            suppressPersistence = false;
+        }
     }
 
     private void StoreValidDraft()
@@ -179,8 +206,65 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         selectedMonitor = Monitors.FirstOrDefault();
-        editor = selectedMonitor is null ? null : new LayoutEditorViewModel(selectedMonitor.Layout);
+        ReplaceEditor(selectedMonitor is null ? null : new LayoutEditorViewModel(selectedMonitor.Layout));
         OnPropertyChanged(nameof(SelectedMonitor));
         OnPropertyChanged(nameof(Editor));
     }
+
+    private void ReplaceEditor(LayoutEditorViewModel? replacement)
+    {
+        if (editor is not null)
+        {
+            editor.ConfigurationChanged -= Editor_ConfigurationChanged;
+        }
+
+        editor = replacement;
+        if (editor is not null)
+        {
+            editor.ConfigurationChanged += Editor_ConfigurationChanged;
+        }
+    }
+
+    private void Editor_ConfigurationChanged()
+    {
+        if (editor is null || !editor.IsValid)
+        {
+            return;
+        }
+
+        profileService.UpdateMonitorLayout(editor.CreateSnapshot());
+        RequestPersistence();
+    }
+
+    private void Settings_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (suppressPersistence)
+        {
+            return;
+        }
+
+        var settings = Settings.CreateSettings(profileService.ActiveProfile.Id);
+        if (!IsValidOverlayColor(settings.OverlayColor))
+        {
+            StatusMessage = "Ungültige Eingabe";
+            return;
+        }
+
+        profileService.UpdateSettings(settings);
+        RequestPersistence();
+    }
+
+    private void RequestPersistence()
+    {
+        StatusMessage = "Wird gespeichert …";
+        SaveRequested?.Invoke(profileService.Configuration);
+    }
+
+    private static bool IsValidOverlayColor(string value) =>
+        !string.IsNullOrEmpty(value) &&
+        value.Length == 7 &&
+        value[0] == '#' &&
+        value.AsSpan(1).ToString().All(Uri.IsHexDigit);
 }

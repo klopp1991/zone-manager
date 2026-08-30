@@ -10,3 +10,6 @@ outputs/Sascha-Window-Zones-prototype/
 outputs/sascha-window-zones-diagnostics.json
 work/
 *.log
+/SaschaWindowZones.exe
+/SaschaWindowZones.exe.new
+/SaschaWindowZones.exe.previous.*
