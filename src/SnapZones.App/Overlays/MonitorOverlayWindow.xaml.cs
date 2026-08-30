@@ -2,9 +2,9 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
-using SnapZones.Core.Drag;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;
+using SnapZones.Core.PartMonitors;
 using SnapZones.Windows.Windows;
 
 namespace SnapZones.App.Overlays;
@@ -12,7 +12,7 @@ namespace SnapZones.App.Overlays;
 public partial class MonitorOverlayWindow : Window
 {
     private const double VisualInset = 8d;
-    private DragMonitorTarget? target;
+    private PartMonitorTarget? target;
     private LayoutMetrics metrics = LayoutMetrics.Default;
     private string accent = "#2F6FED";
     private double overlayOpacity = 0.24;
@@ -26,7 +26,7 @@ public partial class MonitorOverlayWindow : Window
     }
 
     public void ShowFor(
-        DragMonitorTarget newTarget,
+        PartMonitorTarget newTarget,
         LayoutMetrics newMetrics,
         string colour,
         double opacity,
@@ -76,7 +76,7 @@ public partial class MonitorOverlayWindow : Window
         var scaleX = 96d / target.Monitor.DpiX;
         var scaleY = 96d / target.Monitor.DpiY;
         var colour = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(accent);
-        foreach (var zone in target.Zones)
+        foreach (var zone in target.PartMonitors)
         {
             var pixels = ZoneGeometry.ToPixels(zone.Bounds, target.Monitor.WorkArea, metrics);
             var active = zone.Id == highlightedZoneId;
