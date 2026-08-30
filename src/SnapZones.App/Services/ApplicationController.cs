@@ -53,7 +53,9 @@ public sealed class ApplicationController : IDisposable
         configuration = viewModel.Configuration;
         overlays = new OverlayManager();
         windowService = new WindowsWindowService();
-        moveHook = new WindowMoveHook(SynchronizationContext.Current ?? new DispatcherSynchronizationContext(window.Dispatcher));
+        moveHook = new WindowMoveHook(
+            SynchronizationContext.Current ?? new DispatcherSynchronizationContext(window.Dispatcher),
+            message => log.Write("DEBUG", message));
         hotkeys = new GlobalHotkeyService();
         cursorTimer = new DispatcherTimer(DispatcherPriority.Input, window.Dispatcher)
         {
@@ -194,6 +196,7 @@ public sealed class ApplicationController : IDisposable
     {
         if (coordinator is null || !windowService.TryGetCursorPosition(out var cursor))
         {
+            log.Write("DEBUG", "Verschiebestart verworfen: Koordinator oder Cursor fehlt.");
             return;
         }
 
@@ -205,10 +208,13 @@ public sealed class ApplicationController : IDisposable
         var snapshot = windowService.Inspect(windowHandle, cursor, Environment.ProcessId);
         if (snapshot is null)
         {
+            log.Write("DEBUG", $"Verschiebestart verworfen: Fenster 0x{windowHandle:X} ist nicht lesbar.");
             return;
         }
 
+        log.Write("DEBUG", $"Verschiebestart hwnd=0x{windowHandle:X} cursor={cursor.X},{cursor.Y} status={snapshot}");
         coordinator.Start(windowHandle, snapshot, cursor);
+        log.Write("DEBUG", $"Koordinatorstatus nach Start: {coordinator.State}");
         if (coordinator.State == DragState.Tracking)
         {
             cursorTimer.Start();
@@ -218,7 +224,15 @@ public sealed class ApplicationController : IDisposable
     private void MoveEnded()
     {
         cursorTimer.Stop();
-        coordinator?.End();
+        log.Write("DEBUG", $"Verschiebeende bei Koordinatorstatus {coordinator?.State}.");
+        if (windowService.TryGetCursorPosition(out var cursor))
+        {
+            coordinator?.End(cursor);
+        }
+        else
+        {
+            coordinator?.End();
+        }
     }
 
     private void CursorTimer_Tick(object? sender, EventArgs eventArgs)
@@ -254,7 +268,11 @@ public sealed class ApplicationController : IDisposable
                 overlays.HideAll();
                 break;
             case SnapWindowAction snap:
-                if (!windowService.TrySnap(snap.WindowHandle, snap.Bounds))
+                if (windowService.TrySnap(snap.WindowHandle, snap.Bounds))
+                {
+                    log.Write("DEBUG", $"Fenster 0x{snap.WindowHandle:X} eingerastet: {snap.Bounds}.");
+                }
+                else
                 {
                     log.Write("WARN", "Ein Fenster konnte nicht positioniert werden.");
                 }

@@ -11,14 +11,16 @@ public sealed class WindowMoveHook : IWindowMoveHook
     private const uint MoveSizeEnd = 0x000B;
     private const uint SkipOwnProcess = 0x0002;
     private readonly SynchronizationContext synchronizationContext;
+    private readonly Action<string>? trace;
     private readonly HookCircuitBreaker circuitBreaker = new(100, TimeSpan.FromSeconds(10));
     private readonly User32.WinEventProc callback;
     private nint hookHandle;
     private bool disposed;
 
-    public WindowMoveHook(SynchronizationContext synchronizationContext)
+    public WindowMoveHook(SynchronizationContext synchronizationContext, Action<string>? trace = null)
     {
         this.synchronizationContext = synchronizationContext ?? throw new ArgumentNullException(nameof(synchronizationContext));
+        this.trace = trace;
         callback = OnWinEvent;
     }
 
@@ -86,8 +88,10 @@ public sealed class WindowMoveHook : IWindowMoveHook
         _ = eventTime;
         try
         {
+            trace?.Invoke($"Fensterereignis event=0x{eventType:X4} hwnd=0x{window:X} objectId={objectId} childId={childId}");
             if (window == 0 || objectId != 0)
             {
+                trace?.Invoke("Fensterereignis ignoriert: kein Top-Level-Fenster.");
                 return;
             }
 

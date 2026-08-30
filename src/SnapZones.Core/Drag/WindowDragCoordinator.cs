@@ -99,6 +99,12 @@ public sealed class WindowDragCoordinator
         ResetState();
     }
 
+    public void End(PointInt finalCursor)
+    {
+        Update(finalCursor);
+        End();
+    }
+
     private DragMonitorTarget? FindTarget(PointInt cursor) => targets.FirstOrDefault(target =>
         cursor.X >= target.Monitor.WorkArea.X &&
         cursor.X < target.Monitor.WorkArea.X + target.Monitor.WorkArea.Width &&

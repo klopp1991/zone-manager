@@ -41,6 +41,23 @@ public sealed class WindowDragCoordinatorTests
     }
 
     [Fact]
+    public void End_with_final_cursor_snaps_even_before_first_timer_update()
+    {
+        var coordinator = CreateCoordinator();
+        var actions = new List<DragAction>();
+        coordinator.ActionRequested += actions.Add;
+        coordinator.Start((nint)42, EligibleWindow(), new PointInt(100, 100));
+        actions.Clear();
+
+        coordinator.End(new PointInt(1500, 500));
+
+        Assert.IsType<HighlightZoneAction>(actions[0]);
+        Assert.IsType<HideOverlaysAction>(actions[1]);
+        var snap = Assert.IsType<SnapWindowAction>(actions[2]);
+        Assert.Equal(new PixelRect(960, 0, 960, 1040), snap.Bounds);
+    }
+
+    [Fact]
     public void Cancel_then_end_never_requests_snap()
     {
         var coordinator = CreateCoordinator();
