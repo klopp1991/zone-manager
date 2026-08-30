@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace SnapZones.Windows.Native;
 
@@ -9,6 +10,7 @@ internal static class User32
     internal const uint WinEventOutOfContext = 0x00000000;
 
     internal delegate bool MonitorEnumProc(nint monitor, nint deviceContext, nint monitorRect, nint data);
+    internal delegate bool EnumWindowsProc(nint window, nint data);
     internal delegate void WinEventProc(
         nint hook,
         uint eventType,
@@ -138,4 +140,60 @@ internal static class User32
 
     [DllImport("user32.dll")]
     internal static extern short GetAsyncKeyState(int virtualKey);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool GetWindowPlacement(nint window, ref WindowPlacementNative placement);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool SetWindowPlacement(nint window, [In] ref WindowPlacementNative placement);
+
+    [DllImport("user32.dll", EntryPoint = "GetClassNameW", SetLastError = true, CharSet = CharSet.Unicode)]
+    internal static extern int GetClassName(nint window, StringBuilder className, int maximumCount);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowTextW", SetLastError = true, CharSet = CharSet.Unicode)]
+    internal static extern int GetWindowText(nint window, StringBuilder text, int maximumCount);
+
+    [DllImport("user32.dll")]
+    internal static extern nint GetWindow(nint window, uint command);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool EnumWindows(EnumWindowsProc callback, nint data);
+
+    [DllImport("user32.dll")]
+    internal static extern nint GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    internal static extern nint MonitorFromWindow(nint window, uint flags);
+
+    [DllImport("user32.dll")]
+    internal static extern nint MonitorFromRect([In] ref RectNative rectangle, uint flags);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    internal static extern nint OpenProcess(uint desiredAccess, [MarshalAs(UnmanagedType.Bool)] bool inheritHandle, uint processId);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool CloseHandle(nint handle);
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool OpenProcessToken(nint processHandle, uint desiredAccess, out nint tokenHandle);
+
+    [DllImport("advapi32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool GetTokenInformation(
+        nint tokenHandle,
+        int tokenInformationClass,
+        nint tokenInformation,
+        uint tokenInformationLength,
+        out uint returnLength);
+
+    [DllImport("advapi32.dll")]
+    internal static extern nint GetSidSubAuthorityCount(nint sid);
+
+    [DllImport("advapi32.dll")]
+    internal static extern nint GetSidSubAuthority(nint sid, uint subAuthorityIndex);
 }

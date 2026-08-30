@@ -11,6 +11,30 @@ internal struct RectNative
     public int Bottom;
 }
 
+[StructLayout(LayoutKind.Sequential)]
+internal struct WindowPlacementNative
+{
+    public uint Length;
+    public uint Flags;
+    public uint ShowCommand;
+    public PointNative MinPosition;
+    public PointNative MaxPosition;
+    public RectNative NormalPosition;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct SidAndAttributesNative
+{
+    public nint Sid;
+    public uint Attributes;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct TokenMandatoryLabelNative
+{
+    public SidAndAttributesNative Label;
+}
+
 [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
 internal struct MonitorInfoEx
 {
