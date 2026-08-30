@@ -51,6 +51,17 @@ internal struct PointNative
 }
 
 [StructLayout(LayoutKind.Sequential)]
+internal struct WindowPlacementNative
+{
+    public uint Length;
+    public uint Flags;
+    public uint ShowCommand;
+    public PointNative MinPosition;
+    public PointNative MaxPosition;
+    public RectNative NormalPosition;
+}
+
+[StructLayout(LayoutKind.Sequential)]
 internal struct LuidNative
 {
     public uint LowPart;

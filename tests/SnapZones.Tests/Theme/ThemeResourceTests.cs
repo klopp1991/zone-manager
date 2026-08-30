@@ -324,7 +324,7 @@ public sealed class ThemeResourceTests
     }
 
     [Fact]
-    public void Main_window_hides_explanations_behind_accessible_info_buttons()
+    public void Main_window_shows_concise_guidance_and_accessible_info_buttons()
     {
         WpfThemeHost.Invoke(() =>
         {
@@ -355,9 +355,10 @@ public sealed class ThemeResourceTests
             }
 
             var helpStyle = Assert.IsType<Style>(Application.Current.Resources["HelpText"]);
-            Assert.DoesNotContain(
+            Assert.Contains(
                 LogicalDescendants<TextBlock>(window),
-                textBlock => ReferenceEquals(textBlock.Style, helpStyle));
+                textBlock => ReferenceEquals(textBlock.Style, helpStyle) &&
+                    textBlock.Text == "Passe das Programm und die Anzeige beim Ziehen von Fenstern an. Änderungen werden sofort gespeichert.");
             Assert.Null(window.FindName("OverlayVisualMarginInfoButton"));
         });
     }
