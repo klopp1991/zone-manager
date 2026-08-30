@@ -1,5 +1,4 @@
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using SnapZones.Core.Placement;
 
 namespace SnapZones.Core.Persistence;
@@ -17,12 +16,7 @@ public sealed class JsonWindowPlacementRepository : IWindowPlacementRepository
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directoryPath);
         this.directoryPath = directoryPath;
-        serializerOptions = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            PropertyNameCaseInsensitive = true
-        };
-        serializerOptions.Converters.Add(new JsonStringEnumConverter());
+        serializerOptions = JsonConfigurationRepository.CreateSerializerOptions();
     }
 
     public async Task<WindowPlacementLoadResult> LoadAsync(CancellationToken cancellationToken)
