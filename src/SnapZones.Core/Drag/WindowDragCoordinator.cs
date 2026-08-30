@@ -1,21 +1,24 @@
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;
+using SnapZones.Core.PartMonitors;
 
 namespace SnapZones.Core.Drag;
 
 public sealed class WindowDragCoordinator
 {
-    private readonly IReadOnlyList<DragMonitorTarget> targets;
+    private readonly IReadOnlyList<PartMonitorTarget> targets;
+    private readonly PartMonitorResolver resolver;
     private readonly OverlayScope overlayScope;
     private nint windowHandle;
-    private DragMonitorTarget? hoverTarget;
-    private ZoneDefinition? hoverZone;
+    private PartMonitorPlacement? hoverPlacement;
 
     public WindowDragCoordinator(
-        IReadOnlyList<DragMonitorTarget> targets,
+        IReadOnlyList<PartMonitorTarget> targets,
+        LayoutMetrics metrics,
         OverlayScope overlayScope)
     {
         this.targets = targets;
+        resolver = new PartMonitorResolver(targets, metrics);
         this.overlayScope = overlayScope;
     }
 
@@ -30,7 +33,7 @@ public sealed class WindowDragCoordinator
             return;
         }
 
-        var activeTarget = FindTarget(cursor);
+        var activeTarget = resolver.FindPhysicalMonitor(cursor);
         if (activeTarget is null)
         {
             return;
@@ -52,20 +55,16 @@ public sealed class WindowDragCoordinator
             return;
         }
 
-        var target = FindTarget(cursor);
-        var zone = target is null
-            ? null
-            : ZoneGeometry.HitTest(target.Zones, target.Monitor.WorkArea, cursor);
-        if (target == hoverTarget && zone == hoverZone)
+        var placement = resolver.FindAt(cursor);
+        if (placement == hoverPlacement)
         {
             return;
         }
 
-        hoverTarget = target;
-        hoverZone = zone;
+        hoverPlacement = placement;
         ActionRequested?.Invoke(new HighlightZoneAction(
-            target?.Monitor.Identity.StableId,
-            zone?.Id));
+            placement?.MonitorId,
+            placement?.PartMonitorId));
     }
 
     public void Cancel()
@@ -87,10 +86,12 @@ public sealed class WindowDragCoordinator
         }
 
         ActionRequested?.Invoke(new HideOverlaysAction());
-        if (hoverTarget is not null && hoverZone is not null)
+        if (hoverPlacement is not null)
         {
-            var bounds = ZoneGeometry.ToPixels(hoverZone.Bounds, hoverTarget.Monitor.WorkArea);
-            ActionRequested?.Invoke(new SnapWindowAction(windowHandle, bounds));
+            ActionRequested?.Invoke(new FillPartMonitorAction(
+                windowHandle,
+                hoverPlacement.MonitorId,
+                hoverPlacement.PartMonitorId));
         }
 
         ResetState();
@@ -102,17 +103,10 @@ public sealed class WindowDragCoordinator
         End();
     }
 
-    private DragMonitorTarget? FindTarget(PointInt cursor) => targets.FirstOrDefault(target =>
-        cursor.X >= target.Monitor.WorkArea.X &&
-        cursor.X < target.Monitor.WorkArea.X + target.Monitor.WorkArea.Width &&
-        cursor.Y >= target.Monitor.WorkArea.Y &&
-        cursor.Y < target.Monitor.WorkArea.Y + target.Monitor.WorkArea.Height);
-
     private void ResetState()
     {
         State = DragState.Idle;
         windowHandle = 0;
-        hoverTarget = null;
-        hoverZone = null;
+        hoverPlacement = null;
     }
 }

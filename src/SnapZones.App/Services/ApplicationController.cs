@@ -5,9 +5,11 @@ using SnapZones.App.Overlays;
 using SnapZones.App.ViewModels;
 using SnapZones.App.Views;
 using SnapZones.Core.Drag;
+using SnapZones.Core.AppRules;
 using SnapZones.Core.Layouts;
 using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
+using SnapZones.Core.PartMonitors;
 using SnapZones.Core.Persistence;
 using SnapZones.Windows.Hooks;
 using SnapZones.Windows.Hotkeys;
@@ -24,6 +26,8 @@ public sealed class ApplicationController : IDisposable
     private readonly IStartupService startupService;
     private readonly FileLog log;
     private readonly IWindowMoveHook moveHook;
+    private readonly IWindowRuleHook appRuleHook;
+    private readonly AppRuleCoordinator appRuleCoordinator;
     private readonly IGlobalHotkeyService hotkeys;
     private readonly IWindowService windowService;
     private readonly OverlayManager overlays;
@@ -33,10 +37,13 @@ public sealed class ApplicationController : IDisposable
     private readonly DispatcherTimer cursorTimer;
     private readonly DispatcherTimer identificationTimer;
     private readonly ConfigurationSaveCoordinator saveCoordinator;
+    private readonly ExitSaveCoordinator exitSaveCoordinator;
     private readonly ConfigurationTransferService transferService = new();
+    private readonly PlacementHistory placementHistory = new();
+    private readonly ExitRequestGate exitRequestGate = new();
+    private PartMonitorCommandService? partMonitorCommands;
     private WindowDragCoordinator? coordinator;
     private SnapConfiguration configuration;
-    private int exitRequested;
     private bool emergencyStopped;
     private bool allowClose;
     private bool disposed;
@@ -55,14 +62,23 @@ public sealed class ApplicationController : IDisposable
         this.startupService = startupService;
         this.log = log;
         saveCoordinator = new ConfigurationSaveCoordinator(repository);
+        exitSaveCoordinator = new ExitSaveCoordinator(saveCoordinator);
         saveCoordinator.SaveFinished += SaveFinished;
         configuration = viewModel.Configuration;
         overlays = new OverlayManager();
         monitorIdentification = new MonitorIdentificationOverlay();
         windowService = new WindowsWindowService();
+        var synchronizationContext = SynchronizationContext.Current
+            ?? new DispatcherSynchronizationContext(window.Dispatcher);
         moveHook = new WindowMoveHook(
-            SynchronizationContext.Current ?? new DispatcherSynchronizationContext(window.Dispatcher),
+            synchronizationContext,
             message => log.Write("DEBUG", message));
+        appRuleHook = new WindowRuleHook(synchronizationContext);
+        appRuleCoordinator = new AppRuleCoordinator(
+            () => configuration,
+            monitors,
+            new WindowServiceAppRuleGateway(windowService, Environment.ProcessId),
+            reportStatus: message => _ = window.Dispatcher.InvokeAsync(() => viewModel.StatusMessage = message));
         hotkeys = new GlobalHotkeyService();
         cursorTimer = new DispatcherTimer(DispatcherPriority.Input, window.Dispatcher)
         {
@@ -83,6 +99,8 @@ public sealed class ApplicationController : IDisposable
         moveHook.MoveStarted += MoveStarted;
         moveHook.MoveEnded += _ => MoveEnded();
         moveHook.EmergencyStopped += reason => EmergencyStop(reason);
+        appRuleHook.RuleEvent += AppRuleHook_RuleEvent;
+        appRuleHook.EmergencyStopped += reason => EmergencyStop($"App-Regel-Hook gestoppt: {reason}");
         hotkeys.EmergencyStopRequested += () => EmergencyStop("Not-Aus ausgelöst: Snap-Funktion deaktiviert");
         window.Closing += Window_Closing;
 
@@ -98,6 +116,8 @@ public sealed class ApplicationController : IDisposable
         overlays.HideAll();
         monitorIdentification.HideAll();
         moveHook.Disable();
+        appRuleCoordinator.CancelPending();
+        appRuleHook.Disable();
         viewModel.StatusMessage = reason;
         configuration = viewModel.Configuration;
         _ = hotkeys.Configure(emergencyStopEnabled: false);
@@ -117,10 +137,14 @@ public sealed class ApplicationController : IDisposable
         cursorTimer.Stop();
         identificationTimer.Stop();
         moveHook.Disable();
+        appRuleCoordinator.CancelPending();
+        appRuleHook.Disable();
         overlays.HideAll();
         tray.Dispose();
         hotkeys.Dispose();
         moveHook.Dispose();
+        appRuleCoordinator.Dispose();
+        appRuleHook.Dispose();
         overlays.Dispose();
         monitorIdentification.Dispose();
         toast.Close();
@@ -134,8 +158,13 @@ public sealed class ApplicationController : IDisposable
     {
         var previousConfiguration = configuration;
         configuration = newConfiguration;
+        var activatedLayoutIds = FindNewlyActivatedLayoutIds(previousConfiguration, newConfiguration);
         ReflowWindowsForChangedActiveLayouts(previousConfiguration, newConfiguration);
         Reconfigure(configuration);
+        foreach (var layoutId in activatedLayoutIds)
+        {
+            _ = ApplyLayoutRulesAsync(layoutId);
+        }
         try
         {
             if (startupService.IsEnabled != newConfiguration.Settings.StartWithWindows)
@@ -201,14 +230,12 @@ public sealed class ApplicationController : IDisposable
 
     public void RequestExit()
     {
-        if (Interlocked.Exchange(ref exitRequested, 1) != 0)
+        exitRequestGate.Request(() =>
         {
-            return;
-        }
-
-        _ = window.Dispatcher.InvokeAsync(
-            new Action(() => _ = ExitApplicationAsync()),
-            DispatcherPriority.ContextIdle);
+            _ = window.Dispatcher.InvokeAsync(
+                new Action(() => _ = ExitApplicationAsync()),
+                DispatcherPriority.Send);
+        });
     }
 
     private async Task ExportConfigurationAsync(string filePath)
@@ -290,10 +317,20 @@ public sealed class ApplicationController : IDisposable
         cursorTimer.Stop();
         coordinator?.Cancel();
         moveHook.Disable();
+        appRuleCoordinator.CancelPending();
+        appRuleHook.Disable();
         var targets = BuildTargets(newConfiguration);
         overlays.UpdateTargets(targets);
+        var metrics = new LayoutMetrics(
+            newConfiguration.Settings.EffectiveOuterMargins,
+            newConfiguration.Settings.ZoneGap);
+        partMonitorCommands = new PartMonitorCommandService(
+            new PartMonitorResolver(targets, metrics),
+            placementHistory,
+            windowService);
         coordinator = new WindowDragCoordinator(
             targets,
+            metrics,
             newConfiguration.Settings.OverlayScope);
         coordinator.ActionRequested += HandleDragAction;
 
@@ -317,8 +354,59 @@ public sealed class ApplicationController : IDisposable
             }
         }
 
+        if (!emergencyStopped && newConfiguration.AppRules.Any(rule => rule.IsEnabled))
+        {
+            try
+            {
+                appRuleHook.Enable();
+            }
+            catch (Exception exception)
+            {
+                EmergencyStop($"App-Regel-Hook konnte nicht aktiviert werden: {exception.Message}");
+                return;
+            }
+        }
+
         tray.Update(newConfiguration);
     }
+
+    private void AppRuleHook_RuleEvent(AppRuleEvent eventType, nint windowHandle) =>
+        _ = ApplyWindowRuleAsync(eventType, windowHandle);
+
+    private async Task ApplyWindowRuleAsync(AppRuleEvent eventType, nint windowHandle)
+    {
+        try
+        {
+            await appRuleCoordinator.HandleAsync(eventType, windowHandle);
+        }
+        catch (Exception exception)
+        {
+            log.Write("ERROR", "Eine App-Regel konnte nicht ausgeführt werden.", exception);
+            viewModel.StatusMessage = $"App-Regel fehlgeschlagen: {exception.Message}";
+        }
+    }
+
+    private async Task ApplyLayoutRulesAsync(Guid layoutId)
+    {
+        try
+        {
+            await appRuleCoordinator.HandleLayoutActivatedAsync(layoutId);
+        }
+        catch (Exception exception)
+        {
+            log.Write("ERROR", "Die App-Regeln des aktivierten Layouts konnten nicht ausgeführt werden.", exception);
+            viewModel.StatusMessage = $"Layout-Regeln fehlgeschlagen: {exception.Message}";
+        }
+    }
+
+    public static IReadOnlyList<Guid> FindNewlyActivatedLayoutIds(
+        SnapConfiguration previousConfiguration,
+        SnapConfiguration newConfiguration) =>
+        newConfiguration.Layouts
+            .Where(layout => layout.IsActive &&
+                previousConfiguration.Layouts.FirstOrDefault(previous => previous.Id == layout.Id)?.IsActive != true)
+            .Select(layout => layout.Id)
+            .ToArray();
 
     private void IdentifyMonitors()
     {
@@ -337,15 +425,15 @@ public sealed class ApplicationController : IDisposable
         monitorIdentification.HideAll();
     }
 
-    private IReadOnlyList<DragMonitorTarget> BuildTargets(SnapConfiguration currentConfiguration)
+    private IReadOnlyList<PartMonitorTarget> BuildTargets(SnapConfiguration currentConfiguration)
     {
-        var result = new List<DragMonitorTarget>();
+        var result = new List<PartMonitorTarget>();
         foreach (var monitor in monitors)
         {
             var layout = currentConfiguration.Layouts.FirstOrDefault(saved =>
                 saved.IsActive && LayoutService.BelongsToMonitor(saved.Monitor, monitor.Identity));
             var zones = layout?.Zones ?? [new ZoneDefinition(Guid.NewGuid(), "Voll", NormalizedRect.Full)];
-            result.Add(new DragMonitorTarget(monitor, zones));
+            result.Add(new PartMonitorTarget(monitor, zones));
         }
 
         return result;
@@ -427,14 +515,21 @@ public sealed class ApplicationController : IDisposable
             case HideOverlaysAction:
                 overlays.HideAll();
                 break;
-            case SnapWindowAction snap:
-                if (windowService.TrySnap(snap.WindowHandle, snap.Bounds))
+            case FillPartMonitorAction fill:
+                var result = partMonitorCommands?.Execute(new FillPartMonitorCommand(
+                    fill.WindowHandle,
+                    fill.MonitorId,
+                    fill.PartMonitorId));
+                if (result?.Status == PartMonitorCommandStatus.Successful)
                 {
-                    log.Write("DEBUG", $"Fenster 0x{snap.WindowHandle:X} eingerastet: {snap.Bounds}.");
+                    log.Write("DEBUG", "Fenster wurde in einen Teilmonitor eingerastet.");
                 }
                 else
                 {
-                    log.Write("WARN", "Ein Fenster konnte nicht positioniert werden.");
+                    log.Write(
+                        "WARN",
+                        "Teilmonitor-Platzierung abgelehnt: " +
+                        (result?.Status.ToString() ?? "Komponente nicht bereit"));
                 }
                 break;
         }
@@ -463,13 +558,15 @@ public sealed class ApplicationController : IDisposable
         window.IsEnabled = false;
         try
         {
-            viewModel.Save();
-            using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            await saveCoordinator.FlushAsync(cancellation.Token);
+            await exitSaveCoordinator.PrepareForShutdownAsync(viewModel.Save);
         }
         catch (Exception exception)
         {
-            log.Write("ERROR", "Die Applikation wird ohne abschliessend bestätigte Speicherung beendet.", exception);
+            log.Write("ERROR", "Die Applikation bleibt geöffnet, weil die Konfiguration nicht gespeichert werden konnte.", exception);
+            window.IsEnabled = true;
+            viewModel.StatusMessage = "Beenden abgebrochen: Konfiguration konnte nicht gespeichert werden.";
+            exitRequestGate.Reset();
+            return;
         }
 
         allowClose = true;

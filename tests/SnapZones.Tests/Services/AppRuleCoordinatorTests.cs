@@ -81,6 +81,34 @@ public sealed class AppRuleCoordinatorTests
         Assert.Empty(gateway.SnappedBounds);
     }
 
+    [Fact]
+    public async Task Layout_activation_resolves_only_rules_targeting_the_activated_layout()
+    {
+        var configuration = WithRule(ConfigurationSamples.TwoLayouts(), delayMilliseconds: 0, retryCount: 0);
+        var first = configuration.AppRules.Single() with
+        {
+            Event = AppRuleEvent.LayoutActivated,
+            Priority = 100
+        };
+        var secondLayout = configuration.Layouts[1];
+        var second = first with
+        {
+            Id = Guid.NewGuid(),
+            Priority = 10,
+            TargetLayoutId = secondLayout.Id,
+            TargetZoneId = secondLayout.Zones[0].Id
+        };
+        configuration = configuration with { AppRules = [first, second] };
+        var window = Candidate();
+        var gateway = new FakeGateway(window, snapResults: [true]);
+        var coordinator = CreateCoordinator(configuration, gateway, []);
+
+        var results = await coordinator.HandleLayoutActivatedAsync(secondLayout.Id);
+
+        Assert.Equal(second.Id, Assert.Single(results).RuleId);
+        Assert.Single(gateway.SnappedBounds);
+    }
+
     private static AppRuleCoordinator CreateCoordinator(
         SnapZones.Core.Models.SnapConfiguration configuration,
         FakeGateway gateway,

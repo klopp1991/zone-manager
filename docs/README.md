@@ -14,6 +14,12 @@ Konfiguration und bestehende Installationen bleiben unter `%APPDATA%\SnapZones\s
 
 **Export** schreibt jederzeit ein vollständiges JSON-Backup mit sämtlichen Einstellungen, Monitorlayouts, Zonen, IDs und Parametern. **Import** validiert die komplette Datei, zeigt den exakten Ersetzungsumfang und sichert den bisherigen Zustand unmittelbar vor der bestätigten Übernahme. Bestehende Profilkonfigurationen aus Schema 1 werden beim Laden in unabhängige Layouts pro Monitor migriert.
 
+## App-Regeln
+
+Unter **App-Regeln** verbindet eine Regel einen Prozesspfad oder Programmnamen mit einer Zielzone. Ein optionales Fenstertitelmuster und eine optionale Fensterklasse schränken die Auswahl weiter ein; `*` und `?` dienen als Platzhalter. Als Ereignis stehen **Fenster erstellt**, **Fenster fokussiert** und **Layout aktiviert** zur Verfügung, ergänzt durch 0 bis 30 Sekunden Verzögerung, 0 bis 3 Wiederholungen und eine Priorität von 0 bis 100.
+
+Vor jedem Platzierungsversuch werden Fensteridentität, Regel und Ziel erneut geprüft. Fehlende Layouts, Monitore oder Zonen pausieren die Regel sichtbar; es gibt keinen stillen Fallback und App-Regeln starten keine Programme.
+
 ## Layouteditor
 
 - **+ Neue Zone** belegt die grösste freie achsenparallele Fläche; ohne ausreichenden freien Bereich wird nichts verändert.
@@ -55,7 +61,7 @@ Die Diagnose liest Konfigurationsstatus, Monitore, DPI und Autostartstatus. Sie 
 
 - Nur Windows 11 x64.
 - Wird die Windows-UAC-Abfrage abgebrochen, startet die Anwendung nicht.
-- Nicht rechteckige oder überlappende Zonen, virtuelle Desktops, Fensterregeln und automatische Updates sind noch nicht enthalten.
+- Nicht rechteckige oder überlappende Zonen, virtuelle Desktops und automatische Updates sind noch nicht enthalten.
 - Eigene Layouts können nicht über eine dokumentierte API in das native Windows-Snap-Popup eingefügt werden; die Anwendung verwendet ein eigenes Overlay.
 - Der Prototyp ist nicht digital signiert und kann beim ersten Start eine Windows-Sicherheitswarnung auslösen.
 

@@ -21,6 +21,10 @@ public sealed class MainViewModel : ViewModelBase
         liveMonitors = monitors;
         Settings = new SettingsViewModel(layoutService.Configuration.Settings);
         Settings.PropertyChanged += Settings_PropertyChanged;
+        AppRules = new AppRuleEditorViewModel(
+            layoutService.Configuration.AppRules,
+            layoutService.Configuration.Layouts);
+        AppRules.RulesChanged += AppRules_RulesChanged;
         Monitors = [];
         Layouts = [];
         RefreshMonitors();
@@ -31,6 +35,7 @@ public sealed class MainViewModel : ViewModelBase
     public ObservableCollection<MonitorChoice> Monitors { get; }
     public ObservableCollection<MonitorLayout> Layouts { get; }
     public SettingsViewModel Settings { get; }
+    public AppRuleEditorViewModel AppRules { get; }
 
     public MonitorChoice? SelectedMonitor
     {
@@ -189,6 +194,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             layoutService = new LayoutService(replacement);
             Settings.Apply(layoutService.Configuration.Settings);
+            AppRules.Refresh(layoutService.Configuration.AppRules, layoutService.Configuration.Layouts);
             RefreshMonitors();
             StatusMessage = "Importierte Konfiguration geladen";
         }
@@ -317,8 +323,20 @@ public sealed class MainViewModel : ViewModelBase
 
     private void RequestPersistence()
     {
+        AppRules.RefreshTargets(layoutService.Configuration.Layouts);
         StatusMessage = "Wird gespeichert …";
         SaveRequested?.Invoke(layoutService.Configuration);
+    }
+
+    private void AppRules_RulesChanged(IReadOnlyList<SnapZones.Core.AppRules.AppRule> rules)
+    {
+        if (suppressPersistence)
+        {
+            return;
+        }
+
+        layoutService.UpdateAppRules(rules);
+        RequestPersistence();
     }
 
     private void MoveSelectedMonitor(int offset)

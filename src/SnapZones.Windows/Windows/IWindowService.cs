@@ -1,10 +1,11 @@
 using SnapZones.Core.Drag;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Layouts;
+using SnapZones.Core.PartMonitors;
 
 namespace SnapZones.Windows.Windows;
 
-public interface IWindowService
+public interface IWindowService : IPartMonitorWindowGateway
 {
     WindowSnapshot? Inspect(nint window, PointInt cursor, int ownProcessId);
     bool TrySnap(nint window, PixelRect bounds);

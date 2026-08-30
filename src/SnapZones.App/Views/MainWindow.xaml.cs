@@ -362,6 +362,57 @@ public partial class MainWindow : Window
         RefreshEditor();
     }
 
+    private void AppRuleAdd_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.AppRules.AddRule();
+    }
+
+    private void AppRuleDelete_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel?.AppRules.SelectedRule is not { } rule)
+        {
+            return;
+        }
+
+        var processName = System.IO.Path.GetFileName(rule.ProcessPath);
+        if (System.Windows.MessageBox.Show(
+                $"Die App-Regel für «{processName}» wird gelöscht.",
+                "App-Regel löschen",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Warning) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        viewModel.AppRules.DeleteSelectedRule();
+    }
+
+    private void AppRuleBrowse_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Prozess für App-Regel auswählen",
+            Filter = "Programme (*.exe)|*.exe|Alle Dateien (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) == true)
+        {
+            viewModel.AppRules.ProcessPath = dialog.FileName;
+        }
+    }
+
     private void LayoutName_LostFocus(object sender, RoutedEventArgs eventArgs)
     {
         if (viewModel?.SelectedLayout is null)

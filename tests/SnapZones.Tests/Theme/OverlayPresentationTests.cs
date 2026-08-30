@@ -1,10 +1,10 @@
 using System.Windows;
 using System.Windows.Controls;
 using SnapZones.App.Overlays;
-using SnapZones.Core.Drag;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
+using SnapZones.Core.PartMonitors;
 using Xunit;
 
 namespace SnapZones.Tests.Theme;
@@ -50,7 +50,7 @@ public sealed class OverlayPresentationTests
                 96,
                 96,
                 true);
-            var target = new DragMonitorTarget(monitor,
+            var target = new PartMonitorTarget(monitor,
             [
                 new ZoneDefinition(firstId, "Links", new NormalizedRect(0, 0, 0.5, 1)),
                 new ZoneDefinition(secondId, "Rechts", new NormalizedRect(0.5, 0, 0.5, 1))

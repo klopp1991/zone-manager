@@ -2,7 +2,9 @@ using SnapZones.Core.Drag;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Layouts;
 using SnapZones.Core.AppRules;
+using SnapZones.Core.PartMonitors;
 using SnapZones.Windows.Native;
+using System.Runtime.InteropServices;
 using System.Text;
 
 namespace SnapZones.Windows.Windows;
@@ -63,6 +65,62 @@ public sealed class WindowsWindowService : IWindowService
             bounds.Width,
             bounds.Height,
             NoZOrder | NoActivate | NoOwnerZOrder | AsyncWindowPosition);
+    }
+
+    public WindowPlacementSnapshot? Capture(nint window)
+    {
+        if (!TryGetIdentity(window, out var identity))
+        {
+            return null;
+        }
+
+        var placement = new WindowPlacementNative { Length = (uint)Marshal.SizeOf<WindowPlacementNative>() };
+        if (!User32.GetWindowPlacement(window, ref placement))
+        {
+            return null;
+        }
+
+        return new WindowPlacementSnapshot(
+            identity, placement.Flags, placement.ShowCommand,
+            new PointInt(placement.MinPosition.X, placement.MinPosition.Y),
+            new PointInt(placement.MaxPosition.X, placement.MaxPosition.Y),
+            ToPixelRect(placement.NormalPosition));
+    }
+
+    public bool TryApplyNormal(WindowIdentity identity, PixelRect bounds)
+    {
+        if (!MatchesCurrentIdentity(identity) || bounds.Width < 1 || bounds.Height < 1)
+        {
+            return false;
+        }
+
+        _ = User32.ShowWindow(identity.Handle, Restore);
+        if (!MatchesCurrentIdentity(identity))
+        {
+            return false;
+        }
+
+        return User32.SetWindowPos(identity.Handle, 0, bounds.X, bounds.Y, bounds.Width, bounds.Height,
+            NoZOrder | NoActivate | NoOwnerZOrder | AsyncWindowPosition);
+    }
+
+    public bool TryRestore(WindowPlacementSnapshot snapshot)
+    {
+        if (!MatchesCurrentIdentity(snapshot.Identity))
+        {
+            return false;
+        }
+
+        var placement = new WindowPlacementNative
+        {
+            Length = (uint)Marshal.SizeOf<WindowPlacementNative>(),
+            Flags = snapshot.Flags,
+            ShowCommand = snapshot.ShowCommand,
+            MinPosition = new PointNative { X = snapshot.MinPosition.X, Y = snapshot.MinPosition.Y },
+            MaxPosition = new PointNative { X = snapshot.MaxPosition.X, Y = snapshot.MaxPosition.Y },
+            NormalPosition = ToNativeRect(snapshot.NormalPosition)
+        };
+        return User32.SetWindowPlacement(snapshot.Identity.Handle, ref placement);
     }
 
     public IReadOnlyList<WindowPlacement> GetMovableTopLevelWindows(int ownProcessId)
@@ -222,6 +280,36 @@ public sealed class WindowsWindowService : IWindowService
             ? className.ToString()
             : null;
     }
+
+    private static bool MatchesCurrentIdentity(WindowIdentity expected) =>
+        TryGetIdentity(expected.Handle, out var current) && current == expected;
+
+    private static bool TryGetIdentity(nint window, out WindowIdentity identity)
+    {
+        identity = new WindowIdentity(0, 0, string.Empty);
+        if (window == 0 || !User32.IsWindow(window))
+        {
+            return false;
+        }
+
+        _ = User32.GetWindowThreadProcessId(window, out var processId);
+        var className = new StringBuilder(256);
+        if (processId == 0 || User32.GetClassName(window, className, className.Capacity) < 1)
+        {
+            return false;
+        }
+
+        identity = new WindowIdentity(window, processId, className.ToString());
+        return true;
+    }
+
+    private static PixelRect ToPixelRect(RectNative rectangle) => new(
+        rectangle.Left, rectangle.Top, rectangle.Right - rectangle.Left, rectangle.Bottom - rectangle.Top);
+
+    private static RectNative ToNativeRect(PixelRect rectangle) => new()
+    {
+        Left = rectangle.X, Top = rectangle.Y, Right = rectangle.Right, Bottom = rectangle.Bottom
+    };
 
     private static bool IsTitleBarDrag(nint window, PointInt cursor)
     {

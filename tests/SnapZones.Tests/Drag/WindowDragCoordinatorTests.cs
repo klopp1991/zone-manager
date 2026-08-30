@@ -2,6 +2,7 @@ using SnapZones.Core.Drag;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
+using SnapZones.Core.PartMonitors;
 using Xunit;
 
 namespace SnapZones.Tests.Drag;
@@ -35,9 +36,10 @@ public sealed class WindowDragCoordinatorTests
 
         Assert.IsType<HighlightZoneAction>(actions[0]);
         Assert.IsType<HideOverlaysAction>(actions[1]);
-        var snap = Assert.IsType<SnapWindowAction>(actions[2]);
-        Assert.Equal((nint)42, snap.WindowHandle);
-        Assert.Equal(new PixelRect(960, 0, 960, 1040), snap.Bounds);
+        var fill = Assert.IsType<FillPartMonitorAction>(actions[2]);
+        Assert.Equal((nint)42, fill.WindowHandle);
+        Assert.Equal("A", fill.MonitorId);
+        Assert.Equal(Guid.Parse("22222222-2222-2222-2222-222222222222"), fill.PartMonitorId);
     }
 
     [Fact]
@@ -53,8 +55,10 @@ public sealed class WindowDragCoordinatorTests
 
         Assert.IsType<HighlightZoneAction>(actions[0]);
         Assert.IsType<HideOverlaysAction>(actions[1]);
-        var snap = Assert.IsType<SnapWindowAction>(actions[2]);
-        Assert.Equal(new PixelRect(960, 0, 960, 1040), snap.Bounds);
+        var fill = Assert.IsType<FillPartMonitorAction>(actions[2]);
+        Assert.Equal((nint)42, fill.WindowHandle);
+        Assert.Equal("A", fill.MonitorId);
+        Assert.Equal(Guid.Parse("22222222-2222-2222-2222-222222222222"), fill.PartMonitorId);
     }
 
     [Fact]
@@ -72,7 +76,7 @@ public sealed class WindowDragCoordinatorTests
 
         Assert.Single(actions);
         Assert.IsType<HideOverlaysAction>(actions[0]);
-        Assert.DoesNotContain(actions, action => action is SnapWindowAction);
+        Assert.DoesNotContain(actions, action => action is FillPartMonitorAction);
     }
 
     private static WindowDragCoordinator CreateCoordinator()
@@ -96,10 +100,10 @@ public sealed class WindowDragCoordinatorTests
         };
         var targets = new[]
         {
-            new DragMonitorTarget(first, zones),
-            new DragMonitorTarget(second, [new ZoneDefinition(Guid.NewGuid(), "Voll", NormalizedRect.Full)])
+            new PartMonitorTarget(first, zones),
+            new PartMonitorTarget(second, [new ZoneDefinition(Guid.NewGuid(), "Voll", NormalizedRect.Full)])
         };
-        return new WindowDragCoordinator(targets, OverlayScope.AllMonitors);
+        return new WindowDragCoordinator(targets, new LayoutMetrics(0, 0), OverlayScope.AllMonitors);
     }
 
     private static WindowSnapshot EligibleWindow() => new(true, false, false, false, false, true);

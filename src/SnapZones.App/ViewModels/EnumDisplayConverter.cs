@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Windows.Data;
+using SnapZones.Core.AppRules;
 using SnapZones.Core.Models;
 
 namespace SnapZones.App.ViewModels;
@@ -20,6 +21,9 @@ public sealed class EnumDisplayConverter : IValueConverter
             ThemeMode.System => "Windows-System",
             ThemeMode.Light => "Hell",
             ThemeMode.Dark => "Dunkel",
+            AppRuleEvent.WindowCreated => "Fenster erstellt",
+            AppRuleEvent.WindowFocused => "Fenster fokussiert",
+            AppRuleEvent.LayoutActivated => "Layout aktiviert",
             _ => value.ToString() ?? string.Empty
         };
     }

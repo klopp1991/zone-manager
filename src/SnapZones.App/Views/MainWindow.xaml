@@ -282,6 +282,155 @@
                 </Grid>
             </TabItem>
 
+            <TabItem Header="App-Regeln">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <Grid Margin="38,30" MaxWidth="1120" HorizontalAlignment="Left">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="App-Regeln" Style="{StaticResource PageTitle}" />
+                            <Button Style="{StaticResource InfoButton}" VerticalAlignment="Center"
+                                    AutomationProperties.Name="Hilfe zu App-Regeln"
+                                    ToolTip="App-Regeln verschieben passende Fenster nach einem Ereignis in eine feste Zone. Fehlende Ziele pausieren die Regel ohne Fallback." />
+                        </StackPanel>
+                        <TextBlock Grid.Row="1"
+                                   Text="Ordne Fenster über Prozess, optionalen Fenstertitel und Fensterklasse einer Zielzone zu. Gültige Änderungen werden automatisch gespeichert."
+                                   Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,22" />
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="330" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="620" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource SectionCard}">
+                                <DockPanel LastChildFill="True">
+                                    <StackPanel DockPanel.Dock="Top">
+                                        <TextBlock Text="Regeln" Style="{StaticResource SectionTitle}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,14,0,12">
+                                            <Button x:Name="AppRuleAddButton" Content="+ Regel" Click="AppRuleAdd_Click"
+                                                    AutomationProperties.Name="App-Regel hinzufügen" />
+                                            <Button x:Name="AppRuleDeleteButton" Content="Löschen" Click="AppRuleDelete_Click"
+                                                    IsEnabled="{Binding AppRules.CanDelete}" Margin="8,0,0,0"
+                                                    AutomationProperties.Name="Ausgewählte App-Regel löschen" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <ListBox x:Name="AppRuleList" ItemsSource="{Binding AppRules.Rules}"
+                                             SelectedItem="{Binding AppRules.SelectedRule, Mode=TwoWay}"
+                                             MinHeight="320" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                             AutomationProperties.Name="App-Regeln">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Margin="2,4">
+                                                    <TextBlock Text="{Binding ProcessPath}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding Event, Converter={StaticResource EnumDisplayConverter}}"
+                                                               Foreground="{DynamicResource MutedBrush}" FontSize="13" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </DockPanel>
+                            </Border>
+                            <Border Grid.Column="2" Style="{StaticResource SectionCard}">
+                                <StackPanel>
+                                    <TextBlock Text="Regel bearbeiten" Style="{StaticResource SectionTitle}" />
+                                    <CheckBox x:Name="AppRuleEnabledCheckBox" Content="Regel aktiv"
+                                              IsChecked="{Binding AppRules.IsEnabled, Mode=TwoWay}" Margin="0,14,0,8" />
+
+                                    <TextBlock Text="Prozess" Style="{StaticResource FieldLabel}" Margin="0,8,0,5" />
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <TextBox x:Name="AppRuleProcessPathText"
+                                                 Text="{Binding AppRules.ProcessPath, UpdateSourceTrigger=PropertyChanged}"
+                                                 AutomationProperties.Name="Prozesspfad oder Dateiname" />
+                                        <Button x:Name="AppRuleBrowseButton" Grid.Column="1" Content="Auswählen …" Click="AppRuleBrowse_Click"
+                                                Margin="8,0,0,0" AutomationProperties.Name="Prozess auswählen" />
+                                    </Grid>
+
+                                    <Grid Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="Optionales Titelmuster" Style="{StaticResource FieldLabel}" />
+                                            <TextBox Text="{Binding AppRules.WindowTitlePattern, UpdateSourceTrigger=PropertyChanged}"
+                                                     AutomationProperties.Name="Optionales Fenstertitelmuster" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Optionale Fensterklasse" Style="{StaticResource FieldLabel}" />
+                                            <TextBox Text="{Binding AppRules.WindowClass, UpdateSourceTrigger=PropertyChanged}"
+                                                     AutomationProperties.Name="Optionale Fensterklasse" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Grid Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="2*" /><ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" /><ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" /><ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="Ereignis" Style="{StaticResource FieldLabel}" />
+                                            <ComboBox x:Name="AppRuleEventSelector" ItemsSource="{Binding AppRules.Events}"
+                                                      SelectedItem="{Binding AppRules.SelectedEvent, Mode=TwoWay}"
+                                                      ItemTemplate="{StaticResource EnumItemTemplate}"
+                                                      AutomationProperties.Name="Ereignis der App-Regel" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Verzögerung (ms)" Style="{StaticResource FieldLabel}" />
+                                            <TextBox x:Name="AppRuleDelayText"
+                                                     Text="{Binding AppRules.DelayMilliseconds, UpdateSourceTrigger=LostFocus}"
+                                                     AutomationProperties.Name="Verzögerung in Millisekunden" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Text="Wiederholungen" Style="{StaticResource FieldLabel}" />
+                                            <TextBox Text="{Binding AppRules.RetryCount, UpdateSourceTrigger=LostFocus}"
+                                                     AutomationProperties.Name="Wiederholungen von null bis drei" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="6">
+                                            <TextBlock Text="Priorität" Style="{StaticResource FieldLabel}" />
+                                            <TextBox Text="{Binding AppRules.Priority, UpdateSourceTrigger=LostFocus}"
+                                                     AutomationProperties.Name="Priorität von null bis hundert" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Grid Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="Ziellayout" Style="{StaticResource FieldLabel}" />
+                                            <ComboBox x:Name="AppRuleTargetLayoutSelector"
+                                                      ItemsSource="{Binding AppRules.TargetLayouts}"
+                                                      SelectedItem="{Binding AppRules.SelectedTargetLayout, Mode=TwoWay}"
+                                                      AutomationProperties.Name="Ziellayout">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                                            <TextBlock Text="{Binding Monitor.FriendlyName}" Foreground="{DynamicResource MutedBrush}" FontSize="12" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Zielzone" Style="{StaticResource FieldLabel}" />
+                                            <ComboBox x:Name="AppRuleTargetZoneSelector"
+                                                      ItemsSource="{Binding AppRules.TargetZones}"
+                                                      SelectedItem="{Binding AppRules.SelectedTargetZone, Mode=TwoWay}"
+                                                      DisplayMemberPath="Name" AutomationProperties.Name="Zielzone" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBlock x:Name="AppRuleTargetStatusText" Text="{Binding AppRules.TargetStatus}"
+                                               Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,10,0,0"
+                                               AutomationProperties.Name="Status des Regelziels" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
             <TabItem Header="Monitore">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="38,30" MaxWidth="920" HorizontalAlignment="Left">

@@ -97,6 +97,14 @@ internal static class User32
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool GetWindowPlacement(nint window, ref WindowPlacementNative placement);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool SetWindowPlacement(nint window, ref WindowPlacementNative placement);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool GetWindowRect(nint window, out RectNative rectangle);
 
     [DllImport("user32.dll", EntryPoint = "SendMessageTimeoutW", SetLastError = true)]
