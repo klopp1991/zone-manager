@@ -5,8 +5,6 @@ namespace SnapZones.Core.Placement;
 
 public static class PlacementGeometry
 {
-    private const double ZoneOverlapThreshold = 0.25;
-
     public static NormalizedRect Normalize(PixelRect bounds, MonitorWorkArea workArea)
     {
         if (workArea.Width <= 0 || workArea.Height <= 0)
@@ -64,27 +62,27 @@ public static class PlacementGeometry
             return null;
         }
 
-        var windowArea = (double)bounds.Width * bounds.Height;
-        var bestRatio = ZoneOverlapThreshold;
+        var windowArea = (long)bounds.Width * bounds.Height;
+        var bestArea = 0L;
         Guid? bestZone = null;
         var tied = false;
         foreach (var zone in zones)
         {
             var overlapWidth = Math.Max(0, Math.Min(bounds.Right, zone.Bounds.Right) - Math.Max(bounds.X, zone.Bounds.X));
             var overlapHeight = Math.Max(0, Math.Min(bounds.Bottom, zone.Bounds.Bottom) - Math.Max(bounds.Y, zone.Bounds.Y));
-            var ratio = overlapWidth * (double)overlapHeight / windowArea;
-            if (ratio < ZoneOverlapThreshold)
+            var overlapArea = (long)overlapWidth * overlapHeight;
+            if (overlapArea * 4 < windowArea)
             {
                 continue;
             }
 
-            if (bestZone is null || ratio > bestRatio)
+            if (bestZone is null || overlapArea > bestArea)
             {
-                bestRatio = ratio;
+                bestArea = overlapArea;
                 bestZone = zone.ZoneId;
                 tied = false;
             }
-            else if (bestZone is not null && Math.Abs(ratio - bestRatio) < 0.0000001)
+            else if (overlapArea == bestArea)
             {
                 tied = true;
             }

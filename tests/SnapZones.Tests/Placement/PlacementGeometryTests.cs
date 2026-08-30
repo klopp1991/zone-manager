@@ -45,6 +45,34 @@ public sealed class PlacementGeometryTests
         Assert.Equal(zones[1].ZoneId, PlacementGeometry.ClassifyZone(new PixelRect(1000, 100, 800, 800), zones));
     }
 
+    [Fact]
+    public void ClassifyZone_returns_null_when_the_highest_overlap_is_exactly_equal()
+    {
+        var profile = Guid.NewGuid();
+        var zones = new[]
+        {
+            new PlacementZoneTarget(profile, Guid.NewGuid(), "DISPLAY-A", new PixelRect(0, 0, 500, 1000)),
+            new PlacementZoneTarget(profile, Guid.NewGuid(), "DISPLAY-A", new PixelRect(500, 0, 500, 1000))
+        };
+
+        Assert.Null(PlacementGeometry.ClassifyZone(new PixelRect(0, 0, 1000, 1000), zones));
+    }
+
+    [Fact]
+    public void ClassifyZone_chooses_the_larger_overlap_when_the_difference_is_one_pixel()
+    {
+        var profile = Guid.NewGuid();
+        var larger = Guid.NewGuid();
+        var smaller = Guid.NewGuid();
+        var zones = new[]
+        {
+            new PlacementZoneTarget(profile, larger, "DISPLAY-A", new PixelRect(0, 0, 500, 1001)),
+            new PlacementZoneTarget(profile, smaller, "DISPLAY-A", new PixelRect(499, 0, 501, 999))
+        };
+
+        Assert.Equal(larger, PlacementGeometry.ClassifyZone(new PixelRect(0, 0, 1000, 1001), zones));
+    }
+
     private static WindowPlacementEntry Entry(string monitorId, PixelRect bounds) => new(
         Identity, monitorId, null, new MonitorWorkArea(0, 0, 1920, 1080), bounds,
         PlacementGeometry.Normalize(bounds, new MonitorWorkArea(0, 0, 1920, 1080)),
