@@ -2,21 +2,16 @@
 
 Stand: 30.08.2026
 
-## Bestanden
+## Automatisierte Prüfung
 
-- Release-Build für Windows 11 x64: 0 Fehler, 0 Warnungen.
-- 44 automatisierte Tests: 44 bestanden, 0 fehlgeschlagen, 0 übersprungen.
-- Diagnose auf dem Zielsystem: 2 Monitore erkannt; kein Hook registriert; Einstellungen und Registry unverändert.
-- Oberfläche: beide Monitore, Layout-Editor, Vorlagen, Zonenwerte, Profile und Sicherheitseinstellungen sichtbar und bedienbar.
-- Standardzustand: Snap-Funktion aus; Autostart aus.
-- Not-Aus `Ctrl + Alt + Shift + F12`: Hook deaktiviert und Einstellung dauerhaft auf aus gespeichert.
+`scripts\verify.ps1` stellt Pakete wieder her, führt den Volltest aus, baut und veröffentlicht die `win-x64`-EXE, prüft die hashgleiche Root- und Publish-EXE sowie den schreibgeschützten Diagnosevertrag. Die zwei dokumentierten Icon-Baselines `Brand_icon_uses_only_neutral_greys` und `Brand_icon_uses_two_wide_lower_tiles_instead_of_a_monitor_stand` werden nur bei exakt diesem Ergebnis akzeptiert; ein zweiter Lauf bestätigt alle übrigen Tests. Der konkrete Laufstatus wird in `task-11-report.md` festgehalten.
 
-## Offener Blocker
+Die Diagnose meldet `windowPlacement.enabled`, `learnedEntryCount`, `ruleCount` und `lifecycleHookRegistered=false`. Sie startet keinen Hook, keine Engine und keinen Recovery-Schreibpfad; `settings.json` und `placements.json` bleiben unverändert, auch bei beschädigter Platzierungsdatei.
 
-Beim kontrollierten Test mit einem leeren Windows-11-Notepad kamen `EVENT_SYSTEM_MOVESIZESTART` und `EVENT_SYSTEM_MOVESIZEEND` korrekt an. Die anschliessende Prüfung meldete jedoch `IsTitleBarDrag = false`, obwohl das Fenster an der Titelleiste gezogen wurde; der Koordinator blieb deshalb absichtlich im sicheren Zustand `Idle` und positionierte das Fenster nicht.
+## Funktionsumfang
 
-Nach drei kontrollierten Versuchen wurden weitere Hook-Tests gestoppt. Snap-Funktion und Autostart sind ausgeschaltet, SnapZones und das leere Test-Notepad wurden beendet.
+Der globale Standard ist **Letzte Platzierung merken**. Gleichartige Hauptfenster teilen Anwendung und Fenstertyp, Dialoge sind getrennt; Wiederherstellung erfolgt nur beim Öffnen und nie laufend. Maximierung wird wiederhergestellt, Minimierung nie. Feste Zone, Ausschluss und optionales `TitlePattern` sind Regeln; die Dateien liegen normal unter `%APPDATA%\SnapZones` und im portablen Betrieb unter `Data\` neben der EXE. Der Not-Aus `Ctrl + Alt + Shift + F12` deaktiviert Snap-Funktion und automatische Platzierung; höhere Fensterrechte bleiben eine Berechtigungsgrenze.
 
-## Nächster technischer Schritt
+## Reale Abnahme ausstehend
 
-Die Titelleisten-Erkennung muss für moderne benutzerdefinierte Windows-Titelleisten auf eine robuste, DPI-konsistente Erkennung umgestellt und danach erneut ausschliesslich mit einem leeren Notepad-Fenster geprüft werden.
+Die reale Prüfung mit Windows-Einstellungen, Excel-Hauptfenstern und -Dialog, Explorer, Notepad, festen Zonen, Ausschlüssen, Monitorverlust, Not-Aus und Neustart ist noch nicht ausgeführt. Virtuelle Desktops, mehrere individuelle Plätze pro gleichen Fenstertyp und fortlaufendes Erzwingen einer Zone bleiben ausserhalb des Umfangs.

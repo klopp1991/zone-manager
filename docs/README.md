@@ -39,9 +39,17 @@ Windows 11 stellt normalen Desktopanwendungen keine unterstützte Schnittstelle 
 
 Jede Einstellung erklärt direkt in der Oberfläche Wirkung, Gültigkeitsbereich und Einschränkungen.
 
+## Fensterplatzierung
+
+Die automatische Fensterplatzierung ist ein separater Hauptschalter. Ihr globaler Standard ist **Letzte Platzierung merken**: Ein sichtbares, geeignetes Top-Level-Fenster wird nach dem Öffnen höchstens einmal wiederhergestellt und spätere manuelle Bewegungen bleiben frei. Mehrere gleichartige Hauptfenster einer Anwendung teilen einen Anwendung-/Fenstertyp; Dialoge bleiben durch ihre Fensterart getrennt. Maximierte Fenster werden beim nächsten Öffnen wieder maximiert, minimierte Zustände und minimierte Rechtecke werden nie gespeichert oder wiederhergestellt.
+
+Unter **Fensterplatzierung** lassen sich gelernte Einträge vergessen, eine **Feste Zone** für ein Profil, einen Monitor und eine Zone festlegen oder ein Fenstertyp mit **Nicht verwalten** ausschliessen. Eine optionale `TitlePattern`-Bedingung ist nur für erweiterte Regeln verfügbar; gleich spezifische Regeln werden als Konflikt nicht ausgeführt. Die festen Zonen und Ausschlüsse gelten beim Öffnen, sie erzwingen keine laufende Position.
+
+Gelerntes liegt getrennt in `placements.json`; Regeln und der Hauptschalter bleiben in `settings.json`. Normal liegt beides unter `%APPDATA%\SnapZones`; bei einer Datei `portable.flag` neben `SaschaWindowZones.exe` liegen die Dateien unter `Data\` neben der EXE. Eine beschädigte Platzierungsdatei wird im normalen Anwendungsbetrieb gesichert und wenn möglich aus `placements.backup-1.json` wiederhergestellt; die Diagnose führt diese Wiederherstellung ausdrücklich nicht aus.
+
 ## Sicherheit und Not-Aus
 
-`Ctrl + Alt + Shift + F12` deaktiviert Hook und Overlays sofort und speichert die Snap-Funktion als ausgeschaltet. `Escape` beendet nur den aktuellen Ziehvorgang. Die Anwendung enthält keinen Treiber, keinen Windows-Dienst und keine Code-Injektion; ein Schutzschalter stoppt die Snap-Funktion bei Callback-Fehlern oder ungewöhnlich vielen Hook-Ereignissen.
+`Ctrl + Alt + Shift + F12` deaktiviert Hook und Overlays sofort, beendet anstehende Platzierungen und speichert Snap-Funktion sowie automatische Fensterplatzierung als ausgeschaltet. `Escape` beendet nur den aktuellen Ziehvorgang. Die Anwendung enthält keinen Treiber, keinen Windows-Dienst und keine Code-Injektion; ein Schutzschalter stoppt die Snap-Funktion bei Callback-Fehlern oder ungewöhnlich vielen Hook-Ereignissen.
 
 ## Diagnose
 
@@ -49,13 +57,13 @@ Jede Einstellung erklärt direkt in der Oberfläche Wirkung, Gültigkeitsbereich
 SaschaWindowZones.exe --diagnostics
 ```
 
-Die Diagnose liest Konfigurationsstatus, Monitore, DPI und Autostartstatus. Sie registriert keinen Fenster-Hook und verändert weder Einstellungen noch Registry.
+Die Diagnose liest Konfigurationsstatus, Monitore, DPI, Autostart und den Platzierungsstatus. Sie registriert keinen Fenster-Hook, startet keine Platzierungs-Engine und verändert weder `settings.json` noch `placements.json` oder die Registry. Auch eine beschädigte `placements.json` wird nur als Diagnosezustand gemeldet.
 
 ## Einschränkungen
 
 - Nur Windows 11 x64.
 - Fenster mit höheren Administratorrechten können ohne gleich hohe Rechte nicht positioniert werden.
-- Nicht rechteckige oder überlappende Zonen, virtuelle Desktops, Fensterregeln und automatische Updates sind noch nicht enthalten.
+- Nicht rechteckige oder überlappende Zonen, virtuelle Desktops, mehrere individuelle Plätze für gleichartige Fenster und fortlaufendes Erzwingen einer Zone sind nicht enthalten.
 - Eigene Layouts können nicht über eine dokumentierte API in das native Windows-Snap-Popup eingefügt werden; die Anwendung verwendet ein eigenes Overlay.
 - Der Prototyp ist nicht digital signiert und kann beim ersten Start eine Windows-Sicherheitswarnung auslösen.
 
