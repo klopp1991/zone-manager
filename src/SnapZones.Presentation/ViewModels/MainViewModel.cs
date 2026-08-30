@@ -3,7 +3,7 @@ using SnapZones.Core.Layouts;
 using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
 
-namespace SnapZones.App.ViewModels;
+namespace SnapZones.Presentation.ViewModels;
 
 public sealed class MainViewModel : ViewModelBase
 {

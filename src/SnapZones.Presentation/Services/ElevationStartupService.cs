@@ -2,7 +2,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 
-namespace SnapZones.App.Services;
+namespace SnapZones.Presentation.Services;
 
 public enum ElevationStartupStatus
 {

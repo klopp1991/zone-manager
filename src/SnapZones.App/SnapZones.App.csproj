@@ -32,6 +32,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SnapZones.Core\SnapZones.Core.csproj" />
+    <ProjectReference Include="..\SnapZones.Presentation\SnapZones.Presentation.csproj" />
     <ProjectReference Include="..\SnapZones.Windows\SnapZones.Windows.csproj" />
   </ItemGroup>
   <Target Name="PublishRootExecutableAfterBuild"

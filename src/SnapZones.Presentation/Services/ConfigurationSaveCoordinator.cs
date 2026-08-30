@@ -1,7 +1,7 @@
 using SnapZones.Core.Models;
 using SnapZones.Core.Persistence;
 
-namespace SnapZones.App.Services;
+namespace SnapZones.Presentation.Services;
 
 public sealed class ConfigurationSaveCoordinator
 {

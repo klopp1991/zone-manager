@@ -1,4 +1,4 @@
-using SnapZones.App.Services;
+using SnapZones.Presentation.Services;
 using Xunit;
 
 namespace SnapZones.Tests.Services;

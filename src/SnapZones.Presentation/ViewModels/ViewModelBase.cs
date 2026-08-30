@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 
-namespace SnapZones.App.ViewModels;
+namespace SnapZones.Presentation.ViewModels;
 
 public abstract class ViewModelBase : INotifyPropertyChanged
 {

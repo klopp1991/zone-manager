@@ -1,13 +1,14 @@
 using System.ComponentModel;
 using System.Diagnostics;
-using SnapZones.App.Services;
+using SnapZones.Presentation.Services;
+using SnapZones.Tests.Support;
 using Xunit;
 
 namespace SnapZones.Tests.Services;
 
 public sealed class ElevationStartupServiceTests
 {
-    [Fact]
+    [WindowsOnlyFact]
     public void EnsureElevation_relaunches_a_normal_non_elevated_start_with_all_arguments()
     {
         ProcessStartInfo? capturedStartInfo = null;

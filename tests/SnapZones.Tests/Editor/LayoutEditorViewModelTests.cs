@@ -1,4 +1,4 @@
-using SnapZones.App.ViewModels;
+using SnapZones.Presentation.ViewModels;
 using SnapZones.Core.Editor;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;

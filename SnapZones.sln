@@ -1,4 +1,4 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -9,6 +9,14 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SnapZones.App", "src\SnapZones.App\SnapZones.App.csproj", "{A1131DC9-50B8-46A5-8A08-4909D7A02CB4}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SnapZones.Tests", "tests\SnapZones.Tests\SnapZones.Tests.csproj", "{A51C5DCE-2979-4D69-A9D1-089409569A83}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{8F8CDD1A-BF98-4B4D-A046-565D4CFAD6C0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SnapZones.Presentation", "src\SnapZones.Presentation\SnapZones.Presentation.csproj", "{23D1A083-A0B5-4661-8BBB-69423907A0C7}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{51A0F77C-6F42-4D8A-AA00-44902FDC88F6}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SnapZones.Tests.Windows", "tests\SnapZones.Tests.Windows\SnapZones.Tests.Windows.csproj", "{EB00BD77-177F-49D1-AD07-65356D416C90}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -32,5 +40,17 @@ Global
 		{A51C5DCE-2979-4D69-A9D1-089409569A83}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A51C5DCE-2979-4D69-A9D1-089409569A83}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A51C5DCE-2979-4D69-A9D1-089409569A83}.Release|Any CPU.Build.0 = Release|Any CPU
+		{23D1A083-A0B5-4661-8BBB-69423907A0C7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{23D1A083-A0B5-4661-8BBB-69423907A0C7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{23D1A083-A0B5-4661-8BBB-69423907A0C7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{23D1A083-A0B5-4661-8BBB-69423907A0C7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EB00BD77-177F-49D1-AD07-65356D416C90}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EB00BD77-177F-49D1-AD07-65356D416C90}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EB00BD77-177F-49D1-AD07-65356D416C90}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EB00BD77-177F-49D1-AD07-65356D416C90}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{23D1A083-A0B5-4661-8BBB-69423907A0C7} = {8F8CDD1A-BF98-4B4D-A046-565D4CFAD6C0}
+		{EB00BD77-177F-49D1-AD07-65356D416C90} = {51A0F77C-6F42-4D8A-AA00-44902FDC88F6}
 	EndGlobalSection
 EndGlobal

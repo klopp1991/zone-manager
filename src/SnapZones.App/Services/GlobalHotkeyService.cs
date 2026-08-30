@@ -1,16 +1,16 @@
 using System.Windows.Interop;
-using SnapZones.Windows.Native;
+using SnapZones.Windows.Hotkeys;
 
-namespace SnapZones.Windows.Hotkeys;
+namespace SnapZones.App.Services;
 
 public sealed class GlobalHotkeyService : IGlobalHotkeyService
 {
-    private const int HotkeyMessage = 0x0312;
     private const int EmergencyId = 999;
-    private const uint Alt = 0x0001;
-    private const uint Control = 0x0002;
-    private const uint Shift = 0x0004;
-    private const uint NoRepeat = 0x4000;
+    private const uint VirtualKeyF12 = 0x7B;
+
+    private const HotkeyModifiers EmergencyModifiers =
+        HotkeyModifiers.Control | HotkeyModifiers.Alt | HotkeyModifiers.Shift | HotkeyModifiers.NoRepeat;
+
     private readonly HashSet<int> registeredIds = [];
     private HwndSource? source;
 
@@ -24,7 +24,7 @@ public sealed class GlobalHotkeyService : IGlobalHotkeyService
 
         if (emergencyStopEnabled)
         {
-            if (User32.RegisterHotKey(source!.Handle, EmergencyId, Control | Alt | Shift | NoRepeat, 0x7B))
+            if (HotkeyRegistrar.Register(source!.Handle, EmergencyId, EmergencyModifiers, VirtualKeyF12))
             {
                 registeredIds.Add(EmergencyId);
             }
@@ -68,7 +68,7 @@ public sealed class GlobalHotkeyService : IGlobalHotkeyService
     {
         _ = window;
         _ = lParam;
-        if (message != HotkeyMessage)
+        if (message != HotkeyRegistrar.HotkeyMessage)
         {
             return 0;
         }
@@ -88,7 +88,7 @@ public sealed class GlobalHotkeyService : IGlobalHotkeyService
         {
             foreach (var id in registeredIds)
             {
-                _ = User32.UnregisterHotKey(source.Handle, id);
+                _ = HotkeyRegistrar.Unregister(source.Handle, id);
             }
         }
 

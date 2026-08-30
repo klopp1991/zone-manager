@@ -2,7 +2,7 @@ using SnapZones.Core.Editor;
 using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
 
-namespace SnapZones.App.ViewModels;
+namespace SnapZones.Presentation.ViewModels;
 
 public sealed record MonitorChoice(
     LiveMonitor Live,

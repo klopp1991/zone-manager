@@ -1,7 +1,7 @@
 using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
 
-namespace SnapZones.App.Services;
+namespace SnapZones.Presentation.Services;
 
 public sealed record TrayLayoutMenuItem(Guid Id, string Name, bool IsActive);
 

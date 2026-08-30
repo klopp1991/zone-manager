@@ -2,7 +2,7 @@ using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Data;
-using SnapZones.App.ViewModels;
+using SnapZones.Presentation.ViewModels;
 using SnapZones.App.Views;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;

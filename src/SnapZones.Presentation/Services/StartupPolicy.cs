@@ -1,4 +1,4 @@
-namespace SnapZones.App.Services;
+namespace SnapZones.Presentation.Services;
 
 public enum StartupDisposition
 {

@@ -1,6 +1,6 @@
 using SnapZones.Core.Models;
 
-namespace SnapZones.App.ViewModels;
+namespace SnapZones.Presentation.ViewModels;
 
 public sealed class SettingsViewModel : ViewModelBase
 {

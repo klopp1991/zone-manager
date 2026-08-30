@@ -2,7 +2,7 @@ using SnapZones.Core.Editor;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;
 
-namespace SnapZones.App.ViewModels;
+namespace SnapZones.Presentation.ViewModels;
 
 public sealed class LayoutEditorViewModel : ViewModelBase
 {
