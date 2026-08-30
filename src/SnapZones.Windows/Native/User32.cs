@@ -6,6 +6,7 @@ internal static class User32
 {
     internal const uint MonitorInfoPrimary = 0x00000001;
     internal const uint GetDeviceInterfaceName = 0x00000001;
+    internal const uint WinEventOutOfContext = 0x00000000;
 
     internal delegate bool MonitorEnumProc(nint monitor, nint deviceContext, nint monitorRect, nint data);
     internal delegate void WinEventProc(
