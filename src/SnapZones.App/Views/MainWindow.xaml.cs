@@ -322,7 +322,7 @@ public partial class MainWindow : Window
         var enabled = viewModel?.Settings.SnappingEnabled == true;
         SafetyStatus.Text = enabled ? "Snap-Funktion nach Speichern aktiv" : "Snap-Funktion aus";
         SafetyBadge.Background = (System.Windows.Media.Brush)FindResource(enabled ? "AccentSoftBrush" : "WarningSoftBrush");
-        SafetyStatus.Foreground = (System.Windows.Media.Brush)FindResource(enabled ? "AccentBrush" : "WarningBrush");
+        SafetyStatus.Foreground = (System.Windows.Media.Brush)FindResource(enabled ? "AccentStatusBrush" : "WarningBrush");
     }
 
     private MeasurementUnit SelectedMeasurementUnit() =>
