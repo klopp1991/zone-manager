@@ -1,7 +1,7 @@
 # Sascha Window Zones: Fensterplatzierungs-Engine
 
 **Datum:** 30. August 2026  
-**Status:** Zur schriftlichen Freigabe  
+**Status:** Freigegeben
 **Zielplattform:** Windows 11 x64  
 **Technologie:** .NET 8, WPF und dokumentierte Windows-Schnittstellen
 
@@ -205,7 +205,7 @@ Die Ablage folgt dem bestehenden Betriebsmodus:
 
 ### 10.2 Schreibsicherheit
 
-Änderungen werden zeitverzögert gebündelt und atomar über eine temporäre Datei ersetzt. Die letzte gültige Fassung wird als Sicherung aufbewahrt. Eine beschädigte Datei wird mit Zeitstempel umbenannt; die Anwendung startet mit leerem Platzierungsspeicher und meldet den Vorgang in Status und Diagnose.
+Änderungen werden zeitverzögert gebündelt und atomar über eine temporäre Datei ersetzt. Die letzte gültige Fassung wird als Sicherung aufbewahrt. Eine beschädigte Datei wird mit Zeitstempel umbenannt; die Anwendung stellt nach Möglichkeit die Sicherung wieder her, verwendet sonst einen leeren Platzierungsspeicher und meldet den Vorgang in Status und Diagnose.
 
 Der Speicher ist auf 500 zuletzt verwendete Fenstertypen begrenzt. Ältere Einträge werden nach `LastUpdatedUtc` entfernt. Fenster- und Dokumenttitel werden nicht persistiert.
 
