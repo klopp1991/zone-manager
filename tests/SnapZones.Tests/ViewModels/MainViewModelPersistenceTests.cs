@@ -3,6 +3,7 @@ using SnapZones.Core.Editor;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
+using SnapZones.Core.Placement;
 using SnapZones.Tests.Support;
 using Xunit;
 
@@ -10,6 +11,33 @@ namespace SnapZones.Tests.ViewModels;
 
 public sealed class MainViewModelPersistenceTests
 {
+    [Fact]
+    public void Placement_rule_change_requests_persistence_of_the_exact_rules()
+    {
+        var viewModel = CreateViewModel();
+        SnapConfiguration? requested = null;
+        viewModel.SaveRequested += configuration => requested = configuration;
+        var identity = new WindowIdentity("editor.exe", "EditorMain", WindowKind.MainWindow);
+        viewModel.WindowPlacement.ReplaceCatalog(new(WindowPlacementCatalog.CurrentSchemaVersion, [
+            new WindowPlacementEntry(
+                identity,
+                viewModel.SelectedMonitor!.Live.Identity.StableId,
+                viewModel.Editor!.Zones[0].Id,
+                viewModel.SelectedMonitor.Live.WorkArea,
+                new PixelRect(0, 0, 800, 600),
+                NormalizedRect.Full,
+                false,
+                DateTimeOffset.UtcNow)
+        ]));
+        viewModel.WindowPlacement.SelectedItem = viewModel.WindowPlacement.Items[0];
+
+        viewModel.WindowPlacement.ExcludeSelected();
+
+        var rule = Assert.Single(requested!.Settings.EffectiveWindowPlacementRules);
+        Assert.Equal(WindowPlacementMode.Exclude, rule.Action);
+        Assert.Equal(viewModel.WindowPlacement.SelectedItem.Identity.ApplicationKey, rule.ApplicationKey);
+    }
+
     [Fact]
     public void Valid_layout_change_requests_persistence_of_the_complete_configuration()
     {

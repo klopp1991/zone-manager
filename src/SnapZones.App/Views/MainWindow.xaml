@@ -291,6 +291,132 @@
                 </Grid>
             </TabItem>
 
+            <TabItem Header="Fensterplatzierung">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <Grid Margin="38,30" MaxWidth="1120" HorizontalAlignment="Left">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="18" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="18" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Fensterplatzierung" Style="{StaticResource PageTitle}" />
+                                <Button Style="{StaticResource InfoButton}" VerticalAlignment="Center"
+                                        AutomationProperties.Name="Hilfe zur Fensterplatzierung"
+                                        ToolTip="Gelernte Fenster können an ihrer letzten Position oder in einer festen Zone geöffnet werden. Ausschlüsse und feste Ziele gelten für den ausgewählten Fenstertyp." />
+                            </StackPanel>
+                            <CheckBox x:Name="PlacementAutomaticCheckBox" Grid.Column="1" Content="Automatik"
+                                      IsChecked="{Binding Settings.RestoreWindowPlacementEnabled}"
+                                      VerticalAlignment="Center" Margin="20,0,0,0"
+                                      AutomationProperties.Name="Fensterplatzierung automatisch anwenden" />
+                        </Grid>
+
+                        <Button x:Name="PlacementSelectButton" Grid.Row="2" Content="Fenster auswählen"
+                                Click="PlacementSelect_Click" Style="{StaticResource PrimaryButton}"
+                                HorizontalAlignment="Left" Margin="0"
+                                AutomationProperties.Name="Nächstes Zielfenster auswählen" />
+
+                        <Grid Grid.Row="4">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="560" />
+                                <ColumnDefinition Width="18" />
+                                <ColumnDefinition Width="500" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border x:Name="PlacementLearnedCard" Style="{StaticResource SectionCard}" Margin="0">
+                                <DockPanel>
+                                    <TextBlock DockPanel.Dock="Top" Text="Gelernte Fenster" Style="{StaticResource SectionTitle}" Margin="0,0,0,14" />
+                                    <ListBox ItemsSource="{Binding WindowPlacement.Items}"
+                                             SelectedItem="{Binding WindowPlacement.SelectedItem}"
+                                             MinHeight="430"
+                                             AutomationProperties.Name="Gelernte Fenster">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="2*" />
+                                                        <ColumnDefinition Width="3*" />
+                                                        <ColumnDefinition Width="2*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <StackPanel Margin="0,0,12,0">
+                                                        <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding WindowKindText}" Foreground="{DynamicResource MutedBrush}" FontSize="13" />
+                                                    </StackPanel>
+                                                    <StackPanel Grid.Column="1" Margin="0,0,12,0">
+                                                        <TextBlock Text="{Binding PlacementText}" TextWrapping="Wrap" />
+                                                        <TextBlock Text="{Binding RuleStatusText}" Foreground="{DynamicResource MutedBrush}" FontSize="13" TextWrapping="Wrap" />
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="2" Text="{Binding LastUpdatedText}" Foreground="{DynamicResource MutedBrush}"
+                                                               FontSize="13" TextAlignment="Right" TextWrapping="Wrap" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </DockPanel>
+                            </Border>
+
+                            <Border Grid.Column="2" Style="{StaticResource SectionCard}" Margin="0">
+                                <StackPanel>
+                                    <TextBlock Text="Ausgewähltes Fenster" Style="{StaticResource SectionTitle}" />
+                                    <WrapPanel Margin="0,16,0,8">
+                                        <Button x:Name="PlacementApplyButton" Content="Jetzt anwenden" Click="PlacementApply_Click"
+                                                IsEnabled="{Binding WindowPlacement.HasSelection}" Style="{StaticResource PrimaryButton}" />
+                                        <Button x:Name="PlacementRememberButton" Content="Letzte Platzierung" Click="PlacementRemember_Click"
+                                                IsEnabled="{Binding WindowPlacement.HasSelection}" />
+                                        <Button x:Name="PlacementExcludeButton" Content="Nicht verwalten" Click="PlacementExclude_Click"
+                                                IsEnabled="{Binding WindowPlacement.HasSelection}" />
+                                        <Button x:Name="PlacementForgetButton" Content="Vergessen" Click="PlacementForget_Click"
+                                                IsEnabled="{Binding WindowPlacement.HasSelection}" />
+                                    </WrapPanel>
+
+                                    <TextBlock Text="Feste Zone" Style="{StaticResource FieldLabel}" Margin="0,8,0,5" />
+                                    <ComboBox ItemsSource="{Binding WindowPlacement.TargetProfiles}"
+                                              SelectedItem="{Binding WindowPlacement.SelectedTargetProfile}"
+                                              DisplayMemberPath="Name" AutomationProperties.Name="Zielprofil" />
+                                    <ComboBox ItemsSource="{Binding WindowPlacement.TargetMonitors}"
+                                              SelectedItem="{Binding WindowPlacement.SelectedTargetMonitor}"
+                                              DisplayMemberPath="DisplayName" Margin="0,8,0,0"
+                                              AutomationProperties.Name="Zielmonitor" />
+                                    <ComboBox ItemsSource="{Binding WindowPlacement.TargetZones}"
+                                              SelectedItem="{Binding WindowPlacement.SelectedTargetZone}"
+                                              DisplayMemberPath="Name" Margin="0,8,0,0"
+                                              AutomationProperties.Name="Zielzone" />
+                                    <Button x:Name="PlacementFixButton" Content="Feste Zone speichern" Click="PlacementFix_Click"
+                                            IsEnabled="{Binding WindowPlacement.HasSelection}" Margin="0,10,0,8" />
+
+                                    <TextBlock Text="Optionales Titelmuster" Style="{StaticResource FieldLabel}" Margin="0,10,0,5" />
+                                    <TextBox Text="{Binding WindowPlacement.TitlePattern, UpdateSourceTrigger=PropertyChanged}"
+                                             AutomationProperties.Name="Optionales Titelmuster" />
+
+                                    <TextBlock Text="Technische Werte" Style="{StaticResource FieldLabel}" Margin="0,14,0,5" />
+                                    <TextBlock Text="App-Schlüssel" Foreground="{DynamicResource MutedBrush}" FontSize="13" />
+                                    <TextBox x:Name="PlacementApplicationKeyText" Text="{Binding WindowPlacement.SelectedItem.Identity.ApplicationKey, Mode=OneWay}"
+                                             IsReadOnly="True" FontFamily="Cascadia Mono" Margin="0,3,0,8"
+                                             AutomationProperties.Name="App-Schlüssel" />
+                                    <TextBlock Text="Fensterklasse" Foreground="{DynamicResource MutedBrush}" FontSize="13" />
+                                    <TextBox x:Name="PlacementWindowClassText" Text="{Binding WindowPlacement.SelectedItem.Identity.WindowClass, Mode=OneWay}"
+                                             IsReadOnly="True" FontFamily="Cascadia Mono" Margin="0,3,0,8"
+                                             AutomationProperties.Name="Fensterklasse" />
+                                    <TextBlock Text="Art" Foreground="{DynamicResource MutedBrush}" FontSize="13" />
+                                    <TextBox Text="{Binding WindowPlacement.SelectedItem.WindowKindText, Mode=OneWay}" IsReadOnly="True"
+                                             Margin="0,3,0,8" AutomationProperties.Name="Fensterart" />
+                                    <TextBlock x:Name="PlacementRuleStatusText" Text="{Binding WindowPlacement.SelectedItem.RuleStatusText}"
+                                               Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,5,0,0"
+                                               AutomationProperties.Name="Regelstatus" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
             <TabItem Header="Windows-Anzeige">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="38,30" MaxWidth="1020" HorizontalAlignment="Left">

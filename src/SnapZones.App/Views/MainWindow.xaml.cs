@@ -245,6 +245,39 @@ public partial class MainWindow : Window
         RefreshEditor();
     }
 
+    private void PlacementSelect_Click(object sender, RoutedEventArgs eventArgs) =>
+        RunPlacementAction(() => viewModel?.WindowPlacement.RequestWindowSelection());
+
+    private void PlacementApply_Click(object sender, RoutedEventArgs eventArgs) =>
+        RunPlacementAction(() => viewModel?.WindowPlacement.ApplySelectedNow());
+
+    private void PlacementRemember_Click(object sender, RoutedEventArgs eventArgs) =>
+        RunPlacementAction(() => viewModel?.WindowPlacement.RememberSelected());
+
+    private void PlacementExclude_Click(object sender, RoutedEventArgs eventArgs) =>
+        RunPlacementAction(() => viewModel?.WindowPlacement.ExcludeSelected());
+
+    private void PlacementForget_Click(object sender, RoutedEventArgs eventArgs) =>
+        RunPlacementAction(() => viewModel?.WindowPlacement.ForgetSelected());
+
+    private void PlacementFix_Click(object sender, RoutedEventArgs eventArgs) =>
+        RunPlacementAction(() => viewModel?.WindowPlacement.FixSelectedToZone());
+
+    private void RunPlacementAction(Action action)
+    {
+        try
+        {
+            action();
+        }
+        catch (Exception exception)
+        {
+            if (viewModel is not null)
+            {
+                viewModel.StatusMessage = exception.Message;
+            }
+        }
+    }
+
     private void ProfileName_LostFocus(object sender, RoutedEventArgs eventArgs)
     {
         if (viewModel is null)

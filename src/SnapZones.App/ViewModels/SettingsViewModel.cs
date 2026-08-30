@@ -1,4 +1,5 @@
 using SnapZones.Core.Models;
+using SnapZones.Core.Placement;
 
 namespace SnapZones.App.ViewModels;
 
@@ -6,7 +7,7 @@ public sealed class SettingsViewModel : ViewModelBase
 {
     private bool snappingEnabled;
     private bool restoreWindowPlacementEnabled;
-    private IReadOnlyList<SnapZones.Core.Placement.WindowPlacementRule> windowPlacementRules;
+    private IReadOnlyList<WindowPlacementRule> windowPlacementRules;
     private bool startWithWindows;
     private OverlayScope overlayScope;
     private TriggerMode triggerMode;
@@ -60,6 +61,21 @@ public sealed class SettingsViewModel : ViewModelBase
     {
         get => restoreWindowPlacementEnabled;
         set => SetProperty(ref restoreWindowPlacementEnabled, value);
+    }
+
+    public IReadOnlyList<WindowPlacementRule> WindowPlacementRules => windowPlacementRules;
+
+    public void ReplaceWindowPlacementRules(IReadOnlyList<WindowPlacementRule> rules)
+    {
+        ArgumentNullException.ThrowIfNull(rules);
+        var replacement = rules.ToArray();
+        if (windowPlacementRules.SequenceEqual(replacement))
+        {
+            return;
+        }
+
+        windowPlacementRules = replacement;
+        OnPropertyChanged(nameof(WindowPlacementRules));
     }
 
     public bool StartWithWindows
@@ -218,7 +234,7 @@ public sealed class SettingsViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(settings);
         SnappingEnabled = settings.SnappingEnabled;
         RestoreWindowPlacementEnabled = settings.RestoreWindowPlacementEnabled;
-        windowPlacementRules = settings.EffectiveWindowPlacementRules.ToArray();
+        ReplaceWindowPlacementRules(settings.EffectiveWindowPlacementRules);
         StartWithWindows = settings.StartWithWindows;
         OverlayScope = settings.OverlayScope;
         TriggerMode = settings.TriggerMode;

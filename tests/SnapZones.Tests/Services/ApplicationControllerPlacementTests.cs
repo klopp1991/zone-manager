@@ -20,6 +20,65 @@ namespace SnapZones.Tests.Services;
 public sealed class ApplicationControllerPlacementTests
 {
     [Fact]
+    public void Placement_page_actions_delegate_to_engine_and_follow_catalog_updates()
+    {
+        Run(fixture =>
+        {
+            var entry = fixture.CreatePlacementEntry();
+            fixture.PlacementEngine.RaiseCatalog(new(WindowPlacementCatalog.CurrentSchemaVersion, [entry]));
+            fixture.ViewModel.WindowPlacement.SelectedItem = Assert.Single(fixture.ViewModel.WindowPlacement.Items);
+
+            fixture.ViewModel.WindowPlacement.ApplySelectedNow();
+            fixture.ViewModel.WindowPlacement.ForgetSelected();
+
+            Assert.Equal(entry.Identity, fixture.PlacementEngine.AppliedIdentity);
+            Assert.Equal(entry.Identity, fixture.PlacementEngine.ForgottenIdentity);
+        });
+    }
+
+    [Fact]
+    public void Window_selection_selects_the_learned_identity_and_reactivates_the_main_window()
+    {
+        Run(fixture =>
+        {
+            var entry = fixture.CreatePlacementEntry();
+            fixture.PlacementEngine.RaiseCatalog(new(WindowPlacementCatalog.CurrentSchemaVersion, [entry]));
+            fixture.WindowSelectionService.Result = 42;
+            fixture.PlacementWindowService.Snapshot = new PlacementWindowSnapshot(
+                42,
+                entry.Identity,
+                "Editor",
+                entry.NormalBoundsPixels,
+                entry.NormalBoundsPixels,
+                false,
+                false);
+
+            fixture.ViewModel.WindowPlacement.RequestWindowSelection();
+
+            Assert.Equal(Environment.ProcessId, fixture.WindowSelectionService.OwnProcessId);
+            Assert.Equal(TimeSpan.FromSeconds(10), fixture.WindowSelectionService.Timeout);
+            Assert.Equal(entry.Identity, fixture.ViewModel.WindowPlacement.SelectedItem!.Identity);
+            Assert.Contains("Hauptfenster", fixture.ViewModel.StatusMessage, StringComparison.Ordinal);
+            Assert.Equal(1, fixture.MainWindowActivator.Calls);
+        });
+    }
+
+    [Fact]
+    public void Window_selection_timeout_returns_to_the_main_window_without_selecting_an_item()
+    {
+        Run(fixture =>
+        {
+            fixture.WindowSelectionService.Result = 0;
+
+            fixture.ViewModel.WindowPlacement.RequestWindowSelection();
+
+            Assert.Null(fixture.ViewModel.WindowPlacement.SelectedItem);
+            Assert.Contains("kein Zielfenster", fixture.ViewModel.StatusMessage, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal(1, fixture.MainWindowActivator.Calls);
+        });
+    }
+
+    [Fact]
     public void Reconfigure_starts_placement_engine_when_initialized_automation_is_enabled()
     {
         Run(fixture =>
@@ -349,6 +408,9 @@ public sealed class ApplicationControllerPlacementTests
         public Guid ActiveProfileId { get; }
         public CancellationTokenSource StartupCancellation { get; }
         public TaskCompletionSource ShutdownRequested { get; }
+        public RecordingWindowSelectionService WindowSelectionService { get; private set; } = null!;
+        public RecordingPlacementWindowService PlacementWindowService { get; private set; } = null!;
+        public RecordingMainWindowActivator MainWindowActivator { get; private set; } = null!;
 
         public static ControllerFixture Create()
         {
@@ -382,6 +444,9 @@ public sealed class ApplicationControllerPlacementTests
             var logs = new List<string>();
             var startupCancellation = new CancellationTokenSource();
             var shutdownRequested = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var placementWindowService = new RecordingPlacementWindowService();
+            var windowSelectionService = new RecordingWindowSelectionService();
+            var mainWindowActivator = new RecordingMainWindowActivator();
             var dependencies = new ApplicationControllerDependencies(
                 configurationSaveCoordinator,
                 moveHook,
@@ -395,7 +460,10 @@ public sealed class ApplicationControllerPlacementTests
                 new RecordingLifecycleHook(),
                 startupCancellation.Cancel,
                 () => shutdownRequested.TrySetResult(),
-                (level, message, exception) => logs.Add($"{level}: {message}"));
+                (level, message, exception) => logs.Add($"{level}: {message}"),
+                placementWindowService,
+                windowSelectionService,
+                mainWindowActivator.Activate);
             var controller = new ApplicationController(
                 window,
                 viewModel,
@@ -403,7 +471,7 @@ public sealed class ApplicationControllerPlacementTests
                 new RecordingStartupService(),
                 dependencies);
 
-            return new ControllerFixture(
+            var fixture = new ControllerFixture(
                 controller,
                 viewModel,
                 placementEngine,
@@ -415,6 +483,24 @@ public sealed class ApplicationControllerPlacementTests
                 profileId,
                 startupCancellation,
                 shutdownRequested);
+            fixture.PlacementWindowService = placementWindowService;
+            fixture.WindowSelectionService = windowSelectionService;
+            fixture.MainWindowActivator = mainWindowActivator;
+            return fixture;
+        }
+
+        public WindowPlacementEntry CreatePlacementEntry()
+        {
+            var zone = ViewModel.SelectedMonitor!.Layout.Zones[0];
+            return new WindowPlacementEntry(
+                new WindowIdentity("editor.exe", "EditorMain", WindowKind.MainWindow),
+                ViewModel.SelectedMonitor.Live.Identity.StableId,
+                zone.Id,
+                ViewModel.SelectedMonitor.Live.WorkArea,
+                new PixelRect(0, 0, 800, 600),
+                NormalizedRect.Full,
+                false,
+                DateTimeOffset.UtcNow);
         }
 
         public void Dispose() => Controller.Dispose();
@@ -459,6 +545,8 @@ public sealed class ApplicationControllerPlacementTests
         public int RunningReplaceCalls { get; private set; }
         public WindowPlacementCatalog? ReplacedCatalog { get; private set; }
         public (nint WindowHandle, Guid ProfileId, string MonitorStableId, Guid ZoneId)? LastExplicitZone { get; private set; }
+        public WindowIdentity? AppliedIdentity { get; private set; }
+        public WindowIdentity? ForgottenIdentity { get; private set; }
         public void Start() { StartCalls++; running = true; }
         public void Stop() { StopCalls++; running = false; }
         public void EmergencyStop() { EmergencyStopCalls++; running = false; }
@@ -469,8 +557,17 @@ public sealed class ApplicationControllerPlacementTests
             ReplacedCatalog = catalog;
             CatalogChanged?.Invoke(catalog);
         }
-        public Task ApplyNowAsync(WindowIdentity identity, CancellationToken cancellationToken) => Task.CompletedTask;
-        public void Forget(WindowIdentity identity) { }
+        public Task ApplyNowAsync(WindowIdentity identity, CancellationToken cancellationToken)
+        {
+            AppliedIdentity = identity;
+            return Task.CompletedTask;
+        }
+        public void Forget(WindowIdentity identity) => ForgottenIdentity = identity;
+        public void RaiseCatalog(WindowPlacementCatalog catalog)
+        {
+            Catalog = catalog;
+            CatalogChanged?.Invoke(catalog);
+        }
         public void RememberExplicitZone(nint windowHandle, Guid profileId, string monitorStableId, Guid zoneId) =>
             LastExplicitZone = (windowHandle, profileId, monitorStableId, zoneId);
         public Task FlushAsync(CancellationToken cancellationToken)
@@ -480,6 +577,37 @@ public sealed class ApplicationControllerPlacementTests
             FlushStarted.TrySetResult();
             return FlushCompletion;
         }
+    }
+
+    private sealed class RecordingWindowSelectionService : IWindowSelectionService
+    {
+        public nint Result { get; set; }
+        public int OwnProcessId { get; private set; }
+        public TimeSpan Timeout { get; private set; }
+
+        public Task<nint> SelectNextAsync(int ownProcessId, TimeSpan timeout, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            OwnProcessId = ownProcessId;
+            Timeout = timeout;
+            return Task.FromResult(Result);
+        }
+    }
+
+    private sealed class RecordingPlacementWindowService : IPlacementWindowService
+    {
+        public PlacementWindowSnapshot? Snapshot { get; set; }
+        public PlacementWindowSnapshot? Inspect(nint windowHandle, int excludedProcessId) =>
+            Snapshot is { } snapshot && snapshot.WindowHandle == windowHandle ? snapshot : null;
+        public bool TryPlace(nint windowHandle, PixelRect normalBounds, bool maximize) => false;
+        public IReadOnlyList<nint> EnumerateEligibleWindows(int excludedProcessId) => [];
+        public nint GetForegroundWindow() => 0;
+    }
+
+    private sealed class RecordingMainWindowActivator
+    {
+        public int Calls { get; private set; }
+        public void Activate() => Calls++;
     }
 
     private sealed class RecordingDragCoordinatorFactory(RecordingDragCoordinator coordinator) : IWindowDragCoordinatorFactory

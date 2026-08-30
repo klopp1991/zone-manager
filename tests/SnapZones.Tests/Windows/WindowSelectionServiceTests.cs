@@ -1,0 +1,127 @@
+using SnapZones.Core.Geometry;
+using SnapZones.Core.Placement;
+using SnapZones.Windows.Native;
+using SnapZones.Windows.Windows;
+using Xunit;
+
+namespace SnapZones.Tests.Windows;
+
+public sealed class WindowSelectionServiceTests
+{
+    [Fact]
+    public async Task First_readable_foreground_window_is_returned_and_hook_is_released_once()
+    {
+        var native = new RecordingHookApi();
+        var windows = new RecordingPlacementWindowService();
+        windows.ReadableHandles.Add(42);
+        var service = new WindowSelectionService(windows, native);
+        var selection = service.SelectNextAsync(123, TimeSpan.FromSeconds(2), CancellationToken.None);
+
+        native.Raise(41);
+        native.Raise(42);
+
+        Assert.Equal((nint)42, await selection);
+        var registration = Assert.Single(native.Registrations);
+        Assert.Equal(0x0003u, registration.EventMinimum);
+        Assert.Equal(0x0003u, registration.EventMaximum);
+        Assert.Equal(User32.WinEventOutOfContext, registration.Flags);
+        Assert.Equal([123, 123], windows.ExcludedProcessIds);
+        Assert.Equal(1, native.UnhookCalls);
+    }
+
+    [Fact]
+    public async Task Timeout_returns_zero_and_releases_the_registered_hook_once()
+    {
+        var native = new RecordingHookApi();
+        var service = new WindowSelectionService(new RecordingPlacementWindowService(), native);
+
+        var selected = await service.SelectNextAsync(123, TimeSpan.FromMilliseconds(20), CancellationToken.None);
+
+        Assert.Equal(nint.Zero, selected);
+        Assert.Equal(1, native.UnhookCalls);
+    }
+
+    [Fact]
+    public async Task Cancellation_returns_zero_and_releases_the_registered_hook_once()
+    {
+        var native = new RecordingHookApi();
+        var service = new WindowSelectionService(new RecordingPlacementWindowService(), native);
+        using var cancellation = new CancellationTokenSource();
+        var selection = service.SelectNextAsync(123, TimeSpan.FromSeconds(2), cancellation.Token);
+
+        cancellation.Cancel();
+
+        Assert.Equal(nint.Zero, await selection);
+        Assert.Equal(1, native.UnhookCalls);
+    }
+
+    [Fact]
+    public async Task Failed_hook_registration_returns_zero_without_unhooking_an_invalid_handle()
+    {
+        var native = new RecordingHookApi { RegistrationHandle = 0 };
+        var service = new WindowSelectionService(new RecordingPlacementWindowService(), native);
+
+        var selected = await service.SelectNextAsync(123, TimeSpan.FromSeconds(2), CancellationToken.None);
+
+        Assert.Equal(nint.Zero, selected);
+        Assert.Equal(0, native.UnhookCalls);
+    }
+
+    private sealed class RecordingHookApi : IWinEventHookApi
+    {
+        private User32.WinEventProc? callback;
+        public nint RegistrationHandle { get; set; } = 77;
+        public List<Registration> Registrations { get; } = [];
+        public int UnhookCalls { get; private set; }
+
+        public nint SetWinEventHook(
+            uint eventMinimum,
+            uint eventMaximum,
+            nint module,
+            User32.WinEventProc callback,
+            uint processId,
+            uint threadId,
+            uint flags)
+        {
+            this.callback = callback;
+            Registrations.Add(new(eventMinimum, eventMaximum, flags));
+            return RegistrationHandle;
+        }
+
+        public bool UnhookWinEvent(nint hook)
+        {
+            Assert.Equal(RegistrationHandle, hook);
+            UnhookCalls++;
+            return true;
+        }
+
+        public void Raise(nint window) => callback?.Invoke(RegistrationHandle, 0x0003, window, 0, 0, 0, 0);
+
+        public sealed record Registration(uint EventMinimum, uint EventMaximum, uint Flags);
+    }
+
+    private sealed class RecordingPlacementWindowService : IPlacementWindowService
+    {
+        public HashSet<nint> ReadableHandles { get; } = [];
+        public List<int> ExcludedProcessIds { get; } = [];
+
+        public PlacementWindowSnapshot? Inspect(nint windowHandle, int excludedProcessId)
+        {
+            ExcludedProcessIds.Add(excludedProcessId);
+            return ReadableHandles.Contains(windowHandle)
+                ? new PlacementWindowSnapshot(
+                    windowHandle,
+                    new WindowIdentity("app.exe", "Main", WindowKind.MainWindow),
+                    "App",
+                    new PixelRect(0, 0, 800, 600),
+                    new PixelRect(0, 0, 800, 600),
+                    false,
+                    false)
+                : null;
+        }
+
+        public bool TryPlace(nint windowHandle, PixelRect normalBounds, bool maximize) => false;
+        public IReadOnlyList<nint> EnumerateEligibleWindows(int excludedProcessId) => [];
+        public nint GetForegroundWindow() => 0;
+    }
+}

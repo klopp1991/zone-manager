@@ -73,7 +73,10 @@ public sealed record ApplicationControllerDependencies(
     IWindowLifecycleHook PlacementLifecycleHook,
     Action CancelStartup,
     Action ShutdownApplication,
-    Action<string, string, Exception?> Log)
+    Action<string, string, Exception?> Log,
+    IPlacementWindowService? PlacementWindowService = null,
+    IWindowSelectionService? WindowSelectionService = null,
+    Action? ReactivateMainWindow = null)
 {
     public static ApplicationControllerDependencies CreateDefault(
         MainWindow window,
@@ -101,9 +104,10 @@ public sealed record ApplicationControllerDependencies(
         var placementSaveCoordinator = new WindowPlacementSaveCoordinator(
             placementRepository,
             TimeSpan.FromMilliseconds(250));
+        var placementWindowService = new WindowsPlacementWindowService();
         var placementEngine = new WindowPlacementEngine(
             lifecycleHook,
-            new WindowsPlacementWindowService(),
+            placementWindowService,
             placementSaveCoordinator,
             WindowPlacementCatalog.Empty,
             () => BuildPlacementEnvironment(configurationFactory(), monitors),
@@ -123,7 +127,23 @@ public sealed record ApplicationControllerDependencies(
             lifecycleHook,
             cancelStartup,
             () => System.Windows.Application.Current.Shutdown(),
-            log.Write);
+            log.Write,
+            placementWindowService,
+            new WindowSelectionService(placementWindowService),
+            () =>
+            {
+                if (!window.IsVisible)
+                {
+                    window.Show();
+                }
+                if (window.WindowState == System.Windows.WindowState.Minimized)
+                {
+                    window.WindowState = System.Windows.WindowState.Normal;
+                }
+
+                _ = window.Activate();
+                _ = window.Focus();
+            });
     }
 
     private static PlacementEnvironment BuildPlacementEnvironment(

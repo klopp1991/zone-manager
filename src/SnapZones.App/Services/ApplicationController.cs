@@ -8,6 +8,7 @@ using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
 using SnapZones.Core.Persistence;
 using SnapZones.Core.Profiles;
+using SnapZones.Core.Placement;
 using SnapZones.Windows.Hooks;
 using SnapZones.Windows.Hotkeys;
 using SnapZones.Windows.Startup;
@@ -31,6 +32,9 @@ public sealed class ApplicationController : IDisposable
     private IWindowDragCoordinatorFactory dragCoordinatorFactory = null!;
     private IWindowPlacementEngine placementEngine = null!;
     private IWindowLifecycleHook placementLifecycleHook = null!;
+    private IPlacementWindowService placementWindowService = null!;
+    private IWindowSelectionService windowSelectionService = null!;
+    private Action reactivateMainWindow = null!;
     private Action cancelStartup = null!;
     private Action shutdownApplication = null!;
     private DispatcherTimer cursorTimer = null!;
@@ -45,6 +49,7 @@ public sealed class ApplicationController : IDisposable
     private bool disposed;
     private bool placementsInitialized;
     private int safetyStopped;
+    private readonly CancellationTokenSource placementUiCancellation = new();
 
     public ApplicationController(
         MainWindow window,
@@ -105,6 +110,9 @@ public sealed class ApplicationController : IDisposable
         dragCoordinatorFactory = dependencies.DragCoordinatorFactory;
         placementEngine = dependencies.PlacementEngine;
         placementLifecycleHook = dependencies.PlacementLifecycleHook;
+        placementWindowService = dependencies.PlacementWindowService ?? new WindowsPlacementWindowService();
+        windowSelectionService = dependencies.WindowSelectionService ?? new WindowSelectionService(placementWindowService);
+        reactivateMainWindow = dependencies.ReactivateMainWindow ?? ReactivateMainWindow;
         cancelStartup = dependencies.CancelStartup;
         shutdownApplication = dependencies.ShutdownApplication;
         cursorTimer = new DispatcherTimer(DispatcherPriority.Input, window.Dispatcher)
@@ -121,7 +129,13 @@ public sealed class ApplicationController : IDisposable
         hotkeys.ProfileRequested += ActivateProfile;
         hotkeys.EmergencyStopRequested += Hotkeys_EmergencyStopRequested;
         placementLifecycleHook.EmergencyStopped += PlacementLifecycleHook_EmergencyStopped;
+        placementEngine.CatalogChanged += PlacementEngine_CatalogChanged;
+        viewModel.WindowPlacement.ApplyNowRequested += PlacementApplyNowRequested;
+        viewModel.WindowPlacement.ForgetRequested += PlacementForgetRequested;
+        viewModel.WindowPlacement.SelectWindowRequested += PlacementSelectWindowRequested;
         window.Closing += Window_Closing;
+
+        viewModel.WindowPlacement.ReplaceCatalog(placementEngine.Catalog);
 
         Reconfigure();
     }
@@ -163,6 +177,7 @@ public sealed class ApplicationController : IDisposable
 
             placementEngine.Stop();
             placementEngine.ReplaceCatalog(loadResult.Catalog);
+            viewModel.WindowPlacement.ReplaceCatalog(loadResult.Catalog);
             placementsInitialized = true;
             if (loadResult.RecoveredFromError)
             {
@@ -188,6 +203,7 @@ public sealed class ApplicationController : IDisposable
             Volatile.Write(ref safetyStopped, 1);
         }
         allowClose = true;
+        placementUiCancellation.Cancel();
         cursorTimer.Stop();
         cursorTimer.Tick -= CursorTimer_Tick;
         lock (lifecycleGate)
@@ -196,6 +212,10 @@ public sealed class ApplicationController : IDisposable
             moveHook.Disable();
         }
         placementLifecycleHook.EmergencyStopped -= PlacementLifecycleHook_EmergencyStopped;
+        placementEngine.CatalogChanged -= PlacementEngine_CatalogChanged;
+        viewModel.WindowPlacement.ApplyNowRequested -= PlacementApplyNowRequested;
+        viewModel.WindowPlacement.ForgetRequested -= PlacementForgetRequested;
+        viewModel.WindowPlacement.SelectWindowRequested -= PlacementSelectWindowRequested;
         moveHook.MoveStarted -= MoveStarted;
         moveHook.MoveEnded -= MoveHook_MoveEnded;
         moveHook.EmergencyStopped -= MoveHook_EmergencyStopped;
@@ -216,6 +236,7 @@ public sealed class ApplicationController : IDisposable
         saveCoordinator.Dispose();
         window.ExportConfigurationRequested -= ExportConfigurationAsync;
         window.ImportConfigurationRequested -= ImportConfigurationAsync;
+        placementUiCancellation.Dispose();
     }
 
     private void SaveRequested(SnapConfiguration newConfiguration)
@@ -481,6 +502,109 @@ public sealed class ApplicationController : IDisposable
 
     private void PlacementLifecycleHook_EmergencyStopped(string reason) =>
         EmergencyStop($"Fensterplatzierung gestoppt: {reason}");
+
+    private void PlacementEngine_CatalogChanged(WindowPlacementCatalog catalog)
+    {
+        if (window.Dispatcher.CheckAccess())
+        {
+            viewModel.WindowPlacement.ReplaceCatalog(catalog);
+            return;
+        }
+
+        _ = window.Dispatcher.InvokeAsync(() => viewModel.WindowPlacement.ReplaceCatalog(catalog));
+    }
+
+    private async void PlacementApplyNowRequested(WindowIdentity identity)
+    {
+        try
+        {
+            await placementEngine.ApplyNowAsync(identity, placementUiCancellation.Token);
+            viewModel.StatusMessage = "Fensterplatzierung angewendet";
+        }
+        catch (OperationCanceledException) when (placementUiCancellation.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            log("ERROR", "Die Fensterplatzierung konnte nicht angewendet werden.", exception);
+            viewModel.StatusMessage = $"Fensterplatzierung fehlgeschlagen: {exception.Message}";
+        }
+    }
+
+    private void PlacementForgetRequested(WindowIdentity identity)
+    {
+        try
+        {
+            placementEngine.Forget(identity);
+            viewModel.StatusMessage = "Gelernte Fensterplatzierung vergessen";
+        }
+        catch (Exception exception)
+        {
+            log("ERROR", "Die gelernte Fensterplatzierung konnte nicht vergessen werden.", exception);
+            viewModel.StatusMessage = $"Vergessen fehlgeschlagen: {exception.Message}";
+        }
+    }
+
+    private async void PlacementSelectWindowRequested()
+    {
+        viewModel.StatusMessage = "Zielfenster auswählen";
+        try
+        {
+            var windowHandle = await windowSelectionService.SelectNextAsync(
+                Environment.ProcessId,
+                TimeSpan.FromSeconds(10),
+                placementUiCancellation.Token);
+            if (windowHandle == 0)
+            {
+                viewModel.StatusMessage = "Kein Zielfenster ausgewählt";
+                return;
+            }
+
+            var snapshot = placementWindowService.Inspect(windowHandle, Environment.ProcessId);
+            if (snapshot is null)
+            {
+                viewModel.StatusMessage = "Zielfenster nicht lesbar";
+                return;
+            }
+
+            var learned = viewModel.WindowPlacement.SelectIdentity(snapshot.Identity);
+            var kind = WindowPlacementItemViewModel.WindowKindTextFor(snapshot.Identity.Kind);
+            viewModel.StatusMessage = learned
+                ? $"Zielfenster ausgewählt: {kind}"
+                : $"Zielfenster ausgewählt: {kind}; noch keine Platzierung gelernt";
+        }
+        catch (OperationCanceledException) when (placementUiCancellation.IsCancellationRequested)
+        {
+            viewModel.StatusMessage = "Fensterauswahl abgebrochen";
+        }
+        catch (Exception exception)
+        {
+            log("ERROR", "Das Zielfenster konnte nicht ausgewählt werden.", exception);
+            viewModel.StatusMessage = $"Fensterauswahl fehlgeschlagen: {exception.Message}";
+        }
+        finally
+        {
+            if (!disposed)
+            {
+                reactivateMainWindow();
+            }
+        }
+    }
+
+    private void ReactivateMainWindow()
+    {
+        if (!window.IsVisible)
+        {
+            window.Show();
+        }
+        if (window.WindowState == System.Windows.WindowState.Minimized)
+        {
+            window.WindowState = System.Windows.WindowState.Normal;
+        }
+
+        _ = window.Activate();
+        _ = window.Focus();
+    }
 
     private void CursorTimer_Tick(object? sender, EventArgs eventArgs)
     {

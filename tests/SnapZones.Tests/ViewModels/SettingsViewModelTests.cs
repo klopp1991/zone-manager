@@ -9,6 +9,15 @@ namespace SnapZones.Tests.ViewModels;
 public sealed class SettingsViewModelTests
 {
     [Fact]
+    public void Default_settings_enable_window_placement_with_an_empty_rule_copy()
+    {
+        var viewModel = new SettingsViewModel(AppSettings.Default(Guid.NewGuid()));
+
+        Assert.True(viewModel.RestoreWindowPlacementEnabled);
+        Assert.Empty(viewModel.WindowPlacementRules);
+    }
+
+    [Fact]
     public void Placement_switch_and_rules_round_trip_without_loss()
     {
         var profileId = Guid.NewGuid();
@@ -34,6 +43,24 @@ public sealed class SettingsViewModelTests
         Assert.False(viewModel.RestoreWindowPlacementEnabled);
         Assert.False(saved.RestoreWindowPlacementEnabled);
         Assert.Equal([rule], saved.EffectiveWindowPlacementRules);
+    }
+
+    [Fact]
+    public void Applying_settings_replaces_the_complete_rule_copy_without_aliasing_the_source_list()
+    {
+        var profileId = Guid.NewGuid();
+        var source = new List<WindowPlacementRule>
+        {
+            new(Guid.NewGuid(), true, "app.exe", "Main", WindowKind.MainWindow, "Title*",
+                WindowPlacementMode.FixedZone, Guid.NewGuid(), "DISPLAY-1", Guid.NewGuid())
+        };
+        var viewModel = new SettingsViewModel(AppSettings.Default(profileId));
+
+        viewModel.Apply(AppSettings.Default(profileId) with { WindowPlacementRules = source });
+        source.Clear();
+
+        Assert.Single(viewModel.WindowPlacementRules);
+        Assert.Equal(viewModel.WindowPlacementRules, viewModel.CreateSettings(profileId).EffectiveWindowPlacementRules);
     }
 
     [Theory]

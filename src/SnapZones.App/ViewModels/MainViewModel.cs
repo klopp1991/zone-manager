@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
 using SnapZones.Core.Profiles;
+using SnapZones.Core.Placement;
 
 namespace SnapZones.App.ViewModels;
 
@@ -14,6 +15,7 @@ public sealed class MainViewModel : ViewModelBase
     private LayoutEditorViewModel? editor;
     private string statusMessage = "Bereit";
     private bool suppressPersistence;
+    private WindowPlacementViewModel? windowPlacement;
 
     public MainViewModel(SnapConfiguration configuration, IReadOnlyList<LiveMonitor> monitors)
     {
@@ -25,6 +27,12 @@ public sealed class MainViewModel : ViewModelBase
         Profiles = new ObservableCollection<LayoutProfile>(profileService.Configuration.Profiles);
         Monitors = [];
         RefreshMonitors();
+        windowPlacement = new WindowPlacementViewModel(
+            WindowPlacementCatalog.Empty,
+            Settings.WindowPlacementRules,
+            Profiles,
+            Monitors);
+        windowPlacement.RulesChanged += WindowPlacement_RulesChanged;
     }
 
     public event Action<SnapConfiguration>? SaveRequested;
@@ -32,6 +40,7 @@ public sealed class MainViewModel : ViewModelBase
     public ObservableCollection<LayoutProfile> Profiles { get; }
     public ObservableCollection<MonitorChoice> Monitors { get; }
     public SettingsViewModel Settings { get; }
+    public WindowPlacementViewModel WindowPlacement => windowPlacement!;
 
     public LayoutProfile SelectedProfile
     {
@@ -170,6 +179,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             profileService = new ProfileService(replacement);
             Settings.Apply(profileService.Configuration.Settings);
+            windowPlacement?.ReplaceRules(Settings.WindowPlacementRules);
             RefreshProfiles();
             selectedProfile = profileService.ActiveProfile;
             OnPropertyChanged(nameof(SelectedProfile));
@@ -197,6 +207,8 @@ public sealed class MainViewModel : ViewModelBase
         {
             Profiles.Add(profile);
         }
+
+        windowPlacement?.ReplaceTargets(Profiles, Monitors);
     }
 
     private void RefreshMonitors()
@@ -219,6 +231,7 @@ public sealed class MainViewModel : ViewModelBase
         ReplaceEditor(selectedMonitor is null ? null : new LayoutEditorViewModel(selectedMonitor.Layout));
         OnPropertyChanged(nameof(SelectedMonitor));
         OnPropertyChanged(nameof(Editor));
+        windowPlacement?.ReplaceTargets(Profiles, Monitors);
     }
 
     private void ReplaceEditor(LayoutEditorViewModel? replacement)
@@ -265,6 +278,9 @@ public sealed class MainViewModel : ViewModelBase
         profileService.UpdateSettings(settings);
         RequestPersistence();
     }
+
+    private void WindowPlacement_RulesChanged(IReadOnlyList<WindowPlacementRule> rules) =>
+        Settings.ReplaceWindowPlacementRules(rules);
 
     private void RequestPersistence()
     {

@@ -307,6 +307,55 @@ public sealed class ThemeResourceTests
     }
 
     [Fact]
+    public void Window_placement_page_is_embedded_themed_and_keeps_technical_values_copyable()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var window = new MainWindow();
+            window.AttachViewModel(new MainViewModel(SnapConfiguration.CreateDefault(), []));
+            window.Left = -10000;
+            window.ShowInTaskbar = false;
+            window.Show();
+            try
+            {
+                var root = Assert.IsType<Grid>(window.Content);
+            var tabs = Assert.Single(root.Children.OfType<TabControl>());
+            var placementTab = tabs.Items.OfType<TabItem>()
+                .Single(item => Equals(item.Header, "Fensterplatzierung"));
+            tabs.SelectedItem = placementTab;
+
+            var automatic = Assert.IsType<CheckBox>(window.FindName("PlacementAutomaticCheckBox"));
+            var select = Assert.IsType<Button>(window.FindName("PlacementSelectButton"));
+            var apply = Assert.IsType<Button>(window.FindName("PlacementApplyButton"));
+            var remember = Assert.IsType<Button>(window.FindName("PlacementRememberButton"));
+            var exclude = Assert.IsType<Button>(window.FindName("PlacementExcludeButton"));
+            var forget = Assert.IsType<Button>(window.FindName("PlacementForgetButton"));
+            var fix = Assert.IsType<Button>(window.FindName("PlacementFixButton"));
+            var applicationKey = Assert.IsType<TextBox>(window.FindName("PlacementApplicationKeyText"));
+            var windowClass = Assert.IsType<TextBox>(window.FindName("PlacementWindowClassText"));
+            var status = Assert.IsType<TextBlock>(window.FindName("PlacementRuleStatusText"));
+            foreach (var button in new[] { apply, remember, exclude, forget, fix })
+            {
+                button.GetBindingExpression(UIElement.IsEnabledProperty)?.UpdateTarget();
+            }
+
+            Assert.NotNull(automatic.GetBindingExpression(ToggleButton.IsCheckedProperty));
+            Assert.True(select.IsEnabled);
+            Assert.All(new[] { apply, remember, exclude, forget, fix }, button => Assert.False(button.IsEnabled));
+            Assert.True(applicationKey.IsReadOnly);
+            Assert.True(windowClass.IsReadOnly);
+            Assert.NotNull(status.GetBindingExpression(TextBlock.TextProperty));
+            Assert.Equal(Application.Current.Resources["SurfaceBrush"],
+                Assert.IsType<Border>(window.FindName("PlacementLearnedCard")).Background);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
     public void Main_window_hides_explanations_behind_accessible_info_buttons()
     {
         WpfThemeHost.Invoke(() =>
