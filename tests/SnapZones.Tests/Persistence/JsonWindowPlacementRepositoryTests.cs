@@ -41,6 +41,52 @@ public sealed class JsonWindowPlacementRepositoryTests
         Assert.Single(Directory.GetFiles(directory.Path, "placements.invalid-*.json"));
     }
 
+    [Fact]
+    public async Task Load_recovers_a_valid_backup_when_the_primary_file_is_missing()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = new JsonWindowPlacementRepository(directory.Path);
+        var expected = new WindowPlacementCatalog(1, [CreateEntry(1)]);
+        await repository.SaveAsync(expected, CancellationToken.None);
+        await repository.SaveAsync(new WindowPlacementCatalog(1, [CreateEntry(2)]), CancellationToken.None);
+        File.Delete(Path.Combine(directory.Path, "placements.json"));
+
+        var loaded = await repository.LoadAsync(CancellationToken.None);
+
+        Assert.True(loaded.RecoveredFromError);
+        Assert.Equal(expected.Entries, loaded.Catalog.Entries);
+        Assert.True(File.Exists(Path.Combine(directory.Path, "placements.json")));
+    }
+
+    [Fact]
+    public async Task Save_deduplicates_window_identities_and_keeps_the_newest_entry()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = new JsonWindowPlacementRepository(directory.Path);
+        var older = CreateEntry(1);
+        var newer = older with { LastUpdatedUtc = older.LastUpdatedUtc.AddMinutes(1) };
+
+        await repository.SaveAsync(new WindowPlacementCatalog(1, [older, newer]), CancellationToken.None);
+        var loaded = await repository.LoadAsync(CancellationToken.None);
+
+        var entry = Assert.Single(loaded.Catalog.Entries);
+        Assert.Equal(newer.LastUpdatedUtc, entry.LastUpdatedUtc);
+    }
+
+    [Fact]
+    public async Task Load_propagates_cancellation_without_creating_an_invalid_file()
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = new JsonWindowPlacementRepository(directory.Path);
+        await repository.SaveAsync(new WindowPlacementCatalog(1, [CreateEntry(1)]), CancellationToken.None);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => repository.LoadAsync(cancellation.Token));
+
+        Assert.Empty(Directory.GetFiles(directory.Path, "placements.invalid-*.json"));
+    }
+
     private static WindowPlacementEntry CreateEntry(int index) => new(
         new WindowIdentity($"C:\\Apps\\App-{index}.exe", $"Class-{index}", WindowKind.MainWindow),
         "DISPLAY-A", null, new MonitorWorkArea(0, 0, 1920, 1080),

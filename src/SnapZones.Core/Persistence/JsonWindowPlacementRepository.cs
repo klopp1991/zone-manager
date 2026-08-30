@@ -24,7 +24,10 @@ public sealed class JsonWindowPlacementRepository : IWindowPlacementRepository
         var primaryPath = Path.Combine(directoryPath, PrimaryFileName);
         if (!File.Exists(primaryPath))
         {
-            return new WindowPlacementLoadResult(WindowPlacementCatalog.Empty, false);
+            var recovered = await RecoverFromBackupAsync(cancellationToken);
+            return recovered is null
+                ? new WindowPlacementLoadResult(WindowPlacementCatalog.Empty, false)
+                : new WindowPlacementLoadResult(recovered, true, "Die Platzierungen wurden aus der Sicherung wiederhergestellt.");
         }
 
         try
@@ -41,26 +44,13 @@ public sealed class JsonWindowPlacementRepository : IWindowPlacementRepository
             var invalidFileName = $"placements.invalid-{DateTimeOffset.UtcNow:yyyyMMdd-HHmmssfff}-{Guid.NewGuid():N}.json";
             File.Move(primaryPath, Path.Combine(directoryPath, invalidFileName));
 
-            var backupPath = Path.Combine(directoryPath, BackupFileName);
-            try
+            var recovered = await RecoverFromBackupAsync(cancellationToken);
+            if (recovered is not null)
             {
-                if (File.Exists(backupPath))
-                {
-                    var backup = await ReadCatalogAsync(backupPath, cancellationToken);
-                    await SaveAsync(backup, cancellationToken);
-                    return new WindowPlacementLoadResult(
-                        backup,
-                        true,
-                        $"Die Platzierungen waren ungültig und wurden als {invalidFileName} gesichert.");
-                }
-            }
-            catch (OperationCanceledException)
-            {
-                throw;
-            }
-            catch (Exception backupException) when (backupException is JsonException or InvalidDataException)
-            {
-                // Die ungültige Sicherung wird nicht als neuer Primärspeicher übernommen.
+                return new WindowPlacementLoadResult(
+                    recovered,
+                    true,
+                    $"Die Platzierungen waren ungültig, wurden als {invalidFileName} gesichert und aus der Sicherung wiederhergestellt.");
             }
 
             return new WindowPlacementLoadResult(
@@ -78,7 +68,12 @@ public sealed class JsonWindowPlacementRepository : IWindowPlacementRepository
 
         var retainedCatalog = new WindowPlacementCatalog(
             WindowPlacementCatalog.CurrentSchemaVersion,
-            catalog.Entries.OrderByDescending(entry => entry.LastUpdatedUtc).Take(MaximumEntries).ToArray());
+            catalog.Entries
+                .OrderByDescending(entry => entry.LastUpdatedUtc)
+                .GroupBy(entry => entry.Identity)
+                .Select(group => group.First())
+                .Take(MaximumEntries)
+                .ToArray());
         var primaryPath = Path.Combine(directoryPath, PrimaryFileName);
         var backupPath = Path.Combine(directoryPath, BackupFileName);
         var temporaryPath = Path.Combine(directoryPath, $"placements.{Guid.NewGuid():N}.tmp");
@@ -127,6 +122,31 @@ public sealed class JsonWindowPlacementRepository : IWindowPlacementRepository
         var catalog = await JsonSerializer.DeserializeAsync<WindowPlacementCatalog>(stream, serializerOptions, cancellationToken);
         Validate(catalog);
         return catalog!;
+    }
+
+    private async Task<WindowPlacementCatalog?> RecoverFromBackupAsync(CancellationToken cancellationToken)
+    {
+        var backupPath = Path.Combine(directoryPath, BackupFileName);
+        if (!File.Exists(backupPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var backup = await ReadCatalogAsync(backupPath, cancellationToken);
+            await SaveAsync(backup, cancellationToken);
+            return backup;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception exception) when (exception is JsonException or InvalidDataException)
+        {
+            // Die ungültige Sicherung wird nicht als neuer Primärspeicher übernommen.
+            return null;
+        }
     }
 
     private static void Validate(WindowPlacementCatalog? catalog)
