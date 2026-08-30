@@ -101,7 +101,7 @@ public sealed class WindowPlacementItemViewModel
             return "Globale Standardregel";
         }
 
-        return rule.Action switch
+        var actionStatus = rule.Action switch
         {
             WindowPlacementMode.Exclude => "Nicht verwalten",
             WindowPlacementMode.RememberLast => "Letzte Platzierung",
@@ -110,6 +110,9 @@ public sealed class WindowPlacementItemViewModel
             WindowPlacementMode.FixedZone => "Feste Zone",
             _ => rule.Action.ToString()
         };
+        return exact.Length > 1 && unconditional.Length == 1
+            ? $"Mehrere Regeln · Regel ohne Titelmuster: {actionStatus}"
+            : actionStatus;
     }
 
     internal static bool IsExactIdentityRule(WindowPlacementRule rule, WindowIdentity identity) =>

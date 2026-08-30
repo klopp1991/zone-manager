@@ -139,6 +139,52 @@ public sealed class WindowSelectionServiceTests
         Assert.Single(resetNative.Registrations);
     }
 
+    [Fact]
+    public async Task Parallel_direct_selections_share_one_atomic_hook_reservation()
+    {
+        var circuit = new WindowSelectionHookCircuit();
+        using var registrationEntered = new ManualResetEventSlim();
+        using var continueRegistration = new ManualResetEventSlim();
+        var firstNative = new RecordingHookApi
+        {
+            RegistrationEntered = registrationEntered,
+            ContinueRegistration = continueRegistration
+        };
+        var firstService = new WindowSelectionService(
+            new RecordingPlacementWindowService(), firstNative, _ => { }, circuit);
+        var secondNative = new RecordingHookApi();
+        var secondService = new WindowSelectionService(
+            new RecordingPlacementWindowService(), secondNative, _ => { }, circuit);
+        var first = Task.Run(() => firstService.SelectNextAsync(123, TimeSpan.Zero, CancellationToken.None));
+        Assert.True(registrationEntered.Wait(TimeSpan.FromSeconds(10)));
+
+        var second = await secondService.SelectNextAsync(123, TimeSpan.Zero, CancellationToken.None);
+        continueRegistration.Set();
+        _ = await first;
+
+        Assert.Equal(nint.Zero, second);
+        Assert.Single(firstNative.Registrations);
+        Assert.Empty(secondNative.Registrations);
+    }
+
+    [Fact]
+    public async Task Normal_unhook_releases_the_shared_reservation_for_the_next_selection()
+    {
+        var circuit = new WindowSelectionHookCircuit();
+        var firstNative = new RecordingHookApi();
+        var firstService = new WindowSelectionService(
+            new RecordingPlacementWindowService(), firstNative, _ => { }, circuit);
+        var secondNative = new RecordingHookApi();
+        var secondService = new WindowSelectionService(
+            new RecordingPlacementWindowService(), secondNative, _ => { }, circuit);
+
+        _ = await firstService.SelectNextAsync(123, TimeSpan.Zero, CancellationToken.None);
+        _ = await secondService.SelectNextAsync(123, TimeSpan.Zero, CancellationToken.None);
+
+        Assert.Single(firstNative.Registrations);
+        Assert.Single(secondNative.Registrations);
+    }
+
     private sealed class RecordingHookApi : IWinEventHookApi
     {
         private User32.WinEventProc? callback;
@@ -147,6 +193,8 @@ public sealed class WindowSelectionServiceTests
         public List<Registration> Registrations { get; } = [];
         public int UnhookCalls { get; private set; }
         public WeakReference<User32.WinEventProc>? CallbackReference { get; private set; }
+        public ManualResetEventSlim? RegistrationEntered { get; init; }
+        public ManualResetEventSlim? ContinueRegistration { get; init; }
 
         public nint SetWinEventHook(
             uint eventMinimum,
@@ -160,6 +208,12 @@ public sealed class WindowSelectionServiceTests
             this.callback = callback;
             CallbackReference = new(callback);
             Registrations.Add(new(eventMinimum, eventMaximum, flags));
+            RegistrationEntered?.Set();
+            if (ContinueRegistration is not null && !ContinueRegistration.Wait(TimeSpan.FromSeconds(10)))
+            {
+                throw new TimeoutException("Die Testfreigabe für die Hook-Registrierung blieb aus.");
+            }
+
             return RegistrationHandle;
         }
 

@@ -54,84 +54,102 @@ public sealed class WindowSelectionService : IWindowSelectionService
         {
             throw new ArgumentOutOfRangeException(nameof(timeout));
         }
-        if (hookCircuit.IsOpen)
+        if (!hookCircuit.TryReserve())
         {
-            ReportCleanupFailure("Die Fensterwahl bleibt nach einem Hook-Cleanup-Fehler deaktiviert.");
+            ReportCleanupFailure(hookCircuit.IsTripped
+                ? "Die Fensterwahl bleibt nach einem Hook-Cleanup-Fehler deaktiviert."
+                : "Eine Fensterwahl läuft bereits.");
             return 0;
         }
 
-        var completion = new TaskCompletionSource<nint>(TaskCreationOptions.RunContinuationsAsynchronously);
-        var callbackActive = 1;
-        User32.WinEventProc callback = (_, eventType, window, _, _, _, _) =>
+        var reservationCompleted = false;
+        try
         {
-            if (Volatile.Read(ref callbackActive) == 0 ||
-                eventType != EventSystemForeground ||
-                window == 0 ||
-                completion.Task.IsCompleted)
+            var completion = new TaskCompletionSource<nint>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var callbackActive = 1;
+            User32.WinEventProc callback = (_, eventType, window, _, _, _, _) =>
             {
-                return;
+                if (Volatile.Read(ref callbackActive) == 0 ||
+                    eventType != EventSystemForeground ||
+                    window == 0 ||
+                    completion.Task.IsCompleted)
+                {
+                    return;
+                }
+
+                try
+                {
+                    if (windows.Inspect(window, ownProcessId) is not null)
+                    {
+                        completion.TrySetResult(window);
+                    }
+                }
+                catch (Exception)
+                {
+                    // Nicht lesbare oder inzwischen geschlossene Fenster werden ignoriert.
+                }
+            };
+
+            var hook = nativeApi.SetWinEventHook(
+                EventSystemForeground,
+                EventSystemForeground,
+                0,
+                callback,
+                0,
+                0,
+                User32.WinEventOutOfContext);
+            if (hook == 0)
+            {
+                Volatile.Write(ref callbackActive, 0);
+                return 0;
             }
 
             try
             {
-                if (windows.Inspect(window, ownProcessId) is not null)
-                {
-                    completion.TrySetResult(window);
-                }
+                return await completion.Task.WaitAsync(timeout, cancellationToken).ConfigureAwait(false);
             }
-            catch (Exception)
+            catch (TimeoutException)
             {
-                // Nicht lesbare oder inzwischen geschlossene Fenster werden ignoriert.
+                return 0;
             }
-        };
+            catch (OperationCanceledException)
+            {
+                return 0;
+            }
+            finally
+            {
+                Volatile.Write(ref callbackActive, 0);
+                var released = false;
+                string? cleanupFailure = null;
+                try
+                {
+                    released = nativeApi.UnhookWinEvent(hook);
+                }
+                catch (Exception exception)
+                {
+                    cleanupFailure = $"Der Fensterwahl-Hook konnte nicht gelöst werden: {exception.Message}";
+                }
 
-        var hook = nativeApi.SetWinEventHook(
-            EventSystemForeground,
-            EventSystemForeground,
-            0,
-            callback,
-            0,
-            0,
-            User32.WinEventOutOfContext);
-        if (hook == 0)
-        {
-            Volatile.Write(ref callbackActive, 0);
-            return 0;
-        }
+                if (released)
+                {
+                    hookCircuit.Release();
+                }
+                else
+                {
+                    hookCircuit.Trip(callback);
+                    ReportCleanupFailure(cleanupFailure ?? "Der Fensterwahl-Hook konnte nicht gelöst werden und bleibt deaktiviert.");
+                }
 
-        try
-        {
-            return await completion.Task.WaitAsync(timeout, cancellationToken).ConfigureAwait(false);
-        }
-        catch (TimeoutException)
-        {
-            return 0;
-        }
-        catch (OperationCanceledException)
-        {
-            return 0;
+                reservationCompleted = true;
+                GC.KeepAlive(callback);
+            }
         }
         finally
         {
-            Volatile.Write(ref callbackActive, 0);
-            var released = false;
-            string? cleanupFailure = null;
-            try
+            if (!reservationCompleted)
             {
-                released = nativeApi.UnhookWinEvent(hook);
+                hookCircuit.Release();
             }
-            catch (Exception exception)
-            {
-                cleanupFailure = $"Der Fensterwahl-Hook konnte nicht gelöst werden: {exception.Message}";
-            }
-
-            if (!released)
-            {
-                hookCircuit.Trip(callback);
-                ReportCleanupFailure(cleanupFailure ?? "Der Fensterwahl-Hook konnte nicht gelöst werden und bleibt deaktiviert.");
-            }
-
-            GC.KeepAlive(callback);
         }
     }
 
@@ -150,24 +168,33 @@ public sealed class WindowSelectionService : IWindowSelectionService
 
 internal sealed class WindowSelectionHookCircuit
 {
+    private const int Available = 0;
+    private const int Reserved = 1;
+    private const int Tripped = 2;
     private readonly object synchronization = new();
     private User32.WinEventProc? retainedCallback;
-    private int open;
+    private int state;
 
-    public bool IsOpen => Volatile.Read(ref open) != 0;
+    public bool IsTripped => Volatile.Read(ref state) == Tripped;
+
+    public bool TryReserve() =>
+        Interlocked.CompareExchange(ref state, Reserved, Available) == Available;
+
+    public void Release() =>
+        _ = Interlocked.CompareExchange(ref state, Available, Reserved);
 
     public void Trip(User32.WinEventProc callback)
     {
         ArgumentNullException.ThrowIfNull(callback);
         lock (synchronization)
         {
-            if (open != 0)
+            if (state == Tripped)
             {
                 return;
             }
 
             retainedCallback = callback;
-            Volatile.Write(ref open, 1);
+            Volatile.Write(ref state, Tripped);
         }
     }
 
@@ -176,7 +203,7 @@ internal sealed class WindowSelectionHookCircuit
         lock (synchronization)
         {
             retainedCallback = null;
-            Volatile.Write(ref open, 0);
+            Volatile.Write(ref state, Available);
         }
     }
 }

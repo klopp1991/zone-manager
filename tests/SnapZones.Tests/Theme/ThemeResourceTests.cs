@@ -335,6 +335,7 @@ public sealed class ThemeResourceTests
             var applicationKey = Assert.IsType<TextBox>(window.FindName("PlacementApplicationKeyText"));
             var windowClass = Assert.IsType<TextBox>(window.FindName("PlacementWindowClassText"));
             var status = Assert.IsType<TextBlock>(window.FindName("PlacementRuleStatusText"));
+            var editorStatus = Assert.IsType<TextBlock>(window.FindName("PlacementRuleEditorStatusText"));
             var operationStatus = Assert.IsType<TextBox>(window.FindName("PlacementOperationStatusText"));
             var placementScroller = Assert.IsType<ScrollViewer>(window.FindName("PlacementScroller"));
             foreach (var button in new[] { apply, remember, exclude, forget, fix })
@@ -348,6 +349,13 @@ public sealed class ThemeResourceTests
             Assert.True(applicationKey.IsReadOnly);
             Assert.True(windowClass.IsReadOnly);
             Assert.NotNull(status.GetBindingExpression(TextBlock.TextProperty));
+            Assert.NotNull(editorStatus.GetBindingExpression(TextBlock.TextProperty));
+            foreach (var button in new[] { remember, exclude, fix })
+            {
+                Assert.Equal(
+                    "WindowPlacement.CanSaveRule",
+                    button.GetBindingExpression(UIElement.IsEnabledProperty)!.ParentBinding.Path.Path);
+            }
             Assert.True(operationStatus.IsReadOnly);
             Assert.Equal(BindingMode.OneWay,
                 operationStatus.GetBindingExpression(TextBox.TextProperty)!.ParentBinding.Mode);

@@ -16,6 +16,8 @@ public sealed class WindowPlacementViewModel : ViewModelBase
     private ZoneDefinition? selectedTargetZone;
     private WindowPlacementMode? selectedRuleMode;
     private string titlePattern = string.Empty;
+    private string ruleEditorStatusText = string.Empty;
+    private bool ruleEditorSelectorAmbiguous;
     private bool loadingRuleEditor;
 
     public WindowPlacementViewModel(
@@ -50,11 +52,19 @@ public sealed class WindowPlacementViewModel : ViewModelBase
             }
 
             OnPropertyChanged(nameof(HasSelection));
+            OnPropertyChanged(nameof(CanSaveRule));
             LoadRuleEditor();
         }
     }
 
     public bool HasSelection => SelectedItem is not null;
+    public bool CanSaveRule => HasSelection && !ruleEditorSelectorAmbiguous;
+
+    public string RuleEditorStatusText
+    {
+        get => ruleEditorStatusText;
+        private set => SetProperty(ref ruleEditorStatusText, value);
+    }
 
     public WindowPlacementMode? SelectedRuleMode
     {
@@ -99,7 +109,16 @@ public sealed class WindowPlacementViewModel : ViewModelBase
     public string TitlePattern
     {
         get => titlePattern;
-        set => SetProperty(ref titlePattern, value ?? string.Empty);
+        set
+        {
+            var normalized = WindowPlacementItemViewModel.NormalizeTitlePattern(value) ?? string.Empty;
+            if (!SetProperty(ref titlePattern, normalized) || loadingRuleEditor)
+            {
+                return;
+            }
+
+            LoadRuleEditorForCurrentPattern();
+        }
     }
 
     public event Action<IReadOnlyList<WindowPlacementRule>>? RulesChanged;
@@ -113,6 +132,11 @@ public sealed class WindowPlacementViewModel : ViewModelBase
 
     public void FixSelectedToZone()
     {
+        if (!CanSaveRule)
+        {
+            return;
+        }
+
         var profile = SelectedTargetProfile;
         var monitor = SelectedTargetMonitor;
         var zone = SelectedTargetZone;
@@ -250,6 +274,10 @@ public sealed class WindowPlacementViewModel : ViewModelBase
         {
             return;
         }
+        if (!CanSaveRule)
+        {
+            return;
+        }
 
         var normalizedPattern = WindowPlacementItemViewModel.NormalizeTitlePattern(TitlePattern);
         var exactIndexes = rules
@@ -286,6 +314,7 @@ public sealed class WindowPlacementViewModel : ViewModelBase
         OnPropertyChanged(nameof(Rules));
         RebuildItems(item.Identity);
         SelectedRuleMode = action;
+        LoadRuleEditorForCurrentPattern();
         RulesChanged?.Invoke(rules);
     }
 
@@ -309,7 +338,87 @@ public sealed class WindowPlacementViewModel : ViewModelBase
         var matchingRules = SelectedItem is { } item
             ? rules.Where(candidate => WindowPlacementItemViewModel.IsExactIdentityRule(candidate, item.Identity)).ToArray()
             : [];
-        var rule = matchingRules.Length == 1 ? matchingRules[0] : null;
+        if (matchingRules.Length <= 1)
+        {
+            LoadRuleIntoEditor(matchingRules.SingleOrDefault(), string.Empty, useDefaultsWhenMissing: true);
+            return;
+        }
+
+        var unconditional = matchingRules
+            .Where(rule => WindowPlacementItemViewModel.NormalizeTitlePattern(rule.TitlePattern) is null)
+            .ToArray();
+        if (unconditional.Length == 1)
+        {
+            LoadRuleIntoEditor(
+                unconditional[0],
+                "Mehrere Regeln vorhanden; Regel ohne Titelmuster wird bearbeitet",
+                useDefaultsWhenMissing: false);
+            return;
+        }
+
+        ClearRuleEditor(
+            "Mehrere Regeln vorhanden; eindeutiges Titelmuster zum Bearbeiten eingeben",
+            selectorAmbiguous: true);
+    }
+
+    private void LoadRuleEditorForCurrentPattern()
+    {
+        if (SelectedItem is not { } item)
+        {
+            SetRuleEditorAmbiguity(false);
+            RuleEditorStatusText = string.Empty;
+            return;
+        }
+
+        var identityRules = rules
+            .Where(candidate => WindowPlacementItemViewModel.IsExactIdentityRule(candidate, item.Identity))
+            .ToArray();
+        if (identityRules.Length <= 1)
+        {
+            SetRuleEditorAmbiguity(false);
+            return;
+        }
+
+        var normalizedPattern = WindowPlacementItemViewModel.NormalizeTitlePattern(TitlePattern);
+        var exact = identityRules
+            .Where(rule => WindowPlacementItemViewModel.IsSameSelector(rule, item.Identity, normalizedPattern))
+            .ToArray();
+        if (exact.Length == 1)
+        {
+            var description = normalizedPattern is null
+                ? "Mehrere Regeln vorhanden; Regel ohne Titelmuster wird bearbeitet"
+                : $"Mehrere Regeln vorhanden; Titelmuster «{normalizedPattern}» wird bearbeitet";
+            LoadRuleIntoEditor(exact[0], description, useDefaultsWhenMissing: false);
+            return;
+        }
+
+        if (exact.Length > 1)
+        {
+            ClearRuleEditor(
+                "Mehrere Regeln für dieses Titelmuster vorhanden; Speichern ist deaktiviert",
+                selectorAmbiguous: true);
+            return;
+        }
+
+        if (normalizedPattern is not null)
+        {
+            ClearRuleEditor(
+                "Neue Regel für das eingegebene Titelmuster",
+                selectorAmbiguous: false,
+                normalizedPattern);
+            return;
+        }
+
+        ClearRuleEditor(
+            "Mehrere Regeln vorhanden; eindeutiges Titelmuster zum Bearbeiten eingeben",
+            selectorAmbiguous: true);
+    }
+
+    private void LoadRuleIntoEditor(
+        WindowPlacementRule? rule,
+        string statusText,
+        bool useDefaultsWhenMissing)
+    {
         loadingRuleEditor = true;
         try
         {
@@ -319,7 +428,10 @@ public sealed class WindowPlacementViewModel : ViewModelBase
                 rule?.ProfileId,
                 rule?.MonitorStableId,
                 rule?.ZoneId,
-                requirePreferredTarget: rule?.Action == WindowPlacementMode.FixedZone);
+                requirePreferredTarget: rule?.Action == WindowPlacementMode.FixedZone,
+                useDefaultsWhenMissing);
+            RuleEditorStatusText = statusText;
+            SetRuleEditorAmbiguity(false);
         }
         finally
         {
@@ -327,11 +439,43 @@ public sealed class WindowPlacementViewModel : ViewModelBase
         }
     }
 
+    private void ClearRuleEditor(
+        string statusText,
+        bool selectorAmbiguous,
+        string normalizedPattern = "")
+    {
+        loadingRuleEditor = true;
+        try
+        {
+            SelectedRuleMode = null;
+            TitlePattern = normalizedPattern;
+            RefreshTargetProfiles(null, null, null, requirePreferredTarget: false, useDefaultsWhenMissing: false);
+            RuleEditorStatusText = statusText;
+            SetRuleEditorAmbiguity(selectorAmbiguous);
+        }
+        finally
+        {
+            loadingRuleEditor = false;
+        }
+    }
+
+    private void SetRuleEditorAmbiguity(bool ambiguous)
+    {
+        if (ruleEditorSelectorAmbiguous == ambiguous)
+        {
+            return;
+        }
+
+        ruleEditorSelectorAmbiguous = ambiguous;
+        OnPropertyChanged(nameof(CanSaveRule));
+    }
+
     private void RefreshTargetProfiles(
         Guid? preferredProfileId,
         string? preferredMonitorId,
         Guid? preferredZoneId,
-        bool requirePreferredTarget = false)
+        bool requirePreferredTarget = false,
+        bool useDefaultsWhenMissing = true)
     {
         TargetProfiles.Clear();
         foreach (var profile in profiles)
@@ -340,7 +484,9 @@ public sealed class WindowPlacementViewModel : ViewModelBase
         }
 
         selectedTargetProfile = TargetProfiles.FirstOrDefault(profile => profile.Id == preferredProfileId);
-        if (selectedTargetProfile is null && !(requirePreferredTarget && preferredProfileId is not null))
+        if (selectedTargetProfile is null &&
+            useDefaultsWhenMissing &&
+            !(requirePreferredTarget && preferredProfileId is not null))
         {
             selectedTargetProfile = TargetProfiles.FirstOrDefault();
         }

@@ -83,6 +83,104 @@ public sealed class WindowPlacementViewModelTests
     }
 
     [Fact]
+    public void Mixed_rules_load_the_unconditional_fixed_target_and_unchanged_save_is_idempotent()
+    {
+        var identity = Identity("editor.exe", "EditorMain");
+        var baseline = CreateViewModel();
+        var profile = Assert.Single(baseline.TargetProfiles);
+        var monitor = Assert.Single(baseline.TargetMonitors);
+        var zone = Assert.Single(baseline.TargetZones);
+        var unconditional = Rule(identity, WindowPlacementMode.FixedZone) with
+        {
+            ProfileId = profile.Id,
+            MonitorStableId = monitor.Live.Identity.StableId,
+            ZoneId = zone.Id
+        };
+        var titled = Rule(identity, WindowPlacementMode.Exclude) with { TitlePattern = "Report*" };
+        var viewModel = CreateViewModel([unconditional, titled]);
+        var changes = 0;
+        viewModel.RulesChanged += _ => changes++;
+
+        viewModel.SelectedItem = viewModel.Items.Single(item => item.Identity == identity);
+
+        Assert.Equal(WindowPlacementMode.FixedZone, viewModel.SelectedRuleMode);
+        Assert.Equal(string.Empty, viewModel.TitlePattern);
+        Assert.Equal(profile.Id, viewModel.SelectedTargetProfile!.Id);
+        Assert.Equal(monitor.Live.Identity.StableId, viewModel.SelectedTargetMonitor!.Live.Identity.StableId);
+        Assert.Equal(zone.Id, viewModel.SelectedTargetZone!.Id);
+        Assert.Contains("Mehrere Regeln", viewModel.RuleEditorStatusText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("ohne Titelmuster", viewModel.RuleEditorStatusText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Mehrere", viewModel.SelectedItem.RuleStatusText, StringComparison.OrdinalIgnoreCase);
+
+        viewModel.FixSelectedToZone();
+
+        Assert.Equal(0, changes);
+        Assert.Same(unconditional, viewModel.Rules.Single(rule => rule.Id == unconditional.Id));
+        Assert.Same(titled, viewModel.Rules.Single(rule => rule.Id == titled.Id));
+    }
+
+    [Fact]
+    public void Multiple_title_only_rules_clear_default_targets_and_block_an_unconditional_save()
+    {
+        var identity = Identity("editor.exe", "EditorMain");
+        var report = Rule(identity, WindowPlacementMode.Exclude) with { TitlePattern = "Report*" };
+        var invoice = Rule(identity, WindowPlacementMode.RememberLast) with { TitlePattern = "Invoice*" };
+        var viewModel = CreateViewModel([report, invoice]);
+        var changes = 0;
+        viewModel.RulesChanged += _ => changes++;
+
+        viewModel.SelectedItem = viewModel.Items.Single(item => item.Identity == identity);
+
+        Assert.False(viewModel.CanSaveRule);
+        Assert.Contains("Titelmuster", viewModel.RuleEditorStatusText, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(viewModel.SelectedTargetProfile);
+        Assert.Null(viewModel.SelectedTargetMonitor);
+        Assert.Null(viewModel.SelectedTargetZone);
+
+        viewModel.ExcludeSelected();
+
+        Assert.Equal(0, changes);
+        Assert.Equal(2, viewModel.Rules.Count);
+        Assert.DoesNotContain(viewModel.Rules, rule => string.IsNullOrWhiteSpace(rule.TitlePattern));
+    }
+
+    [Fact]
+    public void Entering_an_exact_title_pattern_loads_and_updates_only_that_selector()
+    {
+        var identity = Identity("editor.exe", "EditorMain");
+        var baseline = CreateViewModel();
+        var profile = Assert.Single(baseline.TargetProfiles);
+        var monitor = Assert.Single(baseline.TargetMonitors);
+        var zone = Assert.Single(baseline.TargetZones);
+        var report = Rule(identity, WindowPlacementMode.FixedZone) with
+        {
+            TitlePattern = "Report*",
+            ProfileId = profile.Id,
+            MonitorStableId = monitor.Live.Identity.StableId,
+            ZoneId = zone.Id
+        };
+        var invoice = Rule(identity, WindowPlacementMode.Exclude) with { TitlePattern = "Invoice*" };
+        var viewModel = CreateViewModel([report, invoice]);
+        viewModel.SelectedItem = viewModel.Items.Single(item => item.Identity == identity);
+
+        viewModel.TitlePattern = " Report* ";
+
+        Assert.True(viewModel.CanSaveRule);
+        Assert.Equal("Report*", viewModel.TitlePattern);
+        Assert.Equal(WindowPlacementMode.FixedZone, viewModel.SelectedRuleMode);
+        Assert.Equal(profile.Id, viewModel.SelectedTargetProfile!.Id);
+        Assert.Equal(monitor.Live.Identity.StableId, viewModel.SelectedTargetMonitor!.Live.Identity.StableId);
+        Assert.Equal(zone.Id, viewModel.SelectedTargetZone!.Id);
+
+        viewModel.RememberSelected();
+
+        var updated = viewModel.Rules.Single(rule => rule.TitlePattern == "Report*");
+        Assert.Equal(report.Id, updated.Id);
+        Assert.Equal(WindowPlacementMode.RememberLast, updated.Action);
+        Assert.Same(invoice, viewModel.Rules.Single(rule => rule.Id == invoice.Id));
+    }
+
+    [Fact]
     public void Fixed_zone_uses_the_selected_profile_monitor_zone_and_optional_title_pattern()
     {
         var viewModel = CreateViewModel();

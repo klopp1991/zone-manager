@@ -369,9 +369,9 @@
                                         <Button x:Name="PlacementApplyButton" Content="Jetzt anwenden" Click="PlacementApply_Click"
                                                 IsEnabled="{Binding WindowPlacement.HasSelection}" Style="{StaticResource PrimaryButton}" />
                                         <Button x:Name="PlacementRememberButton" Content="Letzte Platzierung" Click="PlacementRemember_Click"
-                                                IsEnabled="{Binding WindowPlacement.HasSelection}" />
+                                                IsEnabled="{Binding WindowPlacement.CanSaveRule}" />
                                         <Button x:Name="PlacementExcludeButton" Content="Nicht verwalten" Click="PlacementExclude_Click"
-                                                IsEnabled="{Binding WindowPlacement.HasSelection}" />
+                                                IsEnabled="{Binding WindowPlacement.CanSaveRule}" />
                                         <Button x:Name="PlacementForgetButton" Content="Vergessen" Click="PlacementForget_Click"
                                                 IsEnabled="{Binding WindowPlacement.HasSelection}" />
                                     </WrapPanel>
@@ -389,11 +389,15 @@
                                               DisplayMemberPath="Name" Margin="0,8,0,0"
                                               AutomationProperties.Name="Zielzone" />
                                     <Button x:Name="PlacementFixButton" Content="Feste Zone speichern" Click="PlacementFix_Click"
-                                            IsEnabled="{Binding WindowPlacement.HasSelection}" Margin="0,10,0,8" />
+                                            IsEnabled="{Binding WindowPlacement.CanSaveRule}" Margin="0,10,0,8" />
 
                                     <TextBlock Text="Optionales Titelmuster" Style="{StaticResource FieldLabel}" Margin="0,10,0,5" />
                                     <TextBox Text="{Binding WindowPlacement.TitlePattern, UpdateSourceTrigger=PropertyChanged}"
                                              AutomationProperties.Name="Optionales Titelmuster" />
+                                    <TextBlock x:Name="PlacementRuleEditorStatusText"
+                                               Text="{Binding WindowPlacement.RuleEditorStatusText, Mode=OneWay}"
+                                               Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,6,0,0"
+                                               AutomationProperties.Name="Status der Regelbearbeitung" />
 
                                     <TextBlock Text="Technische Werte" Style="{StaticResource FieldLabel}" Margin="0,14,0,5" />
                                     <TextBlock Text="App-Schlüssel" Foreground="{DynamicResource MutedBrush}" FontSize="13" />
