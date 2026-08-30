@@ -285,7 +285,12 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
             throw new InvalidDataException("Die Overlayfarbe muss das Format #RRGGBB besitzen.");
         }
 
-        if (settings.EffectiveWindowPlacementRules.Any(rule => rule is null || string.IsNullOrWhiteSpace(rule.ApplicationKey)))
+        if (settings.EffectiveWindowPlacementRules.Any(rule => rule is null))
+        {
+            throw new InvalidDataException("Fensterplatzierungsregeln dürfen keine leeren Einträge enthalten.");
+        }
+
+        if (settings.EffectiveWindowPlacementRules.Any(rule => string.IsNullOrWhiteSpace(rule.ApplicationKey)))
         {
             throw new InvalidDataException("Fensterplatzierungsregeln benötigen einen Anwendungsschlüssel.");
         }
