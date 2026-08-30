@@ -5,6 +5,8 @@ namespace SnapZones.App.ViewModels;
 public sealed class SettingsViewModel : ViewModelBase
 {
     private bool snappingEnabled;
+    private bool restoreWindowPlacementEnabled;
+    private IReadOnlyList<SnapZones.Core.Placement.WindowPlacementRule> windowPlacementRules;
     private bool startWithWindows;
     private OverlayScope overlayScope;
     private TriggerMode triggerMode;
@@ -24,6 +26,8 @@ public sealed class SettingsViewModel : ViewModelBase
     public SettingsViewModel(AppSettings settings)
     {
         snappingEnabled = settings.SnappingEnabled;
+        restoreWindowPlacementEnabled = settings.RestoreWindowPlacementEnabled;
+        windowPlacementRules = settings.EffectiveWindowPlacementRules.ToArray();
         startWithWindows = settings.StartWithWindows;
         overlayScope = settings.OverlayScope;
         triggerMode = settings.TriggerMode;
@@ -50,6 +54,12 @@ public sealed class SettingsViewModel : ViewModelBase
     {
         get => snappingEnabled;
         set => SetProperty(ref snappingEnabled, value);
+    }
+
+    public bool RestoreWindowPlacementEnabled
+    {
+        get => restoreWindowPlacementEnabled;
+        set => SetProperty(ref restoreWindowPlacementEnabled, value);
     }
 
     public bool StartWithWindows
@@ -199,12 +209,16 @@ public sealed class SettingsViewModel : ViewModelBase
             OuterMarginLeft,
             OuterMarginTop,
             OuterMarginRight,
-            OuterMarginBottom));
+            OuterMarginBottom),
+        RestoreWindowPlacementEnabled: RestoreWindowPlacementEnabled,
+        WindowPlacementRules: windowPlacementRules);
 
     public void Apply(AppSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
         SnappingEnabled = settings.SnappingEnabled;
+        RestoreWindowPlacementEnabled = settings.RestoreWindowPlacementEnabled;
+        windowPlacementRules = settings.EffectiveWindowPlacementRules.ToArray();
         StartWithWindows = settings.StartWithWindows;
         OverlayScope = settings.OverlayScope;
         TriggerMode = settings.TriggerMode;

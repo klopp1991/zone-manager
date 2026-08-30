@@ -25,14 +25,17 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(eventArgs);
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
-        var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SnapZones");
-        var localData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SnapZones", "logs");
-        log = new FileLog(localData);
-        var startupService = new WindowsStartupService(Environment.ProcessPath ?? throw new InvalidOperationException("Der Programmpfad fehlt."));
+        var executablePath = Environment.ProcessPath ?? throw new InvalidOperationException("Der Programmpfad fehlt.");
+        var paths = ApplicationDataPaths.Resolve(
+            executablePath,
+            Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData));
+        log = new FileLog(paths.LogDirectory);
+        var startupService = new WindowsStartupService(executablePath);
 
         if (eventArgs.Args.Contains("--diagnostics", StringComparer.OrdinalIgnoreCase))
         {
-            var exitCode = await DiagnosticRunner.RunAsync(appData, startupService);
+            var exitCode = await DiagnosticRunner.RunAsync(paths.ConfigurationDirectory, startupService);
             Shutdown(exitCode);
             return;
         }
@@ -73,7 +76,9 @@ public partial class App : System.Windows.Application
 
         try
         {
-            var repository = new JsonConfigurationRepository(appData);
+            var repository = new JsonConfigurationRepository(paths.ConfigurationDirectory);
+            var placementRepository = new JsonWindowPlacementRepository(paths.ConfigurationDirectory);
+            var placementLoadTask = placementRepository.LoadAsync(CancellationToken.None);
             var loadResult = await repository.LoadAsync(CancellationToken.None);
             themeService = new ThemeService();
             themeService.Apply(loadResult.Configuration.Settings.ThemeMode);
@@ -87,7 +92,14 @@ public partial class App : System.Windows.Application
             var mainWindow = new MainWindow();
             themeService.Track(mainWindow);
             mainWindow.AttachViewModel(viewModel);
-            controller = new ApplicationController(mainWindow, viewModel, repository, monitors, startupService, log);
+            controller = new ApplicationController(
+                mainWindow,
+                viewModel,
+                repository,
+                placementRepository,
+                monitors,
+                startupService,
+                log);
             singleInstance.ActivationRequested += () =>
             {
                 mainWindow.Show();
@@ -125,6 +137,9 @@ public partial class App : System.Windows.Application
             {
                 mainWindow.Show();
             }
+
+            var placementLoad = await placementLoadTask;
+            controller.InitializeWindowPlacements(placementLoad);
         }
         catch (Exception exception)
         {

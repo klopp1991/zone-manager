@@ -38,6 +38,8 @@ public sealed class WindowDragCoordinatorTests
         var snap = Assert.IsType<SnapWindowAction>(actions[2]);
         Assert.Equal((nint)42, snap.WindowHandle);
         Assert.Equal(new PixelRect(960, 0, 960, 1040), snap.Bounds);
+        Assert.Equal("A", snap.MonitorStableId);
+        Assert.Equal(Guid.Parse("22222222-2222-2222-2222-222222222222"), snap.ZoneId);
     }
 
     [Fact]
@@ -55,6 +57,8 @@ public sealed class WindowDragCoordinatorTests
         Assert.IsType<HideOverlaysAction>(actions[1]);
         var snap = Assert.IsType<SnapWindowAction>(actions[2]);
         Assert.Equal(new PixelRect(960, 0, 960, 1040), snap.Bounds);
+        Assert.Equal("A", snap.MonitorStableId);
+        Assert.Equal(Guid.Parse("22222222-2222-2222-2222-222222222222"), snap.ZoneId);
     }
 
     [Fact]

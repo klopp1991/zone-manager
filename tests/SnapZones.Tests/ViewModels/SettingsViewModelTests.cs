@@ -1,12 +1,41 @@
 using System.Reflection;
 using SnapZones.App.ViewModels;
 using SnapZones.Core.Models;
+using SnapZones.Core.Placement;
 using Xunit;
 
 namespace SnapZones.Tests.ViewModels;
 
 public sealed class SettingsViewModelTests
 {
+    [Fact]
+    public void Placement_switch_and_rules_round_trip_without_loss()
+    {
+        var profileId = Guid.NewGuid();
+        var rule = new WindowPlacementRule(
+            Guid.NewGuid(),
+            true,
+            "app.exe",
+            "WindowClass",
+            WindowKind.MainWindow,
+            null,
+            WindowPlacementMode.Exclude,
+            null,
+            null,
+            null);
+        var viewModel = new SettingsViewModel(AppSettings.Default(profileId) with
+        {
+            RestoreWindowPlacementEnabled = false,
+            WindowPlacementRules = [rule]
+        });
+
+        var saved = viewModel.CreateSettings(profileId);
+
+        Assert.False(viewModel.RestoreWindowPlacementEnabled);
+        Assert.False(saved.RestoreWindowPlacementEnabled);
+        Assert.Equal([rule], saved.EffectiveWindowPlacementRules);
+    }
+
     [Theory]
     [InlineData("ZoneGapPercent", 50.5, 40)]
     [InlineData("MagnetThresholdPercent", 50.5, 20)]

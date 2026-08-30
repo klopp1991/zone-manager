@@ -90,7 +90,11 @@ public sealed class WindowDragCoordinator
         if (hoverTarget is not null && hoverZone is not null)
         {
             var bounds = ZoneGeometry.ToPixels(hoverZone.Bounds, hoverTarget.Monitor.WorkArea);
-            ActionRequested?.Invoke(new SnapWindowAction(windowHandle, bounds));
+            ActionRequested?.Invoke(new SnapWindowAction(
+                windowHandle,
+                bounds,
+                hoverTarget.Monitor.Identity.StableId,
+                hoverZone.Id));
         }
 
         ResetState();

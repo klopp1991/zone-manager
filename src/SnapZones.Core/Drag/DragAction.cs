@@ -10,4 +10,8 @@ public sealed record HighlightZoneAction(string? MonitorId, Guid? ZoneId) : Drag
 
 public sealed record HideOverlaysAction : DragAction;
 
-public sealed record SnapWindowAction(nint WindowHandle, PixelRect Bounds) : DragAction;
+public sealed record SnapWindowAction(
+    nint WindowHandle,
+    PixelRect Bounds,
+    string MonitorStableId,
+    Guid ZoneId) : DragAction;

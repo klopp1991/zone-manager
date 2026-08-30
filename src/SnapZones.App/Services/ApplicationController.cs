@@ -1,7 +1,6 @@
 using System.ComponentModel;
 using System.IO;
 using System.Windows.Threading;
-using SnapZones.App.Overlays;
 using SnapZones.App.ViewModels;
 using SnapZones.App.Views;
 using SnapZones.Core.Drag;
@@ -22,26 +21,31 @@ public sealed class ApplicationController : IDisposable
     private readonly MainViewModel viewModel;
     private readonly IReadOnlyList<LiveMonitor> monitors;
     private readonly IStartupService startupService;
-    private readonly FileLog log;
-    private readonly IWindowMoveHook moveHook;
-    private readonly IGlobalHotkeyService hotkeys;
-    private readonly IWindowService windowService;
-    private readonly OverlayManager overlays;
-    private readonly TrayIconService tray;
-    private readonly ProfileChangedToast toast = new();
-    private readonly DispatcherTimer cursorTimer;
-    private readonly ConfigurationSaveCoordinator saveCoordinator;
+    private Action<string, string, Exception?> log = null!;
+    private IWindowMoveHook moveHook = null!;
+    private IGlobalHotkeyService hotkeys = null!;
+    private IWindowService windowService = null!;
+    private IApplicationOverlayService overlays = null!;
+    private IApplicationTrayService tray = null!;
+    private IApplicationToastService toast = null!;
+    private IWindowDragCoordinatorFactory dragCoordinatorFactory = null!;
+    private IWindowPlacementEngine placementEngine = null!;
+    private IWindowLifecycleHook placementLifecycleHook = null!;
+    private DispatcherTimer cursorTimer = null!;
+    private IConfigurationSaveCoordinator saveCoordinator = null!;
     private readonly ConfigurationTransferService transferService = new();
-    private WindowDragCoordinator? coordinator;
+    private IWindowDragCoordinator? coordinator;
     private SnapConfiguration configuration;
     private int exitRequested;
     private bool allowClose;
     private bool disposed;
+    private bool placementsInitialized;
 
     public ApplicationController(
         MainWindow window,
         MainViewModel viewModel,
-        IConfigurationRepository repository,
+        IConfigurationRepository configurationRepository,
+        IWindowPlacementRepository placementRepository,
         IReadOnlyList<LiveMonitor> monitors,
         IStartupService startupService,
         FileLog log)
@@ -50,48 +54,104 @@ public sealed class ApplicationController : IDisposable
         this.viewModel = viewModel;
         this.monitors = monitors;
         this.startupService = startupService;
-        this.log = log;
-        saveCoordinator = new ConfigurationSaveCoordinator(repository);
-        saveCoordinator.SaveFinished += SaveFinished;
         configuration = viewModel.Configuration;
-        overlays = new OverlayManager();
-        windowService = new WindowsWindowService();
-        moveHook = new WindowMoveHook(
-            SynchronizationContext.Current ?? new DispatcherSynchronizationContext(window.Dispatcher),
-            message => log.Write("DEBUG", message));
-        hotkeys = new GlobalHotkeyService();
+        var dependencies = ApplicationControllerDependencies.CreateDefault(
+            window,
+            configurationRepository,
+            placementRepository,
+            monitors,
+            () => configuration,
+            ActivateProfile,
+            ToggleSnapping,
+            RequestExit,
+            log);
+        Initialize(dependencies);
+    }
+
+    public ApplicationController(
+        MainWindow window,
+        MainViewModel viewModel,
+        IReadOnlyList<LiveMonitor> monitors,
+        IStartupService startupService,
+        ApplicationControllerDependencies dependencies)
+    {
+        this.window = window;
+        this.viewModel = viewModel;
+        this.monitors = monitors;
+        this.startupService = startupService;
+        configuration = viewModel.Configuration;
+        Initialize(dependencies);
+    }
+
+    private void Initialize(ApplicationControllerDependencies dependencies)
+    {
+        ArgumentNullException.ThrowIfNull(dependencies);
+        log = dependencies.Log;
+        saveCoordinator = dependencies.ConfigurationSaveCoordinator;
+        saveCoordinator.SaveFinished += SaveFinished;
+        overlays = dependencies.Overlays;
+        windowService = dependencies.WindowService;
+        moveHook = dependencies.MoveHook;
+        hotkeys = dependencies.Hotkeys;
+        tray = dependencies.Tray;
+        toast = dependencies.Toast;
+        dragCoordinatorFactory = dependencies.DragCoordinatorFactory;
+        placementEngine = dependencies.PlacementEngine;
+        placementLifecycleHook = dependencies.PlacementLifecycleHook;
         cursorTimer = new DispatcherTimer(DispatcherPriority.Input, window.Dispatcher)
         {
             Interval = TimeSpan.FromMilliseconds(33)
         };
         cursorTimer.Tick += CursorTimer_Tick;
-        tray = new TrayIconService(window, ActivateProfile, ToggleSnapping, RequestExit);
-
         viewModel.SaveRequested += SaveRequested;
         window.ExportConfigurationRequested += ExportConfigurationAsync;
         window.ImportConfigurationRequested += ImportConfigurationAsync;
         moveHook.MoveStarted += MoveStarted;
-        moveHook.MoveEnded += _ => MoveEnded();
-        moveHook.EmergencyStopped += reason => EmergencyStop(reason);
+        moveHook.MoveEnded += MoveHook_MoveEnded;
+        moveHook.EmergencyStopped += MoveHook_EmergencyStopped;
         hotkeys.ProfileRequested += ActivateProfile;
-        hotkeys.EmergencyStopRequested += () => EmergencyStop("Not-Aus ausgelöst: Snap-Funktion deaktiviert");
+        hotkeys.EmergencyStopRequested += Hotkeys_EmergencyStopRequested;
+        placementLifecycleHook.EmergencyStopped += PlacementLifecycleHook_EmergencyStopped;
         window.Closing += Window_Closing;
 
-        Reconfigure(configuration);
+        Reconfigure();
     }
 
     public void EmergencyStop(string reason)
     {
+        if (disposed)
+        {
+            return;
+        }
+
         cursorTimer.Stop();
         coordinator?.Cancel();
         overlays.HideAll();
         moveHook.Disable();
+        placementEngine.EmergencyStop();
         viewModel.DisableSnappingForSafety(reason);
         configuration = viewModel.Configuration;
         _ = hotkeys.Configure(QuickSlotRegistrationPlan.Build(configuration), emergencyStopEnabled: false);
         tray.Update(configuration);
-        log.Write("WARN", reason);
+        log("WARN", reason, null);
         saveCoordinator.RequestSave(configuration);
+    }
+
+    public void InitializeWindowPlacements(WindowPlacementLoadResult loadResult)
+    {
+        ArgumentNullException.ThrowIfNull(loadResult);
+        ObjectDisposedException.ThrowIf(disposed, this);
+        placementEngine.Stop();
+        placementEngine.ReplaceCatalog(loadResult.Catalog);
+        placementsInitialized = true;
+        if (loadResult.RecoveredFromError)
+        {
+            var message = loadResult.ErrorMessage ?? "Die Fensterplatzierungen wurden zurückgesetzt.";
+            viewModel.StatusMessage = message;
+            log("WARN", message, null);
+        }
+
+        Reconfigure();
     }
 
     public void Dispose()
@@ -104,14 +164,28 @@ public sealed class ApplicationController : IDisposable
         disposed = true;
         allowClose = true;
         cursorTimer.Stop();
+        cursorTimer.Tick -= CursorTimer_Tick;
+        placementEngine.Stop();
+        placementLifecycleHook.EmergencyStopped -= PlacementLifecycleHook_EmergencyStopped;
+        moveHook.MoveStarted -= MoveStarted;
+        moveHook.MoveEnded -= MoveHook_MoveEnded;
+        moveHook.EmergencyStopped -= MoveHook_EmergencyStopped;
+        hotkeys.ProfileRequested -= ActivateProfile;
+        hotkeys.EmergencyStopRequested -= Hotkeys_EmergencyStopRequested;
+        viewModel.SaveRequested -= SaveRequested;
+        window.Closing -= Window_Closing;
         moveHook.Disable();
         overlays.HideAll();
+        coordinator?.Dispose();
+        coordinator = null;
         tray.Dispose();
         hotkeys.Dispose();
         moveHook.Dispose();
+        placementLifecycleHook.Dispose();
         overlays.Dispose();
-        toast.Close();
+        toast.Dispose();
         saveCoordinator.SaveFinished -= SaveFinished;
+        saveCoordinator.Dispose();
         window.ExportConfigurationRequested -= ExportConfigurationAsync;
         window.ImportConfigurationRequested -= ImportConfigurationAsync;
     }
@@ -119,7 +193,7 @@ public sealed class ApplicationController : IDisposable
     private void SaveRequested(SnapConfiguration newConfiguration)
     {
         configuration = newConfiguration;
-        Reconfigure(configuration);
+        Reconfigure();
         try
         {
             if (startupService.IsEnabled != newConfiguration.Settings.StartWithWindows)
@@ -129,15 +203,19 @@ public sealed class ApplicationController : IDisposable
         }
         catch (Exception exception)
         {
-            log.Write("ERROR", "Die Autostart-Einstellung konnte nicht übernommen werden.", exception);
+            log("ERROR", "Die Autostart-Einstellung konnte nicht übernommen werden.", exception);
             viewModel.StatusMessage = $"Autostart konnte nicht geändert werden: {exception.Message}";
         }
 
         saveCoordinator.RequestSave(newConfiguration);
     }
 
-    public Task FlushAsync(CancellationToken cancellationToken) =>
-        saveCoordinator.FlushAsync(cancellationToken);
+    public async Task FlushAsync(CancellationToken cancellationToken)
+    {
+        var configurationFlush = saveCoordinator.FlushAsync(cancellationToken);
+        var placementFlush = placementEngine.FlushAsync(cancellationToken);
+        await Task.WhenAll(configurationFlush, placementFlush);
+    }
 
     public void RequestExit()
     {
@@ -201,7 +279,7 @@ public sealed class ApplicationController : IDisposable
             startupService.SetEnabled(configuration.Settings.StartWithWindows);
         }
 
-        Reconfigure(configuration);
+        Reconfigure();
         viewModel.StatusMessage = $"Vollbackup importiert: {Path.GetFileName(filePath)}";
     }
 
@@ -215,33 +293,42 @@ public sealed class ApplicationController : IDisposable
                 return;
             }
 
-            log.Write("ERROR", "Konfiguration konnte nicht gespeichert werden.", exception);
+            log("ERROR", "Konfiguration konnte nicht gespeichert werden.", exception);
             viewModel.StatusMessage = $"Speichern fehlgeschlagen: {exception.Message}";
         });
     }
 
-    private void Reconfigure(SnapConfiguration newConfiguration)
+    public void Reconfigure()
     {
+        if (disposed)
+        {
+            return;
+        }
+
+        configuration = viewModel.Configuration;
         cursorTimer.Stop();
         coordinator?.Cancel();
+        coordinator?.Dispose();
+        coordinator = null;
         moveHook.Disable();
-        var active = newConfiguration.Profiles.Single(profile => profile.Id == newConfiguration.Settings.ActiveProfileId);
+        placementEngine.Stop();
+        var active = configuration.Profiles.Single(profile => profile.Id == configuration.Settings.ActiveProfileId);
         var targets = BuildTargets(active);
         overlays.UpdateTargets(targets);
-        coordinator = new WindowDragCoordinator(
+        coordinator = dragCoordinatorFactory.Create(
             targets,
-            newConfiguration.Settings.OverlayScope);
+            configuration.Settings.OverlayScope);
         coordinator.ActionRequested += HandleDragAction;
 
         var hotkeyResult = hotkeys.Configure(
-            QuickSlotRegistrationPlan.Build(newConfiguration),
-            newConfiguration.Settings.SnappingEnabled);
+            QuickSlotRegistrationPlan.Build(configuration),
+            configuration.Settings.SnappingEnabled);
         if (hotkeyResult.Errors.Count > 0)
         {
             viewModel.StatusMessage = string.Join(" ", hotkeyResult.Errors);
         }
 
-        if (newConfiguration.Settings.SnappingEnabled)
+        if (placementsInitialized && configuration.Settings.SnappingEnabled)
         {
             try
             {
@@ -254,7 +341,24 @@ public sealed class ApplicationController : IDisposable
             }
         }
 
-        tray.Update(newConfiguration);
+        if (placementsInitialized && configuration.Settings.RestoreWindowPlacementEnabled)
+        {
+            try
+            {
+                placementEngine.Start();
+            }
+            catch (Exception exception)
+            {
+                EmergencyStop($"Fensterplatzierung konnte nicht aktiviert werden: {exception.Message}");
+                return;
+            }
+        }
+        else
+        {
+            placementEngine.Stop();
+        }
+
+        tray.Update(configuration);
     }
 
     private IReadOnlyList<DragMonitorTarget> BuildTargets(LayoutProfile activeProfile)
@@ -276,7 +380,7 @@ public sealed class ApplicationController : IDisposable
     {
         if (coordinator is null || !windowService.TryGetCursorPosition(out var cursor))
         {
-            log.Write("DEBUG", "Verschiebestart verworfen: Koordinator oder Cursor fehlt.");
+            log("DEBUG", "Verschiebestart verworfen: Koordinator oder Cursor fehlt.", null);
             return;
         }
 
@@ -288,13 +392,13 @@ public sealed class ApplicationController : IDisposable
         var snapshot = windowService.Inspect(windowHandle, cursor, Environment.ProcessId);
         if (snapshot is null)
         {
-            log.Write("DEBUG", $"Verschiebestart verworfen: Fenster 0x{windowHandle:X} ist nicht lesbar.");
+            log("DEBUG", $"Verschiebestart verworfen: Fenster 0x{windowHandle:X} ist nicht lesbar.", null);
             return;
         }
 
-        log.Write("DEBUG", $"Verschiebestart hwnd=0x{windowHandle:X} cursor={cursor.X},{cursor.Y} status={snapshot}");
+        log("DEBUG", $"Verschiebestart hwnd=0x{windowHandle:X} cursor={cursor.X},{cursor.Y} status={snapshot}", null);
         coordinator.Start(windowHandle, snapshot, cursor);
-        log.Write("DEBUG", $"Koordinatorstatus nach Start: {coordinator.State}");
+        log("DEBUG", $"Koordinatorstatus nach Start: {coordinator.State}", null);
         if (coordinator.State == DragState.Tracking)
         {
             cursorTimer.Start();
@@ -304,7 +408,7 @@ public sealed class ApplicationController : IDisposable
     private void MoveEnded()
     {
         cursorTimer.Stop();
-        log.Write("DEBUG", $"Verschiebeende bei Koordinatorstatus {coordinator?.State}.");
+        log("DEBUG", $"Verschiebeende bei Koordinatorstatus {coordinator?.State}.", null);
         if (windowService.TryGetCursorPosition(out var cursor))
         {
             coordinator?.End(cursor);
@@ -314,6 +418,20 @@ public sealed class ApplicationController : IDisposable
             coordinator?.End();
         }
     }
+
+    private void MoveHook_MoveEnded(nint windowHandle)
+    {
+        _ = windowHandle;
+        MoveEnded();
+    }
+
+    private void MoveHook_EmergencyStopped(string reason) => EmergencyStop(reason);
+
+    private void Hotkeys_EmergencyStopRequested() =>
+        EmergencyStop("Not-Aus ausgelöst: Automatik deaktiviert");
+
+    private void PlacementLifecycleHook_EmergencyStopped(string reason) =>
+        EmergencyStop($"Fensterplatzierung gestoppt: {reason}");
 
     private void CursorTimer_Tick(object? sender, EventArgs eventArgs)
     {
@@ -349,13 +467,22 @@ public sealed class ApplicationController : IDisposable
                 overlays.HideAll();
                 break;
             case SnapWindowAction snap:
-                if (windowService.TrySnap(snap.WindowHandle, snap.Bounds))
+                if (!placementsInitialized)
                 {
-                    log.Write("DEBUG", $"Fenster 0x{snap.WindowHandle:X} eingerastet: {snap.Bounds}.");
+                    log("DEBUG", "Fensteraktion vor Abschluss der Platzierungsinitialisierung verworfen.", null);
+                }
+                else if (windowService.TrySnap(snap.WindowHandle, snap.Bounds))
+                {
+                    placementEngine.RememberExplicitZone(
+                        snap.WindowHandle,
+                        configuration.Settings.ActiveProfileId,
+                        snap.MonitorStableId,
+                        snap.ZoneId);
+                    log("DEBUG", $"Fenster 0x{snap.WindowHandle:X} eingerastet: {snap.Bounds}.", null);
                 }
                 else
                 {
-                    log.Write("WARN", "Ein Fenster konnte nicht positioniert werden.");
+                    log("WARN", "Ein Fenster konnte nicht positioniert werden.", null);
                 }
                 break;
         }
@@ -390,11 +517,11 @@ public sealed class ApplicationController : IDisposable
         {
             viewModel.Save();
             using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-            await saveCoordinator.FlushAsync(cancellation.Token);
+            await FlushAsync(cancellation.Token);
         }
         catch (Exception exception)
         {
-            log.Write("ERROR", "Die Applikation wird ohne abschliessend bestätigte Speicherung beendet.", exception);
+            log("ERROR", "Die Applikation wird ohne abschliessend bestätigte Speicherung beendet.", exception);
         }
 
         allowClose = true;
