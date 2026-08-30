@@ -18,14 +18,28 @@ public sealed class WindowLifecycleHook : IWindowLifecycleHook
 
     private readonly object gate = new();
     private readonly SynchronizationContext synchronizationContext;
-    private readonly HookCircuitBreaker circuitBreaker = new(2000, TimeSpan.FromSeconds(10));
+    private readonly IWinEventHookApi nativeApi;
+    private readonly HookCircuitBreaker circuitBreaker;
     private readonly User32.WinEventProc callback;
     private readonly List<nint> hookHandles = [];
     private bool disposed;
 
     public WindowLifecycleHook(SynchronizationContext synchronizationContext)
+        : this(
+            synchronizationContext,
+            new User32WinEventHookApi(),
+            new HookCircuitBreaker(2000, TimeSpan.FromSeconds(10)))
+    {
+    }
+
+    internal WindowLifecycleHook(
+        SynchronizationContext synchronizationContext,
+        IWinEventHookApi nativeApi,
+        HookCircuitBreaker circuitBreaker)
     {
         this.synchronizationContext = synchronizationContext ?? throw new ArgumentNullException(nameof(synchronizationContext));
+        this.nativeApi = nativeApi ?? throw new ArgumentNullException(nameof(nativeApi));
+        this.circuitBreaker = circuitBreaker ?? throw new ArgumentNullException(nameof(circuitBreaker));
         callback = OnWinEvent;
     }
 
@@ -57,7 +71,7 @@ public sealed class WindowLifecycleHook : IWindowLifecycleHook
             {
                 foreach (var eventType in EventTypes)
                 {
-                    var hookHandle = User32.SetWinEventHook(eventType, eventType, 0, callback, 0, 0, User32.WinEventOutOfContext);
+                    var hookHandle = nativeApi.SetWinEventHook(eventType, eventType, 0, callback, 0, 0, User32.WinEventOutOfContext);
                     if (hookHandle == 0)
                     {
                         throw new Win32Exception(Marshal.GetLastWin32Error(), "Der Fenster-Lebenszyklus-Hook konnte nicht aktiviert werden.");
@@ -183,7 +197,7 @@ public sealed class WindowLifecycleHook : IWindowLifecycleHook
     {
         foreach (var hookHandle in hookHandles)
         {
-            _ = User32.UnhookWinEvent(hookHandle);
+            _ = nativeApi.UnhookWinEvent(hookHandle);
         }
 
         hookHandles.Clear();
