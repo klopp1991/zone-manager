@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using SnapZones.Windows.Native;
 
 namespace SnapZones.Windows.Windows;
@@ -11,13 +10,14 @@ public interface IWindowSelectionService
 public sealed class WindowSelectionService : IWindowSelectionService
 {
     private const uint EventSystemForeground = 0x0003;
-    private static readonly ConcurrentQueue<User32.WinEventProc> RetainedFailedUnhookCallbacks = new();
+    private static readonly WindowSelectionHookCircuit ProcessHookCircuit = new();
     private readonly IPlacementWindowService windows;
     private readonly IWinEventHookApi nativeApi;
     private readonly Action<string>? diagnostic;
+    private readonly WindowSelectionHookCircuit hookCircuit;
 
     public WindowSelectionService(IPlacementWindowService windows, Action<string>? diagnostic = null)
-        : this(windows, new User32WinEventHookApi(), diagnostic)
+        : this(windows, new User32WinEventHookApi(), diagnostic, ProcessHookCircuit)
     {
     }
 
@@ -25,10 +25,20 @@ public sealed class WindowSelectionService : IWindowSelectionService
         IPlacementWindowService windows,
         IWinEventHookApi nativeApi,
         Action<string>? diagnostic = null)
+        : this(windows, nativeApi, diagnostic, new WindowSelectionHookCircuit())
+    {
+    }
+
+    internal WindowSelectionService(
+        IPlacementWindowService windows,
+        IWinEventHookApi nativeApi,
+        Action<string>? diagnostic,
+        WindowSelectionHookCircuit hookCircuit)
     {
         this.windows = windows ?? throw new ArgumentNullException(nameof(windows));
         this.nativeApi = nativeApi ?? throw new ArgumentNullException(nameof(nativeApi));
         this.diagnostic = diagnostic;
+        this.hookCircuit = hookCircuit ?? throw new ArgumentNullException(nameof(hookCircuit));
     }
 
     public async Task<nint> SelectNextAsync(
@@ -43,6 +53,11 @@ public sealed class WindowSelectionService : IWindowSelectionService
         if (timeout < TimeSpan.Zero && timeout != Timeout.InfiniteTimeSpan)
         {
             throw new ArgumentOutOfRangeException(nameof(timeout));
+        }
+        if (hookCircuit.IsOpen)
+        {
+            ReportCleanupFailure("Die Fensterwahl bleibt nach einem Hook-Cleanup-Fehler deaktiviert.");
+            return 0;
         }
 
         var completion = new TaskCompletionSource<nint>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -112,7 +127,7 @@ public sealed class WindowSelectionService : IWindowSelectionService
 
             if (!released)
             {
-                RetainedFailedUnhookCallbacks.Enqueue(callback);
+                hookCircuit.Trip(callback);
                 ReportCleanupFailure(cleanupFailure ?? "Der Fensterwahl-Hook konnte nicht gelöst werden und bleibt deaktiviert.");
             }
 
@@ -129,6 +144,39 @@ public sealed class WindowSelectionService : IWindowSelectionService
         catch (Exception)
         {
             // Diagnosefehler dürfen den fail-closed Cleanup nicht rückgängig machen.
+        }
+    }
+}
+
+internal sealed class WindowSelectionHookCircuit
+{
+    private readonly object synchronization = new();
+    private User32.WinEventProc? retainedCallback;
+    private int open;
+
+    public bool IsOpen => Volatile.Read(ref open) != 0;
+
+    public void Trip(User32.WinEventProc callback)
+    {
+        ArgumentNullException.ThrowIfNull(callback);
+        lock (synchronization)
+        {
+            if (open != 0)
+            {
+                return;
+            }
+
+            retainedCallback = callback;
+            Volatile.Write(ref open, 1);
+        }
+    }
+
+    public void Reset()
+    {
+        lock (synchronization)
+        {
+            retainedCallback = null;
+            Volatile.Write(ref open, 0);
         }
     }
 }

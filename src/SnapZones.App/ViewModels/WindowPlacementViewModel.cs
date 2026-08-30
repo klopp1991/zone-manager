@@ -14,6 +14,7 @@ public sealed class WindowPlacementViewModel : ViewModelBase
     private LayoutProfile? selectedTargetProfile;
     private MonitorChoice? selectedTargetMonitor;
     private ZoneDefinition? selectedTargetZone;
+    private WindowPlacementMode? selectedRuleMode;
     private string titlePattern = string.Empty;
     private bool loadingRuleEditor;
 
@@ -55,6 +56,12 @@ public sealed class WindowPlacementViewModel : ViewModelBase
 
     public bool HasSelection => SelectedItem is not null;
 
+    public WindowPlacementMode? SelectedRuleMode
+    {
+        get => selectedRuleMode;
+        private set => SetProperty(ref selectedRuleMode, value);
+    }
+
     public LayoutProfile? SelectedTargetProfile
     {
         get => selectedTargetProfile;
@@ -65,7 +72,7 @@ public sealed class WindowPlacementViewModel : ViewModelBase
                 return;
             }
 
-            RefreshTargetMonitors(null, null);
+            RefreshTargetMonitors(null, null, requirePreferredTarget: false);
         }
     }
 
@@ -79,7 +86,7 @@ public sealed class WindowPlacementViewModel : ViewModelBase
                 return;
             }
 
-            RefreshTargetZones(null);
+            RefreshTargetZones(null, requirePreferredTarget: false);
         }
     }
 
@@ -175,6 +182,35 @@ public sealed class WindowPlacementViewModel : ViewModelBase
         IReadOnlyList<LayoutProfile> replacementProfiles,
         IReadOnlyList<MonitorChoice> replacementMonitors)
     {
+        RefreshCore(
+            replacementCatalog,
+            replacementRules,
+            replacementProfiles,
+            replacementMonitors,
+            reloadRuleEditor: false);
+    }
+
+    public void RefreshAndReloadRuleEditor(
+        WindowPlacementCatalog replacementCatalog,
+        IReadOnlyList<WindowPlacementRule> replacementRules,
+        IReadOnlyList<LayoutProfile> replacementProfiles,
+        IReadOnlyList<MonitorChoice> replacementMonitors)
+    {
+        RefreshCore(
+            replacementCatalog,
+            replacementRules,
+            replacementProfiles,
+            replacementMonitors,
+            reloadRuleEditor: true);
+    }
+
+    private void RefreshCore(
+        WindowPlacementCatalog replacementCatalog,
+        IReadOnlyList<WindowPlacementRule> replacementRules,
+        IReadOnlyList<LayoutProfile> replacementProfiles,
+        IReadOnlyList<MonitorChoice> replacementMonitors,
+        bool reloadRuleEditor)
+    {
         ArgumentNullException.ThrowIfNull(replacementCatalog);
         ArgumentNullException.ThrowIfNull(replacementRules);
         ArgumentNullException.ThrowIfNull(replacementProfiles);
@@ -190,7 +226,18 @@ public sealed class WindowPlacementViewModel : ViewModelBase
         OnPropertyChanged(nameof(Catalog));
         OnPropertyChanged(nameof(Rules));
         RebuildItems(selectedIdentity);
-        RefreshTargetProfiles(profileId, monitorId, zoneId);
+        if (reloadRuleEditor)
+        {
+            LoadRuleEditor();
+        }
+        else
+        {
+            RefreshTargetProfiles(
+                profileId,
+                monitorId,
+                zoneId,
+                requirePreferredTarget: profileId is not null || monitorId is not null || zoneId is not null);
+        }
     }
 
     private void ReplaceSpecificRule(
@@ -238,6 +285,7 @@ public sealed class WindowPlacementViewModel : ViewModelBase
         rules = updated.ToArray();
         OnPropertyChanged(nameof(Rules));
         RebuildItems(item.Identity);
+        SelectedRuleMode = action;
         RulesChanged?.Invoke(rules);
     }
 
@@ -265,8 +313,13 @@ public sealed class WindowPlacementViewModel : ViewModelBase
         loadingRuleEditor = true;
         try
         {
+            SelectedRuleMode = rule?.Action;
             TitlePattern = rule?.TitlePattern ?? string.Empty;
-            RefreshTargetProfiles(rule?.ProfileId, rule?.MonitorStableId, rule?.ZoneId);
+            RefreshTargetProfiles(
+                rule?.ProfileId,
+                rule?.MonitorStableId,
+                rule?.ZoneId,
+                requirePreferredTarget: rule?.Action == WindowPlacementMode.FixedZone);
         }
         finally
         {
@@ -274,7 +327,11 @@ public sealed class WindowPlacementViewModel : ViewModelBase
         }
     }
 
-    private void RefreshTargetProfiles(Guid? preferredProfileId, string? preferredMonitorId, Guid? preferredZoneId)
+    private void RefreshTargetProfiles(
+        Guid? preferredProfileId,
+        string? preferredMonitorId,
+        Guid? preferredZoneId,
+        bool requirePreferredTarget = false)
     {
         TargetProfiles.Clear();
         foreach (var profile in profiles)
@@ -282,13 +339,20 @@ public sealed class WindowPlacementViewModel : ViewModelBase
             TargetProfiles.Add(profile);
         }
 
-        selectedTargetProfile = TargetProfiles.FirstOrDefault(profile => profile.Id == preferredProfileId)
-            ?? TargetProfiles.FirstOrDefault();
+        selectedTargetProfile = TargetProfiles.FirstOrDefault(profile => profile.Id == preferredProfileId);
+        if (selectedTargetProfile is null && !(requirePreferredTarget && preferredProfileId is not null))
+        {
+            selectedTargetProfile = TargetProfiles.FirstOrDefault();
+        }
+
         OnPropertyChanged(nameof(SelectedTargetProfile));
-        RefreshTargetMonitors(preferredMonitorId, preferredZoneId);
+        RefreshTargetMonitors(preferredMonitorId, preferredZoneId, requirePreferredTarget);
     }
 
-    private void RefreshTargetMonitors(string? preferredMonitorId, Guid? preferredZoneId)
+    private void RefreshTargetMonitors(
+        string? preferredMonitorId,
+        Guid? preferredZoneId,
+        bool requirePreferredTarget)
     {
         TargetMonitors.Clear();
         if (selectedTargetProfile is { } profile)
@@ -305,15 +369,23 @@ public sealed class WindowPlacementViewModel : ViewModelBase
             }
         }
 
-        selectedTargetMonitor = TargetMonitors.FirstOrDefault(monitor => string.Equals(
-            monitor.Live.Identity.StableId,
-            preferredMonitorId,
-            StringComparison.OrdinalIgnoreCase)) ?? TargetMonitors.FirstOrDefault();
+        selectedTargetMonitor = TargetMonitors.FirstOrDefault(monitor =>
+            requirePreferredTarget
+                ? monitor.Live.Identity.StableId == preferredMonitorId
+                : string.Equals(
+                    monitor.Live.Identity.StableId,
+                    preferredMonitorId,
+                    StringComparison.OrdinalIgnoreCase));
+        if (selectedTargetMonitor is null && !(requirePreferredTarget && preferredMonitorId is not null))
+        {
+            selectedTargetMonitor = TargetMonitors.FirstOrDefault();
+        }
+
         OnPropertyChanged(nameof(SelectedTargetMonitor));
-        RefreshTargetZones(preferredZoneId);
+        RefreshTargetZones(preferredZoneId, requirePreferredTarget);
     }
 
-    private void RefreshTargetZones(Guid? preferredZoneId)
+    private void RefreshTargetZones(Guid? preferredZoneId, bool requirePreferredTarget)
     {
         TargetZones.Clear();
         if (selectedTargetMonitor is { } monitor)
@@ -324,8 +396,12 @@ public sealed class WindowPlacementViewModel : ViewModelBase
             }
         }
 
-        selectedTargetZone = TargetZones.FirstOrDefault(zone => zone.Id == preferredZoneId)
-            ?? TargetZones.FirstOrDefault();
+        selectedTargetZone = TargetZones.FirstOrDefault(zone => zone.Id == preferredZoneId);
+        if (selectedTargetZone is null && !(requirePreferredTarget && preferredZoneId is not null))
+        {
+            selectedTargetZone = TargetZones.FirstOrDefault();
+        }
+
         OnPropertyChanged(nameof(SelectedTargetZone));
     }
 }

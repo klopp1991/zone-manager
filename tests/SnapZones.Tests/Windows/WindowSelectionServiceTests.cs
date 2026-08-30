@@ -100,6 +100,45 @@ public sealed class WindowSelectionServiceTests
         Assert.True(native.CallbackReference!.TryGetTarget(out _));
     }
 
+    [Fact]
+    public async Task Cleanup_failure_opens_the_shared_circuit_until_the_test_seam_resets_it()
+    {
+        var circuit = new WindowSelectionHookCircuit();
+        var failedNative = new RecordingHookApi { UnhookResult = false };
+        var failedService = new WindowSelectionService(
+            new RecordingPlacementWindowService(),
+            failedNative,
+            _ => { },
+            circuit);
+        _ = await failedService.SelectNextAsync(123, TimeSpan.Zero, CancellationToken.None);
+        failedNative.ReleaseStrongCallback();
+
+        var blockedNative = new RecordingHookApi();
+        var blockedService = new WindowSelectionService(
+            new RecordingPlacementWindowService(),
+            blockedNative,
+            _ => { },
+            circuit);
+
+        Assert.Equal(nint.Zero, await blockedService.SelectNextAsync(123, TimeSpan.Zero, CancellationToken.None));
+        Assert.Empty(blockedNative.Registrations);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        Assert.True(failedNative.CallbackReference!.TryGetTarget(out _));
+
+        circuit.Reset();
+        var resetNative = new RecordingHookApi();
+        var resetService = new WindowSelectionService(
+            new RecordingPlacementWindowService(),
+            resetNative,
+            _ => { },
+            circuit);
+        _ = await resetService.SelectNextAsync(123, TimeSpan.Zero, CancellationToken.None);
+
+        Assert.Single(resetNative.Registrations);
+    }
+
     private sealed class RecordingHookApi : IWinEventHookApi
     {
         private User32.WinEventProc? callback;

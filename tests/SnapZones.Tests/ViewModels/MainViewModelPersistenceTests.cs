@@ -50,6 +50,19 @@ public sealed class MainViewModelPersistenceTests
     }
 
     [Fact]
+    public void Layout_change_rebinds_selected_profile_to_the_replacement_instance_with_the_same_id()
+    {
+        var viewModel = CreateViewModel();
+        var previous = viewModel.SelectedProfile;
+
+        viewModel.Editor!.ApplyTemplate(LayoutTemplate.ThreeColumns);
+
+        var refreshed = viewModel.Profiles.Single(profile => profile.Id == previous.Id);
+        Assert.NotSame(previous, refreshed);
+        Assert.Same(refreshed, viewModel.SelectedProfile);
+    }
+
+    [Fact]
     public void Imported_title_specific_rules_remain_distinct_when_one_selector_is_edited()
     {
         var viewModel = CreateViewModel();
@@ -82,6 +95,54 @@ public sealed class MainViewModelPersistenceTests
         Assert.Equal(2, viewModel.WindowPlacement.Rules.Count);
         Assert.Equal(report.Id, viewModel.WindowPlacement.Rules.Single(rule => rule.TitlePattern == "Report*").Id);
         Assert.Equal(invoice.Id, viewModel.WindowPlacement.Rules.Single(rule => rule.TitlePattern == "Invoice*").Id);
+    }
+
+    [Fact]
+    public void Replacing_configuration_reloads_the_selected_placement_editor_from_the_single_imported_rule()
+    {
+        var viewModel = CreateViewModel();
+        var identity = new WindowIdentity("editor.exe", "EditorMain", WindowKind.MainWindow);
+        viewModel.WindowPlacement.ReplaceCatalog(new(WindowPlacementCatalog.CurrentSchemaVersion, [
+            new WindowPlacementEntry(
+                identity,
+                viewModel.SelectedMonitor!.Live.Identity.StableId,
+                viewModel.Editor!.Zones[0].Id,
+                viewModel.SelectedMonitor.Live.WorkArea,
+                new PixelRect(0, 0, 800, 600),
+                NormalizedRect.Full,
+                false,
+                DateTimeOffset.UtcNow)
+        ]));
+        viewModel.WindowPlacement.SelectedItem = viewModel.WindowPlacement.Items[0];
+        viewModel.WindowPlacement.TitlePattern = "Ungespeichert*";
+        var imported = ConfigurationSamples.TwoProfiles();
+        var targetProfile = imported.Profiles[1];
+        var targetMonitor = targetProfile.Monitors[0];
+        var targetZone = targetMonitor.Zones[1];
+        var importedRule = new WindowPlacementRule(
+            Guid.NewGuid(),
+            true,
+            identity.ApplicationKey,
+            identity.WindowClass,
+            identity.Kind,
+            "Importiert*",
+            WindowPlacementMode.FixedZone,
+            targetProfile.Id,
+            targetMonitor.Monitor.StableId,
+            targetZone.Id);
+        imported = imported with
+        {
+            Settings = imported.Settings with { WindowPlacementRules = [importedRule] }
+        };
+
+        viewModel.ReplaceConfiguration(imported);
+
+        Assert.Equal(identity, viewModel.WindowPlacement.SelectedItem!.Identity);
+        Assert.Equal("Importiert*", viewModel.WindowPlacement.TitlePattern);
+        Assert.Equal(WindowPlacementMode.FixedZone, viewModel.WindowPlacement.SelectedRuleMode);
+        Assert.Equal(targetProfile.Id, viewModel.WindowPlacement.SelectedTargetProfile!.Id);
+        Assert.Equal(targetMonitor.Monitor.StableId, viewModel.WindowPlacement.SelectedTargetMonitor!.Live.Identity.StableId);
+        Assert.Equal(targetZone.Id, viewModel.WindowPlacement.SelectedTargetZone!.Id);
     }
 
     [Fact]

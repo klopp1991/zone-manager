@@ -183,6 +183,7 @@ public sealed class MainViewModel : ViewModelBase
             selectedProfile = profileService.ActiveProfile;
             OnPropertyChanged(nameof(SelectedProfile));
             RefreshMonitors();
+            RefreshWindowPlacement(reloadRuleEditor: true);
             StatusMessage = "Importierte Konfiguration geladen";
         }
         finally
@@ -201,11 +202,16 @@ public sealed class MainViewModel : ViewModelBase
 
     private void RefreshProfiles()
     {
+        var selectedProfileId = selectedProfile.Id;
         Profiles.Clear();
         foreach (var profile in profileService.Configuration.Profiles)
         {
             Profiles.Add(profile);
         }
+
+        selectedProfile = Profiles.FirstOrDefault(profile => profile.Id == selectedProfileId)
+            ?? Profiles.First(profile => profile.Id == profileService.ActiveProfile.Id);
+        OnPropertyChanged(nameof(SelectedProfile));
 
         RefreshWindowPlacement();
     }
@@ -283,9 +289,24 @@ public sealed class MainViewModel : ViewModelBase
     private void WindowPlacement_RulesChanged(IReadOnlyList<WindowPlacementRule> rules) =>
         Settings.ReplaceWindowPlacementRules(rules);
 
-    private void RefreshWindowPlacement()
+    private void RefreshWindowPlacement(bool reloadRuleEditor = false)
     {
-        windowPlacement?.Refresh(
+        if (windowPlacement is null)
+        {
+            return;
+        }
+
+        if (reloadRuleEditor)
+        {
+            windowPlacement.RefreshAndReloadRuleEditor(
+                windowPlacement.Catalog,
+                Settings.WindowPlacementRules,
+                profileService.Configuration.Profiles,
+                Monitors);
+            return;
+        }
+
+        windowPlacement.Refresh(
             windowPlacement.Catalog,
             Settings.WindowPlacementRules,
             profileService.Configuration.Profiles,

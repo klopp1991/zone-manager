@@ -134,6 +134,10 @@ public sealed class WindowPlacementViewModelTests
         var viewModel = CreateViewModel();
         var selectedIdentity = viewModel.Items[0].Identity;
         viewModel.SelectedItem = viewModel.Items[0];
+        var selectedProfileId = viewModel.SelectedTargetProfile!.Id;
+        var selectedMonitorId = viewModel.SelectedTargetMonitor!.Live.Identity.StableId;
+        var selectedZoneId = viewModel.SelectedTargetZone!.Id;
+        viewModel.TitlePattern = "Ungespeichert*";
         var replacement = Entry(selectedIdentity, "DISPLAY-1", DateTimeOffset.Parse("2026-08-30T12:00:00Z"));
 
         viewModel.ReplaceCatalog(new(WindowPlacementCatalog.CurrentSchemaVersion, [replacement]));
@@ -142,6 +146,10 @@ public sealed class WindowPlacementViewModelTests
         Assert.NotNull(viewModel.SelectedItem);
         Assert.Equal(selectedIdentity, viewModel.SelectedItem.Identity);
         Assert.Same(replacement, viewModel.SelectedItem.Entry);
+        Assert.Equal("Ungespeichert*", viewModel.TitlePattern);
+        Assert.Equal(selectedProfileId, viewModel.SelectedTargetProfile!.Id);
+        Assert.Equal(selectedMonitorId, viewModel.SelectedTargetMonitor!.Live.Identity.StableId);
+        Assert.Equal(selectedZoneId, viewModel.SelectedTargetZone!.Id);
     }
 
     [Fact]
@@ -213,6 +221,68 @@ public sealed class WindowPlacementViewModelTests
 
         Assert.Empty(viewModel.TargetMonitors);
         Assert.Contains("nicht verfügbar", viewModel.Items[0].RuleStatusText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void Obsolete_fixed_rule_monitor_stays_missing_like_the_engine_but_can_be_retargeted_by_device()
+    {
+        var zone = new ZoneDefinition(Guid.NewGuid(), "Arbeit", NormalizedRect.Full);
+        var savedIdentity = new MonitorIdentity("OLD-ID", "DISPLAY1", "Gespeichert");
+        var liveIdentity = new MonitorIdentity("NEW-ID", "DISPLAY1", "Aktueller Monitor");
+        var profile = new LayoutProfile(
+            Guid.NewGuid(),
+            "Standard",
+            1,
+            [new MonitorLayout(savedIdentity, 1920, 1080, [zone])]);
+        var live = new LiveMonitor(liveIdentity, new MonitorWorkArea(0, 0, 1920, 1040), 96, 96, true);
+        var monitor = new MonitorChoice(live, profile.Monitors[0]);
+        var identity = Identity("editor.exe", "EditorMain");
+        var fixedRule = Rule(identity, WindowPlacementMode.FixedZone) with
+        {
+            ProfileId = profile.Id,
+            MonitorStableId = savedIdentity.StableId,
+            ZoneId = zone.Id
+        };
+        var viewModel = new WindowPlacementViewModel(
+            new(WindowPlacementCatalog.CurrentSchemaVersion, [
+                Entry(identity, liveIdentity.StableId, DateTimeOffset.UtcNow) with { ZoneId = zone.Id }
+            ]),
+            [fixedRule],
+            [profile],
+            [monitor]);
+
+        viewModel.SelectedItem = viewModel.Items[0];
+
+        Assert.Contains("nicht verfügbar", viewModel.SelectedItem.RuleStatusText, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(viewModel.SelectedTargetMonitor);
+        var retarget = Assert.Single(viewModel.TargetMonitors);
+        viewModel.SelectedTargetMonitor = retarget;
+        viewModel.SelectedTargetZone = Assert.Single(viewModel.TargetZones);
+
+        viewModel.FixSelectedToZone();
+
+        Assert.Equal(liveIdentity.StableId, Assert.Single(viewModel.Rules).MonitorStableId);
+    }
+
+    [Fact]
+    public void Fixed_rule_monitor_comparison_is_case_sensitive_like_the_engine()
+    {
+        var identity = Identity("editor.exe", "EditorMain");
+        var baseline = CreateViewModel();
+        var profile = Assert.Single(baseline.TargetProfiles);
+        var zone = Assert.Single(profile.Monitors[0].Zones);
+        var rule = Rule(identity, WindowPlacementMode.FixedZone) with
+        {
+            ProfileId = profile.Id,
+            MonitorStableId = "display-1",
+            ZoneId = zone.Id
+        };
+        var viewModel = CreateViewModel([rule]);
+
+        viewModel.SelectedItem = viewModel.Items.Single(item => item.Identity == identity);
+
+        Assert.Contains("nicht verfügbar", viewModel.SelectedItem.RuleStatusText, StringComparison.OrdinalIgnoreCase);
+        Assert.Null(viewModel.SelectedTargetMonitor);
     }
 
     [Fact]

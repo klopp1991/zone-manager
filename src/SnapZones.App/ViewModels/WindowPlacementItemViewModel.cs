@@ -143,14 +143,8 @@ public sealed class WindowPlacementItemViewModel
         }
 
         var profile = profiles.FirstOrDefault(candidate => candidate.Id == profileId);
-        var layoutBySavedId = profile?.Monitors.FirstOrDefault(candidate => string.Equals(
-            candidate.Monitor.StableId, monitorId, StringComparison.OrdinalIgnoreCase));
         var activeMonitor = monitors.FirstOrDefault(candidate =>
-            string.Equals(candidate.Live.Identity.StableId, monitorId, StringComparison.OrdinalIgnoreCase) ||
-            (layoutBySavedId is not null && string.Equals(
-                candidate.Live.Identity.DeviceName,
-                layoutBySavedId.Monitor.DeviceName,
-                StringComparison.OrdinalIgnoreCase)));
+            candidate.Live.Identity.StableId == monitorId);
         if (activeMonitor is null)
         {
             return false;
