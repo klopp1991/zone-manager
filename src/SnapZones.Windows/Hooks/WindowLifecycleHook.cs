@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using SnapZones.Core.Drag;
 using SnapZones.Windows.Native;
@@ -15,6 +16,7 @@ public sealed class WindowLifecycleHook : IWindowLifecycleHook
     private const uint MinimizeEnded = 0x0017;
 
     private static readonly uint[] EventTypes = [Shown, Hidden, Destroyed, LocationChanged, MoveSizeEnded, MinimizeEnded];
+    private static readonly ConcurrentDictionary<nint, User32.WinEventProc> OrphanedCallbacks = new();
 
     private readonly object gate = new();
     private readonly SynchronizationContext synchronizationContext;
@@ -22,6 +24,8 @@ public sealed class WindowLifecycleHook : IWindowLifecycleHook
     private readonly HookCircuitBreaker circuitBreaker;
     private readonly User32.WinEventProc callback;
     private readonly List<nint> hookHandles = [];
+    private long eventGeneration;
+    private bool acceptingEvents;
     private bool disposed;
 
     public WindowLifecycleHook(SynchronizationContext synchronizationContext)
@@ -52,7 +56,7 @@ public sealed class WindowLifecycleHook : IWindowLifecycleHook
         {
             lock (gate)
             {
-                return hookHandles.Count != 0;
+                return acceptingEvents;
             }
         }
     }
@@ -62,9 +66,20 @@ public sealed class WindowLifecycleHook : IWindowLifecycleHook
         lock (gate)
         {
             ObjectDisposedException.ThrowIf(disposed, this);
-            if (hookHandles.Count != 0)
+            if (acceptingEvents)
             {
                 return;
+            }
+
+            if (hookHandles.Count != 0)
+            {
+                UnhookAllUnderLock();
+                if (hookHandles.Count != 0)
+                {
+                    throw new Win32Exception(
+                        Marshal.GetLastWin32Error(),
+                        "Ein vorheriger Fenster-Lebenszyklus-Hook konnte nicht entfernt werden.");
+                }
             }
 
             try
@@ -79,9 +94,14 @@ public sealed class WindowLifecycleHook : IWindowLifecycleHook
 
                     hookHandles.Add(hookHandle);
                 }
+
+                acceptingEvents = true;
+                eventGeneration++;
             }
             catch
             {
+                acceptingEvents = false;
+                eventGeneration++;
                 UnhookAllUnderLock();
                 throw;
             }
@@ -92,6 +112,8 @@ public sealed class WindowLifecycleHook : IWindowLifecycleHook
     {
         lock (gate)
         {
+            acceptingEvents = false;
+            eventGeneration++;
             UnhookAllUnderLock();
         }
     }
@@ -102,11 +124,16 @@ public sealed class WindowLifecycleHook : IWindowLifecycleHook
         {
             if (disposed)
             {
+                UnhookAllUnderLock();
+                RootRemainingCallbacksUnderLock();
                 return;
             }
 
             disposed = true;
+            acceptingEvents = false;
+            eventGeneration++;
             UnhookAllUnderLock();
+            RootRemainingCallbacksUnderLock();
         }
 
         GC.SuppressFinalize(this);
@@ -142,14 +169,27 @@ public sealed class WindowLifecycleHook : IWindowLifecycleHook
                 return;
             }
 
-            if (RecordEvent())
+            long generation;
+            bool stopForSafety;
+            lock (gate)
+            {
+                if (disposed || !acceptingEvents || !hookHandles.Contains(hook))
+                {
+                    return;
+                }
+
+                generation = eventGeneration;
+                stopForSafety = circuitBreaker.RecordEvent(DateTimeOffset.UtcNow);
+            }
+
+            if (stopForSafety)
             {
                 StopForSafety(circuitBreaker.Reason ?? "Der Schutzschalter wurde ausgelöst.");
                 return;
             }
 
             var lifecycleEvent = new WindowLifecycleEvent(window, Map(eventType));
-            synchronizationContext.Post(_ => DeliverEvent(lifecycleEvent), null);
+            synchronizationContext.Post(_ => DeliverEvent(lifecycleEvent, generation), null);
         }
         catch (Exception exception)
         {
@@ -158,16 +198,16 @@ public sealed class WindowLifecycleHook : IWindowLifecycleHook
         }
     }
 
-    private bool RecordEvent()
+    private void DeliverEvent(WindowLifecycleEvent lifecycleEvent, long generation)
     {
         lock (gate)
         {
-            return circuitBreaker.RecordEvent(DateTimeOffset.UtcNow);
+            if (disposed || !acceptingEvents || eventGeneration != generation)
+            {
+                return;
+            }
         }
-    }
 
-    private void DeliverEvent(WindowLifecycleEvent lifecycleEvent)
-    {
         try
         {
             EventReceived?.Invoke(lifecycleEvent);
@@ -190,16 +230,46 @@ public sealed class WindowLifecycleHook : IWindowLifecycleHook
     private void StopForSafety(string reason)
     {
         Disable();
-        synchronizationContext.Post(_ => EmergencyStopped?.Invoke(reason), null);
+        synchronizationContext.Post(_ => DeliverEmergencyStop(reason), null);
+    }
+
+    private void DeliverEmergencyStop(string reason)
+    {
+        lock (gate)
+        {
+            if (disposed)
+            {
+                return;
+            }
+        }
+
+        EmergencyStopped?.Invoke(reason);
     }
 
     private void UnhookAllUnderLock()
     {
+        var retainedHandles = new List<nint>();
         foreach (var hookHandle in hookHandles)
         {
-            _ = nativeApi.UnhookWinEvent(hookHandle);
+            if (nativeApi.UnhookWinEvent(hookHandle))
+            {
+                OrphanedCallbacks.TryRemove(hookHandle, out _);
+            }
+            else
+            {
+                retainedHandles.Add(hookHandle);
+            }
         }
 
         hookHandles.Clear();
+        hookHandles.AddRange(retainedHandles);
+    }
+
+    private void RootRemainingCallbacksUnderLock()
+    {
+        foreach (var hookHandle in hookHandles)
+        {
+            OrphanedCallbacks[hookHandle] = callback;
+        }
     }
 }

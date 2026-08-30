@@ -251,6 +251,42 @@ public sealed class WindowPlacementViewModelTests
     }
 
     [Fact]
+    public void Selecting_an_unlearned_identity_creates_a_persistent_editable_rule_target()
+    {
+        var viewModel = CreateViewModel();
+        var identity = Identity("new-app.exe", "NewMain");
+
+        var selected = viewModel.SelectIdentity(identity);
+
+        Assert.True(selected);
+        Assert.Equal(identity, viewModel.SelectedItem!.Identity);
+        Assert.Null(viewModel.SelectedItem.Entry);
+        Assert.True(viewModel.CanSaveRule);
+        Assert.False(viewModel.HasLearnedSelection);
+        Assert.Contains("noch keine", viewModel.SelectedItem.PlacementText, StringComparison.OrdinalIgnoreCase);
+
+        WindowIdentity? applied = null;
+        WindowIdentity? forgotten = null;
+        viewModel.ApplyNowRequested += value => applied = value;
+        viewModel.ForgetRequested += value => forgotten = value;
+        viewModel.ApplySelectedNow();
+        viewModel.ForgetSelected();
+
+        Assert.Null(applied);
+        Assert.Null(forgotten);
+
+        viewModel.ExcludeSelected();
+
+        var rule = Assert.Single(viewModel.Rules);
+        Assert.Equal(identity.ApplicationKey, rule.ApplicationKey);
+        Assert.Equal(identity.WindowClass, rule.WindowClass);
+        Assert.Equal(identity.Kind, rule.WindowKind);
+        Assert.Equal(WindowPlacementMode.Exclude, rule.Action);
+        Assert.Equal(identity, viewModel.SelectedItem!.Identity);
+        Assert.Null(viewModel.SelectedItem.Entry);
+    }
+
+    [Fact]
     public void Missing_fixed_target_and_equal_specificity_conflict_are_visible()
     {
         var identity = Identity("editor.exe", "EditorMain");

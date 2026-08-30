@@ -64,6 +64,53 @@ public sealed class ApplicationControllerPlacementTests
     }
 
     [Fact]
+    public void Window_selection_creates_an_editable_target_for_an_unlearned_identity()
+    {
+        Run(fixture =>
+        {
+            var identity = new WindowIdentity("new-app.exe", "NewMain", WindowKind.MainWindow);
+            fixture.WindowSelectionService.Result = 42;
+            fixture.PlacementWindowService.Snapshot = new PlacementWindowSnapshot(
+                42,
+                identity,
+                "Neu",
+                new PixelRect(10, 20, 800, 600),
+                new PixelRect(10, 20, 800, 600),
+                false,
+                false);
+
+            fixture.ViewModel.WindowPlacement.RequestWindowSelection();
+
+            Assert.Equal(identity, fixture.ViewModel.WindowPlacement.SelectedItem!.Identity);
+            Assert.Null(fixture.ViewModel.WindowPlacement.SelectedItem.Entry);
+            Assert.True(fixture.ViewModel.WindowPlacement.CanSaveRule);
+            Assert.Equal("Zielfenster ausgewählt: Hauptfenster", fixture.ViewModel.StatusMessage);
+        });
+    }
+
+    [Fact]
+    public void Window_selection_does_not_report_success_for_an_unusable_identity()
+    {
+        Run(fixture =>
+        {
+            fixture.WindowSelectionService.Result = 42;
+            fixture.PlacementWindowService.Snapshot = new PlacementWindowSnapshot(
+                42,
+                new WindowIdentity("", "", (WindowKind)99),
+                "Ungültig",
+                new PixelRect(10, 20, 800, 600),
+                new PixelRect(10, 20, 800, 600),
+                false,
+                false);
+
+            fixture.ViewModel.WindowPlacement.RequestWindowSelection();
+
+            Assert.Null(fixture.ViewModel.WindowPlacement.SelectedItem);
+            Assert.Equal("Zielfenster nicht verwendbar", fixture.ViewModel.StatusMessage);
+        });
+    }
+
+    [Fact]
     public void Window_selection_timeout_returns_to_the_main_window_without_selecting_an_item()
     {
         Run(fixture =>
@@ -428,6 +475,57 @@ public sealed class ApplicationControllerPlacementTests
         });
     }
 
+    [Fact]
+    public void Placement_save_error_stays_visible_when_an_unrelated_configuration_save_succeeds()
+    {
+        Run(fixture =>
+        {
+            fixture.PlacementSaveStatusSource.Raise(new InvalidOperationException("Datenträger voll"));
+
+            Assert.Contains("Fensterplatzierungen", fixture.ViewModel.StatusMessage, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Datenträger voll", fixture.ViewModel.StatusMessage, StringComparison.Ordinal);
+            Assert.Contains(fixture.LogMessages, message =>
+                message.Contains("Fensterplatzierungen", StringComparison.OrdinalIgnoreCase));
+
+            fixture.ConfigurationSaveCoordinator.Raise(null);
+
+            Assert.Contains("Fensterplatzierungen", fixture.ViewModel.StatusMessage, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Datenträger voll", fixture.ViewModel.StatusMessage, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
+    public void A_later_successful_placement_save_clears_only_its_own_error_and_reports_its_scope()
+    {
+        Run(fixture =>
+        {
+            fixture.ConfigurationSaveCoordinator.Raise(new InvalidOperationException("Konfiguration gesperrt"));
+            fixture.PlacementSaveStatusSource.Raise(new InvalidOperationException("Platzierungen gesperrt"));
+            fixture.PlacementSaveStatusSource.Raise(null);
+
+            Assert.Contains("Konfiguration", fixture.ViewModel.StatusMessage, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("gesperrt", fixture.ViewModel.StatusMessage, StringComparison.OrdinalIgnoreCase);
+
+            fixture.ConfigurationSaveCoordinator.Raise(null);
+
+            Assert.Equal("✓ Konfiguration gespeichert", fixture.ViewModel.StatusMessage);
+        });
+    }
+
+    [Fact]
+    public void Dispose_unsubscribes_from_both_save_status_sources()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var fixture = ControllerFixture.Create();
+
+            fixture.Controller.Dispose();
+
+            Assert.Equal(0, fixture.ConfigurationSaveCoordinator.SubscriberCount);
+            Assert.Equal(0, fixture.PlacementSaveStatusSource.SubscriberCount);
+        });
+    }
+
     private static void Run(Action<ControllerFixture> action)
     {
         WpfThemeHost.Invoke(() =>
@@ -444,6 +542,7 @@ public sealed class ApplicationControllerPlacementTests
             MainViewModel viewModel,
             RecordingWindowPlacementEngine placementEngine,
             RecordingConfigurationSaveCoordinator configurationSaveCoordinator,
+            RecordingWindowPlacementSaveStatusSource placementSaveStatusSource,
             RecordingWindowService windowService,
             RecordingMoveHook moveHook,
             RecordingDragCoordinator dragCoordinator,
@@ -456,6 +555,7 @@ public sealed class ApplicationControllerPlacementTests
             ViewModel = viewModel;
             PlacementEngine = placementEngine;
             ConfigurationSaveCoordinator = configurationSaveCoordinator;
+            PlacementSaveStatusSource = placementSaveStatusSource;
             WindowService = windowService;
             MoveHook = moveHook;
             DragCoordinator = dragCoordinator;
@@ -469,6 +569,7 @@ public sealed class ApplicationControllerPlacementTests
         public MainViewModel ViewModel { get; }
         public RecordingWindowPlacementEngine PlacementEngine { get; }
         public RecordingConfigurationSaveCoordinator ConfigurationSaveCoordinator { get; }
+        public RecordingWindowPlacementSaveStatusSource PlacementSaveStatusSource { get; }
         public RecordingWindowService WindowService { get; }
         public RecordingMoveHook MoveHook { get; }
         public RecordingDragCoordinator DragCoordinator { get; }
@@ -505,6 +606,7 @@ public sealed class ApplicationControllerPlacementTests
             window.AttachViewModel(viewModel);
             var placementEngine = new RecordingWindowPlacementEngine();
             var configurationSaveCoordinator = new RecordingConfigurationSaveCoordinator();
+            var placementSaveStatusSource = new RecordingWindowPlacementSaveStatusSource();
             var windowService = new RecordingWindowService();
             var moveHook = new RecordingMoveHook();
             var dragCoordinator = new RecordingDragCoordinator();
@@ -525,6 +627,7 @@ public sealed class ApplicationControllerPlacementTests
                 new RecordingToastService(),
                 dragFactory,
                 placementEngine,
+                placementSaveStatusSource,
                 new RecordingLifecycleHook(),
                 startupCancellation.Cancel,
                 () => shutdownRequested.TrySetResult(),
@@ -544,6 +647,7 @@ public sealed class ApplicationControllerPlacementTests
                 viewModel,
                 placementEngine,
                 configurationSaveCoordinator,
+                placementSaveStatusSource,
                 windowService,
                 moveHook,
                 dragCoordinator,
@@ -576,13 +680,20 @@ public sealed class ApplicationControllerPlacementTests
 
     private sealed class RecordingConfigurationSaveCoordinator : IConfigurationSaveCoordinator
     {
+        private Action<Exception?>? saveFinished;
         public int FlushCalls { get; private set; }
         public SnapConfiguration? LastRequested { get; private set; }
         public List<SnapConfiguration> RequestedConfigurations { get; } = [];
         public Task FlushCompletion { get; set; } = Task.CompletedTask;
         public TaskCompletionSource FlushStarted { get; } =
             new(TaskCreationOptions.RunContinuationsAsynchronously);
-        public event Action<Exception?>? SaveFinished { add { } remove { } }
+        public int SubscriberCount => saveFinished?.GetInvocationList().Length ?? 0;
+        public event Action<Exception?>? SaveFinished
+        {
+            add => saveFinished += value;
+            remove => saveFinished -= value;
+        }
+        public void Raise(Exception? exception) => saveFinished?.Invoke(exception);
         public void RequestSave(SnapConfiguration configuration)
         {
             LastRequested = configuration;
@@ -596,6 +707,18 @@ public sealed class ApplicationControllerPlacementTests
             return FlushCompletion;
         }
         public void Dispose() { }
+    }
+
+    private sealed class RecordingWindowPlacementSaveStatusSource : IWindowPlacementSaveStatusSource
+    {
+        private Action<Exception?>? saveFinished;
+        public int SubscriberCount => saveFinished?.GetInvocationList().Length ?? 0;
+        public event Action<Exception?>? SaveFinished
+        {
+            add => saveFinished += value;
+            remove => saveFinished -= value;
+        }
+        public void Raise(Exception? exception) => saveFinished?.Invoke(exception);
     }
 
     private sealed class RecordingWindowPlacementEngine : IWindowPlacementEngine

@@ -3,7 +3,7 @@ using SnapZones.Core.Placement;
 
 namespace SnapZones.App.Services;
 
-public sealed class WindowPlacementSaveCoordinator
+public sealed class WindowPlacementSaveCoordinator : IWindowPlacementSaveStatusSource
 {
     private readonly IWindowPlacementRepository repository;
     private readonly TimeSpan debounceDelay;

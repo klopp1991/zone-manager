@@ -3,6 +3,7 @@ using SnapZones.Core.Models;
 using SnapZones.Core.Persistence;
 using SnapZones.Core.Placement;
 using SnapZones.Tests.Support;
+using System.Text.Json.Nodes;
 using Xunit;
 
 namespace SnapZones.Tests.Persistence;
@@ -85,6 +86,55 @@ public sealed class JsonWindowPlacementRepositoryTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => repository.LoadAsync(cancellation.Token));
 
         Assert.Empty(Directory.GetFiles(directory.Path, "placements.invalid-*.json"));
+    }
+
+    [Theory]
+    [InlineData("null-entry")]
+    [InlineData("null-identity")]
+    [InlineData("empty-application-key")]
+    [InlineData("unknown-window-kind")]
+    [InlineData("empty-monitor")]
+    [InlineData("invalid-normal-bounds")]
+    public async Task Load_treats_structurally_unusable_entries_as_corrupt_and_recovers_the_backup(string corruption)
+    {
+        using var directory = new TemporaryDirectory();
+        var repository = new JsonWindowPlacementRepository(directory.Path);
+        var expected = new WindowPlacementCatalog(1, [CreateEntry(1)]);
+        await repository.SaveAsync(expected, CancellationToken.None);
+        await repository.SaveAsync(new WindowPlacementCatalog(1, [CreateEntry(2)]), CancellationToken.None);
+        var primaryPath = Path.Combine(directory.Path, "placements.json");
+        var document = JsonNode.Parse(await File.ReadAllTextAsync(primaryPath))!.AsObject();
+        var entries = document[nameof(WindowPlacementCatalog.Entries)]!.AsArray();
+        switch (corruption)
+        {
+            case "null-entry":
+                entries[0] = null;
+                break;
+            case "null-identity":
+                entries[0]![nameof(WindowPlacementEntry.Identity)] = null;
+                break;
+            case "empty-application-key":
+                entries[0]![nameof(WindowPlacementEntry.Identity)]![nameof(WindowIdentity.ApplicationKey)] = " ";
+                break;
+            case "unknown-window-kind":
+                entries[0]![nameof(WindowPlacementEntry.Identity)]![nameof(WindowIdentity.Kind)] = 99;
+                break;
+            case "empty-monitor":
+                entries[0]![nameof(WindowPlacementEntry.MonitorStableId)] = "";
+                break;
+            case "invalid-normal-bounds":
+                entries[0]![nameof(WindowPlacementEntry.NormalBoundsPixels)]![nameof(PixelRect.Width)] = 0;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(corruption));
+        }
+        await File.WriteAllTextAsync(primaryPath, document.ToJsonString());
+
+        var loaded = await repository.LoadAsync(CancellationToken.None);
+
+        Assert.True(loaded.RecoveredFromError);
+        Assert.Equal(expected.Entries, loaded.Catalog.Entries);
+        Assert.Single(Directory.GetFiles(directory.Path, "placements.invalid-*.json"));
     }
 
     private static WindowPlacementEntry CreateEntry(int index) => new(

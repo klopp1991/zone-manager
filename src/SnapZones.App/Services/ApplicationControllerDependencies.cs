@@ -21,6 +21,11 @@ public interface IConfigurationSaveCoordinator : IDisposable
     Task FlushAsync(CancellationToken cancellationToken);
 }
 
+public interface IWindowPlacementSaveStatusSource
+{
+    event Action<Exception?>? SaveFinished;
+}
+
 public interface IApplicationOverlayService : IDisposable
 {
     void UpdateTargets(IReadOnlyList<DragMonitorTarget> targets);
@@ -70,6 +75,7 @@ public sealed record ApplicationControllerDependencies(
     IApplicationToastService Toast,
     IWindowDragCoordinatorFactory DragCoordinatorFactory,
     IWindowPlacementEngine PlacementEngine,
+    IWindowPlacementSaveStatusSource PlacementSaveStatusSource,
     IWindowLifecycleHook PlacementLifecycleHook,
     Action CancelStartup,
     Action ShutdownApplication,
@@ -124,6 +130,7 @@ public sealed record ApplicationControllerDependencies(
             new ToastServiceAdapter(new ProfileChangedToast()),
             new WindowDragCoordinatorFactory(),
             placementEngine,
+            placementSaveCoordinator,
             lifecycleHook,
             cancelStartup,
             () => System.Windows.Application.Current.Shutdown(),

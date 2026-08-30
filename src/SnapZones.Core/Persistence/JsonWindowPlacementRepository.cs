@@ -165,5 +165,37 @@ public sealed class JsonWindowPlacementRepository : IWindowPlacementRepository
         {
             throw new InvalidDataException("Die Platzierungseinträge fehlen.");
         }
+
+        foreach (var entry in catalog.Entries)
+        {
+            if (entry is null)
+            {
+                throw new InvalidDataException("Fensterplatzierungen dürfen keine leeren Einträge enthalten.");
+            }
+
+            if (entry.Identity is null ||
+                string.IsNullOrWhiteSpace(entry.Identity.ApplicationKey) ||
+                string.IsNullOrWhiteSpace(entry.Identity.WindowClass) ||
+                !Enum.IsDefined(entry.Identity.Kind))
+            {
+                throw new InvalidDataException("Eine Fensterplatzierung enthält eine ungültige Fensteridentität.");
+            }
+
+            if (string.IsNullOrWhiteSpace(entry.MonitorStableId) ||
+                entry.SourceWorkArea.Width <= 0 ||
+                entry.SourceWorkArea.Height <= 0 ||
+                entry.NormalBoundsPixels.Width <= 0 ||
+                entry.NormalBoundsPixels.Height <= 0 ||
+                entry.NormalBoundsNormalized is null ||
+                !double.IsFinite(entry.NormalBoundsNormalized.X) ||
+                !double.IsFinite(entry.NormalBoundsNormalized.Y) ||
+                !double.IsFinite(entry.NormalBoundsNormalized.Width) ||
+                !double.IsFinite(entry.NormalBoundsNormalized.Height) ||
+                entry.NormalBoundsNormalized.Width <= 0 ||
+                entry.NormalBoundsNormalized.Height <= 0)
+            {
+                throw new InvalidDataException("Eine Fensterplatzierung enthält ungültige Geometriedaten.");
+            }
+        }
     }
 }

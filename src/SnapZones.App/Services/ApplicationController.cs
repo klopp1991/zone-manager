@@ -31,6 +31,7 @@ public sealed class ApplicationController : IDisposable
     private IApplicationToastService toast = null!;
     private IWindowDragCoordinatorFactory dragCoordinatorFactory = null!;
     private IWindowPlacementEngine placementEngine = null!;
+    private IWindowPlacementSaveStatusSource placementSaveStatusSource = null!;
     private IWindowLifecycleHook placementLifecycleHook = null!;
     private IPlacementWindowService placementWindowService = null!;
     private IWindowSelectionService windowSelectionService = null!;
@@ -53,6 +54,8 @@ public sealed class ApplicationController : IDisposable
     private readonly CancellationTokenSource placementUiCancellation = new();
     private Task? placementSelectionOperation;
     private Task? placementApplyOperation;
+    private Exception? configurationSaveError;
+    private Exception? placementSaveError;
 
     public ApplicationController(
         MainWindow window,
@@ -103,7 +106,7 @@ public sealed class ApplicationController : IDisposable
         ArgumentNullException.ThrowIfNull(dependencies);
         log = dependencies.Log;
         saveCoordinator = dependencies.ConfigurationSaveCoordinator;
-        saveCoordinator.SaveFinished += SaveFinished;
+        saveCoordinator.SaveFinished += ConfigurationSaveFinished;
         overlays = dependencies.Overlays;
         windowService = dependencies.WindowService;
         moveHook = dependencies.MoveHook;
@@ -112,6 +115,8 @@ public sealed class ApplicationController : IDisposable
         toast = dependencies.Toast;
         dragCoordinatorFactory = dependencies.DragCoordinatorFactory;
         placementEngine = dependencies.PlacementEngine;
+        placementSaveStatusSource = dependencies.PlacementSaveStatusSource;
+        placementSaveStatusSource.SaveFinished += PlacementSaveFinished;
         placementLifecycleHook = dependencies.PlacementLifecycleHook;
         placementWindowService = dependencies.PlacementWindowService ?? new WindowsPlacementWindowService();
         windowSelectionService = dependencies.WindowSelectionService ?? new WindowSelectionService(placementWindowService);
@@ -235,7 +240,8 @@ public sealed class ApplicationController : IDisposable
         placementLifecycleHook.Dispose();
         overlays.Dispose();
         toast.Dispose();
-        saveCoordinator.SaveFinished -= SaveFinished;
+        saveCoordinator.SaveFinished -= ConfigurationSaveFinished;
+        placementSaveStatusSource.SaveFinished -= PlacementSaveFinished;
         saveCoordinator.Dispose();
         window.ExportConfigurationRequested -= ExportConfigurationAsync;
         window.ImportConfigurationRequested -= ImportConfigurationAsync;
@@ -343,19 +349,58 @@ public sealed class ApplicationController : IDisposable
         viewModel.StatusMessage = $"Vollbackup importiert: {Path.GetFileName(filePath)}";
     }
 
-    private void SaveFinished(Exception? exception)
-    {
-        _ = window.Dispatcher.InvokeAsync(() =>
-        {
-            if (exception is null)
-            {
-                viewModel.StatusMessage = "✓ Gespeichert";
-                return;
-            }
+    private void ConfigurationSaveFinished(Exception? exception) =>
+        DispatchSaveResult(isPlacementSave: false, exception);
 
-            log("ERROR", "Konfiguration konnte nicht gespeichert werden.", exception);
-            viewModel.StatusMessage = $"Speichern fehlgeschlagen: {exception.Message}";
-        });
+    private void PlacementSaveFinished(Exception? exception) =>
+        DispatchSaveResult(isPlacementSave: true, exception);
+
+    private void DispatchSaveResult(bool isPlacementSave, Exception? exception)
+    {
+        if (window.Dispatcher.CheckAccess())
+        {
+            ApplySaveResult(isPlacementSave, exception);
+            return;
+        }
+
+        _ = window.Dispatcher.InvokeAsync(() => ApplySaveResult(isPlacementSave, exception));
+    }
+
+    private void ApplySaveResult(bool isPlacementSave, Exception? exception)
+    {
+        if (disposed)
+        {
+            return;
+        }
+
+        if (isPlacementSave)
+        {
+            placementSaveError = exception;
+            if (exception is not null)
+            {
+                log("ERROR", "Fensterplatzierungen konnten nicht gespeichert werden.", exception);
+            }
+        }
+        else
+        {
+            configurationSaveError = exception;
+            if (exception is not null)
+            {
+                log("ERROR", "Konfiguration konnte nicht gespeichert werden.", exception);
+            }
+        }
+
+        viewModel.StatusMessage = (configurationSaveError, placementSaveError) switch
+        {
+            ({ } configurationError, { } placementError) =>
+                $"Speichern fehlgeschlagen: Konfiguration: {configurationError.Message}; Fensterplatzierungen: {placementError.Message}",
+            ({ } configurationError, null) =>
+                $"Konfiguration speichern fehlgeschlagen: {configurationError.Message}",
+            (null, { } placementError) =>
+                $"Fensterplatzierungen speichern fehlgeschlagen: {placementError.Message}",
+            _ when isPlacementSave => "✓ Fensterplatzierungen gespeichert",
+            _ => "✓ Konfiguration gespeichert"
+        };
     }
 
     public void Reconfigure()
@@ -609,10 +654,14 @@ public sealed class ApplicationController : IDisposable
             }
 
             var learned = viewModel.WindowPlacement.SelectIdentity(snapshot.Identity);
+            if (!learned)
+            {
+                viewModel.StatusMessage = "Zielfenster nicht verwendbar";
+                return;
+            }
+
             var kind = WindowPlacementItemViewModel.WindowKindTextFor(snapshot.Identity.Kind);
-            viewModel.StatusMessage = learned
-                ? $"Zielfenster ausgewählt: {kind}"
-                : $"Zielfenster ausgewählt: {kind}; noch keine Platzierung gelernt";
+            viewModel.StatusMessage = $"Zielfenster ausgewählt: {kind}";
         }
         catch (OperationCanceledException) when (placementUiCancellation.IsCancellationRequested)
         {

@@ -367,13 +367,13 @@
                                     <TextBlock Text="Ausgewähltes Fenster" Style="{StaticResource SectionTitle}" />
                                     <WrapPanel Margin="0,16,0,8">
                                         <Button x:Name="PlacementApplyButton" Content="Jetzt anwenden" Click="PlacementApply_Click"
-                                                IsEnabled="{Binding WindowPlacement.HasSelection}" Style="{StaticResource PrimaryButton}" />
+                                                IsEnabled="{Binding WindowPlacement.HasLearnedSelection}" Style="{StaticResource PrimaryButton}" />
                                         <Button x:Name="PlacementRememberButton" Content="Letzte Platzierung" Click="PlacementRemember_Click"
                                                 IsEnabled="{Binding WindowPlacement.CanSaveRule}" />
                                         <Button x:Name="PlacementExcludeButton" Content="Nicht verwalten" Click="PlacementExclude_Click"
                                                 IsEnabled="{Binding WindowPlacement.CanSaveRule}" />
                                         <Button x:Name="PlacementForgetButton" Content="Vergessen" Click="PlacementForget_Click"
-                                                IsEnabled="{Binding WindowPlacement.HasSelection}" />
+                                                IsEnabled="{Binding WindowPlacement.HasLearnedSelection}" />
                                     </WrapPanel>
 
                                     <TextBlock Text="Feste Zone" Style="{StaticResource FieldLabel}" Margin="0,8,0,5" />

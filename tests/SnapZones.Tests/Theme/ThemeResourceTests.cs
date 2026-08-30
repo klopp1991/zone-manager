@@ -356,6 +356,12 @@ public sealed class ThemeResourceTests
                     "WindowPlacement.CanSaveRule",
                     button.GetBindingExpression(UIElement.IsEnabledProperty)!.ParentBinding.Path.Path);
             }
+            foreach (var button in new[] { apply, forget })
+            {
+                Assert.Equal(
+                    "WindowPlacement.HasLearnedSelection",
+                    button.GetBindingExpression(UIElement.IsEnabledProperty)!.ParentBinding.Path.Path);
+            }
             Assert.True(operationStatus.IsReadOnly);
             Assert.Equal(BindingMode.OneWay,
                 operationStatus.GetBindingExpression(TextBox.TextProperty)!.ParentBinding.Mode);

@@ -52,12 +52,14 @@ public sealed class WindowPlacementViewModel : ViewModelBase
             }
 
             OnPropertyChanged(nameof(HasSelection));
+            OnPropertyChanged(nameof(HasLearnedSelection));
             OnPropertyChanged(nameof(CanSaveRule));
             LoadRuleEditor();
         }
     }
 
     public bool HasSelection => SelectedItem is not null;
+    public bool HasLearnedSelection => SelectedItem?.Entry is not null;
     public bool CanSaveRule => HasSelection && !ruleEditorSelectorAmbiguous;
 
     public string RuleEditorStatusText
@@ -160,7 +162,7 @@ public sealed class WindowPlacementViewModel : ViewModelBase
 
     public void ForgetSelected()
     {
-        if (SelectedItem is { } item)
+        if (SelectedItem is { Entry: not null } item)
         {
             ForgetRequested?.Invoke(item.Identity);
         }
@@ -168,7 +170,7 @@ public sealed class WindowPlacementViewModel : ViewModelBase
 
     public void ApplySelectedNow()
     {
-        if (SelectedItem is { } item)
+        if (SelectedItem is { Entry: not null } item)
         {
             ApplyNowRequested?.Invoke(item.Identity);
         }
@@ -178,9 +180,23 @@ public sealed class WindowPlacementViewModel : ViewModelBase
 
     public bool SelectIdentity(WindowIdentity identity)
     {
-        var item = Items.FirstOrDefault(candidate => candidate.Identity == identity);
+        ArgumentNullException.ThrowIfNull(identity);
+        if (string.IsNullOrWhiteSpace(identity.ApplicationKey) ||
+            string.IsNullOrWhiteSpace(identity.WindowClass) ||
+            !Enum.IsDefined(identity.Kind))
+        {
+            return false;
+        }
+
+        var item = FindItem(identity);
+        if (item is null)
+        {
+            item = new WindowPlacementItemViewModel(identity, rules, profiles, monitors);
+            Items.Insert(0, item);
+        }
+
         SelectedItem = item;
-        return item is not null;
+        return ReferenceEquals(SelectedItem, item);
     }
 
     public void ReplaceCatalog(WindowPlacementCatalog replacement)
@@ -326,12 +342,41 @@ public sealed class WindowPlacementViewModel : ViewModelBase
             Items.Add(new WindowPlacementItemViewModel(entry, rules, profiles, monitors));
         }
 
+        foreach (var rule in rules)
+        {
+            if (string.IsNullOrWhiteSpace(rule.ApplicationKey) ||
+                string.IsNullOrWhiteSpace(rule.WindowClass) ||
+                rule.WindowKind is not { } windowKind ||
+                !Enum.IsDefined(windowKind))
+            {
+                continue;
+            }
+
+            var identity = new WindowIdentity(rule.ApplicationKey, rule.WindowClass, windowKind);
+            if (FindItem(identity) is null)
+            {
+                Items.Add(new WindowPlacementItemViewModel(identity, rules, profiles, monitors));
+            }
+        }
+
+        if (selectedIdentity is not null && FindItem(selectedIdentity) is null)
+        {
+            Items.Insert(0, new WindowPlacementItemViewModel(selectedIdentity, rules, profiles, monitors));
+        }
+
         selectedItem = selectedIdentity is null
             ? null
-            : Items.FirstOrDefault(item => item.Identity == selectedIdentity);
+            : FindItem(selectedIdentity);
         OnPropertyChanged(nameof(SelectedItem));
         OnPropertyChanged(nameof(HasSelection));
+        OnPropertyChanged(nameof(HasLearnedSelection));
     }
+
+    private WindowPlacementItemViewModel? FindItem(WindowIdentity identity) =>
+        Items.FirstOrDefault(item =>
+            string.Equals(item.Identity.ApplicationKey, identity.ApplicationKey, StringComparison.OrdinalIgnoreCase) &&
+            string.Equals(item.Identity.WindowClass, identity.WindowClass, StringComparison.Ordinal) &&
+            item.Identity.Kind == identity.Kind);
 
     private void LoadRuleEditor()
     {

@@ -12,17 +12,45 @@ public sealed class WindowPlacementItemViewModel
         IReadOnlyList<WindowPlacementRule> rules,
         IReadOnlyList<LayoutProfile> profiles,
         IReadOnlyList<MonitorChoice> monitors)
+        : this(
+            entry?.Identity ?? throw new ArgumentNullException(nameof(entry)),
+            entry,
+            rules,
+            profiles,
+            monitors)
     {
-        Entry = entry ?? throw new ArgumentNullException(nameof(entry));
-        Identity = entry.Identity;
+    }
+
+    internal WindowPlacementItemViewModel(
+        WindowIdentity identity,
+        IReadOnlyList<WindowPlacementRule> rules,
+        IReadOnlyList<LayoutProfile> profiles,
+        IReadOnlyList<MonitorChoice> monitors)
+        : this(identity, null, rules, profiles, monitors)
+    {
+    }
+
+    private WindowPlacementItemViewModel(
+        WindowIdentity identity,
+        WindowPlacementEntry? entry,
+        IReadOnlyList<WindowPlacementRule> rules,
+        IReadOnlyList<LayoutProfile> profiles,
+        IReadOnlyList<MonitorChoice> monitors)
+    {
+        Identity = identity ?? throw new ArgumentNullException(nameof(identity));
+        Entry = entry;
         DisplayName = GetDisplayName(Identity.ApplicationKey);
         WindowKindText = WindowKindTextFor(Identity.Kind);
-        PlacementText = BuildPlacementText(entry, profiles, monitors);
-        LastUpdatedText = entry.LastUpdatedUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
+        PlacementText = entry is null
+            ? "Noch keine Platzierung gelernt"
+            : BuildPlacementText(entry, profiles, monitors);
+        LastUpdatedText = entry is null
+            ? "Noch nicht gelernt"
+            : entry.LastUpdatedUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
         RuleStatusText = BuildRuleStatus(Identity, rules, profiles, monitors);
     }
 
-    public WindowPlacementEntry Entry { get; }
+    public WindowPlacementEntry? Entry { get; }
     public WindowIdentity Identity { get; }
     public string DisplayName { get; }
     public string WindowKindText { get; }

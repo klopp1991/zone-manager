@@ -143,6 +143,56 @@ public sealed class WindowLifecycleHookTests
             nativeApi.UnhookedHandles);
     }
 
+    [Fact]
+    public void Failed_unhook_stays_logically_disabled_is_retried_and_never_creates_duplicate_hooks()
+    {
+        var nativeApi = new TestWinEventHookApi();
+        using var hook = CreateHook(nativeApi);
+        var received = new List<WindowLifecycleEvent>();
+        hook.EventReceived += received.Add;
+        hook.Enable();
+        nativeApi.FailingUnhookHandles.Add(101);
+
+        hook.Disable();
+        nativeApi.Raise(0x8002, 42, 0, 0);
+
+        Assert.False(hook.IsEnabled);
+        Assert.Empty(received);
+        Assert.Throws<Win32Exception>(hook.Enable);
+        Assert.Equal(6, nativeApi.Registrations.Count);
+        Assert.Equal(2, nativeApi.UnhookedHandles.Count(handle => handle == 101));
+
+        nativeApi.FailingUnhookHandles.Clear();
+        hook.Disable();
+        hook.Enable();
+
+        Assert.Equal(12, nativeApi.Registrations.Count);
+    }
+
+    [Fact]
+    public void Dispose_suppresses_queued_and_native_callbacks_even_when_unhook_fails()
+    {
+        var synchronizationContext = new QueuedSynchronizationContext();
+        var nativeApi = new TestWinEventHookApi();
+        var hook = new WindowLifecycleHook(
+            synchronizationContext,
+            nativeApi,
+            new HookCircuitBreaker(2000, TimeSpan.FromSeconds(10)));
+        var received = new List<WindowLifecycleEvent>();
+        hook.EventReceived += received.Add;
+        hook.Enable();
+        nativeApi.Raise(0x8002, 42, 0, 0);
+        nativeApi.FailingUnhookHandles.Add(101);
+
+        hook.Dispose();
+        nativeApi.Raise(0x8002, 43, 0, 0);
+        synchronizationContext.DeliverAll();
+
+        Assert.Empty(received);
+        Assert.False(hook.IsEnabled);
+        Assert.Equal(1, nativeApi.UnhookedHandles.Count(handle => handle == 101));
+    }
+
     private static WindowLifecycleHook CreateHook(TestWinEventHookApi nativeApi, HookCircuitBreaker? circuitBreaker = null) =>
         new(new ImmediateSynchronizationContext(), nativeApi, circuitBreaker ?? new HookCircuitBreaker(2000, TimeSpan.FromSeconds(10)));
 
@@ -164,6 +214,21 @@ public sealed class WindowLifecycleHookTests
         public override void Post(SendOrPostCallback callback, object? state) => callback(state);
     }
 
+    private sealed class QueuedSynchronizationContext : SynchronizationContext
+    {
+        private readonly Queue<(SendOrPostCallback Callback, object? State)> pending = [];
+
+        public override void Post(SendOrPostCallback callback, object? state) => pending.Enqueue((callback, state));
+
+        public void DeliverAll()
+        {
+            while (pending.TryDequeue(out var item))
+            {
+                item.Callback(item.State);
+            }
+        }
+    }
+
     private sealed class TestWinEventHookApi : IWinEventHookApi
     {
         private nint nextHandle = 101;
@@ -172,6 +237,8 @@ public sealed class WindowLifecycleHookTests
         public List<Registration> RegistrationAttempts { get; } = [];
         public List<Registration> Registrations { get; } = [];
         public List<nint> UnhookedHandles { get; } = [];
+        public HashSet<nint> FailingUnhookHandles { get; } = [];
+        private HashSet<nint> SuccessfullyUnhookedHandles { get; } = [];
 
         public nint SetWinEventHook(
             uint eventMinimum,
@@ -197,12 +264,21 @@ public sealed class WindowLifecycleHookTests
         public bool UnhookWinEvent(nint hook)
         {
             UnhookedHandles.Add(hook);
+            if (FailingUnhookHandles.Contains(hook))
+            {
+                return false;
+            }
+
+            SuccessfullyUnhookedHandles.Add(hook);
             return true;
         }
 
         public void Raise(uint eventType, nint window, int objectId, int childId)
         {
-            foreach (var registration in Registrations.Where(registration => eventType >= registration.EventMinimum && eventType <= registration.EventMaximum))
+            foreach (var registration in Registrations.Where(registration =>
+                         !SuccessfullyUnhookedHandles.Contains(registration.Handle) &&
+                         eventType >= registration.EventMinimum &&
+                         eventType <= registration.EventMaximum))
             {
                 registration.Callback(registration.Handle, eventType, window, objectId, childId, 0, 0);
             }
