@@ -18,5 +18,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\SnapZones.Core\SnapZones.Core.csproj" />
+    <ProjectReference Include="..\..\src\SnapZones.Windows\SnapZones.Windows.csproj" />
   </ItemGroup>
 </Project>
