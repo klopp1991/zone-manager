@@ -1,0 +1,10 @@
+bin/
+obj/
+.vs/
+*.user
+*.suo
+TestResults/
+outputs/SnapZones-prototype/
+outputs/diagnostics.json
+work/
+*.log
