@@ -80,6 +80,39 @@ public sealed class WindowPlacementEngineTests
     }
 
     [Fact]
+    public async Task Queued_placement_rechecks_its_handle_identity_after_the_side_effect_gate()
+    {
+        var sideEffectWaitReached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var fixture = EngineFixture.WithRememberedWindow(
+            maximized: false,
+            sideEffectWaitObserver: () => sideEffectWaitReached.TrySetResult());
+        var original = fixture.Windows.CurrentSnapshot!;
+        fixture.Windows.Snapshots[43] = original with { WindowHandle = 43 };
+        fixture.Windows.EligibleWindows.Add(43);
+        fixture.Windows.BlockPlacement();
+        fixture.Engine.Start();
+
+        var firstShown = Task.Run(() => fixture.Hook.Raise(42, WindowLifecycleEventKind.Shown));
+        await fixture.Windows.PlacementEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        var secondApply = Task.Run(async () => await fixture.Engine.ApplyNowAsync(
+            original.Identity,
+            CancellationToken.None));
+        await sideEffectWaitReached.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        fixture.Windows.Snapshots[43] = original with
+        {
+            WindowHandle = 43,
+            Identity = new WindowIdentity("C:\\Apps\\replacement.exe", "Replacement", WindowKind.MainWindow)
+        };
+
+        fixture.Windows.AllowPlacement.TrySetResult();
+        await firstShown.WaitAsync(TimeSpan.FromSeconds(2));
+        await secondApply.WaitAsync(TimeSpan.FromSeconds(2));
+        await fixture.DrainAsync();
+
+        Assert.Equal((nint)42, Assert.Single(fixture.Windows.Placements).WindowHandle);
+    }
+
+    [Fact]
     public async Task Exclusion_neither_places_nor_learns_the_window()
     {
         var fixture = EngineFixture.WithRule(WindowPlacementMode.Exclude);
@@ -492,13 +525,17 @@ public sealed class WindowPlacementEngineTests
     [Fact]
     public async Task Stop_waits_for_a_placement_that_has_passed_its_final_validation()
     {
-        var fixture = EngineFixture.WithRememberedWindow(maximized: false);
+        var sideEffectWaitReached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var fixture = EngineFixture.WithRememberedWindow(
+            maximized: false,
+            sideEffectWaitObserver: () => sideEffectWaitReached.TrySetResult());
         fixture.Windows.BlockPlacement();
         fixture.Engine.Start();
         var shown = Task.Run(() => fixture.Hook.Raise(42, WindowLifecycleEventKind.Shown));
         await fixture.Windows.PlacementEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
 
         var stop = Task.Run(fixture.Engine.Stop);
+        await sideEffectWaitReached.Task.WaitAsync(TimeSpan.FromSeconds(2));
         var stopCompletedBeforePlacementWasReleased = stop.IsCompleted;
         fixture.Windows.AllowPlacement.TrySetResult();
         await shown.WaitAsync(TimeSpan.FromSeconds(2));
@@ -510,13 +547,17 @@ public sealed class WindowPlacementEngineTests
     [Fact]
     public async Task Destroyed_waits_for_a_placement_that_has_passed_its_final_validation()
     {
-        var fixture = EngineFixture.WithRememberedWindow(maximized: false);
+        var sideEffectWaitReached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var fixture = EngineFixture.WithRememberedWindow(
+            maximized: false,
+            sideEffectWaitObserver: () => sideEffectWaitReached.TrySetResult());
         fixture.Windows.BlockPlacement();
         fixture.Engine.Start();
         var shown = Task.Run(() => fixture.Hook.Raise(42, WindowLifecycleEventKind.Shown));
         await fixture.Windows.PlacementEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
 
         var destroyed = Task.Run(() => fixture.Hook.Raise(42, WindowLifecycleEventKind.Destroyed));
+        await sideEffectWaitReached.Task.WaitAsync(TimeSpan.FromSeconds(2));
         var destroyedCompletedBeforePlacementWasReleased = destroyed.IsCompleted;
         fixture.Windows.AllowPlacement.TrySetResult();
         await shown.WaitAsync(TimeSpan.FromSeconds(2));
@@ -529,7 +570,10 @@ public sealed class WindowPlacementEngineTests
     [Fact]
     public async Task Replace_catalog_waits_for_apply_now_that_has_passed_its_final_validation()
     {
-        var fixture = EngineFixture.WithRememberedWindow(maximized: false);
+        var sideEffectWaitReached = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var fixture = EngineFixture.WithRememberedWindow(
+            maximized: false,
+            sideEffectWaitObserver: () => sideEffectWaitReached.TrySetResult());
         fixture.Windows.EligibleWindows.Add(42);
         fixture.Windows.BlockPlacement();
         var apply = Task.Run(async () => await fixture.Engine.ApplyNowAsync(
@@ -538,6 +582,7 @@ public sealed class WindowPlacementEngineTests
         await fixture.Windows.PlacementEntered.Task.WaitAsync(TimeSpan.FromSeconds(2));
 
         var replace = Task.Run(() => fixture.Engine.ReplaceCatalog(WindowPlacementCatalog.Empty));
+        await sideEffectWaitReached.Task.WaitAsync(TimeSpan.FromSeconds(2));
         var replaceCompletedBeforePlacementWasReleased = replace.IsCompleted;
         fixture.Windows.AllowPlacement.TrySetResult();
         await apply.WaitAsync(TimeSpan.FromSeconds(2));
@@ -867,7 +912,8 @@ public sealed class WindowPlacementEngineTests
             WindowPlacementCatalog catalog,
             IReadOnlyList<WindowPlacementRule> rules,
             PlacementWindowSnapshot? snapshot,
-            IEngineDelay? delay = null)
+            IEngineDelay? delay = null,
+            Action? sideEffectWaitObserver = null)
         {
             ProfileId = Guid.Parse("10000000-0000-0000-0000-000000000001");
             LeftZone = new PlacementZoneTarget(
@@ -898,7 +944,8 @@ public sealed class WindowPlacementEngineTests
                 ownProcessId: 9001,
                 Log.Add,
                 Delay.WaitAsync,
-                Clock);
+                Clock,
+                sideEffectWaitObserver);
         }
 
         public WindowPlacementEngine Engine { get; }
@@ -913,11 +960,19 @@ public sealed class WindowPlacementEngineTests
         public PlacementZoneTarget LeftZone { get; }
         public PlacementZoneTarget RightZone { get; }
 
-        public static EngineFixture WithRememberedWindow(bool maximized, IEngineDelay? delay = null)
+        public static EngineFixture WithRememberedWindow(
+            bool maximized,
+            IEngineDelay? delay = null,
+            Action? sideEffectWaitObserver = null)
         {
             var snapshot = CreateSnapshot();
             var entry = CreateEntry(snapshot.Identity, "remembered", StartTime.AddMinutes(-1), maximized);
-            return new EngineFixture(new WindowPlacementCatalog(1, [entry]), [], snapshot, delay);
+            return new EngineFixture(
+                new WindowPlacementCatalog(1, [entry]),
+                [],
+                snapshot,
+                delay,
+                sideEffectWaitObserver);
         }
 
         public static EngineFixture WithRule(WindowPlacementMode mode)

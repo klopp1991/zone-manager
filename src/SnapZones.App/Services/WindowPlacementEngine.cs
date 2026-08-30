@@ -26,6 +26,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
     private readonly Action<string> log;
     private readonly Func<TimeSpan, CancellationToken, Task> delay;
     private readonly TimeProvider timeProvider;
+    private readonly Action? sideEffectWaitObserver;
     private readonly object synchronization = new();
     private readonly object lifecycleSynchronization = new();
     private readonly object sideEffectSynchronization = new();
@@ -55,7 +56,8 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         int ownProcessId,
         Action<string> log,
         Func<TimeSpan, CancellationToken, Task>? delay = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        Action? sideEffectWaitObserver = null)
     {
         this.lifecycleHook = lifecycleHook ?? throw new ArgumentNullException(nameof(lifecycleHook));
         this.windowService = windowService ?? throw new ArgumentNullException(nameof(windowService));
@@ -66,6 +68,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         this.log = log ?? throw new ArgumentNullException(nameof(log));
         this.delay = delay ?? Task.Delay;
         this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.sideEffectWaitObserver = sideEffectWaitObserver;
     }
 
     public WindowPlacementCatalog Catalog { get; private set; }
@@ -966,11 +969,29 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
                 waitForActiveSideEffect = activeSideEffectCompletion.Task;
             }
 
+            sideEffectWaitObserver?.Invoke();
             waitForActiveSideEffect.GetAwaiter().GetResult();
         }
 
         try
         {
+            var revalidatedSnapshot = windowService.Inspect(windowHandle, ownProcessId);
+            if (revalidatedSnapshot is null ||
+                revalidatedSnapshot.IsMinimized ||
+                revalidatedSnapshot.Identity != expectedIdentity)
+            {
+                return;
+            }
+
+            SetCachedSnapshot(windowHandle, state, revalidatedSnapshot);
+            lock (synchronization)
+            {
+                if (!IsContextValidLocked(context))
+                {
+                    return;
+                }
+            }
+
             if (!windowService.TryPlace(windowHandle, targetBounds, maximize))
             {
                 return;
@@ -1021,6 +1042,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
                 waitForActiveSideEffect = activeSideEffectCompletion.Task;
             }
 
+            sideEffectWaitObserver?.Invoke();
             waitForActiveSideEffect.GetAwaiter().GetResult();
         }
     }
