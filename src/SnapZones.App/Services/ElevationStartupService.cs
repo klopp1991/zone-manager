@@ -6,33 +6,42 @@ namespace SnapZones.App.Services;
 
 public enum ElevationStartupStatus
 {
+    /// <summary>Der Prozess besitzt bereits Administratorrechte oder braucht keine.</summary>
     Continue,
-    Relaunched,
-    Cancelled,
-    Failed
+
+    /// <summary>Der Prozess läuft mit den vorhandenen Rechten weiter; erhöhte Fremdfenster bleiben ausgenommen.</summary>
+    ContinueUnelevated,
+
+    /// <summary>Ein erhöhter Prozess wurde gestartet; dieser Prozess beendet sich.</summary>
+    Relaunched
 }
 
 public sealed record ElevationStartupResult(
     ElevationStartupStatus Status,
-    string? ErrorMessage = null);
+    string? Notice = null);
 
 public static class ElevationStartupService
 {
-    private const string DiagnosticsArgument = "--diagnostics";
-    private const string ElevationAttemptedArgument = "--elevation-attempted";
+    public const string DiagnosticsArgument = "--diagnostics";
+    public const string ElevationAttemptedArgument = "--elevation-attempted";
     private const int OperationCancelledError = 1223;
 
+    /// <summary>
+    /// Entscheidet vor dem Start der Oberfläche, ob eine Erhöhung versucht wird. Ist sie nicht möglich,
+    /// wird sie abgebrochen oder schlägt sie fehl, läuft die Anwendung unerhöht weiter statt sich zu beenden.
+    /// </summary>
     public static ElevationStartupResult EnsureElevation(
         string executablePath,
         IReadOnlyList<string> arguments,
-        bool isAdministrator,
+        ElevationCapability capability,
         Func<ProcessStartInfo, bool> startElevated)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(executablePath);
         ArgumentNullException.ThrowIfNull(arguments);
+        ArgumentNullException.ThrowIfNull(capability);
         ArgumentNullException.ThrowIfNull(startElevated);
 
-        if (isAdministrator || Contains(arguments, DiagnosticsArgument))
+        if (capability.IsElevated || Contains(arguments, DiagnosticsArgument))
         {
             return new ElevationStartupResult(ElevationStartupStatus.Continue);
         }
@@ -40,9 +49,29 @@ public static class ElevationStartupService
         if (Contains(arguments, ElevationAttemptedArgument))
         {
             return new ElevationStartupResult(
-                ElevationStartupStatus.Failed,
+                ElevationStartupStatus.ContinueUnelevated,
                 "Der neu gestartete Prozess besitzt weiterhin keine Administratorrechte.");
         }
+
+        if (!capability.CanElevate)
+        {
+            return new ElevationStartupResult(ElevationStartupStatus.ContinueUnelevated, capability.Description);
+        }
+
+        return RequestElevation(executablePath, arguments, startElevated);
+    }
+
+    /// <summary>
+    /// Startet den Prozess erhöht neu. Wird für den erneuten Versuch aus der Oberfläche ebenfalls verwendet.
+    /// </summary>
+    public static ElevationStartupResult RequestElevation(
+        string executablePath,
+        IReadOnlyList<string> arguments,
+        Func<ProcessStartInfo, bool> startElevated)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(executablePath);
+        ArgumentNullException.ThrowIfNull(arguments);
+        ArgumentNullException.ThrowIfNull(startElevated);
 
         var startInfo = new ProcessStartInfo
         {
@@ -53,7 +82,10 @@ public static class ElevationStartupService
         };
         foreach (var argument in arguments)
         {
-            startInfo.ArgumentList.Add(argument);
+            if (!string.Equals(argument, ElevationAttemptedArgument, StringComparison.OrdinalIgnoreCase))
+            {
+                startInfo.ArgumentList.Add(argument);
+            }
         }
 
         // Der Marker verhindert einen erneuten Elevationsversuch bei einem fehlerhaften Neustart.
@@ -64,16 +96,20 @@ public static class ElevationStartupService
             return startElevated(startInfo)
                 ? new ElevationStartupResult(ElevationStartupStatus.Relaunched)
                 : new ElevationStartupResult(
-                    ElevationStartupStatus.Failed,
+                    ElevationStartupStatus.ContinueUnelevated,
                     "Windows hat keinen erhöhten Prozess gestartet.");
         }
         catch (Win32Exception exception) when (exception.NativeErrorCode == OperationCancelledError)
         {
-            return new ElevationStartupResult(ElevationStartupStatus.Cancelled);
+            return new ElevationStartupResult(
+                ElevationStartupStatus.ContinueUnelevated,
+                "Die Abfrage der Benutzerkontensteuerung wurde abgebrochen.");
         }
         catch (Exception exception)
         {
-            return new ElevationStartupResult(ElevationStartupStatus.Failed, exception.Message);
+            return new ElevationStartupResult(
+                ElevationStartupStatus.ContinueUnelevated,
+                $"Der Neustart mit Administratorrechten ist fehlgeschlagen: {exception.Message}");
         }
     }
 

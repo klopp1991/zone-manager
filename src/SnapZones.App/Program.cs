@@ -1,6 +1,6 @@
 using System.Diagnostics;
-using System.Security.Principal;
 using SnapZones.App.Services;
+using SnapZones.Windows.Security;
 
 namespace SnapZones.App;
 
@@ -10,45 +10,33 @@ internal static class Program
     public static void Main(string[] arguments)
     {
         _ = System.Windows.Forms.Application.SetHighDpiMode(System.Windows.Forms.HighDpiMode.PerMonitorV2);
+        var probe = WindowsElevationProbe.Inspect();
+        var capability = ElevationCapability.Inspect(
+            probe.IsElevated,
+            probe.IsAdministratorMember,
+            probe.IsUserAccountControlEnabled,
+            probe.IsInteractiveSession);
         var elevationResult = ElevationStartupService.EnsureElevation(
             Environment.ProcessPath ?? throw new InvalidOperationException("Der Programmpfad fehlt."),
             arguments,
-            IsAdministrator(),
-            startInfo =>
-            {
-                using var process = Process.Start(startInfo);
-                return process is not null;
-            });
-        if (elevationResult.Status != ElevationStartupStatus.Continue)
+            capability,
+            StartElevated);
+        if (elevationResult.Status == ElevationStartupStatus.Relaunched)
         {
-            if (elevationResult.Status == ElevationStartupStatus.Cancelled)
-            {
-                System.Windows.MessageBox.Show(
-                    $"{ProductInfo.Name} benötigt Administratorrechte und wurde nicht gestartet.",
-                    "Administratorrechte erforderlich",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Warning);
-            }
-            else if (elevationResult.Status == ElevationStartupStatus.Failed)
-            {
-                System.Windows.MessageBox.Show(
-                    $"Der Neustart mit Administratorrechten ist fehlgeschlagen.\n\n{elevationResult.ErrorMessage}",
-                    $"{ProductInfo.Name} konnte nicht gestartet werden",
-                    System.Windows.MessageBoxButton.OK,
-                    System.Windows.MessageBoxImage.Error);
-            }
-
             return;
         }
 
-        var application = new App();
+        var application = new App
+        {
+            Elevation = new ElevationRuntimeState(capability, elevationResult.Notice)
+        };
         application.InitializeComponent();
         application.Run();
     }
 
-    private static bool IsAdministrator()
+    internal static bool StartElevated(ProcessStartInfo startInfo)
     {
-        using var identity = WindowsIdentity.GetCurrent();
-        return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
+        using var process = Process.Start(startInfo);
+        return process is not null;
     }
 }

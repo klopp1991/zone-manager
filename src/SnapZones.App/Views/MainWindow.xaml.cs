@@ -28,6 +28,27 @@ public partial class MainWindow : Window
     public event Func<string, Task>? ExportConfigurationRequested;
     public event Func<string, Task>? ImportConfigurationRequested;
     public event Action? IdentifyMonitorsRequested;
+    public event Action? RetryElevationRequested;
+
+    /// <summary>
+    /// Zeigt den Hinweis auf den eingeschränkten Betrieb ohne Administratorrechte.
+    /// </summary>
+    public void ShowElevationNotice(string message, bool canRetry)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        ElevationNoticeText.Text = message;
+        ElevationNoticeBanner.Visibility = Visibility.Visible;
+        RetryElevationButton.Visibility = canRetry ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public void HideElevationNotice() => ElevationNoticeBanner.Visibility = Visibility.Collapsed;
+
+    private void RetryElevation_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        RetryElevationRequested?.Invoke();
+    }
 
     public MainWindow()
     {

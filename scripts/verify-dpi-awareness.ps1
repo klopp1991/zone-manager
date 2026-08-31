@@ -1,6 +1,9 @@
 param(
     [Parameter(Mandatory = $true)]
-    [string]$ExecutablePath
+    [string]$ExecutablePath,
+
+    [ValidateRange(5, 600)]
+    [int]$StartupTimeoutSeconds = 30
 )
 
 $ErrorActionPreference = 'Stop'
@@ -37,9 +40,21 @@ namespace SnapZones
 
 $process = Start-Process -FilePath $resolvedExecutable -PassThru
 try {
-    [void]$process.WaitForInputIdle(5000)
-    if ($process.HasExited) {
-        throw "Sascha’s Zone Manager wurde vor dem DPI-Test beendet: ExitCode $($process.ExitCode)"
+    # Begrenzte Wartezeit: ohne sie bleibt der Prüflauf bei einer offenen Rechteabfrage unbegrenzt stehen.
+    $deadline = (Get-Date).AddSeconds($StartupTimeoutSeconds)
+    $ready = $false
+    while (-not $ready -and (Get-Date) -lt $deadline) {
+        if ($process.HasExited) {
+            throw "Sascha’s Zone Manager wurde vor dem DPI-Test beendet: ExitCode $($process.ExitCode)"
+        }
+
+        $ready = $process.WaitForInputIdle(1000)
+    }
+
+    if (-not $ready) {
+        throw ("Sascha’s Zone Manager war innerhalb von $StartupTimeoutSeconds Sekunden nicht bedienbereit. " +
+            'Bleibt eine Abfrage der Benutzerkontensteuerung unbeantwortet, die Prüfung in einer interaktiven Sitzung wiederholen ' +
+            'oder verify.ps1 mit -SkipDpiCheck aufrufen.')
     }
 
     $awareness = -1

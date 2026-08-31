@@ -9,8 +9,12 @@ namespace SnapZones.App.Services;
 
 public static class DiagnosticRunner
 {
-    public static async Task<int> RunAsync(string configurationDirectory, IStartupService startupService)
+    public static async Task<int> RunAsync(
+        string configurationDirectory,
+        IStartupService startupService,
+        ElevationCapability elevation)
     {
+        ArgumentNullException.ThrowIfNull(elevation);
         var settingsPath = Path.Combine(configurationDirectory, "settings.json");
         var configurationStatus = "missing";
         int? schemaVersion = null;
@@ -50,6 +54,9 @@ public static class DiagnosticRunner
                 monitor.IsPrimary
             }),
             winEventApiAvailable = OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000),
+            isElevated = elevation.IsElevated,
+            canElevate = elevation.CanElevate,
+            elevationReason = elevation.Reason.ToString(),
             hookRegistered = false,
             startupEnabled = startupService.IsEnabled,
             settingsChanged = false

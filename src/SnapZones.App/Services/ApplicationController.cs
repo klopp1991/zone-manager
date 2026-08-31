@@ -52,6 +52,8 @@ public sealed class ApplicationController : IDisposable
     private bool emergencyStopped;
     private bool allowClose;
     private bool disposed;
+    private readonly ElevationRuntimeState elevation;
+    private bool restrictedPlacementReported;
 
     public ApplicationController(
         MainWindow window,
@@ -61,8 +63,10 @@ public sealed class ApplicationController : IDisposable
         WindowPlacementCatalog initialPlacementCatalog,
         IReadOnlyList<LiveMonitor> monitors,
         IStartupService startupService,
-        FileLog log)
+        FileLog log,
+        ElevationRuntimeState elevation)
     {
+        this.elevation = elevation ?? throw new ArgumentNullException(nameof(elevation));
         this.window = window;
         this.viewModel = viewModel;
         this.monitors = monitors;
@@ -98,7 +102,10 @@ public sealed class ApplicationController : IDisposable
             () => configuration,
             monitors,
             new WindowServiceAppRuleGateway(windowService, Environment.ProcessId),
-            reportStatus: message => _ = window.Dispatcher.InvokeAsync(() => viewModel.StatusMessage = message));
+            reportStatus: message => _ = window.Dispatcher.InvokeAsync(() => viewModel.StatusMessage = message),
+            describePlacementRestriction: () => elevation.Capability.IsElevated
+                ? null
+                : ElevationNotice.RestrictionSummary);
         hotkeys = new GlobalHotkeyService();
         cursorTimer = new DispatcherTimer(DispatcherPriority.Input, window.Dispatcher)
         {
@@ -110,7 +117,7 @@ public sealed class ApplicationController : IDisposable
             Interval = TimeSpan.FromSeconds(3)
         };
         identificationTimer.Tick += IdentificationTimer_Tick;
-        tray = new TrayIconService(window, ActivateLayout, RequestExit);
+        tray = new TrayIconService(window, ActivateLayout, RequestExit, elevation.IsRestricted);
 
         viewModel.SaveRequested += SaveRequested;
         window.ExportConfigurationRequested += ExportConfigurationAsync;
@@ -126,6 +133,28 @@ public sealed class ApplicationController : IDisposable
         window.Closing += Window_Closing;
 
         Reconfigure(configuration);
+    }
+
+    /// <summary>
+    /// Erklärt eine fehlgeschlagene Platzierung im unerhöhten Betrieb als erwarteten Fall.
+    /// Der Hinweis erscheint einmal pro Sitzung, damit er die Statusanzeige nicht überschreibt.
+    /// </summary>
+    private void ReportRestrictedPlacement(string context)
+    {
+        if (restrictedPlacementReported)
+        {
+            return;
+        }
+
+        var message = ElevationNotice.DescribePlacementFailure(elevation.Capability, context);
+        if (message is null)
+        {
+            return;
+        }
+
+        restrictedPlacementReported = true;
+        log.Write("INFO", message);
+        _ = window.Dispatcher.InvokeAsync(() => viewModel.StatusMessage = message);
     }
 
     public void EmergencyStop(string reason)
@@ -234,6 +263,7 @@ public sealed class ApplicationController : IDisposable
                     else
                     {
                         log.Write("WARN", $"Fenster 0x{target.WindowHandle:X} konnte nicht an die geänderte Zone angepasst werden.");
+                        ReportRestrictedPlacement("Ein Fenster liess sich nach der Layoutänderung nicht anpassen");
                     }
                 }
             }
@@ -587,6 +617,7 @@ public sealed class ApplicationController : IDisposable
                         "WARN",
                         "Teilmonitor-Platzierung abgelehnt: " +
                         (result?.Status.ToString() ?? "Komponente nicht bereit"));
+                    ReportRestrictedPlacement("Das Fenster liess sich nicht einrasten");
                 }
                 break;
         }

@@ -30,6 +30,7 @@
     <Grid Background="{DynamicResource CanvasBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
@@ -45,7 +46,21 @@
             </Grid>
         </Border>
 
-        <TabControl x:Name="NavigationTabs" Grid.Row="1" Margin="0" TabStripPlacement="Left">
+        <Border x:Name="ElevationNoticeBanner" Grid.Row="1" Visibility="Collapsed" Padding="20,10"
+                Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="ElevationNoticeText" TextWrapping="Wrap" VerticalAlignment="Center"
+                           AutomationProperties.Name="Hinweis zu fehlenden Administratorrechten" />
+                <Button x:Name="RetryElevationButton" Grid.Column="1" Margin="14,0,0,0" Height="34" Visibility="Collapsed"
+                        Content="Mit Administratorrechten neu starten" Click="RetryElevation_Click"
+                        AutomationProperties.Name="Anwendung mit Administratorrechten neu starten" />
+            </Grid>
+        </Border>
+
+        <TabControl x:Name="NavigationTabs" Grid.Row="2" Margin="0" TabStripPlacement="Left">
             <TabItem x:Name="LayoutsTab" Header="Layouts">
                 <Grid Margin="12,18,12,16">
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>

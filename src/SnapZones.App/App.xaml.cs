@@ -17,6 +17,12 @@ public partial class App : System.Windows.Application
     private ApplicationController? controller;
     private FileLog? log;
     private ThemeService? themeService;
+    private MainWindow? mainWindow;
+    private DispatcherSynchronizationContext? synchronizationContext;
+    private string[] startupArguments = [];
+
+    /// <summary>Ergebnis der Rechtevorprüfung aus <see cref="Program"/>.</summary>
+    public ElevationRuntimeState Elevation { get; init; } = ElevationRuntimeState.Unknown;
 
     public void ApplyTheme(ThemeMode mode) => themeService?.Apply(mode);
 
@@ -24,6 +30,7 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(eventArgs);
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        startupArguments = eventArgs.Args;
         var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SnapZones");
         var localData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SnapZones", "logs");
         log = new FileLog(localData);
@@ -31,7 +38,7 @@ public partial class App : System.Windows.Application
 
         if (eventArgs.Args.Contains("--diagnostics", StringComparer.OrdinalIgnoreCase))
         {
-            var exitCode = await DiagnosticRunner.RunAsync(appData, startupService);
+            var exitCode = await DiagnosticRunner.RunAsync(appData, startupService, Elevation.Capability);
             Shutdown(exitCode);
             return;
         }
@@ -43,8 +50,8 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        var context = new DispatcherSynchronizationContext(Dispatcher);
-        singleInstance = new SingleInstanceService(ProductInfo.InstanceKey, context);
+        synchronizationContext = new DispatcherSynchronizationContext(Dispatcher);
+        singleInstance = new SingleInstanceService(ProductInfo.InstanceKey, synchronizationContext);
         var startupDisposition = StartupPolicy.Decide(eventArgs.Args, singleInstance.IsPrimary);
         if (startupDisposition is StartupDisposition.ActivateRunningInstance or StartupDisposition.ExitDuplicate)
         {
@@ -79,7 +86,7 @@ public partial class App : System.Windows.Application
                     ?? "Die Fensterplatzierungen wurden aus der Sicherung wiederhergestellt.";
             }
 
-            var mainWindow = new MainWindow();
+            mainWindow = new MainWindow();
             themeService.Track(mainWindow);
             mainWindow.AttachViewModel(viewModel);
             controller = new ApplicationController(
@@ -90,17 +97,20 @@ public partial class App : System.Windows.Application
                 placementLoadResult.Catalog,
                 monitors,
                 startupService,
-                log);
-            singleInstance.ActivationRequested += () =>
+                log,
+                Elevation);
+            if (Elevation.IsRestricted)
             {
-                mainWindow.Show();
-                if (mainWindow.WindowState == WindowState.Minimized)
+                var banner = Elevation.Banner;
+                if (!string.IsNullOrWhiteSpace(banner))
                 {
-                    mainWindow.WindowState = WindowState.Normal;
+                    mainWindow.ShowElevationNotice(banner, Elevation.CanRetry);
+                    log.Write("WARN", banner);
                 }
+            }
 
-                mainWindow.Activate();
-            };
+            mainWindow.RetryElevationRequested += RetryElevation;
+            singleInstance.ActivationRequested += ActivateMainWindow;
             singleInstance.StartListening();
             DispatcherUnhandledException += async (_, exceptionArgs) =>
             {
@@ -134,6 +144,93 @@ public partial class App : System.Windows.Application
             System.Windows.MessageBox.Show(exception.Message, $"{ProductInfo.Name} konnte nicht gestartet werden", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown(5);
         }
+    }
+
+    /// <summary>
+    /// Startet die Anwendung auf Wunsch erneut mit Administratorrechten. Der Einzelinstanzschlüssel
+    /// wird vorher freigegeben, damit sich der erhöhte Prozess nicht selbst als Zweitinstanz beendet.
+    /// </summary>
+    private async void RetryElevation()
+    {
+        if (mainWindow is null)
+        {
+            return;
+        }
+
+        var executablePath = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(executablePath))
+        {
+            mainWindow.ShowElevationNotice("Der Programmpfad fehlt; ein Neustart ist nicht möglich.", canRetry: false);
+            return;
+        }
+
+        try
+        {
+            if (controller is not null)
+            {
+                await controller.FlushAsync(CancellationToken.None);
+            }
+        }
+        catch (Exception exception)
+        {
+            log?.Write("ERROR", "Vor dem Neustart mit Administratorrechten konnte nicht gesichert werden.", exception);
+            mainWindow.ShowElevationNotice(
+                $"Der Neustart wurde abgebrochen, weil nicht gesichert werden konnte: {exception.Message}",
+                Elevation.CanRetry);
+            return;
+        }
+
+        singleInstance?.Dispose();
+        singleInstance = null;
+        var result = ElevationStartupService.RequestElevation(
+            executablePath,
+            startupArguments,
+            Program.StartElevated);
+        if (result.Status == ElevationStartupStatus.Relaunched)
+        {
+            log?.Write("INFO", "Neustart mit Administratorrechten ausgelöst.");
+            Shutdown(0);
+            return;
+        }
+
+        log?.Write("WARN", result.Notice ?? "Der Neustart mit Administratorrechten ist fehlgeschlagen.");
+        RestoreSingleInstance();
+        mainWindow.ShowElevationNotice(
+            $"{result.Notice} {ElevationNotice.RestrictionSummary}",
+            Elevation.CanRetry);
+    }
+
+    private void RestoreSingleInstance()
+    {
+        if (synchronizationContext is null || singleInstance is not null)
+        {
+            return;
+        }
+
+        singleInstance = new SingleInstanceService(ProductInfo.InstanceKey, synchronizationContext);
+        if (!singleInstance.IsPrimary)
+        {
+            return;
+        }
+
+        singleInstance.ActivationRequested += ActivateMainWindow;
+        singleInstance.StartListening();
+    }
+
+    private void ActivateMainWindow()
+    {
+        if (mainWindow is null)
+        {
+            return;
+        }
+
+        mainWindow.Show();
+        if (mainWindow.WindowState == WindowState.Minimized)
+        {
+            mainWindow.WindowState = WindowState.Normal;
+        }
+
+        mainWindow.Activate();
     }
 
     protected override void OnExit(ExitEventArgs eventArgs)

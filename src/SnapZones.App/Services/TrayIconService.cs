@@ -16,8 +16,10 @@ public sealed class TrayIconService : IDisposable
     public TrayIconService(
         MainWindow window,
         Action<Guid> activateLayout,
-        Action exit)
+        Action exit,
+        bool elevationRestricted = false)
     {
+        ElevationRestricted = elevationRestricted;
         this.window = window;
         this.activateLayout = activateLayout;
         this.exit = exit;
@@ -27,11 +29,14 @@ public sealed class TrayIconService : IDisposable
         icon = new Forms.NotifyIcon
         {
             Icon = applicationIcon ?? Drawing.SystemIcons.Application,
-            Text = ProductInfo.Name,
+            Text = TrayTooltip.Build(ProductInfo.Name, 0, elevationRestricted),
             Visible = true
         };
         icon.DoubleClick += (_, _) => ShowWindow();
     }
+
+    /// <summary>Weist im Tooltip aus, dass erhöhte Fremdfenster nicht positioniert werden können.</summary>
+    public bool ElevationRestricted { get; }
 
     public void Update(SnapConfiguration configuration)
     {
@@ -63,7 +68,7 @@ public sealed class TrayIconService : IDisposable
         var previous = icon.ContextMenuStrip;
         icon.ContextMenuStrip = menu;
         previous?.Dispose();
-        icon.Text = $"{ProductInfo.Name} · {plan.Monitors.Count} Monitore";
+        icon.Text = TrayTooltip.Build(ProductInfo.Name, plan.Monitors.Count, ElevationRestricted);
     }
 
     public void Dispose()

@@ -14,6 +14,10 @@ internal static class Kernel32
         [MarshalAs(UnmanagedType.Bool)] bool inheritHandle,
         uint processId);
 
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool CloseHandle(nint handle);
+
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool QueryFullProcessImageName(

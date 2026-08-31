@@ -48,6 +48,7 @@ public sealed class AppRuleCoordinator : IDisposable
     private readonly IAppRuleWindowGateway windowGateway;
     private readonly Func<TimeSpan, CancellationToken, Task> delay;
     private readonly Action<string>? reportStatus;
+    private readonly Func<string?>? describePlacementRestriction;
     private readonly SemaphoreSlim executor = new(1, 1);
     private readonly object cancellationLock = new();
     private CancellationTokenSource pending = new();
@@ -58,13 +59,15 @@ public sealed class AppRuleCoordinator : IDisposable
         IReadOnlyList<LiveMonitor> monitors,
         IAppRuleWindowGateway windowGateway,
         Func<TimeSpan, CancellationToken, Task>? delay = null,
-        Action<string>? reportStatus = null)
+        Action<string>? reportStatus = null,
+        Func<string?>? describePlacementRestriction = null)
     {
         this.configurationProvider = configurationProvider ?? throw new ArgumentNullException(nameof(configurationProvider));
         this.monitors = monitors ?? throw new ArgumentNullException(nameof(monitors));
         this.windowGateway = windowGateway ?? throw new ArgumentNullException(nameof(windowGateway));
         this.delay = delay ?? Task.Delay;
         this.reportStatus = reportStatus;
+        this.describePlacementRestriction = describePlacementRestriction;
     }
 
     public async Task<AppRuleExecutionResult> HandleAsync(AppRuleEvent eventType, nint windowHandle)
@@ -194,7 +197,11 @@ public sealed class AppRuleCoordinator : IDisposable
 
             if (attempt >= rule.RetryCount)
             {
-                reportStatus?.Invoke($"App-Regel konnte {Path.GetFileName(rule.ProcessPath)} nicht positionieren.");
+                // Ohne Administratorrechte ist eine Ablehnung durch Windows ein erwarteter Fall und wird erklärt.
+                var restriction = describePlacementRestriction?.Invoke();
+                reportStatus?.Invoke(
+                    $"App-Regel konnte {Path.GetFileName(rule.ProcessPath)} nicht positionieren." +
+                    (string.IsNullOrWhiteSpace(restriction) ? string.Empty : $" {restriction}"));
                 return new AppRuleExecutionResult(AppRuleExecutionStatus.WindowsRejected, ruleId);
             }
 
