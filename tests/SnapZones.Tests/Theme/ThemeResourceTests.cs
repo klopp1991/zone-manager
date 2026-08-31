@@ -373,6 +373,10 @@ public sealed class ThemeResourceTests
 
             Assert.Equal(15d, window.FontSize);
             Assert.Equal(15d, layoutNameText.FontSize);
+            Assert.True(layoutNameText.ApplyTemplate());
+            var contentHost = Assert.IsType<ScrollViewer>(
+                layoutNameText.Template.FindName("PART_ContentHost", layoutNameText));
+            Assert.Same(layoutNameText.Foreground, contentHost.Foreground);
             Assert.Equal(30d, StyleFontSize("PageTitle"));
             Assert.Equal(19d, StyleFontSize("SectionTitle"));
             Assert.Equal(14d, StyleFontSize("FieldLabel"));

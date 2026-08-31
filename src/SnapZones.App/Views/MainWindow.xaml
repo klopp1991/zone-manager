@@ -72,6 +72,7 @@
                             <StackPanel Width="150" Margin="0,0,10,10">
                                 <TextBlock Text="Layoutname" Style="{StaticResource FieldLabel}" />
                                 <TextBox x:Name="LayoutNameText" Text="{Binding SelectedLayout.Name}" LostFocus="LayoutName_LostFocus" Height="38"
+                                         Foreground="{DynamicResource InkBrush}" HorizontalContentAlignment="Left"
                                          AutomationProperties.Name="Layoutname" />
                             </StackPanel>
                             <Grid Margin="0,0,0,10">
