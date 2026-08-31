@@ -21,6 +21,10 @@ public sealed class MainViewModel : ViewModelBase
         liveMonitors = monitors;
         Settings = new SettingsViewModel(layoutService.Configuration.Settings);
         Settings.ValueChanged += Settings_ValueChanged;
+        AppRules = new AppRuleEditorViewModel(
+            layoutService.Configuration.AppRules,
+            layoutService.Configuration.Layouts);
+        AppRules.RulesChanged += AppRules_RulesChanged;
         Monitors = [];
         Layouts = [];
         RefreshMonitors();
@@ -31,6 +35,7 @@ public sealed class MainViewModel : ViewModelBase
     public ObservableCollection<MonitorChoice> Monitors { get; }
     public ObservableCollection<MonitorLayout> Layouts { get; }
     public SettingsViewModel Settings { get; }
+    public AppRuleEditorViewModel AppRules { get; }
 
     public MonitorChoice? SelectedMonitor
     {
@@ -69,8 +74,6 @@ public sealed class MainViewModel : ViewModelBase
 
     public LayoutEditorViewModel? Editor => editor;
     public bool CanDeleteSelectedLayout => selectedMonitor is not null && Layouts.Count > 1;
-    public string LayoutSummary => $"{liveMonitors.Count} Monitore · {layoutService.Configuration.Layouts.Count} Layouts";
-
     public string StatusMessage
     {
         get => statusMessage;
@@ -142,6 +145,10 @@ public sealed class MainViewModel : ViewModelBase
         RequestPersistence();
     }
 
+    public void MoveSelectedMonitorUp() => MoveSelectedMonitor(-1);
+
+    public void MoveSelectedMonitorDown() => MoveSelectedMonitor(1);
+
     public string GetMonitorDisplayName(MonitorIdentity monitor)
     {
         var choice = Monitors.FirstOrDefault(candidate =>
@@ -187,6 +194,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             layoutService = new LayoutService(replacement);
             Settings.Apply(layoutService.Configuration.Settings);
+            AppRules.Refresh(layoutService.Configuration.AppRules, layoutService.Configuration.Layouts);
             RefreshMonitors();
             StatusMessage = "Importierte Konfiguration geladen";
         }
@@ -208,9 +216,19 @@ public sealed class MainViewModel : ViewModelBase
     {
         var wantedMonitor = preferredMonitor ?? selectedMonitor?.Live.Identity;
         Monitors.Clear();
-        for (var index = 0; index < liveMonitors.Count; index++)
+        var orderedMonitors = liveMonitors
+            .Select((live, index) => new
+            {
+                Live = live,
+                OriginalIndex = index,
+                OrderIndex = MonitorOrderIndex(MonitorNaming.KeyFor(live.Identity))
+            })
+            .OrderBy(item => item.OrderIndex)
+            .ThenBy(item => item.OriginalIndex)
+            .ToArray();
+        for (var index = 0; index < orderedMonitors.Length; index++)
         {
-            var live = liveMonitors[index];
+            var live = orderedMonitors[index].Live;
             var active = layoutService.EnsureMonitor(
                 live.Identity,
                 live.WorkArea.Width,
@@ -229,7 +247,6 @@ public sealed class MainViewModel : ViewModelBase
               ?? Monitors.FirstOrDefault();
         OnPropertyChanged(nameof(SelectedMonitor));
         RefreshLayouts(preferredLayoutId);
-        OnPropertyChanged(nameof(LayoutSummary));
     }
 
     private void RefreshLayouts(Guid? preferredLayoutId = null)
@@ -306,8 +323,55 @@ public sealed class MainViewModel : ViewModelBase
 
     private void RequestPersistence()
     {
+        AppRules.RefreshTargets(layoutService.Configuration.Layouts);
         StatusMessage = "Wird gespeichert …";
         SaveRequested?.Invoke(layoutService.Configuration);
+    }
+
+    private void AppRules_RulesChanged(IReadOnlyList<SnapZones.Core.AppRules.AppRule> rules)
+    {
+        if (suppressPersistence)
+        {
+            return;
+        }
+
+        layoutService.UpdateAppRules(rules);
+        RequestPersistence();
+    }
+
+    private void MoveSelectedMonitor(int offset)
+    {
+        if (selectedMonitor is null)
+        {
+            return;
+        }
+
+        var currentIndex = Monitors.IndexOf(selectedMonitor);
+        var targetIndex = currentIndex + offset;
+        if (currentIndex < 0 || targetIndex < 0 || targetIndex >= Monitors.Count)
+        {
+            return;
+        }
+
+        var reordered = Monitors.Select(choice => choice.Live.Identity).ToArray();
+        (reordered[currentIndex], reordered[targetIndex]) = (reordered[targetIndex], reordered[currentIndex]);
+        layoutService.UpdateMonitorOrder(reordered);
+        RefreshMonitors(selectedMonitor.Live.Identity, selectedLayout?.Id);
+        StatusMessage = "Monitorreihenfolge geändert";
+        RequestPersistence();
+    }
+
+    private int MonitorOrderIndex(string monitorKey)
+    {
+        for (var index = 0; index < layoutService.Configuration.MonitorOrder.Count; index++)
+        {
+            if (string.Equals(layoutService.Configuration.MonitorOrder[index], monitorKey, StringComparison.OrdinalIgnoreCase))
+            {
+                return index;
+            }
+        }
+
+        return int.MaxValue;
     }
 
     private static bool IsValidOverlayColor(string value) =>

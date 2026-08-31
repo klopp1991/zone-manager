@@ -1,10 +1,11 @@
 using System.Text.Json.Serialization;
+using SnapZones.Core.AppRules;
 
 namespace SnapZones.Core.Models;
 
 public sealed record SnapConfiguration
 {
-    public const int CurrentSchemaVersion = 2;
+    public const int CurrentSchemaVersion = 4;
 
     public SnapConfiguration()
     {
@@ -25,6 +26,8 @@ public sealed record SnapConfiguration
     public IReadOnlyList<MonitorLayout> Layouts { get; init; } = [];
     public IReadOnlyDictionary<string, string> MonitorNames { get; init; } =
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+    public IReadOnlyList<string> MonitorOrder { get; init; } = [];
+    public IReadOnlyList<AppRule> AppRules { get; init; } = [];
 
     [JsonPropertyName("Profiles")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

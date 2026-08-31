@@ -9,5 +9,5 @@ public sealed record LayoutMetrics(EdgeInsets OuterMargins, int ZoneGap)
 
     public int OuterMargin => OuterMargins.Left;
 
-    public static LayoutMetrics Default { get; } = new(EdgeInsets.Uniform(8), 8);
+    public static LayoutMetrics Default { get; } = new(EdgeInsets.Uniform(8), 0);
 }

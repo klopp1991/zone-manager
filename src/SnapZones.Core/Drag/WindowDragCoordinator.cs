@@ -1,30 +1,30 @@
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;
+using SnapZones.Core.PartMonitors;
 
 namespace SnapZones.Core.Drag;
 
 public sealed class WindowDragCoordinator
 {
-    private readonly IReadOnlyList<DragMonitorTarget> targets;
+    private readonly IReadOnlyList<PartMonitorTarget> targets;
+    private readonly PartMonitorResolver resolver;
     private readonly OverlayScope overlayScope;
-    private readonly List<ZoneDefinition> selectedZones = [];
     private nint windowHandle;
-    private DragMonitorTarget? hoverTarget;
+    private PartMonitorPlacement? hoverPlacement;
 
     public WindowDragCoordinator(
-        IReadOnlyList<DragMonitorTarget> targets,
+        IReadOnlyList<PartMonitorTarget> targets,
+        LayoutMetrics metrics,
         OverlayScope overlayScope)
     {
         this.targets = targets;
+        resolver = new PartMonitorResolver(targets, metrics);
         this.overlayScope = overlayScope;
     }
 
     public event Action<DragAction>? ActionRequested;
 
     public DragState State { get; private set; }
-
-    /// <summary>Zones the window would be placed in if the drag ended now.</summary>
-    public IReadOnlyList<ZoneDefinition> SelectedZones => selectedZones;
 
     public void Start(nint handle, WindowSnapshot snapshot, PointInt cursor)
     {
@@ -33,7 +33,7 @@ public sealed class WindowDragCoordinator
             return;
         }
 
-        var activeTarget = FindTarget(cursor);
+        var activeTarget = resolver.FindPhysicalMonitor(cursor);
         if (activeTarget is null)
         {
             return;
@@ -48,55 +48,23 @@ public sealed class WindowDragCoordinator
             visibleTargets.Select(target => target.Monitor.Identity.StableId).ToArray()));
     }
 
-    public void Update(PointInt cursor) => Update(cursor, spanRequested: false);
-
-    /// <summary>
-    /// Tracks the cursor during a drag.
-    /// </summary>
-    /// <param name="cursor">Current cursor position in virtual desktop pixels.</param>
-    /// <param name="spanRequested">
-    /// True while the user holds the span modifier. The hovered zone is then
-    /// added to the selection instead of replacing it, and the window is placed
-    /// in the rectangle enclosing all selected zones. A span never reaches
-    /// across monitors: hovering another monitor starts a new selection there.
-    /// </param>
-    public void Update(PointInt cursor, bool spanRequested)
+    public void Update(PointInt cursor)
     {
         if (State != DragState.Tracking)
         {
             return;
         }
 
-        var target = FindTarget(cursor);
-        var zone = target is null
-            ? null
-            : ZoneGeometry.HitTest(target.Zones, target.Monitor.WorkArea, cursor);
-
-        var previousTarget = hoverTarget;
-        var previousSelection = selectedZones.ToArray();
-
-        // A span stays on one monitor. Leaving it discards the selection.
-        var keepSelection = spanRequested && target is not null && target == previousTarget;
-        if (!keepSelection)
-        {
-            selectedZones.Clear();
-        }
-
-        hoverTarget = target;
-
-        if (zone is not null && !selectedZones.Any(selected => selected.Id == zone.Id))
-        {
-            selectedZones.Add(zone);
-        }
-
-        if (target == previousTarget && SameZones(previousSelection, selectedZones))
+        var placement = resolver.FindAt(cursor);
+        if (placement == hoverPlacement)
         {
             return;
         }
 
+        hoverPlacement = placement;
         ActionRequested?.Invoke(new HighlightZoneAction(
-            target?.Monitor.Identity.StableId,
-            selectedZones.Select(selected => selected.Id).ToArray()));
+            placement?.MonitorId,
+            placement?.PartMonitorId));
     }
 
     public void Cancel()
@@ -118,52 +86,27 @@ public sealed class WindowDragCoordinator
         }
 
         ActionRequested?.Invoke(new HideOverlaysAction());
-        if (hoverTarget is not null && selectedZones.Count > 0)
+        if (hoverPlacement is not null)
         {
-            var bounds = ZoneSpan.BoundingBox(selectedZones, hoverTarget.Monitor.WorkArea);
-            ActionRequested?.Invoke(new SnapWindowAction(windowHandle, bounds));
+            ActionRequested?.Invoke(new FillPartMonitorAction(
+                windowHandle,
+                hoverPlacement.MonitorId,
+                hoverPlacement.PartMonitorId));
         }
 
         ResetState();
     }
 
-    public void End(PointInt finalCursor) => End(finalCursor, spanRequested: false);
-
-    public void End(PointInt finalCursor, bool spanRequested)
+    public void End(PointInt finalCursor)
     {
-        Update(finalCursor, spanRequested);
+        Update(finalCursor);
         End();
     }
-
-    private static bool SameZones(IReadOnlyList<ZoneDefinition> first, IReadOnlyList<ZoneDefinition> second)
-    {
-        if (first.Count != second.Count)
-        {
-            return false;
-        }
-
-        for (var index = 0; index < first.Count; index++)
-        {
-            if (first[index].Id != second[index].Id)
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private DragMonitorTarget? FindTarget(PointInt cursor) => targets.FirstOrDefault(target =>
-        cursor.X >= target.Monitor.WorkArea.X &&
-        cursor.X < target.Monitor.WorkArea.X + target.Monitor.WorkArea.Width &&
-        cursor.Y >= target.Monitor.WorkArea.Y &&
-        cursor.Y < target.Monitor.WorkArea.Y + target.Monitor.WorkArea.Height);
 
     private void ResetState()
     {
         State = DragState.Idle;
         windowHandle = 0;
-        hoverTarget = null;
-        selectedZones.Clear();
+        hoverPlacement = null;
     }
 }

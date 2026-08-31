@@ -4,11 +4,10 @@ public sealed class SingleInstanceService : IDisposable
 {
     private readonly Mutex mutex;
     private readonly EventWaitHandle activationEvent;
-    private readonly CancellationTokenSource cancellation = new();
     private readonly SynchronizationContext synchronizationContext;
-    private Task? listenerTask;
+    private RegisteredWaitHandle? listenerRegistration;
     private bool ownsMutex;
-    private bool disposed;
+    private int disposed;
 
     public SingleInstanceService(string name, SynchronizationContext synchronizationContext)
     {
@@ -23,17 +22,18 @@ public sealed class SingleInstanceService : IDisposable
 
     public void StartListening()
     {
-        ObjectDisposedException.ThrowIf(disposed, this);
+        ObjectDisposedException.ThrowIf(Volatile.Read(ref disposed) != 0, this);
         if (!ownsMutex)
         {
             throw new InvalidOperationException("Nur die primäre Instanz darf Startanforderungen empfangen.");
         }
 
-        listenerTask ??= Task.Factory.StartNew(
-            Listen,
-            CancellationToken.None,
-            TaskCreationOptions.LongRunning,
-            TaskScheduler.Default);
+        listenerRegistration ??= ThreadPool.RegisterWaitForSingleObject(
+            activationEvent,
+            static (state, _) => ((SingleInstanceService)state!).HandleActivation(),
+            this,
+            Timeout.Infinite,
+            executeOnlyOnce: false);
     }
 
     public void NotifyPrimary()
@@ -46,15 +46,13 @@ public sealed class SingleInstanceService : IDisposable
 
     public void Dispose()
     {
-        if (disposed)
+        if (Interlocked.Exchange(ref disposed, 1) != 0)
         {
             return;
         }
 
-        disposed = true;
-        cancellation.Cancel();
-        activationEvent.Set();
-        listenerTask?.GetAwaiter().GetResult();
+        listenerRegistration?.Unregister(null);
+        listenerRegistration = null;
         activationEvent.Dispose();
         if (ownsMutex)
         {
@@ -62,18 +60,25 @@ public sealed class SingleInstanceService : IDisposable
         }
 
         mutex.Dispose();
-        cancellation.Dispose();
     }
 
-    private void Listen()
+    private void HandleActivation()
     {
-        while (!cancellation.IsCancellationRequested)
+        if (Volatile.Read(ref disposed) != 0)
         {
-            activationEvent.WaitOne();
-            if (!cancellation.IsCancellationRequested)
-            {
-                synchronizationContext.Post(_ => ActivationRequested?.Invoke(), null);
-            }
+            return;
+        }
+
+        synchronizationContext.Post(
+            static state => ((SingleInstanceService)state!).RaiseActivationRequested(),
+            this);
+    }
+
+    private void RaiseActivationRequested()
+    {
+        if (Volatile.Read(ref disposed) == 0)
+        {
+            ActivationRequested?.Invoke();
         }
     }
 }

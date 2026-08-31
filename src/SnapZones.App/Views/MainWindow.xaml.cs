@@ -120,7 +120,7 @@ public partial class MainWindow : Window
             Filter = "Sascha’s Zone Manager Vollbackup (*.swz.json)|*.swz.json|JSON-Dateien (*.json)|*.json",
             DefaultExt = ".swz.json",
             AddExtension = true,
-            FileName = $"SaschaZoneManager-Vollbackup-{DateTime.Now:yyyy-MM-dd-HHmm}.swz.json"
+            FileName = $"ZoneManager-Vollbackup-{DateTime.Now:yyyy-MM-dd-HHmm}.swz.json"
         };
         if (dialog.ShowDialog(this) == true && ExportConfigurationRequested is { } export)
         {
@@ -362,6 +362,57 @@ public partial class MainWindow : Window
         RefreshEditor();
     }
 
+    private void AppRuleAdd_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.AppRules.AddRule();
+    }
+
+    private void AppRuleDelete_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel?.AppRules.SelectedRule is not { } rule)
+        {
+            return;
+        }
+
+        var processName = System.IO.Path.GetFileName(rule.ProcessPath);
+        if (System.Windows.MessageBox.Show(
+                $"Die App-Regel für «{processName}» wird gelöscht.",
+                "App-Regel löschen",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Warning) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        viewModel.AppRules.DeleteSelectedRule();
+    }
+
+    private void AppRuleBrowse_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Prozess für App-Regel auswählen",
+            Filter = "Programme (*.exe)|*.exe|Alle Dateien (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) == true)
+        {
+            viewModel.AppRules.ProcessPath = dialog.FileName;
+        }
+    }
+
     private void LayoutName_LostFocus(object sender, RoutedEventArgs eventArgs)
     {
         if (viewModel?.SelectedLayout is null)
@@ -418,6 +469,20 @@ public partial class MainWindow : Window
         _ = sender;
         _ = eventArgs;
         IdentifyMonitorsRequested?.Invoke();
+    }
+
+    private void MoveMonitorUp_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.MoveSelectedMonitorUp();
+    }
+
+    private void MoveMonitorDown_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.MoveSelectedMonitorDown();
     }
 
     private void DeleteLayout_Click(object sender, RoutedEventArgs eventArgs)

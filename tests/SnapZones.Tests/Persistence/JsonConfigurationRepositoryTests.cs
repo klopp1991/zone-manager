@@ -57,7 +57,8 @@ public sealed class JsonConfigurationRepositoryTests
 
         var result = await new JsonConfigurationRepository(directory.Path).LoadAsync(CancellationToken.None);
 
-        Assert.Equal(2, result.Configuration.SchemaVersion);
+        Assert.Equal(SnapConfiguration.CurrentSchemaVersion, result.Configuration.SchemaVersion);
+        Assert.Empty(result.Configuration.AppRules);
         Assert.Equal(["Arbeit", "Gaming"], result.Configuration.Layouts.Select(layout => layout.Name));
         Assert.True(result.Configuration.Layouts.Single(layout => layout.Name == "Arbeit").IsActive);
         Assert.False(result.Configuration.Layouts.Single(layout => layout.Name == "Gaming").IsActive);
@@ -74,7 +75,8 @@ public sealed class JsonConfigurationRepositoryTests
             MonitorNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
                 ["stable:DISPLAY-A"] = "Links oben"
-            }
+            },
+            MonitorOrder = ["stable:DISPLAY-B", "stable:DISPLAY-A"]
         };
 
         await repository.SaveAsync(expected, CancellationToken.None);
@@ -83,9 +85,54 @@ public sealed class JsonConfigurationRepositoryTests
         Assert.False(actual.RecoveredFromError);
         Assert.Equal(expected.Settings, actual.Configuration.Settings);
         Assert.Equal(expected.MonitorNames, actual.Configuration.MonitorNames);
+        Assert.Equal(expected.MonitorOrder, actual.Configuration.MonitorOrder);
         Assert.Equal(expected.Layouts.Select(layout => layout.Name), actual.Configuration.Layouts.Select(layout => layout.Name));
         Assert.Equal(expected.Layouts[1].Zones, actual.Configuration.Layouts[1].Zones);
         Assert.Empty(Directory.GetFiles(directory.Path, "*.tmp"));
+    }
+
+    [Fact]
+    public async Task Load_migrates_schema_two_configuration_with_an_empty_rule_list()
+    {
+        using var directory = new TemporaryDirectory();
+        var json = """
+        {
+          "SchemaVersion": 2,
+          "Settings": {
+            "SnappingEnabled": false,
+            "StartWithWindows": false,
+            "OverlayScope": "AllMonitors",
+            "TriggerMode": "Immediate",
+            "OuterMargin": 8,
+            "ZoneGap": 8,
+            "OverlayColor": "#707070",
+            "OverlayOpacity": 0.24,
+            "MagnetThresholdPixels": 20,
+            "ShowZoneNames": true
+          },
+          "Layouts": [{
+            "Id": "11111111-1111-1111-1111-111111111111",
+            "Name": "Arbeit",
+            "IsActive": true,
+            "Monitor": { "StableId": "DISPLAY-A", "DeviceName": "DISPLAY1", "FriendlyName": "Monitor A" },
+            "SavedWidth": 2560,
+            "SavedHeight": 1440,
+            "Zones": [{
+              "Id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+              "Name": "Voll",
+              "Bounds": { "X": 0, "Y": 0, "Width": 1, "Height": 1 }
+            }]
+          }]
+        }
+        """;
+        await File.WriteAllTextAsync(Path.Combine(directory.Path, "settings.json"), json);
+
+        var result = await new JsonConfigurationRepository(directory.Path).LoadAsync(CancellationToken.None);
+
+        Assert.False(result.RecoveredFromError);
+        Assert.Equal(SnapConfiguration.CurrentSchemaVersion, result.Configuration.SchemaVersion);
+        Assert.Empty(result.Configuration.AppRules);
+        Assert.Single(result.Configuration.Layouts);
     }
 
     [Fact]
@@ -207,7 +254,7 @@ public sealed class JsonConfigurationRepositoryTests
 
         Assert.False(result.RecoveredFromError);
         Assert.Equal(ThemeMode.System, result.Configuration.Settings.ThemeMode);
-        Assert.Equal(10, result.Configuration.Settings.MagnetThresholdPixels);
+        Assert.Equal(20, result.Configuration.Settings.MagnetThresholdPixels);
         Assert.True(result.Configuration.Settings.ShowZoneNames);
         Assert.Equal("#707070", result.Configuration.Settings.OverlayColor);
         Assert.Equal(EdgeInsets.Uniform(8), result.Configuration.Settings.EffectiveOuterMargins);

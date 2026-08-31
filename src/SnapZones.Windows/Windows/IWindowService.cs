@@ -1,20 +1,18 @@
 using SnapZones.Core.Drag;
 using SnapZones.Core.Geometry;
+using SnapZones.Core.Layouts;
+using SnapZones.Core.PartMonitors;
 
 namespace SnapZones.Windows.Windows;
 
-public interface IWindowService
+public interface IWindowService : IPartMonitorWindowGateway
 {
     WindowSnapshot? Inspect(nint window, PointInt cursor, int ownProcessId);
     bool TrySnap(nint window, PixelRect bounds);
+    IReadOnlyList<WindowPlacement> GetMovableTopLevelWindows(int ownProcessId);
+    WindowRuleCandidate? InspectRuleCandidate(nint window, int ownProcessId);
+    IReadOnlyList<WindowRuleCandidate> GetRuleCandidates(int ownProcessId);
     bool TryGetCursorPosition(out PointInt point);
     bool IsEscapePressed();
     bool IsShiftPressed();
-
-    /// <summary>
-    /// True while the modifier that spans a drag across several zones is held
-    /// down. Holding it adds the hovered zone to the selection instead of
-    /// replacing it.
-    /// </summary>
-    bool IsSpanModifierPressed();
 }

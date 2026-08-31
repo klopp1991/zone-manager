@@ -9,7 +9,7 @@
         WindowStartupLocation="CenterScreen"
         PreviewKeyDown="Window_PreviewKeyDown">
     <Window.Icon>
-        <BitmapImage UriSource="/SaschaZoneManager;component/Assets/SaschaWindowZones.ico" DecodePixelWidth="64" />
+        <BitmapImage UriSource="/ZoneManager;component/Assets/SaschaWindowZones.ico" DecodePixelWidth="64" />
     </Window.Icon>
     <Window.Resources>
         <DataTemplate x:Key="MonitorItemTemplate">
@@ -17,6 +17,9 @@
                 <TextBlock Text="{Binding UserFacingName}" FontWeight="SemiBold" TextWrapping="Wrap" />
                 <TextBlock Text="{Binding DetailsText}" Foreground="{DynamicResource MutedBrush}" FontSize="13" Margin="0,3,0,0" TextWrapping="Wrap" />
             </StackPanel>
+        </DataTemplate>
+        <DataTemplate x:Key="LayoutMonitorItemTemplate">
+            <TextBlock Text="{Binding UserFacingName}" />
         </DataTemplate>
     </Window.Resources>
 
@@ -31,14 +34,11 @@
             <Grid Margin="20,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" /><ColumnDefinition Width="14" /><ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="36" /><ColumnDefinition Width="260" /><ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <Image Width="36" Height="36" Source="/SaschaZoneManager;component/Assets/SaschaWindowZones.Header.png"
+                <Image Width="36" Height="36" Source="/ZoneManager;component/Assets/SaschaWindowZones.Header.png"
                        RenderOptions.BitmapScalingMode="HighQuality" SnapsToDevicePixels="True" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="2" Text="Sascha’s Zone Manager" FontFamily="Segoe UI Variable Display"
                            FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="4" Text="{Binding LayoutSummary}" Foreground="{DynamicResource MutedBrush}"
-                           VerticalAlignment="Center" AutomationProperties.Name="Layoutübersicht" />
             </Grid>
         </Border>
 
@@ -57,27 +57,27 @@
                             <StackPanel Width="190" Margin="0,0,10,10">
                                 <TextBlock Text="Monitor" Style="{StaticResource FieldLabel}" />
                                  <ComboBox x:Name="LayoutMonitorSelector" ItemsSource="{Binding Monitors}"
-                                           SelectedItem="{Binding SelectedMonitor, Mode=TwoWay}" ItemTemplate="{StaticResource MonitorItemTemplate}"
+                                           SelectedItem="{Binding SelectedMonitor, Mode=TwoWay}" ItemTemplate="{StaticResource LayoutMonitorItemTemplate}" Height="38"
                                           SelectionChanged="Monitor_SelectionChanged" AutomationProperties.Name="Monitor wählen" />
                             </StackPanel>
                             <StackPanel Width="150" Margin="0,0,10,10">
                                 <TextBlock Text="Aktives Layout" Style="{StaticResource FieldLabel}" />
-                                 <ComboBox x:Name="LayoutSelector" ItemsSource="{Binding Layouts}" SelectedItem="{Binding SelectedLayout, Mode=TwoWay}"
+                                 <ComboBox x:Name="LayoutSelector" ItemsSource="{Binding Layouts}" SelectedItem="{Binding SelectedLayout, Mode=TwoWay}" Height="38"
                                           DisplayMemberPath="Name" SelectionChanged="Layout_SelectionChanged"
                                           AutomationProperties.Name="Layout für den Monitor wählen" />
                             </StackPanel>
                             <StackPanel Width="150" Margin="0,0,10,10">
                                 <TextBlock Text="Layoutname" Style="{StaticResource FieldLabel}" />
-                                <TextBox x:Name="LayoutNameText" Text="{Binding SelectedLayout.Name}" LostFocus="LayoutName_LostFocus"
+                                <TextBox x:Name="LayoutNameText" Text="{Binding SelectedLayout.Name}" LostFocus="LayoutName_LostFocus" Height="38"
                                          AutomationProperties.Name="Layoutname" />
                             </StackPanel>
                             <Grid Margin="0,0,0,10">
                                 <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
                                 <TextBlock Text="Aktionen" Style="{StaticResource FieldLabel}" Visibility="Hidden" />
                                 <StackPanel Grid.Row="1" Orientation="Horizontal">
-                                    <Button Content="+ Neues Layout" Click="AddLayout_Click" Margin="0,0,8,0"
+                                    <Button Content="+ Neues Layout" Click="AddLayout_Click" Margin="0,0,8,0" Height="38"
                                             AutomationProperties.Name="Neues Layout erstellen" />
-                                    <Button x:Name="DeleteLayoutButton" Content="Layout löschen" Click="DeleteLayout_Click"
+                                    <Button x:Name="DeleteLayoutButton" Content="Layout löschen" Click="DeleteLayout_Click" Height="38"
                                             IsEnabled="{Binding CanDeleteSelectedLayout}" Margin="0"
                                             AutomationProperties.Name="Ausgewähltes Layout löschen" />
                                 </StackPanel>
@@ -278,6 +278,155 @@
                 </Grid>
             </TabItem>
 
+            <TabItem Header="App-Regeln">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <Grid Margin="38,30" MaxWidth="1120" HorizontalAlignment="Left">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="App-Regeln" Style="{StaticResource PageTitle}" />
+                            <Button Style="{StaticResource InfoButton}" VerticalAlignment="Center"
+                                    AutomationProperties.Name="Hilfe zu App-Regeln"
+                                    ToolTip="App-Regeln verschieben passende Fenster nach einem Ereignis in eine feste Zone. Fehlende Ziele pausieren die Regel ohne Fallback." />
+                        </StackPanel>
+                        <TextBlock Grid.Row="1"
+                                   Text="Ordne Fenster über Prozess, optionalen Fenstertitel und Fensterklasse einer Zielzone zu. Gültige Änderungen werden automatisch gespeichert."
+                                   Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,22" />
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="330" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="620" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource SectionCard}">
+                                <DockPanel LastChildFill="True">
+                                    <StackPanel DockPanel.Dock="Top">
+                                        <TextBlock Text="Regeln" Style="{StaticResource SectionTitle}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,14,0,12">
+                                            <Button x:Name="AppRuleAddButton" Content="+ Regel" Click="AppRuleAdd_Click"
+                                                    AutomationProperties.Name="App-Regel hinzufügen" />
+                                            <Button x:Name="AppRuleDeleteButton" Content="Löschen" Click="AppRuleDelete_Click"
+                                                    IsEnabled="{Binding AppRules.CanDelete}" Margin="8,0,0,0"
+                                                    AutomationProperties.Name="Ausgewählte App-Regel löschen" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <ListBox x:Name="AppRuleList" ItemsSource="{Binding AppRules.Rules}"
+                                             SelectedItem="{Binding AppRules.SelectedRule, Mode=TwoWay}"
+                                             MinHeight="320" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                             AutomationProperties.Name="App-Regeln">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Margin="2,4">
+                                                    <TextBlock Text="{Binding ProcessPath}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding Event, Converter={StaticResource EnumDisplayConverter}}"
+                                                               Foreground="{DynamicResource MutedBrush}" FontSize="13" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </DockPanel>
+                            </Border>
+                            <Border Grid.Column="2" Style="{StaticResource SectionCard}">
+                                <StackPanel>
+                                    <TextBlock Text="Regel bearbeiten" Style="{StaticResource SectionTitle}" />
+                                    <CheckBox x:Name="AppRuleEnabledCheckBox" Content="Regel aktiv"
+                                              IsChecked="{Binding AppRules.IsEnabled, Mode=TwoWay}" Margin="0,14,0,8" />
+
+                                    <TextBlock Text="Prozess" Style="{StaticResource FieldLabel}" Margin="0,8,0,5" />
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <TextBox x:Name="AppRuleProcessPathText"
+                                                 Text="{Binding AppRules.ProcessPath, UpdateSourceTrigger=PropertyChanged}"
+                                                 AutomationProperties.Name="Prozesspfad oder Dateiname" />
+                                        <Button x:Name="AppRuleBrowseButton" Grid.Column="1" Content="Auswählen …" Click="AppRuleBrowse_Click"
+                                                Margin="8,0,0,0" AutomationProperties.Name="Prozess auswählen" />
+                                    </Grid>
+
+                                    <Grid Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="Optionales Titelmuster" Style="{StaticResource FieldLabel}" />
+                                            <TextBox Text="{Binding AppRules.WindowTitlePattern, UpdateSourceTrigger=PropertyChanged}"
+                                                     AutomationProperties.Name="Optionales Fenstertitelmuster" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Optionale Fensterklasse" Style="{StaticResource FieldLabel}" />
+                                            <TextBox Text="{Binding AppRules.WindowClass, UpdateSourceTrigger=PropertyChanged}"
+                                                     AutomationProperties.Name="Optionale Fensterklasse" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Grid Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="2*" /><ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" /><ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" /><ColumnDefinition Width="12" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="Ereignis" Style="{StaticResource FieldLabel}" />
+                                            <ComboBox x:Name="AppRuleEventSelector" ItemsSource="{Binding AppRules.Events}"
+                                                      SelectedItem="{Binding AppRules.SelectedEvent, Mode=TwoWay}"
+                                                      ItemTemplate="{StaticResource EnumItemTemplate}"
+                                                      AutomationProperties.Name="Ereignis der App-Regel" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Verzögerung (ms)" Style="{StaticResource FieldLabel}" />
+                                            <TextBox x:Name="AppRuleDelayText"
+                                                     Text="{Binding AppRules.DelayMilliseconds, UpdateSourceTrigger=LostFocus}"
+                                                     AutomationProperties.Name="Verzögerung in Millisekunden" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="4">
+                                            <TextBlock Text="Wiederholungen" Style="{StaticResource FieldLabel}" />
+                                            <TextBox Text="{Binding AppRules.RetryCount, UpdateSourceTrigger=LostFocus}"
+                                                     AutomationProperties.Name="Wiederholungen von null bis drei" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="6">
+                                            <TextBlock Text="Priorität" Style="{StaticResource FieldLabel}" />
+                                            <TextBox Text="{Binding AppRules.Priority, UpdateSourceTrigger=LostFocus}"
+                                                     AutomationProperties.Name="Priorität von null bis hundert" />
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <Grid Margin="0,10,0,0">
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <TextBlock Text="Ziellayout" Style="{StaticResource FieldLabel}" />
+                                            <ComboBox x:Name="AppRuleTargetLayoutSelector"
+                                                      ItemsSource="{Binding AppRules.TargetLayouts}"
+                                                      SelectedItem="{Binding AppRules.SelectedTargetLayout, Mode=TwoWay}"
+                                                      AutomationProperties.Name="Ziellayout">
+                                                <ComboBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                                            <TextBlock Text="{Binding Monitor.FriendlyName}" Foreground="{DynamicResource MutedBrush}" FontSize="12" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </ComboBox.ItemTemplate>
+                                            </ComboBox>
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="2">
+                                            <TextBlock Text="Zielzone" Style="{StaticResource FieldLabel}" />
+                                            <ComboBox x:Name="AppRuleTargetZoneSelector"
+                                                      ItemsSource="{Binding AppRules.TargetZones}"
+                                                      SelectedItem="{Binding AppRules.SelectedTargetZone, Mode=TwoWay}"
+                                                      DisplayMemberPath="Name" AutomationProperties.Name="Zielzone" />
+                                        </StackPanel>
+                                    </Grid>
+                                    <TextBlock x:Name="AppRuleTargetStatusText" Text="{Binding AppRules.TargetStatus}"
+                                               Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,10,0,0"
+                                               AutomationProperties.Name="Status des Regelziels" />
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
             <TabItem Header="Monitore">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="38,30" MaxWidth="920" HorizontalAlignment="Left">
@@ -285,9 +434,9 @@
                             <TextBlock Text="Monitore" Style="{StaticResource PageTitle}" />
                             <Button Style="{StaticResource InfoButton}" VerticalAlignment="Center"
                                     AutomationProperties.Name="Hilfe zur Monitorverwaltung"
-                                    ToolTip="Eigene Monitornamen werden in Layouts, Hinweisen und im Infobereich verwendet. Die technische Monitor-ID bleibt intern." />
+                                    ToolTip="Eigene Monitornamen und die Reihenfolge werden in Layouts, Hinweisen und im Infobereich verwendet. Die technische Monitor-ID bleibt intern." />
                         </StackPanel>
-                        <TextBlock Text="Wähle einen Monitor, vergib einen eindeutigen Namen oder zeige die Monitorbezeichnungen auf allen Bildschirmen an."
+                        <TextBlock Text="Wähle einen Monitor, ändere seine Reihenfolge, vergib einen eindeutigen Namen oder zeige die Monitorbezeichnungen auf allen Bildschirmen an."
                                    Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,22" />
                         <Grid>
                             <Grid.ColumnDefinitions>
@@ -305,6 +454,12 @@
                                              MinHeight="120" MaxHeight="420"
                                              ScrollViewer.VerticalScrollBarVisibility="Auto"
                                              AutomationProperties.Name="Alle Monitore" />
+                                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                        <Button x:Name="MoveMonitorUpButton" Content="Nach oben" Click="MoveMonitorUp_Click"
+                                                AutomationProperties.Name="Ausgewählten Monitor nach oben verschieben" />
+                                        <Button x:Name="MoveMonitorDownButton" Content="Nach unten" Click="MoveMonitorDown_Click"
+                                                Margin="8,0,0,0" AutomationProperties.Name="Ausgewählten Monitor nach unten verschieben" />
+                                    </StackPanel>
                                     <Button x:Name="IdentifyMonitorsButton" Content="Monitore identifizieren" Click="IdentifyMonitors_Click"
                                             Margin="0,18,0,0" AutomationProperties.Name="Monitore identifizieren"
                                             ToolTip="Zeigt den verwendeten Namen drei Sekunden lang auf jedem Monitor an." />

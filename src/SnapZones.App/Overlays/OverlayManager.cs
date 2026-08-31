@@ -1,14 +1,15 @@
-using SnapZones.Core.Drag;
 using SnapZones.Core.Models;
+using SnapZones.Core.PartMonitors;
 
 namespace SnapZones.App.Overlays;
 
 public sealed class OverlayManager : IDisposable
 {
     private readonly Dictionary<string, MonitorOverlayWindow> windows = new(StringComparer.OrdinalIgnoreCase);
-    private IReadOnlyDictionary<string, DragMonitorTarget> targets = new Dictionary<string, DragMonitorTarget>();
+    private IReadOnlyDictionary<string, PartMonitorTarget> targets =
+        new Dictionary<string, PartMonitorTarget>();
 
-    public void UpdateTargets(IReadOnlyList<DragMonitorTarget> newTargets)
+    public void UpdateTargets(IReadOnlyList<PartMonitorTarget> newTargets)
     {
         targets = newTargets.ToDictionary(target => target.Monitor.Identity.StableId, StringComparer.OrdinalIgnoreCase);
         foreach (var obsolete in windows.Keys.Where(key => !targets.ContainsKey(key)).ToArray())
@@ -48,12 +49,11 @@ public sealed class OverlayManager : IDisposable
         }
     }
 
-    public void Highlight(string? monitorId, IReadOnlyList<Guid> zoneIds)
+    public void Highlight(string? monitorId, Guid? zoneId)
     {
         foreach (var pair in windows)
         {
-            pair.Value.Highlight(
-                string.Equals(pair.Key, monitorId, StringComparison.OrdinalIgnoreCase) ? zoneIds : []);
+            pair.Value.Highlight(string.Equals(pair.Key, monitorId, StringComparison.OrdinalIgnoreCase) ? zoneId : null);
         }
     }
 

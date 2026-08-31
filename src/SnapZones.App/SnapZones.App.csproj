@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <AssemblyName>SaschaZoneManager</AssemblyName>
+    <AssemblyName>ZoneManager</AssemblyName>
     <AssemblyTitle>Sascha’s Zone Manager</AssemblyTitle>
     <Product>Sascha’s Zone Manager</Product>
     <RootNamespace>SnapZones.App</RootNamespace>
@@ -19,9 +19,10 @@
     <ApplicationIcon>Assets\SaschaWindowZones.ico</ApplicationIcon>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <DebugType>embedded</DebugType>
-    <RootExecutablePath Condition="'$(RootExecutablePath)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\SaschaZoneManager.exe'))</RootExecutablePath>
+    <RootExecutablePath Condition="'$(RootExecutablePath)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\ZoneManager.exe'))</RootExecutablePath>
     <RootPublishDirectory>$([System.IO.Path]::GetFullPath('$(BaseIntermediateOutputPath)root-publish\$(Configuration)\win-x64\'))</RootPublishDirectory>
     <RootPublishScript>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\scripts\install-root-executable.ps1'))</RootPublishScript>
   </PropertyGroup>
@@ -42,6 +43,6 @@
              Targets="Restore;Publish"
              BuildInParallel="false"
              Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishDir=$(RootPublishDirectory);SkipRootExecutablePublish=true" />
-    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(RootPublishScript)&quot; -PublishedExecutablePath &quot;$(RootPublishDirectory)SaschaZoneManager.exe&quot; -RootExecutablePath &quot;$(RootExecutablePath)&quot;" />
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(RootPublishScript)&quot; -PublishedExecutablePath &quot;$(RootPublishDirectory)ZoneManager.exe&quot; -RootExecutablePath &quot;$(RootExecutablePath)&quot;" />
   </Target>
 </Project>

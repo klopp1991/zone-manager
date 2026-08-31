@@ -1,5 +1,6 @@
 using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
+using SnapZones.Core.AppRules;
 
 namespace SnapZones.Core.Layouts;
 
@@ -98,6 +99,18 @@ public sealed class LayoutService
     public string? CustomMonitorNameFor(MonitorIdentity monitor) =>
         MonitorNaming.CustomNameFor(Configuration, monitor);
 
+    public void UpdateMonitorOrder(IEnumerable<MonitorIdentity> monitors)
+    {
+        ArgumentNullException.ThrowIfNull(monitors);
+        var orderedKeys = monitors
+            .Select(MonitorNaming.KeyFor)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        orderedKeys.AddRange(Configuration.MonitorOrder.Where(key =>
+            !orderedKeys.Contains(key, StringComparer.OrdinalIgnoreCase)));
+        Configuration = Configuration with { MonitorOrder = orderedKeys };
+    }
+
     public void DeleteLayout(Guid layoutId)
     {
         var deleted = Find(layoutId);
@@ -141,6 +154,12 @@ public sealed class LayoutService
     {
         ArgumentNullException.ThrowIfNull(settings);
         Configuration = Configuration with { Settings = settings };
+    }
+
+    public void UpdateAppRules(IReadOnlyList<AppRule> rules)
+    {
+        ArgumentNullException.ThrowIfNull(rules);
+        Configuration = Configuration with { AppRules = rules.ToArray() };
     }
 
     public static bool BelongsToMonitor(MonitorIdentity first, MonitorIdentity second) =>

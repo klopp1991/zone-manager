@@ -15,10 +15,10 @@ public static class SettingsCatalog
         new(Minimum: 0, Maximum: 400, Default: 8, Step: 1, Unit: "px");
 
     public static NumericSettingRange ZoneGapRange { get; } =
-        new(Minimum: 0, Maximum: 80, Default: 8, Step: 1, Unit: "px");
+        new(Minimum: 0, Maximum: 80, Default: 0, Step: 1, Unit: "px");
 
     public static NumericSettingRange MagnetThresholdRange { get; } =
-        new(Minimum: 0, Maximum: 40, Default: 10, Step: 1, Unit: "px");
+        new(Minimum: 0, Maximum: 40, Default: 20, Step: 1, Unit: "px");
 
     public static NumericSettingRange OverlayOpacityRange { get; } =
         new(Minimum: 8, Maximum: 75, Default: 24, Step: 1, Unit: "%");

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace SnapZones.Windows.Native;
 
@@ -8,6 +9,7 @@ internal static class User32
     internal const uint GetDeviceInterfaceName = 0x00000001;
 
     internal delegate bool MonitorEnumProc(nint monitor, nint deviceContext, nint monitorRect, nint data);
+    internal delegate bool WindowEnumProc(nint window, nint data);
     internal delegate void WinEventProc(
         nint hook,
         uint eventType,
@@ -24,6 +26,10 @@ internal static class User32
         nint clipRect,
         MonitorEnumProc callback,
         nint data);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool EnumWindows(WindowEnumProc callback, nint data);
 
     [DllImport("user32.dll", EntryPoint = "GetMonitorInfoW", SetLastError = true, CharSet = CharSet.Unicode)]
     [return: MarshalAs(UnmanagedType.Bool)]
@@ -79,6 +85,23 @@ internal static class User32
 
     [DllImport("user32.dll")]
     internal static extern uint GetWindowThreadProcessId(nint window, out uint processId);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowTextLengthW", CharSet = CharSet.Unicode)]
+    internal static extern int GetWindowTextLength(nint window);
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowTextW", CharSet = CharSet.Unicode)]
+    internal static extern int GetWindowText(nint window, StringBuilder text, int maximumCharacters);
+
+    [DllImport("user32.dll", EntryPoint = "GetClassNameW", CharSet = CharSet.Unicode)]
+    internal static extern int GetClassName(nint window, StringBuilder className, int maximumCharacters);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool GetWindowPlacement(nint window, ref WindowPlacementNative placement);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool SetWindowPlacement(nint window, ref WindowPlacementNative placement);
 
     [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]

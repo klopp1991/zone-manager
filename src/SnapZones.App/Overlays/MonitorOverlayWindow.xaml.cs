@@ -2,23 +2,22 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
-using SnapZones.Core.Drag;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;
-using SnapZones.Core.Settings;
+using SnapZones.Core.PartMonitors;
 using SnapZones.Windows.Windows;
 
 namespace SnapZones.App.Overlays;
 
 public partial class MonitorOverlayWindow : Window
 {
-    private const double VisualInset = SettingsCatalog.OverlayMinimumVisualGap;
-    private DragMonitorTarget? target;
+    private const double VisualInset = 8d;
+    private PartMonitorTarget? target;
     private LayoutMetrics metrics = LayoutMetrics.Default;
     private string accent = "#2F6FED";
     private double overlayOpacity = 0.24;
     private bool showZoneNames = true;
-    private IReadOnlyList<Guid> highlightedZoneIds = [];
+    private Guid? highlightedZoneId;
 
     public MonitorOverlayWindow()
     {
@@ -27,7 +26,7 @@ public partial class MonitorOverlayWindow : Window
     }
 
     public void ShowFor(
-        DragMonitorTarget newTarget,
+        PartMonitorTarget newTarget,
         LayoutMetrics newMetrics,
         string colour,
         double opacity,
@@ -38,7 +37,7 @@ public partial class MonitorOverlayWindow : Window
         accent = colour;
         overlayOpacity = opacity;
         showZoneNames = displayZoneNames;
-        highlightedZoneIds = [];
+        highlightedZoneId = null;
 
         if (!IsVisible)
         {
@@ -55,15 +54,14 @@ public partial class MonitorOverlayWindow : Window
         RenderZones();
     }
 
-    public void Highlight(IReadOnlyList<Guid> zoneIds)
+    public void Highlight(Guid? zoneId)
     {
-        ArgumentNullException.ThrowIfNull(zoneIds);
-        if (highlightedZoneIds.SequenceEqual(zoneIds))
+        if (highlightedZoneId == zoneId)
         {
             return;
         }
 
-        highlightedZoneIds = zoneIds;
+        highlightedZoneId = zoneId;
         RenderZones();
     }
 
@@ -78,10 +76,10 @@ public partial class MonitorOverlayWindow : Window
         var scaleX = 96d / target.Monitor.DpiX;
         var scaleY = 96d / target.Monitor.DpiY;
         var colour = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(accent);
-        foreach (var zone in target.Zones)
+        foreach (var zone in target.PartMonitors)
         {
             var pixels = ZoneGeometry.ToPixels(zone.Bounds, target.Monitor.WorkArea, metrics);
-            var active = highlightedZoneIds.Contains(zone.Id);
+            var active = zone.Id == highlightedZoneId;
             var rawWidth = pixels.Width * scaleX;
             var rawHeight = pixels.Height * scaleY;
             var insetX = Math.Min(VisualInset, Math.Max(0, (rawWidth - 1) / 2));

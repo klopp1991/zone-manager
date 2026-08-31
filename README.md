@@ -10,7 +10,7 @@ Voraussetzungen: Windows 11 x64 und das [.NET 8 SDK](https://dotnet.microsoft.co
 git clone https://github.com/klopp1991/zone-manager.git
 Set-Location zone-manager
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1
-.\SaschaZoneManager.exe
+ .\ZoneManager.exe
 ```
 
 Der Prüf- und Publish-Lauf stellt Pakete wieder her, führt die Tests aus, baut eine selbständige `win-x64`-Einzeldatei und prüft Diagnose sowie Per-Monitor-DPI. Beim normalen Start ist eine Windows-UAC-Bestätigung erforderlich; `--diagnostics` läuft absichtlich ohne Elevation.
@@ -27,6 +27,7 @@ Der Prüf- und Publish-Lauf stellt Pakete wieder her, führt die Tests aus, baut
 - Sofortige Layoutspeicherung, fünf automatische Backups sowie JSON-Export und -Import
 - System-, helles und dunkles Theme, Autostart und Not-Aus über `Ctrl + Alt + Shift + F12`
 - Monitorerkennung über Displaypfad und EDID-Daten
+- App-Regeln nach Prozess, optionalem Fenstertitel und Fensterklasse mit Ereignis, Verzögerung, Wiederholungen und Zielzone
 
 ## Konfiguration
 

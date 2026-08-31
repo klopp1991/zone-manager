@@ -91,9 +91,14 @@ public sealed class SettingsCatalogTests
     [InlineData(-10, 0)]
     [InlineData(1000, 80)]
     [InlineData(41.6, 42)]
-    [InlineData(double.NaN, 8)]
     public void Zone_gap_range_clamps_and_rounds(double input, int expected) =>
         Assert.Equal(expected, SettingsCatalog.ZoneGapRange.ClampToInt(input));
+
+    [Fact]
+    public void A_value_that_is_not_a_number_falls_back_to_the_default() =>
+        Assert.Equal(
+            SettingsCatalog.ZoneGapRange.Default,
+            SettingsCatalog.ZoneGapRange.ClampToInt(double.NaN));
 
     [Fact]
     public void Search_finds_a_setting_by_its_label()

@@ -546,6 +546,29 @@ public sealed class ThemeResourceTests
     }
 
     [Fact]
+    public void Settings_page_groups_all_available_options_and_does_not_explain_window_snapping()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var window = new MainWindow();
+            var root = Assert.IsType<Grid>(window.Content);
+            var tabs = Assert.Single(root.Children.OfType<TabControl>());
+            var settingsPage = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Einstellungen"));
+            var text = string.Join("\n", LogicalDescendants<TextBlock>(settingsPage)
+                .Select(textBlock => textBlock.Text)
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+            foreach (var heading in new[] { "Programm", "Beim Ziehen", "Darstellung", "Abstände" })
+            {
+                Assert.Contains(heading, text);
+            }
+
+            Assert.DoesNotContain("Snap-Funktion", text, StringComparison.OrdinalIgnoreCase);
+            Assert.Contains("Änderungen werden sofort gespeichert.", text);
+        });
+    }
+
+    [Fact]
     public void Dark_layout_editor_uses_a_neutral_zone_fill()
     {
         WpfThemeHost.Invoke(() =>
@@ -740,7 +763,7 @@ internal static class WpfThemeHost
         {
             _ = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             var resources = Assert.IsType<ResourceDictionary>(Application.LoadComponent(
-                new Uri("/SaschaZoneManager;component/Themes/Theme.xaml", UriKind.Relative)));
+                new Uri("/ZoneManager;component/Themes/Theme.xaml", UriKind.Relative)));
             Application.Current.Resources.MergedDictionaries.Add(resources);
             Ready.Set();
             Dispatcher.Run();

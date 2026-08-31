@@ -1,4 +1,8 @@
-﻿$ErrorActionPreference = 'Stop'
+﻿param(
+    [long]$MaximumExecutableBytes = 100000000
+)
+
+$ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -6,7 +10,7 @@ $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $scriptDirectory '..'))
 $projectPath = Join-Path $projectRoot 'src\SnapZones.App\SnapZones.App.csproj'
 $workRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'work'))
 $testDirectory = [System.IO.Path]::GetFullPath((Join-Path $workRoot 'root-build-verification'))
-$testExecutable = Join-Path $testDirectory 'SaschaZoneManager.exe'
+$testExecutable = Join-Path $testDirectory 'ZoneManager.exe'
 $diagnosticPath = Join-Path $testDirectory 'diagnostics.json'
 
 if (-not $testDirectory.StartsWith($workRoot + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -24,7 +28,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Der Build für die Root-Artefaktprüfung ist fehlgeschlagen.' }
 
     if (-not (Test-Path -LiteralPath $testExecutable -PathType Leaf)) {
-        throw 'Der normale Build hat keine SaschaZoneManager.exe am vorgegebenen Root-Pfad erzeugt.'
+        throw 'Der normale Build hat keine ZoneManager.exe am vorgegebenen Root-Pfad erzeugt.'
     }
 
     & $testExecutable --diagnostics | Out-File -LiteralPath $diagnosticPath -Encoding utf8
@@ -44,8 +48,12 @@ try {
     }
 
     $bytes = (Get-Item -LiteralPath $testExecutable).Length
+    if ($bytes -gt $MaximumExecutableBytes) {
+        throw "Die Root-EXE ist mit $bytes Bytes grösser als das erlaubte Maximum von $MaximumExecutableBytes Bytes."
+    }
+
     $hash = (Get-FileHash -LiteralPath $testExecutable -Algorithm SHA256).Hash
-    Write-Output "ROOT_BUILD_OK path=$testExecutable bytes=$bytes sha256=$hash"
+    Write-Output "ROOT_BUILD_OK path=$testExecutable bytes=$bytes maximumBytes=$MaximumExecutableBytes sha256=$hash"
 }
 finally {
     if (Test-Path -LiteralPath $testDirectory) {

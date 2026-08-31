@@ -9,7 +9,7 @@ Auswahl.
 
 ## Schnellstart
 
-1. `SaschaZoneManager.exe` direkt im Rootverzeichnis starten und die Windows-UAC-Abfrage bestätigen.
+1. `ZoneManager.exe` direkt im Rootverzeichnis starten und die Windows-UAC-Abfrage bestätigen.
 2. Unter **Layouts** einen Monitor und eines seiner Layouts wählen oder ein neues Layout erstellen.
 3. Die vorhandenen Zonen anpassen und mit **+ Neue Zone** die grösste freie Fläche belegen.
 4. Zonen ziehen, über acht Griffe skalieren oder als Prozent/Pixel mit Position/Grösse beziehungsweise vier Aussenabständen eingeben.
@@ -18,6 +18,12 @@ Auswahl.
 Konfiguration und bestehende Installationen bleiben unter `%APPDATA%\SnapZones\settings.json` kompatibel. Die fünf letzten Stände liegen daneben als `settings.backup-1.json` bis `settings.backup-5.json`; bei einer beschädigten Hauptdatei wird die neueste gültige Sicherung automatisch wiederhergestellt. Autostart ist beim ersten Start ausgeschaltet.
 
 **Export** schreibt jederzeit ein vollständiges JSON-Backup mit sämtlichen Einstellungen, Monitorlayouts, Zonen, IDs und Parametern. **Import** validiert die komplette Datei, zeigt den exakten Ersetzungsumfang und sichert den bisherigen Zustand unmittelbar vor der bestätigten Übernahme. Bestehende Profilkonfigurationen aus Schema 1 werden beim Laden in unabhängige Layouts pro Monitor migriert.
+
+## App-Regeln
+
+Unter **App-Regeln** verbindet eine Regel einen Prozesspfad oder Programmnamen mit einer Zielzone. Ein optionales Fenstertitelmuster und eine optionale Fensterklasse schränken die Auswahl weiter ein; `*` und `?` dienen als Platzhalter. Als Ereignis stehen **Fenster erstellt**, **Fenster fokussiert** und **Layout aktiviert** zur Verfügung, ergänzt durch 0 bis 30 Sekunden Verzögerung, 0 bis 3 Wiederholungen und eine Priorität von 0 bis 100.
+
+Vor jedem Platzierungsversuch werden Fensteridentität, Regel und Ziel erneut geprüft. Fehlende Layouts, Monitore oder Zonen pausieren die Regel sichtbar; es gibt keinen stillen Fallback und App-Regeln starten keine Programme.
 
 ## Layouteditor
 
@@ -79,7 +85,7 @@ Normale Programmstarts wechseln vor dem Laden der Oberfläche über die Windows-
 ## Diagnose
 
 ```powershell
-SaschaZoneManager.exe --diagnostics
+ZoneManager.exe --diagnostics
 ```
 
 Die Diagnose liest Konfigurationsstatus, Monitore, DPI und Autostartstatus. Sie registriert keinen Fenster-Hook und verändert weder Einstellungen noch Registry.
@@ -118,7 +124,7 @@ fremden Titelleisten.
 - Nur Windows 11 x64.
 - Wird die Windows-UAC-Abfrage abgebrochen, startet die Anwendung nicht.
 - Erhöht laufende Fenster lassen sich nur positionieren, wenn auch Sascha’s Zone Manager erhöht läuft.
-- Nicht rechteckige Zonen, virtuelle Desktops, Fensterregeln und automatische Updates sind noch nicht enthalten.
+- Nicht rechteckige oder überlappende Zonen, virtuelle Desktops und automatische Updates sind noch nicht enthalten.
 - Eigene Layouts können nicht über eine dokumentierte API in das native Windows-Snap-Popup eingefügt werden; die Anwendung verwendet ein eigenes Overlay.
 - Der Prototyp ist nicht digital signiert und kann beim ersten Start eine Windows-Sicherheitswarnung auslösen.
 
@@ -130,6 +136,6 @@ Voraussetzung ist das .NET 8 SDK. Der vollständige Prüf- und Publish-Lauf laut
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1
 ```
 
-Das Skript erzeugt das Mehrgrössen-Icon, stellt Pakete wieder her, führt alle Tests aus, baut Release, veröffentlicht eine selbständige Einzeldatei für `win-x64`, kopiert `SaschaZoneManager.exe` ins Rootverzeichnis und prüft Diagnose sowie Per-Monitor-DPI ohne aktivierten Hook.
+Das Skript erzeugt das Mehrgrössen-Icon, stellt Pakete wieder her, führt alle Tests aus, baut Release, veröffentlicht eine selbständige Einzeldatei für `win-x64`, kopiert `ZoneManager.exe` ins Rootverzeichnis und prüft Diagnose sowie Per-Monitor-DPI ohne aktivierten Hook.
 
-Auch ein normaler `dotnet build` oder Build in Visual Studio veröffentlicht nach erfolgreicher Kompilierung automatisch eine selbständige `win-x64`-Einzeldatei als `SaschaZoneManager.exe` direkt ins Rootverzeichnis. Eine dort noch laufende Vorgängerversion wird atomar ersetzt und bis zu ihrem Prozessende als ignorierte Sicherungsdatei beibehalten.
+Auch ein normaler `dotnet build` oder Build in Visual Studio veröffentlicht nach erfolgreicher Kompilierung automatisch eine selbständige `win-x64`-Einzeldatei als `ZoneManager.exe` direkt ins Rootverzeichnis. Eine dort noch laufende Vorgängerversion wird atomar ersetzt und bis zu ihrem Prozessende als ignorierte Sicherungsdatei beibehalten.

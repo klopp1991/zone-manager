@@ -57,6 +57,23 @@ public static class ZoneGeometry
         return null;
     }
 
+    public static ZoneDefinition? HitTest(
+        IReadOnlyList<ZoneDefinition> zones,
+        MonitorWorkArea area,
+        LayoutMetrics metrics,
+        PointInt point)
+    {
+        foreach (var zone in zones)
+        {
+            if (ToPixels(zone.Bounds, area, metrics).Contains(point))
+            {
+                return zone;
+            }
+        }
+
+        return null;
+    }
+
     public static ZoneValidationResult Validate(IReadOnlyList<ZoneDefinition> zones)
     {
         var errors = new List<ZoneValidationError>();
