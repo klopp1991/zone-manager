@@ -1,6 +1,11 @@
 using System.Windows;
 using System.Windows.Controls;
 using SnapZones.App.Views;
+using SnapZones.App.ViewModels;
+using SnapZones.Core.Geometry;
+using SnapZones.Core.Models;
+using SnapZones.Core.Monitors;
+using SnapZones.Tests.Support;
 using Xunit;
 
 namespace SnapZones.Tests.Theme;
@@ -35,6 +40,34 @@ public sealed class MainWindowNavigationTests
                 LogicalDescendants<TextBlock>(window),
                 textBlock => string.Equals(textBlock.Text, "BEREICHE", StringComparison.OrdinalIgnoreCase));
             Assert.DoesNotContain(root.Children.OfType<Border>(), border => Grid.GetRow(border) == 2);
+        });
+    }
+
+    [Fact]
+    public void Attached_layout_editor_displays_the_layout_name_and_all_eight_measurements()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var monitorIdentity = new MonitorIdentity("DISPLAY-A", "\\\\.\\DISPLAY1", "Hauptmonitor");
+            var monitor = new LiveMonitor(
+                monitorIdentity,
+                new MonitorWorkArea(0, 0, 3440, 1440),
+                96,
+                96,
+                true);
+            var window = new MainWindow();
+            window.AttachViewModel(new MainViewModel(ConfigurationSamples.TwoLayouts(), [monitor]));
+
+            Assert.Equal("Arbeit", Assert.IsType<TextBox>(window.FindName("LayoutNameText")).Text);
+            Assert.All(
+                new[]
+                {
+                    "ZonePositionXText", "ZonePositionYText", "ZoneWidthText", "ZoneHeightText",
+                    "ZoneMarginLeftText", "ZoneMarginTopText", "ZoneMarginRightText", "ZoneMarginBottomText"
+                },
+                name => Assert.False(
+                    string.IsNullOrWhiteSpace(Assert.IsType<TextBox>(window.FindName(name)).Text),
+                    $"Das Formularfeld {name} darf nicht leer sein."));
         });
     }
 

@@ -692,6 +692,10 @@ public partial class MainWindow : Window
     private void RefreshEditor(ZoneInputGroup? preservedInputGroup = null)
     {
         var editor = viewModel?.Editor;
+        if (!LayoutNameText.IsKeyboardFocusWithin)
+        {
+            LayoutNameText.Text = viewModel?.SelectedLayout?.Name ?? string.Empty;
+        }
         EditorCanvas.Zones = editor?.Zones ?? [];
         EditorCanvas.SelectedZoneId = editor?.SelectedZone?.Id;
         AddZoneButton.IsEnabled = editor is not null;

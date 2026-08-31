@@ -158,3 +158,16 @@ internal struct DisplayConfigTargetDeviceName
     [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
     public string MonitorDevicePath;
 }
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct SidAndAttributesNative
+{
+    public nint Sid;
+    public uint Attributes;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct TokenMandatoryLabelNative
+{
+    public SidAndAttributesNative Label;
+}

@@ -5,6 +5,9 @@ namespace SnapZones.Windows.Native;
 
 internal static class User32
 {
+    internal const uint WinEventOutOfContext = 0;
+    internal const uint MonitorDefaultToNearest = 2;
+    internal const uint OwnerWindow = 4;
     internal const uint MonitorInfoPrimary = 0x00000001;
     internal const uint GetDeviceInterfaceName = 0x00000001;
 
@@ -30,6 +33,15 @@ internal static class User32
     [DllImport("user32.dll")]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool EnumWindows(WindowEnumProc callback, nint data);
+
+    [DllImport("user32.dll")]
+    internal static extern nint MonitorFromWindow(nint window, uint flags);
+
+    [DllImport("user32.dll")]
+    internal static extern nint GetWindow(nint window, uint command);
+
+    [DllImport("user32.dll")]
+    internal static extern nint GetForegroundWindow();
 
     [DllImport("user32.dll", EntryPoint = "GetMonitorInfoW", SetLastError = true, CharSet = CharSet.Unicode)]
     [return: MarshalAs(UnmanagedType.Bool)]

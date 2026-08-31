@@ -61,6 +61,10 @@ public partial class App : System.Windows.Application
         {
             var repository = new JsonConfigurationRepository(appData);
             var loadResult = await repository.LoadAsync(CancellationToken.None);
+            var placementRepository = new JsonWindowPlacementRepository(appData);
+            var placementLoadResult = await WindowPlacementStartupLoad.Start(
+                placementRepository,
+                CancellationToken.None);
             themeService = new ThemeService();
             themeService.Apply(loadResult.Configuration.Settings.ThemeMode);
             var monitors = new WindowsMonitorService().GetMonitors();
@@ -69,11 +73,24 @@ public partial class App : System.Windows.Application
             {
                 viewModel.StatusMessage = loadResult.ErrorMessage ?? "Die Konfiguration wurde zurückgesetzt.";
             }
+            if (placementLoadResult.RecoveredFromError)
+            {
+                viewModel.StatusMessage = placementLoadResult.ErrorMessage
+                    ?? "Die Fensterplatzierungen wurden aus der Sicherung wiederhergestellt.";
+            }
 
             var mainWindow = new MainWindow();
             themeService.Track(mainWindow);
             mainWindow.AttachViewModel(viewModel);
-            controller = new ApplicationController(mainWindow, viewModel, repository, monitors, startupService, log);
+            controller = new ApplicationController(
+                mainWindow,
+                viewModel,
+                repository,
+                placementRepository,
+                placementLoadResult.Catalog,
+                monitors,
+                startupService,
+                log);
             singleInstance.ActivationRequested += () =>
             {
                 mainWindow.Show();

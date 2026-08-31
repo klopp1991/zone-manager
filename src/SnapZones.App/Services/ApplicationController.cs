@@ -5,12 +5,14 @@ using SnapZones.App.Overlays;
 using SnapZones.App.ViewModels;
 using SnapZones.App.Views;
 using SnapZones.Core.Drag;
+using SnapZones.Core.Geometry;
 using SnapZones.Core.AppRules;
 using SnapZones.Core.Layouts;
 using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
 using SnapZones.Core.PartMonitors;
 using SnapZones.Core.Persistence;
+using SnapZones.Core.Placement;
 using SnapZones.Windows.Hooks;
 using SnapZones.Windows.Hotkeys;
 using SnapZones.Windows.Startup;
@@ -27,7 +29,10 @@ public sealed class ApplicationController : IDisposable
     private readonly FileLog log;
     private readonly IWindowMoveHook moveHook;
     private readonly IWindowRuleHook appRuleHook;
+    private readonly IWindowLifecycleHook placementHook;
     private readonly AppRuleCoordinator appRuleCoordinator;
+    private readonly WindowPlacementSaveCoordinator placementSaveCoordinator;
+    private readonly WindowPlacementEngine placementEngine;
     private readonly IGlobalHotkeyService hotkeys;
     private readonly IWindowService windowService;
     private readonly OverlayManager overlays;
@@ -52,6 +57,8 @@ public sealed class ApplicationController : IDisposable
         MainWindow window,
         MainViewModel viewModel,
         IConfigurationRepository repository,
+        IWindowPlacementRepository placementRepository,
+        WindowPlacementCatalog initialPlacementCatalog,
         IReadOnlyList<LiveMonitor> monitors,
         IStartupService startupService,
         FileLog log)
@@ -64,6 +71,10 @@ public sealed class ApplicationController : IDisposable
         saveCoordinator = new ConfigurationSaveCoordinator(repository);
         exitSaveCoordinator = new ExitSaveCoordinator(saveCoordinator);
         saveCoordinator.SaveFinished += SaveFinished;
+        placementSaveCoordinator = new WindowPlacementSaveCoordinator(
+            placementRepository,
+            TimeSpan.FromMilliseconds(500));
+        placementSaveCoordinator.SaveFinished += PlacementSaveFinished;
         configuration = viewModel.Configuration;
         overlays = new OverlayManager();
         monitorIdentification = new MonitorIdentificationOverlay();
@@ -74,6 +85,15 @@ public sealed class ApplicationController : IDisposable
             synchronizationContext,
             message => log.Write("DEBUG", message));
         appRuleHook = new WindowRuleHook(synchronizationContext);
+        placementHook = new WindowLifecycleHook(synchronizationContext);
+        placementEngine = new WindowPlacementEngine(
+            placementHook,
+            new WindowsPlacementWindowService(),
+            placementSaveCoordinator,
+            initialPlacementCatalog,
+            () => BuildPlacementEnvironment(configuration),
+            Environment.ProcessId,
+            message => log.Write("DEBUG", message));
         appRuleCoordinator = new AppRuleCoordinator(
             () => configuration,
             monitors,
@@ -101,6 +121,7 @@ public sealed class ApplicationController : IDisposable
         moveHook.EmergencyStopped += reason => EmergencyStop(reason);
         appRuleHook.RuleEvent += AppRuleHook_RuleEvent;
         appRuleHook.EmergencyStopped += reason => EmergencyStop($"App-Regel-Hook gestoppt: {reason}");
+        placementHook.EmergencyStopped += reason => EmergencyStop($"Fensterplatzierungs-Hook gestoppt: {reason}");
         hotkeys.EmergencyStopRequested += () => EmergencyStop("Not-Aus ausgelöst: Snap-Funktion deaktiviert");
         window.Closing += Window_Closing;
 
@@ -118,6 +139,7 @@ public sealed class ApplicationController : IDisposable
         moveHook.Disable();
         appRuleCoordinator.CancelPending();
         appRuleHook.Disable();
+        placementEngine.EmergencyStop();
         viewModel.StatusMessage = reason;
         configuration = viewModel.Configuration;
         _ = hotkeys.Configure(emergencyStopEnabled: false);
@@ -145,10 +167,13 @@ public sealed class ApplicationController : IDisposable
         moveHook.Dispose();
         appRuleCoordinator.Dispose();
         appRuleHook.Dispose();
+        placementEngine.Stop();
+        placementHook.Dispose();
         overlays.Dispose();
         monitorIdentification.Dispose();
         toast.Close();
         saveCoordinator.SaveFinished -= SaveFinished;
+        placementSaveCoordinator.SaveFinished -= PlacementSaveFinished;
         window.ExportConfigurationRequested -= ExportConfigurationAsync;
         window.ImportConfigurationRequested -= ImportConfigurationAsync;
         window.IdentifyMonitorsRequested -= IdentifyMonitors;
@@ -219,8 +244,11 @@ public sealed class ApplicationController : IDisposable
         }
     }
 
-    public Task FlushAsync(CancellationToken cancellationToken) =>
-        saveCoordinator.FlushAsync(cancellationToken);
+    public async Task FlushAsync(CancellationToken cancellationToken)
+    {
+        await saveCoordinator.FlushAsync(cancellationToken);
+        await placementEngine.FlushAsync(cancellationToken);
+    }
 
     public void RequestExit()
     {
@@ -306,6 +334,14 @@ public sealed class ApplicationController : IDisposable
         });
     }
 
+    private void PlacementSaveFinished(Exception? exception)
+    {
+        if (exception is not null)
+        {
+            log.Write("ERROR", "Fensterplatzierungen konnten nicht gespeichert werden.", exception);
+        }
+    }
+
     private void Reconfigure(SnapConfiguration newConfiguration)
     {
         cursorTimer.Stop();
@@ -313,6 +349,7 @@ public sealed class ApplicationController : IDisposable
         moveHook.Disable();
         appRuleCoordinator.CancelPending();
         appRuleHook.Disable();
+        placementEngine.Stop();
         var targets = BuildTargets(newConfiguration);
         overlays.UpdateTargets(targets);
         var metrics = new LayoutMetrics(
@@ -340,6 +377,7 @@ public sealed class ApplicationController : IDisposable
             try
             {
                 moveHook.Enable();
+                placementEngine.Start();
             }
             catch (Exception exception)
             {
@@ -431,6 +469,31 @@ public sealed class ApplicationController : IDisposable
         }
 
         return result;
+    }
+
+    private PlacementEnvironment BuildPlacementEnvironment(SnapConfiguration currentConfiguration)
+    {
+        var placementMonitors = monitors
+            .Select(monitor => new PlacementMonitorTarget(
+                string.IsNullOrWhiteSpace(monitor.Identity.StableId)
+                    ? monitor.Identity.DeviceName
+                    : monitor.Identity.StableId,
+                monitor.WorkArea,
+                monitor.IsPrimary))
+            .ToArray();
+        var placementZones = currentConfiguration.Layouts
+            .Where(layout => layout.IsActive)
+            .SelectMany(layout => monitors
+                .Where(monitor => LayoutService.BelongsToMonitor(monitor.Identity, layout.Monitor))
+                .SelectMany(monitor => layout.Zones.Select(zone => new PlacementZoneTarget(
+                    layout.Id,
+                    zone.Id,
+                    string.IsNullOrWhiteSpace(monitor.Identity.StableId)
+                        ? monitor.Identity.DeviceName
+                        : monitor.Identity.StableId,
+                    ZoneGeometry.ToPixels(zone.Bounds, monitor.WorkArea)))))
+            .ToArray();
+        return new PlacementEnvironment(currentConfiguration, placementMonitors, placementZones);
     }
 
     private void MoveStarted(nint windowHandle)
@@ -553,12 +616,13 @@ public sealed class ApplicationController : IDisposable
         try
         {
             await exitSaveCoordinator.PrepareForShutdownAsync(viewModel.Save);
+            await placementEngine.FlushAsync(CancellationToken.None);
         }
         catch (Exception exception)
         {
-            log.Write("ERROR", "Die Applikation bleibt geöffnet, weil die Konfiguration nicht gespeichert werden konnte.", exception);
+            log.Write("ERROR", "Die Applikation bleibt geöffnet, weil Einstellungen oder Fensterplatzierungen nicht gespeichert werden konnten.", exception);
             window.IsEnabled = true;
-            viewModel.StatusMessage = "Beenden abgebrochen: Konfiguration konnte nicht gespeichert werden.";
+            viewModel.StatusMessage = "Beenden abgebrochen: Einstellungen konnten nicht gespeichert werden.";
             exitRequestGate.Reset();
             return;
         }
