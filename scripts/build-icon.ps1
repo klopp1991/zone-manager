@@ -9,10 +9,10 @@ Set-StrictMode -Version Latest
 $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $scriptDirectory '..'))
 if ([string]::IsNullOrWhiteSpace($OutputPath)) {
-    $OutputPath = Join-Path $projectRoot 'src\SnapZones.App\Assets\SaschaWindowZones.ico'
+    $OutputPath = Join-Path $projectRoot 'src\SnapZones.App\Assets\ZoneManager.ico'
 }
 if ([string]::IsNullOrWhiteSpace($HeaderOutputPath)) {
-    $HeaderOutputPath = Join-Path $projectRoot 'src\SnapZones.App\Assets\SaschaWindowZones.Header.png'
+    $HeaderOutputPath = Join-Path $projectRoot 'src\SnapZones.App\Assets\ZoneManager.Header.png'
 }
 $resolvedOutput = [System.IO.Path]::GetFullPath($OutputPath)
 $resolvedHeaderOutput = [System.IO.Path]::GetFullPath($HeaderOutputPath)

@@ -44,7 +44,7 @@ public partial class App : System.Windows.Application
         }
 
         var context = new DispatcherSynchronizationContext(Dispatcher);
-        singleInstance = new SingleInstanceService(ProductInfo.ProcessName, context);
+        singleInstance = new SingleInstanceService(ProductInfo.InstanceKey, context);
         var startupDisposition = StartupPolicy.Decide(eventArgs.Args, singleInstance.IsPrimary);
         if (startupDisposition is StartupDisposition.ActivateRunningInstance or StartupDisposition.ExitDuplicate)
         {

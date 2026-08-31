@@ -9,7 +9,7 @@
         WindowStartupLocation="CenterScreen"
         PreviewKeyDown="Window_PreviewKeyDown">
     <Window.Icon>
-        <BitmapImage UriSource="/ZoneManager;component/Assets/SaschaWindowZones.ico" DecodePixelWidth="64" />
+        <BitmapImage UriSource="/ZoneManager;component/Assets/ZoneManager.ico" DecodePixelWidth="64" />
     </Window.Icon>
     <Window.Resources>
         <viewModels:EnumDisplayConverter x:Key="EnumDisplayConverter" />
@@ -38,7 +38,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" /><ColumnDefinition Width="14" /><ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
-                <Image Width="36" Height="36" Source="/ZoneManager;component/Assets/SaschaWindowZones.Header.png"
+                <Image Width="36" Height="36" Source="/ZoneManager;component/Assets/ZoneManager.Header.png"
                        RenderOptions.BitmapScalingMode="HighQuality" SnapsToDevicePixels="True" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="2" Text="Sascha’s Zone Manager" FontFamily="Segoe UI Variable Display"
                            FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center" />

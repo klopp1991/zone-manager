@@ -10,3 +10,14 @@ Vor jeder Dateiänderung muss jede Aufgabe in einem eigenen Git-Worktree und auf
 6. Die Root-EXE nur in einer ausdrücklich dafür vorgesehenen Integrations- oder Release-Aufgabe aktualisieren.
 
 Wenn ein sauberer Integrations-Worktree nicht verfügbar ist, die Arbeit auf dem Aufgabenbranch abschliessen und die Integration als offen melden; niemals ersatzweise in einen belegten `main`-Worktree schreiben.
+
+# Dokumentation
+
+Die Dokumentation soll laufend stimmen und nicht laufend wachsen.
+
+1. Kein Arbeitspaket gilt als fertig, solange ein Dokument eine Aussage enthält, die durch dieses Arbeitspaket falsch geworden ist.
+2. Neue Erkenntnisse in das zuständige bestehende Dokument einarbeiten, statt einen neuen Anhang danebenzustellen. Neue Dokumente nur, wenn kein bestehendes zuständig ist.
+3. Überholte Abschnitte ersetzen oder löschen, nicht ergänzen.
+4. Keine Aussage ungeprüft dokumentieren. Zahlen (Testanzahl, Bytes, Laufzeiten) stammen aus dem tatsächlichen Lauf; nicht Geprüftes wird als nicht geprüft ausgewiesen.
+5. `outputs/ZoneManager-Pruefbericht.md` gibt nach jedem Arbeitspaket den Stand des letzten tatsächlichen Laufs wieder, einschliesslich dessen, was nicht geprüft wurde.
+6. `docs/superpowers/**` ist ein historisches Archiv abgeschlossener Pläne und Spezifikationen und bleibt unverändert, auch wenn dort alte Namen stehen.

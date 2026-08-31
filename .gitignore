@@ -5,19 +5,10 @@ obj/
 *.user
 *.suo
 TestResults/
-outputs/SnapZones-prototype/
-outputs/diagnostics.json
-outputs/Sascha-Window-Zones-prototype/
-outputs/sascha-window-zones-diagnostics.json
-outputs/Sascha-Window-Zones-persistence/
-outputs/Sascha-Zone-Manager-prototype/
-outputs/sascha-zone-manager-diagnostics.json
 work/
 *.log
-/SaschaWindowZones.exe
-/SaschaZoneManager.exe
-/SaschaWindowZones.exe.new
-/SaschaWindowZones.exe.previous.*
-/SaschaZoneManager.exe.new
-/SaschaZoneManager.exe.previous.*
-/Zone Manager/
+outputs/ZoneManager-prototype/
+outputs/zonemanager-diagnostics.json
+/ZoneManager.exe
+/ZoneManager.exe.new
+/ZoneManager.exe.previous.*
