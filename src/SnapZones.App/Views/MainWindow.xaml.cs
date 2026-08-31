@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Automation;
@@ -398,9 +398,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        var processName = System.IO.Path.GetFileName(rule.ProcessPath);
         if (System.Windows.MessageBox.Show(
-                $"Die App-Regel für «{processName}» wird gelöscht.",
+                $"Die App-Regel für «{rule.DisplayName}» wird gelöscht.",
                 "App-Regel löschen",
                 MessageBoxButton.OKCancel,
                 MessageBoxImage.Warning) != MessageBoxResult.OK)

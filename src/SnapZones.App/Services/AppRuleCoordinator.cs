@@ -1,10 +1,9 @@
-using SnapZones.Core.AppRules;
+﻿using SnapZones.Core.AppRules;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Layouts;
 using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
 using SnapZones.Windows.Windows;
-using System.IO;
 
 namespace SnapZones.App.Services;
 
@@ -182,19 +181,19 @@ public sealed class AppRuleCoordinator : IDisposable
 
             if (!TryResolveTarget(configuration, rule, out var bounds, out var targetName))
             {
-                reportStatus?.Invoke($"App-Regel pausiert: Ziel für {Path.GetFileName(rule.ProcessPath)} fehlt.");
+                reportStatus?.Invoke($"App-Regel pausiert: Ziel für {rule.DisplayName} fehlt.");
                 return new AppRuleExecutionResult(AppRuleExecutionStatus.TargetMissing, ruleId);
             }
 
             if (windowGateway.TrySnap(currentCandidate.WindowHandle, bounds))
             {
-                reportStatus?.Invoke($"App-Regel angewendet: {Path.GetFileName(rule.ProcessPath)} → {targetName}");
+                reportStatus?.Invoke($"App-Regel angewendet: {rule.DisplayName} → {targetName}");
                 return new AppRuleExecutionResult(AppRuleExecutionStatus.Applied, ruleId);
             }
 
             if (attempt >= rule.RetryCount)
             {
-                reportStatus?.Invoke($"App-Regel konnte {Path.GetFileName(rule.ProcessPath)} nicht positionieren.");
+                reportStatus?.Invoke($"App-Regel konnte {rule.DisplayName} nicht positionieren.");
                 return new AppRuleExecutionResult(AppRuleExecutionStatus.WindowsRejected, ruleId);
             }
 

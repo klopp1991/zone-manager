@@ -27,14 +27,28 @@ public static class AppRuleMatcher
         ArgumentNullException.ThrowIfNull(rule);
         ArgumentNullException.ThrowIfNull(window);
 
-        return ProcessMatches(rule.ProcessPath, window.ProcessPath) &&
+        // Ohne jedes Merkmal wuerde die Regel auf saemtliche Fenster passen. Das ist nie gewollt und
+        // waere obendrein gefaehrlich, weil eine halb ausgefuellte Regel sofort alles verschieben wuerde.
+        if (!rule.HasCriteria)
+        {
+            return false;
+        }
+
+        return OptionalProcessMatches(rule.ProcessPath, window.ProcessPath) &&
             OptionalTitleMatches(rule.WindowTitlePattern, window.WindowTitle) &&
             OptionalClassMatches(rule.WindowClass, window.WindowClass);
     }
 
-    private static bool ProcessMatches(string configured, string actual)
+    private static bool OptionalProcessMatches(string configured, string actual)
     {
-        if (string.IsNullOrWhiteSpace(configured) || string.IsNullOrWhiteSpace(actual))
+        // Das Programm ist ein Filter wie Titelmuster und Fensterklasse: leer heisst «egal welches
+        // Programm». So laesst sich eine Regel allein ueber den Fenstertitel oder die Klasse stellen.
+        if (string.IsNullOrWhiteSpace(configured))
+        {
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(actual))
         {
             return false;
         }
@@ -87,7 +101,12 @@ public static class AppRuleMatcher
             PatternTimeout);
     }
 
+    /// <summary>
+    /// Je mehr Merkmale eine Regel nennt, desto enger ist sie gefasst und desto eher ist sie gemeint,
+    /// wenn mehrere Regeln bei gleicher Priorität auf dasselbe Fenster passen.
+    /// </summary>
     private static int Specificity(AppRule rule) =>
+        (string.IsNullOrWhiteSpace(rule.ProcessPath) ? 0 : 4) +
         (string.IsNullOrWhiteSpace(rule.WindowTitlePattern) ? 0 : 2) +
         (string.IsNullOrWhiteSpace(rule.WindowClass) ? 0 : 1);
 }

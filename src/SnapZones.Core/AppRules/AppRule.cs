@@ -24,8 +24,9 @@ public sealed record AppRule(
 {
     /// <summary>
     /// Kurzer, lesbarer Name für Listen. Bevorzugt das Titelmuster, weil es dem entspricht, was in der
-    /// Titelzeile des Fensters steht; sonst der Dateiname des Programms. Der vollständige Pfad ist als
-    /// Überschrift ungeeignet: er ist lang und enthält bei vielen Programmen eine Versionsnummer.
+    /// Titelzeile des Fensters steht; sonst der Dateiname des Programms, sonst die Fensterklasse. Der
+    /// vollständige Pfad ist als Überschrift ungeeignet: er ist lang und enthält bei vielen Programmen
+    /// eine Versionsnummer.
     /// </summary>
     public string DisplayName
     {
@@ -37,9 +38,25 @@ public sealed record AppRule(
                 return title;
             }
 
-            return ProcessFileName;
+            if (!string.IsNullOrWhiteSpace(ProcessPath))
+            {
+                return ProcessFileName;
+            }
+
+            var windowClass = WindowClass?.Trim();
+            return string.IsNullOrEmpty(windowClass) ? "Neue Regel" : windowClass;
         }
     }
+
+    /// <summary>
+    /// Ob die Regel überhaupt ein Merkmal nennt, an dem ein Fenster erkannt werden kann. Programm,
+    /// Titelmuster und Fensterklasse sind gleichrangig: jedes einzelne genügt, damit die Regel greift.
+    /// Eine Regel ohne jedes Merkmal würde auf jedes Fenster passen und bleibt deshalb wirkungslos.
+    /// </summary>
+    public bool HasCriteria =>
+        !string.IsNullOrWhiteSpace(ProcessPath) ||
+        !string.IsNullOrWhiteSpace(WindowTitlePattern) ||
+        !string.IsNullOrWhiteSpace(WindowClass);
 
     /// <summary>Der Dateiname des Programms ohne Verzeichnis, etwa <c>claude.exe</c>.</summary>
     public string ProcessFileName

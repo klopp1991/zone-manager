@@ -1,4 +1,4 @@
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using SnapZones.Core.AppRules;
 using SnapZones.Core.Models;
 
@@ -38,7 +38,7 @@ public sealed class AppRuleEditorViewModel : ViewModelBase
         }
         else
         {
-            AddRule();
+            ResetEditor();
         }
     }
 
@@ -70,20 +70,48 @@ public sealed class AppRuleEditorViewModel : ViewModelBase
     public string ProcessPath
     {
         get => processPath;
-        set => SetEditorProperty(ref processPath, value ?? string.Empty);
+        set
+        {
+            SetEditorProperty(ref processPath, value ?? string.Empty);
+            OnPropertyChanged(nameof(CriteriaStatus));
+        }
     }
 
     public string WindowTitlePattern
     {
         get => windowTitlePattern;
-        set => SetEditorProperty(ref windowTitlePattern, value ?? string.Empty);
+        set
+        {
+            SetEditorProperty(ref windowTitlePattern, value ?? string.Empty);
+            OnPropertyChanged(nameof(CriteriaStatus));
+        }
     }
 
     public string WindowClass
     {
         get => windowClass;
-        set => SetEditorProperty(ref windowClass, value ?? string.Empty);
+        set
+        {
+            SetEditorProperty(ref windowClass, value ?? string.Empty);
+            OnPropertyChanged(nameof(CriteriaStatus));
+        }
     }
+
+    /// <summary>
+    /// Hinweis darüber, ob die Regel überhaupt ein Merkmal nennt. Programm, Titelmuster und
+    /// Fensterklasse sind gleichrangig; jedes einzelne genügt. Wer vom Pfad auf das Titelmuster
+    /// umstellt, löscht deshalb einfach den Pfad – die Regel bleibt bestehen und wird gespeichert.
+    /// </summary>
+    public string CriteriaStatus => HasCriteria
+        ? string.Empty
+        : "Diese Regel greift noch nicht: Trage mindestens eines der drei Merkmale ein – " +
+            "Programm, Titelmuster oder Fensterklasse.";
+
+    /// <summary>Ob mindestens eines der drei Erkennungsmerkmale ausgefüllt ist.</summary>
+    public bool HasCriteria =>
+        processPath.Trim().Length > 0 ||
+        windowTitlePattern.Trim().Length > 0 ||
+        windowClass.Trim().Length > 0;
 
     public AppRuleEvent SelectedEvent
     {
@@ -188,7 +216,19 @@ public sealed class AppRuleEditorViewModel : ViewModelBase
 
     public bool CanDelete => SelectedRule is not null;
 
+    /// <summary>
+    /// Legt eine neue Regel an und trägt sie sofort in die Liste ein. Der Eintrag entsteht bewusst
+    /// vor der ersten Eingabe: sonst hätte der Knopf bei einer bereits vorhandenen Regel keine
+    /// sichtbare Wirkung, und ein angefangener Entwurf ginge beim nächsten Klick in der Liste
+    /// verloren. Die Regel bleibt wirkungslos, solange sie kein Merkmal nennt.
+    /// </summary>
     public void AddRule()
+    {
+        ResetEditor();
+        TryPersist();
+    }
+
+    private void ResetEditor()
     {
         loading = true;
         try
@@ -228,7 +268,7 @@ public sealed class AppRuleEditorViewModel : ViewModelBase
         RulesChanged?.Invoke(Rules.ToArray());
         if (Rules.Count == 0)
         {
-            AddRule();
+            ResetEditor();
             return;
         }
 
@@ -262,7 +302,7 @@ public sealed class AppRuleEditorViewModel : ViewModelBase
         SelectedRule = Rules.FirstOrDefault(rule => rule.Id == selectedId) ?? Rules.FirstOrDefault();
         if (SelectedRule is null)
         {
-            AddRule();
+            ResetEditor();
         }
     }
 
@@ -369,8 +409,9 @@ public sealed class AppRuleEditorViewModel : ViewModelBase
     private void TryPersist()
     {
         var normalizedProcess = ProcessPath.Trim().Trim('"');
-        if (string.IsNullOrWhiteSpace(normalizedProcess) ||
-            normalizedProcess.Length > 1024 ||
+        // Das Programm ist kein Pflichtfeld mehr: eine Regel darf sich allein auf das Titelmuster oder
+        // die Fensterklasse stuetzen. Nur so laesst sich ein einmal gesetzter Pfad wieder loeschen.
+        if (normalizedProcess.Length > 1024 ||
             WindowTitlePattern.Trim().Length > 512 ||
             WindowClass.Trim().Length > 256 ||
             targetLayoutId == Guid.Empty ||
@@ -409,6 +450,7 @@ public sealed class AppRuleEditorViewModel : ViewModelBase
         selectedRule = rule;
         OnPropertyChanged(nameof(SelectedRule));
         OnPropertyChanged(nameof(CanDelete));
+        OnPropertyChanged(nameof(CriteriaStatus));
         RulesChanged?.Invoke(Rules.ToArray());
     }
 
@@ -417,6 +459,7 @@ public sealed class AppRuleEditorViewModel : ViewModelBase
         OnPropertyChanged(nameof(ProcessPath));
         OnPropertyChanged(nameof(WindowTitlePattern));
         OnPropertyChanged(nameof(WindowClass));
+        OnPropertyChanged(nameof(CriteriaStatus));
         OnPropertyChanged(nameof(SelectedEvent));
         OnPropertyChanged(nameof(SelectedEventDescription));
         OnPropertyChanged(nameof(DelayMilliseconds));
