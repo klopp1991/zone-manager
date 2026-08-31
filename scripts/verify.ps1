@@ -8,7 +8,7 @@ Set-StrictMode -Version Latest
 $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $scriptDirectory '..'))
 $solutionPath = Join-Path $projectRoot 'ZoneManager.sln'
-$projectPath = Join-Path $projectRoot 'src\SnapZones.App\SnapZones.App.csproj'
+$projectPath = Join-Path $projectRoot 'src\ZoneManager.App\ZoneManager.App.csproj'
 $outputPath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'outputs\ZoneManager-prototype'))
 $expectedOutputParent = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'outputs'))
 $rootExecutablePath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'ZoneManager.exe'))

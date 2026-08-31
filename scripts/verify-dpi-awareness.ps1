@@ -22,12 +22,12 @@ if (Test-Path -LiteralPath $settingsPath) {
     }
 }
 
-if (-not ('SnapZones.ProcessDpiProbe' -as [type])) {
+if (-not ('ZoneManager.ProcessDpiProbe' -as [type])) {
     Add-Type -TypeDefinition @'
 using System;
 using System.Runtime.InteropServices;
 
-namespace SnapZones
+namespace ZoneManager
 {
     public static class ProcessDpiProbe
     {
@@ -58,7 +58,7 @@ try {
     }
 
     $awareness = -1
-    $result = [SnapZones.ProcessDpiProbe]::GetProcessDpiAwareness($process.Handle, [ref]$awareness)
+    $result = [ZoneManager.ProcessDpiProbe]::GetProcessDpiAwareness($process.Handle, [ref]$awareness)
     if ($result -ne 0) {
         throw "GetProcessDpiAwareness ist fehlgeschlagen: HRESULT $result"
     }

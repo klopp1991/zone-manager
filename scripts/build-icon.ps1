@@ -9,14 +9,14 @@ Set-StrictMode -Version Latest
 $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $scriptDirectory '..'))
 if ([string]::IsNullOrWhiteSpace($OutputPath)) {
-    $OutputPath = Join-Path $projectRoot 'src\SnapZones.App\Assets\ZoneManager.ico'
+    $OutputPath = Join-Path $projectRoot 'src\ZoneManager.App\Assets\ZoneManager.ico'
 }
 if ([string]::IsNullOrWhiteSpace($HeaderOutputPath)) {
-    $HeaderOutputPath = Join-Path $projectRoot 'src\SnapZones.App\Assets\ZoneManager.Header.png'
+    $HeaderOutputPath = Join-Path $projectRoot 'src\ZoneManager.App\Assets\ZoneManager.Header.png'
 }
 $resolvedOutput = [System.IO.Path]::GetFullPath($OutputPath)
 $resolvedHeaderOutput = [System.IO.Path]::GetFullPath($HeaderOutputPath)
-$expectedDirectory = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'src\SnapZones.App\Assets'))
+$expectedDirectory = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'src\ZoneManager.App\Assets'))
 if (-not $resolvedOutput.StartsWith($expectedDirectory + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
     throw 'Der Icon-Pfad liegt ausserhalb des vorgesehenen Asset-Ordners.'
 }

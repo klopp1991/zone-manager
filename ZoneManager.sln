@@ -2,13 +2,13 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SnapZones.Core", "src\SnapZones.Core\SnapZones.Core.csproj", "{4D08ABCD-2130-4A0F-BBF4-68A094F46E4B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZoneManager.Core", "src\ZoneManager.Core\ZoneManager.Core.csproj", "{4D08ABCD-2130-4A0F-BBF4-68A094F46E4B}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SnapZones.Windows", "src\SnapZones.Windows\SnapZones.Windows.csproj", "{CB835622-73A4-4690-9731-C233B43F8E17}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZoneManager.Windows", "src\ZoneManager.Windows\ZoneManager.Windows.csproj", "{CB835622-73A4-4690-9731-C233B43F8E17}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SnapZones.App", "src\SnapZones.App\SnapZones.App.csproj", "{A1131DC9-50B8-46A5-8A08-4909D7A02CB4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZoneManager.App", "src\ZoneManager.App\ZoneManager.App.csproj", "{A1131DC9-50B8-46A5-8A08-4909D7A02CB4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SnapZones.Tests", "tests\SnapZones.Tests\SnapZones.Tests.csproj", "{A51C5DCE-2979-4D69-A9D1-089409569A83}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ZoneManager.Tests", "tests\ZoneManager.Tests\ZoneManager.Tests.csproj", "{A51C5DCE-2979-4D69-A9D1-089409569A83}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

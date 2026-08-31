@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <AssemblyName>ZoneManager</AssemblyName>
+    <AssemblyTitle>Sascha’s Zone Manager</AssemblyTitle>
+    <Product>Sascha’s Zone Manager</Product>
+    <RootNamespace>ZoneManager.App</RootNamespace>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <StartupObject>ZoneManager.App.Program</StartupObject>
+    <ApplicationIcon>Assets\ZoneManager.ico</ApplicationIcon>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <DebugType>embedded</DebugType>
+    <RootExecutablePath Condition="'$(RootExecutablePath)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\ZoneManager.exe'))</RootExecutablePath>
+    <RootPublishDirectory>$([System.IO.Path]::GetFullPath('$(BaseIntermediateOutputPath)root-publish\$(Configuration)\win-x64\'))</RootPublishDirectory>
+    <RootPublishScript>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\scripts\install-root-executable.ps1'))</RootPublishScript>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\ZoneManager.ico" />
+    <Resource Include="Assets\ZoneManager.Header.png" />
+    <None Update="Assets\ZoneManager.svg" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\ZoneManager.Core\ZoneManager.Core.csproj" />
+    <ProjectReference Include="..\ZoneManager.Windows\ZoneManager.Windows.csproj" />
+  </ItemGroup>
+  <Target Name="PublishRootExecutableAfterBuild"
+          AfterTargets="Build"
+          Condition="'$(SkipRootExecutablePublish)' != 'true' and '$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="Restore;Publish"
+             BuildInParallel="false"
+             Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;SelfContained=true;PublishDir=$(RootPublishDirectory);SkipRootExecutablePublish=true" />
+    <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(RootPublishScript)&quot; -PublishedExecutablePath &quot;$(RootPublishDirectory)ZoneManager.exe&quot; -RootExecutablePath &quot;$(RootExecutablePath)&quot;" />
+  </Target>
+</Project>

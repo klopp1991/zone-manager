@@ -7,7 +7,7 @@ Set-StrictMode -Version Latest
 
 $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $scriptDirectory '..'))
-$projectPath = Join-Path $projectRoot 'src\SnapZones.App\SnapZones.App.csproj'
+$projectPath = Join-Path $projectRoot 'src\ZoneManager.App\ZoneManager.App.csproj'
 $workRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'work'))
 $testDirectory = [System.IO.Path]::GetFullPath((Join-Path $workRoot 'root-build-verification'))
 $testExecutable = Join-Path $testDirectory 'ZoneManager.exe'
