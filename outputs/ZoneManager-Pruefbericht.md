@@ -12,9 +12,17 @@ Stand: 31.08.2026
 
 ## Was geprüft wurde
 
-Nichts davon wurde gebaut oder ausgeführt. Der Durchgang lief in einer Linux-Sitzung ohne .NET SDK und ohne Windows; `SnapZones.Windows`, `SnapZones.App` und das Testprojekt zielen auf `net8.0-windows` mit WPF und WinForms und sind dort grundsätzlich nicht baubar. Der Versuch, das SDK nachzuinstallieren, scheiterte an der Netzwerkrichtlinie der Sitzung (`builds.dotnet.microsoft.com` per CONNECT abgelehnt).
+Der Durchgang lief in einer Linux-Sitzung. Das .NET-8-SDK liess sich aus der Ubuntu-Paketquelle nachinstallieren (8.0.130), jedoch ohne das Windows-Desktop-SDK: `Sdks/Microsoft.NET.Sdk.WindowsDesktop` fehlt darin, und die Bezugsquellen von Microsoft (`builds.dotnet.microsoft.com`, `download.visualstudio.microsoft.com`, `dotnetcli.azureedge.net`) sind von der Netzwerkrichtlinie der Sitzung gesperrt. `ZoneManager.Windows`, `ZoneManager.App` und `ZoneManager.Tests` zielen auf `net8.0-windows` mit WPF und WinForms und sind dort deshalb nicht baubar; ein Versuch endet mit `MSB4019`. **Eine neue `ZoneManager.exe` konnte in dieser Sitzung nicht erzeugt werden.**
 
-Geprüft wurde ausschliesslich statisch:
+Tatsächlich ausgeführt wurde:
+
+- `dotnet build src\ZoneManager.Core\ZoneManager.Core.csproj -c Release`: erfolgreich, 0 Warnungen, 0 Fehler.
+- Ersatzprojekt für `net8.0` mit den neuen, oberflächenfreien Quellen (`ElevationCapability`, `ElevationNotice`, `ElevationRuntimeState`, `ElevationStartupService`, `TrayTooltip`, `ConfigurationDirectoryMigration`) und den zugehörigen Testdateien: übersetzt mit `TreatWarningsAsErrors`, 30 Tests, 29 bestanden, 1 fehlgeschlagen. Der Fehlschlag ist umgebungsbedingt: `EnsureElevation_relaunches_a_normal_non_elevated_start_with_all_arguments` erwartet `Path.GetDirectoryName(@"C:\Program Files\ZoneManager.exe")`, was unter Linux leer bleibt. Diese Prüfung bestand vor diesem Durchgang unverändert und ist unter Windows zu bestätigen.
+- Ersatzprojekt für `WindowsElevationProbe`, `Advapi32`, `Kernel32` und `WindowsStartupService`: übersetzt mit `TreatWarningsAsErrors`, 0 Warnungen, 0 Fehler.
+
+Nicht übersetzt und damit ungeprüft sind alle Dateien mit WPF- oder WinForms-Bezug, insbesondere `App.xaml.cs`, `Program.cs`, `MainWindow.xaml` samt Code-Behind, `TrayIconService`, `ApplicationController` und `AppRuleCoordinator`.
+
+Zusätzlich statisch geprüft:
 
 - Vollständige Textsuche nach `SnapZones` über `*.cs`, `*.xaml`, `*.csproj`, `*.sln` und `*.ps1`: ausserhalb von `docs\superpowers\**` verbleiben nur die vier bewusst stehengelassenen Altnamen (`ProductInfo.LegacyDataFolderName`, `WindowsStartupService.LegacyValueName`, der Legacy-Pfad im Migrationstest und ein Pfadliteral in `WindowsStartupServiceTests`).
 - Abgleich der Projektreferenzen, Solutioneinträge, XAML-`x:Class`- und `clr-namespace`-Verweise sowie der Skriptpfade nach der Umbenennung.
