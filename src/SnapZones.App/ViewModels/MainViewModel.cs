@@ -14,6 +14,7 @@ public sealed class MainViewModel : ViewModelBase
     private MonitorLayout? selectedLayout;
     private LayoutEditorViewModel? editor;
     private string statusMessage = "Bereit";
+    private int rememberedWindowCount;
     private bool suppressPersistence;
 
     public MainViewModel(SnapConfiguration configuration, IReadOnlyList<LiveMonitor> monitors)
@@ -35,11 +36,42 @@ public sealed class MainViewModel : ViewModelBase
 
     public event Action<SnapConfiguration>? SaveRequested;
 
+    /// <summary>Bittet darum, saemtliche gemerkten Fensterpositionen zu verwerfen.</summary>
+    public event Action? ForgetWindowPositionsRequested;
+
     public ObservableCollection<MonitorChoice> Monitors { get; }
     public ObservableCollection<MonitorLayout> Layouts { get; }
     public SettingsViewModel Settings { get; }
     public AppRuleEditorViewModel AppRules { get; }
     public AppExclusionEditorViewModel AppExclusions { get; }
+
+    /// <summary>
+    /// Anzahl der gemerkten Fensterpositionen. Wird vom Platzierungs-Modul nachgefuehrt und macht die
+    /// sonst unsichtbare Ablage in den Einstellungen sichtbar.
+    /// </summary>
+    public int RememberedWindowCount
+    {
+        get => rememberedWindowCount;
+        set
+        {
+            if (SetProperty(ref rememberedWindowCount, value))
+            {
+                OnPropertyChanged(nameof(RememberedWindowSummary));
+                OnPropertyChanged(nameof(HasRememberedWindows));
+            }
+        }
+    }
+
+    public bool HasRememberedWindows => rememberedWindowCount > 0;
+
+    public string RememberedWindowSummary => rememberedWindowCount switch
+    {
+        0 => "Es ist noch keine Fensterposition gemerkt.",
+        1 => "Eine Fensterposition ist gemerkt.",
+        _ => $"{rememberedWindowCount} Fensterpositionen sind gemerkt."
+    };
+
+    public void ForgetWindowPositions() => ForgetWindowPositionsRequested?.Invoke();
 
     public MonitorChoice? SelectedMonitor
     {

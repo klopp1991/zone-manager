@@ -81,7 +81,10 @@ Ein Fenster wird dabei an Programm, Fensterklasse und Fensterart erkannt, nicht 
 desselben Programms teilen sich deshalb einen Eintrag. Ausgeschlossene Fenster kommen gar nicht erst in den
 Katalog.
 
-Eine Oberfläche zum Ansehen, Löschen oder Abschalten des Katalogs gibt es noch nicht.
+Unter **Einstellungen** lässt sich das Merken abschalten und die Anzahl der gemerkten Positionen ablesen;
+**Gemerkte Positionen verwerfen** löscht sämtliche Einträge. Ausgeschaltet bleiben bestehende Einträge
+erhalten, werden aber weder angewendet noch ergänzt. Einzelne Einträge lassen sich nicht ansehen oder
+gezielt löschen.
 
 ## Monitore
 
@@ -102,6 +105,8 @@ Die Seite **Skalierung** liest die erkannten Werte des gewählten Monitors aus �
 - Sofortige Aktivierung oder Aktivierung mit Umschalttaste.
 - **Overlay-Abstände**: Aussenabstände links, oben, rechts und unten in Pixel, Zonenabstand und Magnetdistanz in ganzen Prozent. Diese Werte betreffen ausschliesslich die Vorschau beim Ziehen; wo ein Fenster tatsächlich landet, legt das Layout unter **Abstände zum Rand** fest. Neben jedem Prozentregler steht der abgeleitete Pixelwert als `≙ n px`.
 - Overlayfarbe, Deckkraft und ein-/ausblendbare Zonennamen.
+- **Fensterpositionen merken** schaltet den Positionskatalog ein und aus; daneben stehen die Anzahl der
+  Einträge und die Schaltfläche zum Verwerfen. Siehe [Gemerkte Fensterpositionen](#gemerkte-fensterpositionen).
 - Autostart pro Benutzer über eine Anmeldeaufgabe der Windows-Aufgabenplanung. Sie startet das Programm
   bereits erhöht, sodass bei der Anmeldung **keine** UAC-Abfrage erscheint. Das Anlegen der Aufgabe braucht
   Administratorrechte, die das Programm im Normalbetrieb ohnehin besitzt. Schlägt es fehl, weicht das
@@ -133,7 +138,7 @@ Die Diagnose liest Konfigurationsstatus, Monitore, DPI und Autostartstatus. Sie 
 - Nur Windows 11 x64.
 - Wird die Windows-UAC-Abfrage abgebrochen, startet die Anwendung nicht.
 - Nicht rechteckige oder überlappende Zonen, virtuelle Desktops und automatische Updates sind noch nicht enthalten.
-- Die gemerkten Fensterpositionen lassen sich nicht einzeln ansehen, löschen oder abschalten.
+- Die gemerkten Fensterpositionen lassen sich nur gesamthaft verwerfen, nicht einzeln ansehen oder löschen.
 - Eigene Layouts können nicht über eine dokumentierte API in das native Windows-Snap-Popup eingefügt werden; die Anwendung verwendet ein eigenes Overlay.
 - Der Prototyp ist nicht digital signiert und kann beim ersten Start eine Windows-Sicherheitswarnung auslösen.
 

@@ -35,7 +35,8 @@ public sealed record AppSettings(
     ThemeMode ThemeMode = ThemeMode.System,
     int MagnetThresholdPixels = 20,
     bool ShowZoneNames = true,
-    EdgeInsets? OuterMargins = null)
+    EdgeInsets? OuterMargins = null,
+    bool RememberWindowPositions = true)
 {
     public EdgeInsets EffectiveOuterMargins =>
         (OuterMargins ?? EdgeInsets.Uniform(OuterMargin)).Clamp(0, 400);
@@ -53,5 +54,6 @@ public sealed record AppSettings(
         ThemeMode: ThemeMode.System,
         MagnetThresholdPixels: 20,
         ShowZoneNames: true,
-        OuterMargins: EdgeInsets.Uniform(8));
+        OuterMargins: EdgeInsets.Uniform(8),
+        RememberWindowPositions: true);
 }

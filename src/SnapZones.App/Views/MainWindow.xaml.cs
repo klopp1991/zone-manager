@@ -756,6 +756,27 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ForgetWindowPositions_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        if (System.Windows.MessageBox.Show(
+                $"{viewModel.RememberedWindowSummary} Sie werden gelöscht. Danach erscheint jedes Fenster wieder dort, wo Windows selbst es platziert.",
+                "Gemerkte Fensterpositionen verwerfen",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Warning) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        viewModel.ForgetWindowPositions();
+    }
+
     private void AppExclusionAdd_Click(object sender, RoutedEventArgs eventArgs)
     {
         _ = sender;

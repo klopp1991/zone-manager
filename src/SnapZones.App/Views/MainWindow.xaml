@@ -820,6 +820,21 @@
                                         </StackPanel>
                                         <TextBlock Text="Startet das Programm nach der Windows-Anmeldung automatisch, ohne UAC-Abfrage."
                                                    Style="{StaticResource HelpText}" Margin="0,4,0,0" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                                            <CheckBox x:Name="RememberWindowPositionsCheckBox" Content="Fensterpositionen merken"
+                                                      IsChecked="{Binding Settings.RememberWindowPositions}"
+                                                      AutomationProperties.Name="Fensterpositionen merken" />
+                                            <Button x:Name="RememberWindowPositionsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Merken von Fensterpositionen"
+                                                    ToolTip="Merkt sich für jedes eingerastete Fenster den Monitor, die Zone und das Fensterrechteck und legt es beim nächsten Öffnen wieder dorthin. Ändert sich die Auflösung, wird die Lage anteilig umgerechnet. Erkannt wird ein Fenster an Programm, Fensterklasse und Fensterart, nicht am Titel; mehrere Fenster desselben Programms teilen sich deshalb einen Eintrag. Ausgeschlossene Fenster werden nie gemerkt." />
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding RememberedWindowSummary}"
+                                                   Style="{StaticResource HelpText}" Margin="0,4,0,0"
+                                                   AutomationProperties.Name="Anzahl gemerkter Fensterpositionen" />
+                                        <Button x:Name="ForgetWindowPositionsButton" Content="Gemerkte Positionen verwerfen"
+                                                Click="ForgetWindowPositions_Click" HorizontalAlignment="Left" Margin="0,10,0,0"
+                                                IsEnabled="{Binding HasRememberedWindows}"
+                                                AutomationProperties.Name="Gemerkte Fensterpositionen verwerfen"
+                                                ToolTip="Löscht sämtliche gemerkten Positionen. Danach erscheint jedes Fenster wieder dort, wo Windows selbst es platziert." />
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource SectionCard}">

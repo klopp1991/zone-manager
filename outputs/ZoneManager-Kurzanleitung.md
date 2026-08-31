@@ -16,6 +16,13 @@ Fenster mit gedrückter **Strg**-Taste über mehrere Zonen ziehen: die überstri
 hervorgehoben, beim Loslassen belegt das Fenster ihre gemeinsame Fläche. Eine Auswahl bleibt auf einen Monitor
 beschränkt.
 
+## Gemerkte Fensterpositionen
+
+Das Programm merkt sich, wo ein eingerastetes Fenster zuletzt stand, und legt es beim nächsten Öffnen wieder
+dorthin. Erkannt wird ein Fenster an Programm, Fensterklasse und Fensterart, nicht am Titel; mehrere Fenster
+desselben Programms teilen sich deshalb einen Eintrag. Unter **Einstellungen** lässt sich das abschalten und
+über **Gemerkte Positionen verwerfen** zurücksetzen.
+
 ## Regeln
 
 Eine Regel schiebt Fenster eines Programms in eine feste Zone. Das Programm wird entweder über **Programmdatei wählen …** aus dem Dateisystem gesucht oder über **Laufendes Programm wählen …** aus den gerade laufenden Programmen übernommen. Titelmuster und Fensterklasse grenzen optional weiter ein; leer bedeutet: jedes Fenster des Programms. Das Ereignis legt fest, wann die Regel greift, und wird unter der Auswahl im Klartext erklärt.

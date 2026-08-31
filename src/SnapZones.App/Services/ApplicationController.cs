@@ -114,6 +114,9 @@ public sealed class ApplicationController : IDisposable
         tray = new TrayIconService(window, ActivateLayout, RequestExit);
 
         viewModel.SaveRequested += SaveRequested;
+        viewModel.ForgetWindowPositionsRequested += ForgetWindowPositions;
+        placementEngine.CatalogChanged += PublishRememberedWindowCount;
+        viewModel.RememberedWindowCount = placementEngine.Catalog.Entries.Count;
         window.ExportConfigurationRequested += ExportConfigurationAsync;
         window.ImportConfigurationRequested += ImportConfigurationAsync;
         window.IdentifyMonitorsRequested += IdentifyMonitors;
@@ -344,6 +347,15 @@ public sealed class ApplicationController : IDisposable
             viewModel.StatusMessage = $"Speichern fehlgeschlagen: {exception.Message}";
         });
     }
+
+    private void ForgetWindowPositions()
+    {
+        placementEngine.ForgetAll();
+        viewModel.StatusMessage = "Gemerkte Fensterpositionen verworfen";
+    }
+
+    private void PublishRememberedWindowCount(WindowPlacementCatalog catalog) =>
+        _ = window.Dispatcher.InvokeAsync(() => viewModel.RememberedWindowCount = catalog.Entries.Count);
 
     private void PlacementSaveFinished(Exception? exception)
     {

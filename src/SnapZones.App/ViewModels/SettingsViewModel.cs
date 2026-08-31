@@ -5,6 +5,7 @@ namespace SnapZones.App.ViewModels;
 public sealed class SettingsViewModel : ViewModelBase
 {
     private bool startWithWindows;
+    private bool rememberWindowPositions = true;
     private OverlayScope overlayScope;
     private TriggerMode triggerMode;
     private ThemeMode themeMode;
@@ -23,6 +24,7 @@ public sealed class SettingsViewModel : ViewModelBase
     public SettingsViewModel(AppSettings settings)
     {
         startWithWindows = settings.StartWithWindows;
+        rememberWindowPositions = settings.RememberWindowPositions;
         overlayScope = settings.OverlayScope;
         triggerMode = settings.TriggerMode;
         themeMode = settings.ThemeMode;
@@ -48,6 +50,17 @@ public sealed class SettingsViewModel : ViewModelBase
     {
         get => startWithWindows;
         set => SetProperty(ref startWithWindows, value);
+    }
+
+    /// <summary>
+    /// Ob sich das Programm merkt, wo ein Fenster zuletzt stand, und es beim naechsten Oeffnen dorthin
+    /// zuruecklegt. Ausgeschaltet bleiben bereits gemerkte Eintraege erhalten, werden aber nicht mehr
+    /// angewendet; <see cref="MainViewModel.ForgetWindowPositionsRequested"/> loescht sie.
+    /// </summary>
+    public bool RememberWindowPositions
+    {
+        get => rememberWindowPositions;
+        set => SetProperty(ref rememberWindowPositions, value);
     }
 
     public OverlayScope OverlayScope
@@ -191,12 +204,14 @@ public sealed class SettingsViewModel : ViewModelBase
             OuterMarginLeft,
             OuterMarginTop,
             OuterMarginRight,
-            OuterMarginBottom));
+            OuterMarginBottom),
+        RememberWindowPositions: RememberWindowPositions);
 
     public void Apply(AppSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
         StartWithWindows = settings.StartWithWindows;
+        RememberWindowPositions = settings.RememberWindowPositions;
         OverlayScope = settings.OverlayScope;
         TriggerMode = settings.TriggerMode;
         ThemeMode = settings.ThemeMode;

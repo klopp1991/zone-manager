@@ -336,6 +336,29 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         }
     }
 
+    /// <summary>
+    /// Verwirft saemtliche gemerkten Fensterpositionen. Beim naechsten Oeffnen erscheint jedes Fenster
+    /// wieder dort, wo Windows selbst es platziert.
+    /// </summary>
+    public void ForgetAll()
+    {
+        var publish = false;
+        lock (synchronization)
+        {
+            if (Catalog.Entries.Count > 0)
+            {
+                var emptied = WindowPlacementCatalog.Empty;
+                Catalog = emptied;
+                publish = QueueCatalogPublicationLocked(emptied, persist: true);
+            }
+        }
+
+        if (publish)
+        {
+            PublishCatalogsInOrder();
+        }
+    }
+
     public void RememberExplicitZone(nint windowHandle, Guid profileId, string monitorStableId, Guid zoneId)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(monitorStableId);
@@ -577,6 +600,12 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         }
 
         if (IsExcluded(environment.Configuration, snapshot))
+        {
+            MarkProcessed(context, snapshot.Identity);
+            return;
+        }
+
+        if (!environment.Configuration.Settings.RememberWindowPositions)
         {
             MarkProcessed(context, snapshot.Identity);
             return;
@@ -864,6 +893,11 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         // Ein ausgeschlossenes Fenster wird nicht in den Katalog aufgenommen. Sonst wuerde seine
         // Position gemerkt und beim naechsten Oeffnen wiederhergestellt, obwohl es frei bleiben soll.
         if (IsExcluded(environment.Configuration, snapshot))
+        {
+            return Task.CompletedTask;
+        }
+
+        if (!environment.Configuration.Settings.RememberWindowPositions)
         {
             return Task.CompletedTask;
         }
