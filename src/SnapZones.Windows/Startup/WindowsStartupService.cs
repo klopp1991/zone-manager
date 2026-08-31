@@ -5,7 +5,10 @@ namespace SnapZones.Windows.Startup;
 public sealed class WindowsStartupService(string executablePath) : IStartupService
 {
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
-    private const string ValueName = "SnapZones";
+    private const string ValueName = "ZoneManager";
+
+    /// <summary>Wertname bis Version 2026.08; wird entfernt, damit kein doppelter Autostart entsteht.</summary>
+    private const string LegacyValueName = "SnapZones";
     private readonly string executablePath = executablePath ?? throw new ArgumentNullException(nameof(executablePath));
 
     public bool IsEnabled
@@ -21,6 +24,7 @@ public sealed class WindowsStartupService(string executablePath) : IStartupServi
     public void SetEnabled(bool enabled)
     {
         using var key = Registry.CurrentUser.CreateSubKey(RunKeyPath, writable: true);
+        key.DeleteValue(LegacyValueName, throwOnMissingValue: false);
         if (enabled)
         {
             key.SetValue(ValueName, BuildCommand(executablePath), RegistryValueKind.String);

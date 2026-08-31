@@ -14,7 +14,7 @@ if (-not (Test-Path -LiteralPath $resolvedExecutable -PathType Leaf)) {
     throw "Die ausführbare Datei fehlt: $resolvedExecutable"
 }
 
-$settingsPath = Join-Path $env:APPDATA 'SnapZones\settings.json'
+$settingsPath = Join-Path $env:APPDATA 'ZoneManager\settings.json'
 if (Test-Path -LiteralPath $settingsPath) {
     $settings = (Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json).Settings
     if ($settings.SnappingEnabled -eq $true) {

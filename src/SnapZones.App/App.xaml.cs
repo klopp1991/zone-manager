@@ -31,9 +31,17 @@ public partial class App : System.Windows.Application
         base.OnStartup(eventArgs);
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
         startupArguments = eventArgs.Args;
-        var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SnapZones");
-        var localData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SnapZones", "logs");
+        var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ProductInfo.DataFolderName);
+        var legacyAppData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), ProductInfo.LegacyDataFolderName);
+        var localData = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            ProductInfo.DataFolderName,
+            "logs");
         log = new FileLog(localData);
+        var migration = ConfigurationDirectoryMigration.Run(legacyAppData, appData);
+        log.Write(
+            migration.Status == ConfigurationMigrationStatus.Failed ? "ERROR" : "INFO",
+            $"Konfigurationsübernahme: {migration.Status}. {migration.Message}");
         var startupService = new WindowsStartupService(Environment.ProcessPath ?? throw new InvalidOperationException("Der Programmpfad fehlt."));
 
         if (eventArgs.Args.Contains("--diagnostics", StringComparer.OrdinalIgnoreCase))

@@ -11,7 +11,7 @@ public sealed class FileLog
     public FileLog(string directoryPath)
     {
         Directory.CreateDirectory(directoryPath);
-        filePath = Path.Combine(directoryPath, "snapzones.log");
+        filePath = Path.Combine(directoryPath, "zonemanager.log");
     }
 
     public void Write(string level, string message, Exception? exception = null)
