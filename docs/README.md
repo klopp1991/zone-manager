@@ -63,6 +63,12 @@ Jede Einstellung erklärt direkt in der Oberfläche Wirkung, Gültigkeitsbereich
 
 Normale Programmstarts wechseln vor dem Laden der Oberfläche über die Windows-UAC-Abfrage in den Administratormodus. Dadurch kann die Anwendung auch erhöhte Fenster positionieren; der reine Diagnosemodus bleibt absichtlich ohne Elevation. `Ctrl + Alt + Shift + F12` deaktiviert Hook und Overlays bis zum nächsten Programmstart. `Escape` beendet nur den aktuellen Ziehvorgang. Die Anwendung enthält keinen Treiber, keinen Windows-Dienst und keine Code-Injektion; ein Schutzschalter stoppt die Snap-Funktion bei Callback-Fehlern oder ungewöhnlich vielen Hook-Ereignissen.
 
+## Beenden
+
+Das Schliessen des Fensters blendet die Anwendung nur in den Infobereich aus. Beendet wird sie über **Rechtsklick auf das Infobereichssymbol → Beenden**.
+
+Beim Beenden werden zuerst Hooks, Zeitgeber und die Platzierungs-Engine stillgelegt, damit keine neue Arbeit mehr anfällt; anschliessend werden Einstellungen und Fensterplatzierungen gespeichert. Für diesen Abschluss gilt eine Zeitgrenze von fünf Sekunden. Lässt sich in dieser Zeit nicht vollständig speichern, meldet ein Hinweisfenster die Ursache und fragt, ob trotzdem beendet werden soll — die Anwendung bleibt nie ohne sichtbare Begründung geöffnet.
+
 ## Diagnose
 
 ```powershell

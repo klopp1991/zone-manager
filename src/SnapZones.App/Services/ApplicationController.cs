@@ -51,6 +51,7 @@ public sealed class ApplicationController : IDisposable
     private SnapConfiguration configuration;
     private bool emergencyStopped;
     private bool allowClose;
+    private bool shuttingDown;
     private bool disposed;
 
     public ApplicationController(
@@ -181,6 +182,15 @@ public sealed class ApplicationController : IDisposable
 
     private void SaveRequested(SnapConfiguration newConfiguration)
     {
+        // Waehrend des Beendens nur noch persistieren. Frueher lief hier der volle Reconfigure-Pfad,
+        // der Hooks und Platzierungs-Engine direkt vor dem abschliessenden Flush wieder scharf schaltete.
+        if (shuttingDown)
+        {
+            configuration = newConfiguration;
+            saveCoordinator.RequestSave(newConfiguration);
+            return;
+        }
+
         var previousConfiguration = configuration;
         configuration = newConfiguration;
         var activatedLayoutIds = FindNewlyActivatedLayoutIds(previousConfiguration, newConfiguration);
@@ -610,21 +620,72 @@ public sealed class ApplicationController : IDisposable
         }
     }
 
-    private async Task ExitApplicationAsync()
+    /// <summary>
+    /// Obergrenze für das Speichern beim Beenden. Ohne Grenze konnte der Vorgang unbegrenzt warten,
+    /// und die Anwendung liess sich nicht mehr schliessen.
+    /// </summary>
+    private static readonly TimeSpan ShutdownSaveTimeout = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// Legt alle Quellen neuer Arbeit still. Ohne diesen Schritt lieferten Hooks, Zeitgeber und die
+    /// Platzierungs-Engine während des Beendens laufend neue Aufträge nach, sodass der abschliessende
+    /// Flush nie zur Ruhe kam.
+    /// </summary>
+    private void QuiesceForShutdown()
     {
-        window.IsEnabled = false;
         try
         {
-            await exitSaveCoordinator.PrepareForShutdownAsync(viewModel.Save);
-            await placementEngine.FlushAsync(CancellationToken.None);
+            cursorTimer.Stop();
+            identificationTimer.Stop();
+            coordinator?.Cancel();
+            moveHook.Disable();
+            appRuleCoordinator.CancelPending();
+            appRuleHook.Disable();
+            placementEngine.Stop();
+            overlays.HideAll();
         }
         catch (Exception exception)
         {
-            log.Write("ERROR", "Die Applikation bleibt geöffnet, weil Einstellungen oder Fensterplatzierungen nicht gespeichert werden konnten.", exception);
-            window.IsEnabled = true;
-            viewModel.StatusMessage = "Beenden abgebrochen: Einstellungen konnten nicht gespeichert werden.";
-            exitRequestGate.Reset();
-            return;
+            // Ein Fehler beim Stilllegen darf das Beenden nicht verhindern.
+            log.Write("WARN", "Beim Stilllegen der Hooks vor dem Beenden ist ein Fehler aufgetreten.", exception);
+        }
+    }
+
+    private async Task ExitApplicationAsync()
+    {
+        shuttingDown = true;
+        window.IsEnabled = false;
+        QuiesceForShutdown();
+
+        var result = await exitSaveCoordinator.TryPrepareForShutdownAsync(
+            viewModel.Save,
+            ShutdownSaveTimeout,
+            placementEngine.FlushAsync);
+
+        if (!result.IsSaved)
+        {
+            log.Write(
+                "ERROR",
+                $"Beim Beenden konnte nicht vollständig gespeichert werden: {result.Describe()}",
+                result.Failure);
+
+            // Sichtbar melden statt still im Infobereich weiterzulaufen: der Anwender hat das Beenden
+            // ausgelöst und muss erfahren, warum es hakt, und entscheiden können.
+            var proceed = System.Windows.MessageBox.Show(
+                $"{result.Describe()}\n\nTrotzdem beenden?",
+                $"{ProductInfo.Name} beenden",
+                System.Windows.MessageBoxButton.OKCancel,
+                System.Windows.MessageBoxImage.Warning,
+                System.Windows.MessageBoxResult.OK) == System.Windows.MessageBoxResult.OK;
+            if (!proceed)
+            {
+                shuttingDown = false;
+                window.IsEnabled = true;
+                viewModel.StatusMessage = "Beenden abgebrochen: Einstellungen konnten nicht gespeichert werden.";
+                exitRequestGate.Reset();
+                Reconfigure(configuration);
+                return;
+            }
         }
 
         allowClose = true;
