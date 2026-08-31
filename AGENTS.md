@@ -1,3 +1,7 @@
+# Aktueller Auftrag
+
+Vor Arbeitsbeginn `docs/auftraege/2026-08-31-konsolidierung.md` lesen. Dort stehen Ausgangslage, bereits erledigte Punkte, die offenen Arbeitspakete in bindender Reihenfolge und die Abnahmekriterien.
+
 # Parallele Arbeit
 
 Vor jeder Dateiänderung muss jede Aufgabe in einem eigenen Git-Worktree und auf einem eigenen Branch arbeiten.
@@ -10,3 +14,15 @@ Vor jeder Dateiänderung muss jede Aufgabe in einem eigenen Git-Worktree und auf
 6. Die Root-EXE nur in einer ausdrücklich dafür vorgesehenen Integrations- oder Release-Aufgabe aktualisieren.
 
 Wenn ein sauberer Integrations-Worktree nicht verfügbar ist, die Arbeit auf dem Aufgabenbranch abschliessen und die Integration als offen melden; niemals ersatzweise in einen belegten `main`-Worktree schreiben.
+
+# Dokumentation
+
+Die Dokumentation wächst nicht, sie wird gepflegt. Bei jeder Änderung gilt:
+
+1. Betroffene Dokumente in derselben Aufgabe aktualisieren, nicht in einer späteren. Eine Aufgabe ist erst fertig, wenn Code und Dokumentation übereinstimmen.
+2. Bestehende Abschnitte korrigieren statt neue danebenzustellen. Kein Anhängen von "Update", "Neu", "Siehe auch" an einen überholten Text.
+3. Überholte Aussagen, Zahlen, Pfade und Dateinamen entfernen. Eine falsche Doku ist schlechter als keine.
+4. Jede Aussage muss zum Zeitpunkt des Schreibens geprüft sein. Nicht geprüfte Punkte ausdrücklich als ungeprüft kennzeichnen.
+5. Feste Zuständigkeiten: `README.md` Überblick und Einstieg, `docs/README.md` Bedienung und Architektur, `outputs/ZoneManager-Kurzanleitung.md` Kurzfassung für Anwender, `outputs/ZoneManager-Pruefbericht.md` Ergebnis des letzten Prüflaufs. Inhalte gehören genau an eine Stelle; sonst querverweisen statt kopieren.
+6. `docs/superpowers/**` sind datierte historische Plan- und Spezifikationsdokumente. Sie werden nicht rückwirkend umgeschrieben und nicht als aktueller Stand gelesen.
+7. Aufträge unter `docs/auftraege/` werden bei Abschluss auf den Endstand nachgeführt und als erledigt markiert, nicht gelöscht.

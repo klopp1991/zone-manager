@@ -7,7 +7,7 @@ Set-StrictMode -Version Latest
 
 $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $scriptDirectory '..'))
-$solutionPath = Join-Path $projectRoot 'SnapZones.sln'
+$solutionPath = Join-Path $projectRoot 'ZoneManager.sln'
 $projectPath = Join-Path $projectRoot 'src\SnapZones.App\SnapZones.App.csproj'
 $outputPath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'outputs\ZoneManager-prototype'))
 $expectedOutputParent = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'outputs'))
@@ -32,16 +32,23 @@ if ($LASTEXITCODE -ne 0) { throw 'Die Paketwiederherstellung ist fehlgeschlagen.
 dotnet restore $projectPath -r win-x64
 if ($LASTEXITCODE -ne 0) { throw 'Die win-x64-Laufzeitwiederherstellung ist fehlgeschlagen.' }
 
+# Die aufgerufenen Skripte melden Fehler ueber eine terminierende Ausnahme; $LASTEXITCODE bliebe hier
+# auf dem Wert des zuletzt gestarteten nativen Befehls stehen und waere deshalb keine gueltige Pruefung.
 & (Join-Path $scriptDirectory 'build-icon.ps1')
-if ($LASTEXITCODE -ne 0) { throw 'Das Programmicon konnte nicht erzeugt werden.' }
 
-dotnet test $solutionPath -c Release --no-restore
+# Test und Release-Build brauchen die Root-EXE nicht. Ohne diesen Schalter loest jeder Build des
+# App-Projekts einen vollstaendigen Self-contained-Publish aus; der Lauf wuerde die 72-MB-EXE
+# viermal statt einmal erzeugen. Die Root-EXE entsteht unten aus dem Publish-Artefakt, und
+# verify-root-build.ps1 prueft den impliziten Weg separat.
+dotnet test $solutionPath -c Release --no-restore -p:SkipRootExecutablePublish=true
 if ($LASTEXITCODE -ne 0) { throw 'Die Tests sind fehlgeschlagen.' }
 
-dotnet build $solutionPath -c Release --no-restore
+dotnet build $solutionPath -c Release --no-restore -p:SkipRootExecutablePublish=true
 if ($LASTEXITCODE -ne 0) { throw 'Der Release-Build ist fehlgeschlagen.' }
 
-dotnet publish $projectPath -c Release -r win-x64 --self-contained true --no-restore -o $outputPath
+& (Join-Path $scriptDirectory 'verify-root-build.ps1') -MaximumExecutableBytes $maximumExecutableBytes
+
+dotnet publish $projectPath -c Release -r win-x64 --self-contained true --no-restore -o $outputPath -p:SkipRootExecutablePublish=true
 if ($LASTEXITCODE -ne 0) { throw 'Der Publish ist fehlgeschlagen.' }
 
 $publishedExecutablePath = Join-Path $outputPath 'ZoneManager.exe'
@@ -58,7 +65,6 @@ if ($publishedExecutableBytes -gt $maximumExecutableBytes) {
 & (Join-Path $scriptDirectory 'install-root-executable.ps1') `
     -PublishedExecutablePath $publishedExecutablePath `
     -RootExecutablePath $rootExecutablePath
-if ($LASTEXITCODE -ne 0) { throw 'Die Root-EXE konnte nicht aktualisiert werden.' }
 if (-not (Test-Path -LiteralPath $rootExecutablePath -PathType Leaf)) {
     throw 'ZoneManager.exe fehlt im Rootverzeichnis.'
 }
@@ -84,9 +90,8 @@ if ($SkipDpiCheck) {
 }
 else {
     & (Join-Path $scriptDirectory 'verify-dpi-awareness.ps1') -ExecutablePath $rootExecutablePath
-    if ($LASTEXITCODE -ne 0) { throw 'Die DPI-Prüfung ist fehlgeschlagen.' }
 }
 
 $files = Get-ChildItem -LiteralPath $outputPath -File -Recurse
 $bytes = ($files | Measure-Object -Property Length -Sum).Sum
-Write-Output "VERIFY_OK tests=passed dpi=$dpiStatus monitors=$(@($diagnostic.monitors).Count) startupLayouts=$($diagnostic.startupLayoutCount) files=$($files.Count) bytes=$bytes maximumExecutableBytes=$maximumExecutableBytes rootExe=$rootExecutablePath hookRegistered=false settingsChanged=false"
+Write-Output "VERIFY_OK tests=passed rootBuild=passed dpi=$dpiStatus monitors=$(@($diagnostic.monitors).Count) startupLayouts=$($diagnostic.startupLayoutCount) files=$($files.Count) bytes=$bytes maximumExecutableBytes=$maximumExecutableBytes rootExe=$rootExecutablePath hookRegistered=false settingsChanged=false"

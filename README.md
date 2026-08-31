@@ -15,6 +15,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1
 
 Der Prüf- und Publish-Lauf stellt Pakete wieder her, führt die Tests aus, baut eine selbständige `win-x64`-Einzeldatei und prüft Diagnose sowie Per-Monitor-DPI. Beim normalen Start ist eine Windows-UAC-Bestätigung erforderlich; `--diagnostics` läuft absichtlich ohne Elevation.
 
+Der Lauf schliesst eine Per-Monitor-DPI-Prüfung ein, die die Oberfläche startet und deshalb eine interaktive Sitzung mit bestätigter UAC-Abfrage braucht. In nicht interaktiven Umgebungen bleibt dieser Schritt sonst an der unbeantworteten Abfrage stehen; `-SkipDpiCheck` überspringt ihn.
+
 ## Funktionen
 
 - Layouts und Zonen je Monitor mit Prozent- oder Pixelmassen
@@ -33,9 +35,11 @@ Die Einstellungen liegen unter `%APPDATA%\SnapZones\settings.json`; Sicherungen 
 ## Entwicklung
 
 ```powershell
-dotnet test SnapZones.sln -c Release
-dotnet build SnapZones.sln -c Release
+dotnet test ZoneManager.sln -c Release
+dotnet build ZoneManager.sln -c Release
 ```
+
+Jeder Build des App-Projekts veröffentlicht anschliessend automatisch die selbständige Root-`ZoneManager.exe`. Für schnelle Zwischenbuilds lässt sich dieser Schritt mit `-p:SkipRootExecutablePublish=true` überspringen.
 
 Die Lösung ist in `SnapZones.Core`, `SnapZones.Windows` und `SnapZones.App` geteilt. Tests liegen unter `tests\SnapZones.Tests`; der reproduzierbare Gesamtcheck ist `scripts\verify.ps1`.
 
@@ -43,7 +47,7 @@ Die Lösung ist in `SnapZones.Core`, `SnapZones.Windows` und `SnapZones.App` get
 
 Die Anwendung verwendet keinen Treiber, keinen Windows-Dienst und keine Code-Injektion. Sie unterstützt nur Windows 11 x64, ist nicht digital signiert und kann deshalb beim ersten Start eine Sicherheitswarnung auslösen. Das native Windows-Snap-Popup kann nicht über eine dokumentierte API um eigene Zonen erweitert werden; Sascha’s Zone Manager verwendet dafür ein eigenes Overlay.
 
-Weitere Bedienungs- und Architekturdetails stehen in [docs/README.md](docs/README.md), der [Kurzanleitung](outputs/SnapZones-Kurzanleitung.md) und dem [Prüfbericht](outputs/SnapZones-Pruefbericht.md).
+Weitere Bedienungs- und Architekturdetails stehen in [docs/README.md](docs/README.md), der [Kurzanleitung](outputs/ZoneManager-Kurzanleitung.md) und dem [Prüfbericht](outputs/ZoneManager-Pruefbericht.md).
 
 ## Mitwirken
 

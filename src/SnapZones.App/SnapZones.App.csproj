@@ -16,7 +16,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
     <StartupObject>SnapZones.App.Program</StartupObject>
-    <ApplicationIcon>Assets\SaschaWindowZones.ico</ApplicationIcon>
+    <ApplicationIcon>Assets\ZoneManager.ico</ApplicationIcon>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <PublishSingleFile>true</PublishSingleFile>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
@@ -27,9 +27,9 @@
     <RootPublishScript>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\..\..\scripts\install-root-executable.ps1'))</RootPublishScript>
   </PropertyGroup>
   <ItemGroup>
-    <Resource Include="Assets\SaschaWindowZones.ico" />
-    <Resource Include="Assets\SaschaWindowZones.Header.png" />
-    <None Update="Assets\SaschaWindowZones.svg" />
+    <Resource Include="Assets\ZoneManager.ico" />
+    <Resource Include="Assets\ZoneManager.Header.png" />
+    <None Update="Assets\ZoneManager.svg" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\SnapZones.Core\SnapZones.Core.csproj" />

@@ -23,7 +23,7 @@ function Assert-Equal {
 $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $worktreeScript = Join-Path $scriptDirectory 'new-task-worktree.ps1'
 $temporaryRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
-$testRoot = Join-Path $temporaryRoot ("SaschaWindowZones-WorktreeTest-$([guid]::NewGuid().ToString('N'))")
+$testRoot = Join-Path $temporaryRoot ("ZoneManager-WorktreeTest-$([guid]::NewGuid().ToString('N'))")
 
 try {
     New-Item -ItemType Directory -Path $testRoot | Out-Null
@@ -73,7 +73,7 @@ try {
 finally {
     $resolvedTestRoot = [System.IO.Path]::GetFullPath($testRoot)
     if ($resolvedTestRoot.StartsWith($temporaryRoot, [System.StringComparison]::OrdinalIgnoreCase) -and
-        [System.IO.Path]::GetFileName($resolvedTestRoot).StartsWith('SaschaWindowZones-WorktreeTest-', [System.StringComparison]::Ordinal)) {
+        [System.IO.Path]::GetFileName($resolvedTestRoot).StartsWith('ZoneManager-WorktreeTest-', [System.StringComparison]::Ordinal)) {
         Remove-Item -LiteralPath $resolvedTestRoot -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
