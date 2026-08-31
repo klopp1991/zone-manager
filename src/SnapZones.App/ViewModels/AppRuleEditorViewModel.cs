@@ -88,8 +88,30 @@ public sealed class AppRuleEditorViewModel : ViewModelBase
     public AppRuleEvent SelectedEvent
     {
         get => selectedEvent;
-        set => SetEditorProperty(ref selectedEvent, value);
+        set
+        {
+            SetEditorProperty(ref selectedEvent, value);
+            OnPropertyChanged(nameof(SelectedEventDescription));
+        }
     }
+
+    /// <summary>Ausformulierte Erklärung des gewählten Ereignisses für die Oberfläche.</summary>
+    public string SelectedEventDescription => DescribeEvent(selectedEvent);
+
+    /// <summary>Erklärt ein Ereignis in wenigen Sätzen. Öffentlich, damit die Formulierung prüfbar bleibt.</summary>
+    public static string DescribeEvent(AppRuleEvent value) => value switch
+    {
+        AppRuleEvent.WindowCreated =>
+            "Greift genau einmal, sobald das Programm ein neues Fenster öffnet – beim Programmstart oder wenn ein weiteres " +
+            "Fenster aufgeht. Danach kannst du das Fenster frei verschieben; es wird nicht zurückgeholt.",
+        AppRuleEvent.WindowFocused =>
+            "Greift jedes Mal, wenn du zu einem passenden Fenster wechselst, es also den Fokus erhält. Das Fenster kehrt damit " +
+            "immer wieder in seine Zone zurück – sinnvoll für Fenster, die dauerhaft am selben Platz stehen sollen.",
+        AppRuleEvent.LayoutActivated =>
+            "Greift nicht beim Fenster, sondern beim Layoutwechsel: Aktivierst du das Ziellayout, werden alle bereits offenen " +
+            "passenden Fenster auf einen Schlag neu angeordnet. Später geöffnete Fenster bleiben unberührt.",
+        _ => string.Empty
+    };
 
     public int DelayMilliseconds
     {
@@ -396,6 +418,7 @@ public sealed class AppRuleEditorViewModel : ViewModelBase
         OnPropertyChanged(nameof(WindowTitlePattern));
         OnPropertyChanged(nameof(WindowClass));
         OnPropertyChanged(nameof(SelectedEvent));
+        OnPropertyChanged(nameof(SelectedEventDescription));
         OnPropertyChanged(nameof(DelayMilliseconds));
         OnPropertyChanged(nameof(RetryCount));
         OnPropertyChanged(nameof(Priority));

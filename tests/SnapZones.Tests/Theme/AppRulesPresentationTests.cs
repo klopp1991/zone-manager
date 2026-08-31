@@ -42,4 +42,65 @@ public sealed class AppRulesPresentationTests
             Assert.Equal("Prozess auswählen", AutomationProperties.GetName(window.FindName("AppRuleBrowseButton") as Button));
         });
     }
+
+    [Fact]
+    public void Rule_editor_groups_its_fields_and_offers_both_ways_to_pick_a_program()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var window = new MainWindow();
+            window.AttachViewModel(new MainViewModel(ConfigurationSamples.TwoLayouts(), []));
+
+            // Dateidialog fuer nicht laufende Programme, Prozessliste fuer bereits laufende.
+            var browse = Assert.IsType<Button>(window.FindName("AppRuleBrowseButton"));
+            var running = Assert.IsType<Button>(window.FindName("AppRuleRunningProcessButton"));
+
+            Assert.Equal("Laufenden Prozess auswählen", AutomationProperties.GetName(running));
+            Assert.NotEqual(browse.Content, running.Content);
+
+            // Jede Gruppe traegt eine erklaerende Info-Schaltflaeche mit ausformuliertem Hilfetext.
+            var groupHelp = new[]
+            {
+                "AppRuleProcessInfoButton",
+                "AppRuleTitleInfoButton",
+                "AppRuleWindowClassInfoButton",
+                "AppRuleEventInfoButton"
+            };
+            Assert.All(groupHelp, name =>
+            {
+                var button = Assert.IsType<Button>(window.FindName(name));
+                var help = Assert.IsType<string>(button.ToolTip);
+                Assert.True(help.Length >= 120, $"{name} erklaert das Feld nicht ausfuehrlich genug.");
+                Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetName(button)));
+            });
+        });
+    }
+
+    [Fact]
+    public void Rule_editor_explains_the_selected_event_in_plain_language()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var window = new MainWindow();
+            var viewModel = new MainViewModel(ConfigurationSamples.TwoLayouts(), []);
+            window.AttachViewModel(viewModel);
+            var description = Assert.IsType<TextBlock>(window.FindName("AppRuleEventDescriptionText"));
+
+            Assert.Equal(
+                "AppRules.SelectedEventDescription",
+                description.GetBindingExpression(TextBlock.TextProperty)!.ParentBinding.Path.Path);
+
+            foreach (var value in Enum.GetValues<SnapZones.Core.AppRules.AppRuleEvent>())
+            {
+                viewModel.AppRules.SelectedEvent = value;
+
+                Assert.Equal(
+                    AppRuleEditorViewModel.DescribeEvent(value),
+                    viewModel.AppRules.SelectedEventDescription);
+                Assert.True(
+                    viewModel.AppRules.SelectedEventDescription.Length >= 120,
+                    $"Das Ereignis {value} ist nicht ausreichend erklaert.");
+            }
+        });
+    }
 }

@@ -174,6 +174,9 @@ public sealed class ThemeResourceTests
                 ("InkBrush", "SurfaceBrush"),
                 ("MutedBrush", "CanvasBrush"),
                 ("MutedBrush", "SurfaceBrush"),
+                ("SubtleInkBrush", "CanvasBrush"),
+                ("SubtleInkBrush", "SurfaceBrush"),
+                ("SubtleInkBrush", "SurfaceRaisedBrush"),
                 ("AccentInkBrush", "AccentBrush"),
                 ("AccentStatusBrush", "AccentSoftBrush"),
                 ("WarningBrush", "WarningSoftBrush"),
@@ -371,16 +374,87 @@ public sealed class ThemeResourceTests
             var window = new MainWindow();
             var layoutNameText = Assert.IsType<TextBox>(window.FindName("LayoutNameText"));
 
-            Assert.Equal(15d, window.FontSize);
-            Assert.Equal(15d, layoutNameText.FontSize);
+            Assert.Equal(16d, window.FontSize);
+            Assert.Equal(16d, layoutNameText.FontSize);
             Assert.True(layoutNameText.ApplyTemplate());
             var contentHost = Assert.IsType<ScrollViewer>(
                 layoutNameText.Template.FindName("PART_ContentHost", layoutNameText));
             Assert.Same(layoutNameText.Foreground, contentHost.Foreground);
             Assert.Equal(30d, StyleFontSize("PageTitle"));
-            Assert.Equal(19d, StyleFontSize("SectionTitle"));
-            Assert.Equal(14d, StyleFontSize("FieldLabel"));
-            Assert.Equal(13.5d, StyleFontSize("HelpText"));
+            Assert.Equal(20d, StyleFontSize("SectionTitle"));
+            Assert.Equal(16d, StyleFontSize("GroupTitle"));
+            Assert.Equal(15d, StyleFontSize("FieldLabel"));
+            Assert.Equal(14d, StyleFontSize("HelpText"));
+        });
+    }
+
+    [Fact]
+    public void Single_line_input_fields_reserve_the_full_control_height_for_their_text()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var window = new MainWindow();
+            var layoutNameText = Assert.IsType<TextBox>(window.FindName("LayoutNameText"));
+
+            // Ein fester Height-Wert zusammen mit senkrechtem Padding hat den Text beschnitten.
+            // Die Zeile darf nur noch waagrecht gepolstert und senkrecht zentriert werden.
+            Assert.True(double.IsNaN(layoutNameText.Height), "Eingabefelder duerfen keine feste Hoehe erzwingen.");
+            Assert.Equal(40d, layoutNameText.MinHeight);
+            Assert.Equal(0d, layoutNameText.Padding.Top);
+            Assert.Equal(0d, layoutNameText.Padding.Bottom);
+            Assert.Equal(VerticalAlignment.Center, layoutNameText.VerticalContentAlignment);
+        });
+    }
+
+    [Fact]
+    public void Buttons_text_fields_and_dropdowns_share_one_control_height()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var buttonStyle = Assert.IsType<Style>(Application.Current.Resources[typeof(Button)]);
+            var textBoxStyle = Assert.IsType<Style>(Application.Current.Resources[typeof(TextBox)]);
+            var comboBoxStyle = Assert.IsType<Style>(Application.Current.Resources[typeof(ComboBox)]);
+
+            Assert.Equal(40d, StyleValue<double>(buttonStyle, Control.MinHeightProperty));
+            Assert.Equal(40d, StyleValue<double>(textBoxStyle, Control.MinHeightProperty));
+            Assert.Equal(40d, StyleValue<double>(comboBoxStyle, Control.MinHeightProperty));
+
+            // Ein Standardrand am Button liess nebeneinanderstehende Schaltflaechen unterschiedlich hoch wirken,
+            // weil ein StackPanel die randlose Schaltflaeche auf die Hoehe der gerandeten streckt.
+            Assert.Equal(new Thickness(0), StyleValue<Thickness>(buttonStyle, FrameworkElement.MarginProperty));
+        });
+    }
+
+    [Theory]
+    [InlineData("Monitore", "MoveMonitorUpButton,MoveMonitorDownButton,IdentifyMonitorsButton")]
+    [InlineData("Regeln", "AppRuleAddButton,AppRuleDeleteButton")]
+    [InlineData("Regeln", "AppRuleBrowseButton,AppRuleRunningProcessButton")]
+    public void Neighbouring_buttons_render_with_the_same_height(string tabHeader, string buttonNames)
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var window = new MainWindow { Left = -10000, Width = 1480, Height = 900 };
+            window.AttachViewModel(new MainViewModel(SnapConfiguration.CreateDefault(), []));
+            window.Show();
+            try
+            {
+                var root = Assert.IsType<Grid>(window.Content);
+                var tabs = Assert.Single(root.Children.OfType<TabControl>());
+                tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, tabHeader));
+                root.UpdateLayout();
+
+                var heights = buttonNames.Split(',')
+                    .Select(name => Assert.IsType<Button>(window.FindName(name)))
+                    .Select(button => button.ActualHeight)
+                    .ToArray();
+
+                Assert.All(heights, height => Assert.True(height > 0, "Die Schaltflaeche wurde nicht gemessen."));
+                Assert.All(heights, height => Assert.Equal(heights[0], height, 3));
+            }
+            finally
+            {
+                window.Close();
+            }
         });
     }
 
@@ -418,6 +492,7 @@ public sealed class ThemeResourceTests
             {
                 var textBox = Assert.IsType<TextBox>(window.FindName(textBoxName));
 
+                // Prozentwerte werden auf ganze Schritte gerundet; Regler und Zahlenfeld zeigen denselben Wert.
                 textBox.Text = "50.5";
                 var binding = textBox.GetBindingExpression(TextBox.TextProperty);
                 Assert.NotNull(binding);
@@ -425,7 +500,7 @@ public sealed class ThemeResourceTests
 
                 var property = typeof(SettingsViewModel).GetProperty(propertyName);
                 Assert.NotNull(property);
-                Assert.Equal(50.5, Assert.IsType<double>(property.GetValue(settings)));
+                Assert.Equal(51d, Assert.IsType<double>(property.GetValue(settings)));
                 Assert.False(textBox.IsReadOnly);
             }
             finally
@@ -687,6 +762,12 @@ public sealed class ThemeResourceTests
         var setter = Assert.Single(style.Setters.OfType<Setter>(),
             candidate => candidate.Property == TextBlock.FontSizeProperty);
         return Assert.IsType<double>(setter.Value);
+    }
+
+    private static T StyleValue<T>(Style style, DependencyProperty property)
+    {
+        var setter = Assert.Single(style.Setters.OfType<Setter>(), candidate => candidate.Property == property);
+        return Assert.IsType<T>(setter.Value);
     }
 }
 

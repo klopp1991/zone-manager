@@ -21,9 +21,9 @@ public sealed class EnumDisplayConverter : IValueConverter
             ThemeMode.System => "Windows-System",
             ThemeMode.Light => "Hell",
             ThemeMode.Dark => "Dunkel",
-            AppRuleEvent.WindowCreated => "Fenster erstellt",
-            AppRuleEvent.WindowFocused => "Fenster fokussiert",
-            AppRuleEvent.LayoutActivated => "Layout aktiviert",
+            AppRuleEvent.WindowCreated => "Fenster wird geöffnet",
+            AppRuleEvent.WindowFocused => "Fenster erhält den Fokus",
+            AppRuleEvent.LayoutActivated => "Layout wird aktiviert",
             _ => value.ToString() ?? string.Empty
         };
     }

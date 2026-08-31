@@ -530,19 +530,17 @@ public partial class MainWindow : Window
         }
     }
 
-    private void ZoneUnitButton_Click(object sender, RoutedEventArgs eventArgs)
+    private void ZoneUnit_Click(object sender, RoutedEventArgs eventArgs)
     {
         _ = eventArgs;
-        if (sender is not System.Windows.Controls.Button { Tag: string fieldName } ||
-            !Enum.TryParse<ZoneField>(fieldName, out var field))
+        if (sender is not System.Windows.Controls.Button { Tag: string unitName } ||
+            !Enum.TryParse<MeasurementUnit>(unitName, out var unit) ||
+            unit == zoneInputUnit)
         {
             return;
         }
 
-        SetActiveZoneInputGroup(InputGroupFor(field));
-        zoneInputUnit = zoneInputUnit == MeasurementUnit.Percent
-            ? MeasurementUnit.Pixels
-            : MeasurementUnit.Percent;
+        zoneInputUnit = unit;
         RefreshZoneFields();
     }
 
@@ -695,6 +693,67 @@ public partial class MainWindow : Window
         }
     }
 
+    private void RefreshScalingPage()
+    {
+        var choice = viewModel?.SelectedMonitor;
+        var monitor = choice?.Live;
+        if (monitor is null)
+        {
+            ScalingFactorText.Text = "–";
+            ScalingResolutionText.Text = "–";
+            ScalingWorkAreaText.Text = "–";
+            ScalingPhysicalSizeText.Text = "–";
+            WindowsScaleText.Text = "Kein Monitor ausgewählt.";
+            return;
+        }
+
+        var scalePercent = Math.Round(monitor.DpiX / 96d * 100);
+        ScalingFactorText.Text = $"{scalePercent:0} %";
+        ScalingResolutionText.Text = $"{monitor.WorkArea.Width} × {monitor.WorkArea.Height}";
+        ScalingWorkAreaText.Text = $"{monitor.WorkArea.Width} × {monitor.WorkArea.Height} px";
+        ScalingPhysicalSizeText.Text = PhysicalSizeText(monitor);
+        WindowsScaleText.Text =
+            $"{choice?.UserFacingName}: {scalePercent:0} % Skalierung, {monitor.DpiX:0} DPI. " +
+            "Diese Werte liest das Programm nur aus; ändern lassen sie sich ausschliesslich in den Windows-Einstellungen.";
+    }
+
+    private static string PhysicalSizeText(SnapZones.Core.Monitors.LiveMonitor monitor)
+    {
+        if (monitor.PhysicalWidthCentimeters is not { } width ||
+            monitor.PhysicalHeightCentimeters is not { } height ||
+            width <= 0 ||
+            height <= 0)
+        {
+            return "unbekannt";
+        }
+
+        var diagonalInches = Math.Sqrt(width * width + height * height) / 2.54d;
+        return $"{diagonalInches:0.#}″";
+    }
+
+    private void AppRuleRunningProcess_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var picker = new ProcessPickerWindow { Owner = this };
+            if (picker.ShowDialog() == true && picker.SelectedProcessPath is { Length: > 0 } path)
+            {
+                viewModel.AppRules.ProcessPath = path;
+            }
+        }
+        catch (Exception exception)
+        {
+            viewModel.StatusMessage = $"Die laufenden Programme konnten nicht gelesen werden: {exception.Message}";
+        }
+    }
+
     private void RefreshEditor(ZoneInputGroup? preservedInputGroup = null)
     {
         var editor = viewModel?.Editor;
@@ -713,8 +772,9 @@ public partial class MainWindow : Window
             EditorCanvas.MonitorPixelWidth = monitor.WorkArea.Width;
             EditorCanvas.MonitorPixelHeight = monitor.WorkArea.Height;
             EditorCanvas.MagnetThresholdPixels = viewModel?.Settings.MagnetThresholdPixels ?? 10;
-            WindowsScaleText.Text = $"{viewModel?.SelectedMonitor?.UserFacingName}: {Math.Round(monitor.DpiX / 96d * 100):0} % erkannt";
         }
+
+        RefreshScalingPage();
 
         RefreshZoneFields(preservedInputGroup);
         ValidationText.Text = editor?.ValidationMessage ?? string.Empty;
@@ -751,10 +811,10 @@ public partial class MainWindow : Window
                     {
                         TextBoxFor(field).Text = string.Empty;
                     }
-                    UpdateUnitButton(ButtonFor(field), field);
                 }
             }
 
+            UpdateUnitSegments();
             UpdateZoneInputGroupPresentation();
         }
         finally
@@ -774,7 +834,6 @@ public partial class MainWindow : Window
             TextBoxFor(field).Text = FormatMeasurement(
                 zoneInputUnit == MeasurementUnit.Percent ? percentValue : pixelValue);
         }
-        UpdateUnitButton(ButtonFor(field), field);
     }
 
     private bool TryReadZoneMeasurement(
@@ -857,13 +916,25 @@ public partial class MainWindow : Window
             activeZoneInputGroup == ZoneInputGroup.Margins ? "AccentBrush" : "BorderBrush");
     }
 
-    private void UpdateUnitButton(System.Windows.Controls.Button button, ZoneField field)
+    private void UpdateUnitSegments()
     {
         var pixels = zoneInputUnit == MeasurementUnit.Pixels;
-        button.Content = pixels ? "px" : "%";
-        var unitName = pixels ? "Pixel" : "Prozent";
-        AutomationProperties.SetName(button, $"Einheit für {FieldLabel(field)}: {unitName}");
-        button.ToolTip = $"Aktuell {unitName}. Klicken schaltet alle acht Werte um.";
+        ZoneUnitPercentButton.Style = (Style)FindResource(pixels ? "UnitSegment" : "UnitSegmentActive");
+        ZoneUnitPixelButton.Style = (Style)FindResource(pixels ? "UnitSegmentActive" : "UnitSegment");
+        AutomationProperties.SetName(
+            ZoneUnitPercentButton,
+            pixels ? "Einheit Prozent für alle acht Werte" : "Einheit Prozent für alle acht Werte, aktiv");
+        AutomationProperties.SetName(
+            ZoneUnitPixelButton,
+            pixels ? "Einheit Pixel für alle acht Werte, aktiv" : "Einheit Pixel für alle acht Werte");
+        var unitLabel = pixels ? "Pixel" : "Prozent";
+        var suffix = pixels ? "px" : "%";
+        foreach (var field in Enum.GetValues<ZoneField>())
+        {
+            var textBox = TextBoxFor(field);
+            AutomationProperties.SetName(textBox, $"{FieldLabel(field)} in {unitLabel}");
+            textBox.ToolTip = $"Aktuelle Einheit: {suffix}. Die Umschaltung oben in der Karte gilt für alle acht Werte.";
+        }
     }
 
     private System.Windows.Controls.TextBox TextBoxFor(ZoneField field) => field switch
@@ -876,19 +947,6 @@ public partial class MainWindow : Window
         ZoneField.MarginTop => ZoneMarginTopText,
         ZoneField.MarginRight => ZoneMarginRightText,
         ZoneField.MarginBottom => ZoneMarginBottomText,
-        _ => throw new ArgumentOutOfRangeException(nameof(field))
-    };
-
-    private System.Windows.Controls.Button ButtonFor(ZoneField field) => field switch
-    {
-        ZoneField.PositionX => ZonePositionXUnitButton,
-        ZoneField.PositionY => ZonePositionYUnitButton,
-        ZoneField.Width => ZoneWidthUnitButton,
-        ZoneField.Height => ZoneHeightUnitButton,
-        ZoneField.MarginLeft => ZoneMarginLeftUnitButton,
-        ZoneField.MarginTop => ZoneMarginTopUnitButton,
-        ZoneField.MarginRight => ZoneMarginRightUnitButton,
-        ZoneField.MarginBottom => ZoneMarginBottomUnitButton,
         _ => throw new ArgumentOutOfRangeException(nameof(field))
     };
 

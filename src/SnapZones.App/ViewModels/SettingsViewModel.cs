@@ -225,7 +225,8 @@ public sealed class SettingsViewModel : ViewModelBase
             return minimum;
         }
 
+        // Ganze Prozentschritte: Regler und Zahlenfeld zeigen denselben, ablesbaren Wert.
         var clamped = Math.Clamp(value, minimum, maximum);
-        return Math.Round(clamped * 2, MidpointRounding.AwayFromZero) / 2;
+        return Math.Clamp(Math.Round(clamped, MidpointRounding.AwayFromZero), minimum, maximum);
     }
 }

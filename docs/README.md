@@ -6,44 +6,53 @@ Sascha’s Zone Manager erstellt frei bearbeitbare Fensterbereiche pro Monitor. 
 
 1. `ZoneManager.exe` starten und die Windows-UAC-Abfrage bestätigen. Die Datei kommt entweder aus dem neuesten [Release](https://github.com/klopp1991/zone-manager/releases/latest) oder entsteht im Rootverzeichnis, sobald das Projekt gebaut wird.
 2. Unter **Layouts** einen Monitor und eines seiner Layouts wählen oder ein neues Layout erstellen.
-3. Die vorhandenen Zonen anpassen und mit **+ Neue Zone** die grösste freie Fläche belegen.
-4. Zonen ziehen, über acht Griffe skalieren oder als Prozent/Pixel mit Position/Grösse beziehungsweise vier Aussenabständen eingeben.
+3. Die vorhandenen Zonen anpassen und mit **+ Zone** die grösste freie Fläche belegen.
+4. Zonen ziehen, über acht Griffe skalieren oder rechts als Zahlen eingeben – wahlweise über Position und Grösse oder über die vier Randabstände. Die **Masseinheit** wird einmal pro Karte auf Prozent oder Pixel gestellt und gilt für alle acht Felder.
 5. Die Snap-Funktion läuft mit den aktiven Layouts automatisch; jede gültige Änderung wird sofort gespeichert und angewendet.
 
 Konfiguration und bestehende Installationen bleiben unter `%APPDATA%\SnapZones\settings.json` kompatibel. Die fünf letzten Stände liegen daneben als `settings.backup-1.json` bis `settings.backup-5.json`; bei einer beschädigten Hauptdatei wird die neueste gültige Sicherung automatisch wiederhergestellt. Autostart ist beim ersten Start ausgeschaltet.
 
 **Export** schreibt jederzeit ein vollständiges JSON-Backup mit sämtlichen Einstellungen, Monitorlayouts, Zonen, IDs und Parametern. **Import** validiert die komplette Datei, zeigt den exakten Ersetzungsumfang und sichert den bisherigen Zustand unmittelbar vor der bestätigten Übernahme. Bestehende Profilkonfigurationen aus Schema 1 werden beim Laden in unabhängige Layouts pro Monitor migriert.
 
-## App-Regeln
+## Regeln
 
-Unter **App-Regeln** verbindet eine Regel einen Prozesspfad oder Programmnamen mit einer Zielzone. Ein optionales Fenstertitelmuster und eine optionale Fensterklasse schränken die Auswahl weiter ein; `*` und `?` dienen als Platzhalter. Als Ereignis stehen **Fenster erstellt**, **Fenster fokussiert** und **Layout aktiviert** zur Verfügung, ergänzt durch 0 bis 30 Sekunden Verzögerung, 0 bis 3 Wiederholungen und eine Priorität von 0 bis 100.
+Auf der Seite **Regeln** verbindet eine Regel ein Programm mit einer Zielzone. Der Editor führt in vier nummerierten Gruppen durch die Eingabe:
 
-Vor jedem Platzierungsversuch werden Fensteridentität, Regel und Ziel erneut geprüft. Fehlende Layouts, Monitore oder Zonen pausieren die Regel sichtbar; es gibt keinen stillen Fallback und App-Regeln starten keine Programme.
+1. **Programm** — Prozesspfad oder Programmname. Zwei Wege führen dorthin: **Programmdatei wählen …** öffnet den Dateidialog und eignet sich auch für Programme, die gerade nicht laufen; **Laufendes Programm wählen …** listet die aktuell laufenden Programme mit sichtbarem Fenster samt Fenstertitel und Pfad und ist durchsuchbar. Läuft ein Programm mit erhöhten Rechten, gibt Windows den Pfad nicht preis; dann wird der Programmname übernommen, was für die Regel genügt.
+2. **Fenster eingrenzen (optional)** — Titelmuster vergleicht einen Teil des Fenstertitels ohne Rücksicht auf Gross- und Kleinschreibung; Fensterklasse vergleicht den internen Windows-Fenstertyp wie `CabinetWClass`. Leer bedeutet jeweils: die Regel gilt für jedes Fenster des Programms. `*` und `?` dienen als Platzhalter.
+3. **Auslöser** — Ereignis, Verzögerung von 0 bis 30000 Millisekunden, 0 bis 3 Wiederholungen, Priorität von 0 bis 100. Unter der Zeile erklärt ein Hinweisfeld das gewählte Ereignis im Klartext: **Fenster wird geöffnet** greift einmalig beim Erscheinen eines neuen Fensters, **Fenster erhält den Fokus** jedes Mal beim Wechsel zu einem passenden Fenster, **Layout wird aktiviert** ordnet beim Layoutwechsel alle bereits offenen passenden Fenster neu an.
+4. **Ziel** — Ziellayout und Zielzone; das Layout bestimmt zugleich den Monitor.
+
+Vor jedem Platzierungsversuch werden Fensteridentität, Regel und Ziel erneut geprüft. Fehlende Layouts, Monitore oder Zonen pausieren die Regel sichtbar; es gibt keinen stillen Fallback und Regeln starten keine Programme.
 
 ## Layouteditor
 
-- **+ Neue Zone** belegt die grösste freie achsenparallele Fläche; ohne ausreichenden freien Bereich wird nichts verändert.
+- **+ Zone** belegt die grösste freie achsenparallele Fläche; ohne ausreichenden freien Bereich wird nichts verändert.
 - Zonen docken innerhalb der eingestellten Magnetdistanz an Monitor- und Zonenkanten an; `Alt` deaktiviert den Magnetismus während des Ziehens.
-- **Prozent** bleibt bei Auflösungsänderungen proportional; **Pixel** bezieht sich auf die aktuelle Windows-Arbeitsfläche des Monitors.
-- **Position und Grösse** bearbeitet Links, Oben, Breite und Höhe; **Aussenabstände** bearbeitet Links, Oben, Rechts und Unten.
+- Die Karte **Ausgewählte Zone** schaltet die **Masseinheit** an einer einzigen Stelle um; die Umschaltung gilt gemeinsam für alle acht Zahlenfelder. **Prozent** bleibt bei Auflösungsänderungen proportional; **Pixel** bezieht sich auf die aktuelle Windows-Arbeitsfläche des Monitors.
+- **Position und Grösse** bearbeitet X, Y, Breite und Höhe; **Abstände zum Rand** beschreibt dieselbe Zone von den vier Rändern aus.
 - Überlappende, zu kleine oder ausserhalb liegende Zonen werden markiert und können nicht gespeichert werden.
 
-## Monitore und Windows-Anzeige
+## Monitore
 
-Monitornamen werden bevorzugt aus dem aktiven Displaypfad und den EDID-Daten gelesen. Die Seite **Windows-Anzeige** zeigt den erkannten monitorbezogenen Skalierungswert und öffnet die zuständigen Windows-Seiten.
+Auf der Seite **Monitore** wählt die Liste links den Monitor, der im ganzen Programm als aktiver Monitor gilt. **Nach oben** und **Nach unten** ändern die Reihenfolge, **Monitore identifizieren** blendet den verwendeten Namen drei Sekunden lang auf jedem Bildschirm ein. Rechts wird der Monitor umbenannt; ein leerer Name stellt die automatische Bezeichnung wieder her. Monitornamen werden bevorzugt aus dem aktiven Displaypfad und den EDID-Daten gelesen.
 
-Windows 11 stellt normalen Desktopanwendungen keine unterstützte Schnittstelle für frei wählbare monitorweise Textskalierung oder monitorweise Taskleisten-/Icongrössen bereit. Benutzerdefinierte Windows-Skalierung von 100 bis 500 % und Textskalierung von 100 bis 225 % sind globale Windows-Einstellungen; Sascha’s Zone Manager verwendet dafür keine Explorer-Injektion, privaten DPI-Pakete oder undokumentierten Registry-Werte.
+## Skalierung
+
+Die Seite **Skalierung** liest die erkannten Werte des gewählten Monitors aus — Anzeigeskalierung, Auflösung, Arbeitsfläche und, sofern Windows die EDID liefert, die Bildschirmdiagonale — und öffnet die zuständige Windows-Seite.
+
+Ändern lassen sich diese Werte nur in Windows selbst. Windows 11 stellt normalen Desktopanwendungen keine unterstützte Schnittstelle bereit, um Anzeigeskalierung, Textskalierung oder monitorweise Taskleisten- und Icongrössen zu setzen. Benutzerdefinierte Windows-Skalierung von 100 bis 500 % und Textskalierung von 100 bis 225 % sind zudem globale Windows-Einstellungen. Sascha’s Zone Manager verwendet dafür bewusst keine Explorer-Injektion, keine privaten DPI-Pakete und keine undokumentierten Registry-Werte; die Seite bleibt deshalb lesend.
 
 ## Einstellungen
 
 - System-, helles oder dunkles Theme; Systemänderungen werden ohne Neustart übernommen.
 - Overlay auf allen Monitoren oder nur auf dem aktiven Monitor.
 - Sofortige Aktivierung oder Aktivierung mit Umschalttaste.
-- Separate Overlay-Aussenabstände links, oben, rechts und unten, Overlay-Zonenabstand und Magnetdistanz für den Layouteditor.
+- **Overlay-Abstände**: Aussenabstände links, oben, rechts und unten in Pixel, Zonenabstand und Magnetdistanz in ganzen Prozent. Diese Werte betreffen ausschliesslich die Vorschau beim Ziehen; wo ein Fenster tatsächlich landet, legt das Layout unter **Abstände zum Rand** fest. Neben jedem Prozentregler steht der abgeleitete Pixelwert als `≙ n px`.
 - Overlayfarbe, Deckkraft und ein-/ausblendbare Zonennamen.
 - Autostart pro Benutzer; die Windows-UAC-Abfrage muss auch beim Login bestätigt werden.
 
-Jede Einstellung erklärt direkt in der Oberfläche Wirkung, Gültigkeitsbereich und Einschränkungen.
+Jede Einstellung erklärt direkt in der Oberfläche Wirkung, Gültigkeitsbereich und Einschränkungen. Wie Titel, Beschriftungen und Hilfetexte dabei aufgebaut sind, steht verbindlich in [ui-richtlinien.md](ui-richtlinien.md).
 
 ## Sicherheit und Not-Aus
 
