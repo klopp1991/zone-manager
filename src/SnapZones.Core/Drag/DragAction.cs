@@ -1,3 +1,5 @@
+using SnapZones.Core.Geometry;
+
 namespace SnapZones.Core.Drag;
 
 public abstract record DragAction;
