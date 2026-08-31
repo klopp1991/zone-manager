@@ -37,7 +37,7 @@
   </ItemGroup>
   <Target Name="PublishRootExecutableAfterBuild"
           AfterTargets="Build"
-          Condition="'$(SkipRootExecutablePublish)' != 'true' and '$(DesignTimeBuild)' != 'true'">
+          Condition="'$(SkipRootExecutablePublish)' != 'true' and '$(DesignTimeBuild)' != 'true' and '$(OS)' == 'Windows_NT'">
     <MSBuild Projects="$(MSBuildProjectFullPath)"
              Targets="Restore;Publish"
              BuildInParallel="false"

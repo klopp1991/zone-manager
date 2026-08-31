@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  logic:
+    name: Logiktests (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      # SnapZones.Core, SnapZones.Presentation and the logic test suite carry no
+      # WPF dependency, so they build and run on any agent. EnableWindowsTargeting
+      # allows the net8.0-windows target framework to be built here.
+      - name: Test
+        run: >
+          dotnet test tests/SnapZones.Tests/SnapZones.Tests.csproj
+          -c Release
+          -p:EnableWindowsTargeting=true
+          --logger "console;verbosity=normal"
+
+  windows:
+    name: Vollständige Prüfung (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+      # The DPI check needs an interactive desktop session, which a hosted
+      # runner does not provide.
+      - name: Verify
+        shell: pwsh
+        run: powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1 -SkipDpiCheck

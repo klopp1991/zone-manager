@@ -2,6 +2,11 @@
 
 Sascha’s Zone Manager erstellt frei bearbeitbare Fensterbereiche pro Monitor. Sobald mindestens ein aktives Layout vorhanden ist, zeigt die Snap-Funktion beim Ziehen eines geeigneten Fensters an der Titelleiste die Bereiche als Overlay; beim Loslassen füllt das Fenster die gewählte Zone.
 
+Hältst du beim Ziehen `Ctrl` gedrückt, sammelst du mehrere Zonen ein; das
+Fenster füllt beim Loslassen das umschliessende Rechteck. Eine solche Auswahl
+bleibt auf einem Monitor: Wechselst du den Bildschirm, beginnt dort eine neue
+Auswahl.
+
 ## Schnellstart
 
 1. `SaschaZoneManager.exe` direkt im Rootverzeichnis starten und die Windows-UAC-Abfrage bestätigen.
@@ -37,7 +42,35 @@ Windows 11 stellt normalen Desktopanwendungen keine unterstützte Schnittstelle 
 - Overlayfarbe, Deckkraft und ein-/ausblendbare Zonennamen.
 - Autostart pro Benutzer; die Windows-UAC-Abfrage muss auch beim Login bestätigt werden.
 
-Jede Einstellung erklärt direkt in der Oberfläche Wirkung, Gültigkeitsbereich und Einschränkungen.
+Jede Einstellung zeigt dauerhaft eine einzeilige Erklärung ihrer Wirkung. Das
+Info-Symbol klappt eine ausführliche Erklärung mit zulässigem Wertebereich und
+Auslieferungswert auf. Numerische Werte stehen in der Einheit, in der sie
+wirken: Abstände und Magnetdistanz in Pixel, die Deckkraft in Prozent.
+
+Geänderte Einstellungen werden als solche markiert und lassen sich einzeln
+zurücksetzen; **Alle auf Standard zurücksetzen** stellt die ganze Seite wieder
+her, ohne Layouts oder Zonen anzutasten. Das Suchfeld durchsucht Bezeichnungen,
+Hilfetexte und gebräuchliche Synonyme, sodass etwa «Transparenz» die Deckkraft
+findet.
+
+Die Vorschau im Abschnitt **Darstellung des Overlays** zeichnet Farbe,
+Deckkraft, Zonenabstand und Zonennamen mit derselben Geometrie und denselben
+Füll- und Rahmenregeln wie das echte Overlay. Wertänderungen lassen sich damit
+beurteilen, ohne ein Fenster zu ziehen.
+
+### Wertebereiche
+
+| Einstellung | Bereich | Standard |
+| --- | --- | --- |
+| Aussenabstand des Overlays | 0 – 400 px | 8 px |
+| Abstand zwischen Zonen | 0 – 80 px | 8 px |
+| Magnetdistanz im Editor | 0 – 40 px | 10 px |
+| Deckkraft | 8 – 75 % | 24 % |
+
+Aussenabstand und Zonenabstand betreffen ausschliesslich die Overlay-Vorschau.
+Fenster werden weiterhin exakt nach der Layoutdefinition platziert. Auch bei 0
+behält das Overlay einen visuellen Mindestabstand von 8 px, damit benachbarte
+Flächen unterscheidbar bleiben.
 
 ## Sicherheit und Not-Aus
 
