@@ -109,6 +109,44 @@ public sealed class AppRuleCoordinatorTests
         Assert.Single(gateway.SnappedBounds);
     }
 
+    [Fact]
+    public async Task An_excluded_window_is_never_moved_by_a_rule()
+    {
+        // Ausschluss schlaegt Regel: wer ein Fenster ausdruecklich frei laesst, will es auch dann frei
+        // haben, wenn dafuer noch eine aeltere Regel besteht.
+        var configuration = WithRule(ConfigurationSamples.TwoLayouts(), delayMilliseconds: 0, retryCount: 0);
+        configuration = configuration with
+        {
+            AppExclusions = [new AppExclusion(Guid.NewGuid(), "testhost.exe", null, null, true)]
+        };
+        var window = Candidate();
+        var gateway = new FakeGateway(window, snapResults: [true]);
+        var coordinator = CreateCoordinator(configuration, gateway, []);
+
+        var result = await coordinator.HandleAsync(AppRuleEvent.WindowCreated, window.WindowHandle);
+
+        Assert.Equal(AppRuleExecutionStatus.Excluded, result.Status);
+        Assert.Empty(gateway.SnappedBounds);
+    }
+
+    [Fact]
+    public async Task A_disabled_exclusion_leaves_the_rule_in_charge()
+    {
+        var configuration = WithRule(ConfigurationSamples.TwoLayouts(), delayMilliseconds: 0, retryCount: 0);
+        configuration = configuration with
+        {
+            AppExclusions = [new AppExclusion(Guid.NewGuid(), "testhost.exe", null, null, false)]
+        };
+        var window = Candidate();
+        var gateway = new FakeGateway(window, snapResults: [true]);
+        var coordinator = CreateCoordinator(configuration, gateway, []);
+
+        var result = await coordinator.HandleAsync(AppRuleEvent.WindowCreated, window.WindowHandle);
+
+        Assert.Equal(AppRuleExecutionStatus.Applied, result.Status);
+        Assert.Single(gateway.SnappedBounds);
+    }
+
     private static AppRuleCoordinator CreateCoordinator(
         SnapZones.Core.Models.SnapConfiguration configuration,
         FakeGateway gateway,

@@ -215,7 +215,20 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
             return configuration with
             {
                 MonitorOrder = configuration.MonitorOrder ?? [],
-                AppRules = configuration.AppRules ?? []
+                AppRules = configuration.AppRules ?? [],
+                AppExclusions = configuration.AppExclusions ?? []
+            };
+        }
+
+        if (configuration.SchemaVersion == 4)
+        {
+            // Schema 4 kannte noch keine Ausschluesse; bestehende Staende starten ohne einen einzigen.
+            return configuration with
+            {
+                SchemaVersion = SnapConfiguration.CurrentSchemaVersion,
+                MonitorOrder = configuration.MonitorOrder ?? [],
+                AppRules = configuration.AppRules ?? [],
+                AppExclusions = []
             };
         }
 
@@ -225,7 +238,8 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
             {
                 SchemaVersion = SnapConfiguration.CurrentSchemaVersion,
                 MonitorOrder = [],
-                AppRules = configuration.AppRules ?? []
+                AppRules = configuration.AppRules ?? [],
+                AppExclusions = []
             };
         }
 
@@ -234,7 +248,8 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
             return configuration with
             {
                 SchemaVersion = SnapConfiguration.CurrentSchemaVersion,
-                AppRules = []
+                AppRules = [],
+                AppExclusions = []
             };
         }
 
@@ -329,6 +344,7 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
 
         ValidateSettings(configuration.Settings);
         ValidateAppRules(configuration.AppRules);
+        ValidateAppExclusions(configuration.AppExclusions);
 
         foreach (var layout in configuration.Layouts)
         {
@@ -404,6 +420,23 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
             rules.Select(rule => rule.Id).Distinct().Count() != rules.Count)
         {
             throw new InvalidDataException("Die gespeicherten App-Regeln sind ungültig.");
+        }
+    }
+
+    private static void ValidateAppExclusions(IReadOnlyList<AppExclusion>? exclusions)
+    {
+        if (exclusions is null ||
+            exclusions.Any(exclusion =>
+                exclusion.Id == Guid.Empty ||
+                exclusion.ProcessPath is null ||
+                exclusion.ProcessPath != exclusion.ProcessPath.Trim() ||
+                exclusion.ProcessPath.Length > 1024 ||
+                !exclusion.HasCriteria ||
+                InvalidOptionalPattern(exclusion.WindowTitlePattern, 512) ||
+                InvalidOptionalPattern(exclusion.WindowClass, 256)) ||
+            exclusions.Select(exclusion => exclusion.Id).Distinct().Count() != exclusions.Count)
+        {
+            throw new InvalidDataException("Die gespeicherten Ausschlüsse sind ungültig.");
         }
     }
 

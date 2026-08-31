@@ -296,8 +296,9 @@ public sealed class ApplicationController : IDisposable
             .Count();
         var zoneCount = imported.Layouts.Sum(layout => layout.Zones.Count);
         var impact =
-            $"Der Import ersetzt sämtliche aktuellen Einstellungen und Layouts.\n\n" +
-            $"Importdatei: {monitorCount} Monitore, {imported.Layouts.Count} Layouts, {zoneCount} Zonen.\n" +
+            $"Der Import ersetzt sämtliche aktuellen Einstellungen, Layouts, Regeln und Ausschlüsse.\n\n" +
+            $"Importdatei: {monitorCount} Monitore, {imported.Layouts.Count} Layouts, {zoneCount} Zonen, " +
+            $"{imported.AppRules.Count} Regeln, {imported.AppExclusions.Count} Ausschlüsse.\n" +
             "Der bisherige Zustand wird unmittelbar davor automatisch gesichert.";
         if (System.Windows.MessageBox.Show(
                 impact,
@@ -372,7 +373,8 @@ public sealed class ApplicationController : IDisposable
         coordinator = new WindowDragCoordinator(
             targets,
             metrics,
-            newConfiguration.Settings.OverlayScope);
+            newConfiguration.Settings.OverlayScope,
+            newConfiguration.AppExclusions);
         coordinator.ActionRequested += HandleDragAction;
 
         var snappingEnabled = SnapActivationPolicy.ShouldEnable(newConfiguration) && !emergencyStopped;

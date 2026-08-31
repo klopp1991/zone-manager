@@ -30,6 +30,21 @@ In der Regelliste steht als Überschrift das Titelmuster, sofern eines gesetzt i
 
 Vor jedem Platzierungsversuch werden Fensteridentität, Regel und Ziel erneut geprüft. Fehlende Layouts, Monitore oder Zonen pausieren die Regel sichtbar; es gibt keinen stillen Fallback und Regeln starten keine Programme.
 
+## Ausschlüsse
+
+Auf der Seite **Ausschlüsse** stehen die Fenster, die die Anwendung vollständig in Ruhe lässt. Für ein
+ausgeschlossenes Fenster erscheint beim Ziehen kein Overlay, es rastet in keine Zone ein, keine Regel bewegt
+es, und seine Position wird weder gemerkt noch beim nächsten Öffnen wiederhergestellt. Es behält damit
+dauerhaft die Grösse und Position, die ihm der Benutzer selbst gibt.
+
+Ein Ausschluss beschreibt das Fenster nach denselben drei Merkmalen wie eine Regel — Programm, Titelmuster,
+Fensterklasse — und über dieselben zwei Wege der Programmauswahl. Leere Felder schränken nicht ein; mindestens
+eines der drei muss stehen, sonst würde der Ausschluss auf jedes Fenster passen und wird nicht gespeichert.
+
+Ein Ausschluss ist stärker als jede Regel: passen auf ein Fenster gleichzeitig ein Ausschluss und eine Regel,
+bleibt das Fenster unberührt. Priorität und Konflikte gibt es beim Ausschluss nicht, weil mehrere zutreffende
+Ausschlüsse zum selben Ergebnis führen.
+
 ## Layouteditor
 
 - **+ Zone** belegt die grösste freie achsenparallele Fläche; ohne ausreichenden freien Bereich wird nichts verändert.
@@ -38,6 +53,19 @@ Vor jedem Platzierungsversuch werden Fensteridentität, Regel und Ziel erneut ge
 - **Position und Grösse** bearbeitet X, Y, Breite und Höhe; **Abstände zum Rand** beschreibt dieselbe Zone von den vier Rändern aus.
 - Überlappende, zu kleine oder ausserhalb liegende Zonen werden markiert und können nicht gespeichert werden.
 - Beim Einrasten wird der unsichtbare Fensterrand ausgeglichen. Windows gibt Fenstern mit veränderbarer Grösse einen Griffbereich zum Ziehen, der zum Fensterrechteck zählt, aber nicht gezeichnet wird – typischerweise sieben Pixel links, rechts und unten. Ohne Ausgleich stünden zwei Fenster in lückenlos aneinandergrenzenden Zonen sichtbar auseinander. Das Programm vergrössert das Fensterrechteck deshalb um genau diesen Rand, sodass der sichtbare Rahmen exakt in der Zone liegt.
+
+## Gemerkte Fensterpositionen
+
+Sobald die Snap-Funktion aktiv ist, merkt sich die Anwendung für jedes platzierte Fenster den Monitor, die
+Zone und das Fensterrechteck und stellt diesen Stand beim nächsten Öffnen desselben Fensters wieder her.
+Ändert sich die Auflösung, wird die gemerkte Lage anteilig umgerechnet. Der Katalog fasst höchstens 500
+Einträge und liegt neben den Einstellungen.
+
+Ein Fenster wird dabei an Programm, Fensterklasse und Fensterart erkannt, nicht am Titel. Mehrere Fenster
+desselben Programms teilen sich deshalb einen Eintrag. Ausgeschlossene Fenster kommen gar nicht erst in den
+Katalog.
+
+Eine Oberfläche zum Ansehen, Löschen oder Abschalten des Katalogs gibt es noch nicht.
 
 ## Monitore
 
@@ -85,6 +113,7 @@ Die Diagnose liest Konfigurationsstatus, Monitore, DPI und Autostartstatus. Sie 
 - Nur Windows 11 x64.
 - Wird die Windows-UAC-Abfrage abgebrochen, startet die Anwendung nicht.
 - Nicht rechteckige oder überlappende Zonen, virtuelle Desktops und automatische Updates sind noch nicht enthalten.
+- Die gemerkten Fensterpositionen lassen sich nicht einzeln ansehen, löschen oder abschalten.
 - Eigene Layouts können nicht über eine dokumentierte API in das native Windows-Snap-Popup eingefügt werden; die Anwendung verwendet ein eigenes Overlay.
 - Der Prototyp ist nicht digital signiert und kann beim ersten Start eine Windows-Sicherheitswarnung auslösen.
 

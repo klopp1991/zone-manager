@@ -506,6 +506,134 @@
                 </ScrollViewer>
             </TabItem>
 
+            <TabItem x:Name="ExclusionsTab" Header="Ausschlüsse">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <Grid Margin="38,30" MaxWidth="1180" HorizontalAlignment="Left">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                            <TextBlock Text="Ausschlüsse" Style="{StaticResource PageTitle}" />
+                            <Button Style="{StaticResource InfoButton}" VerticalAlignment="Center"
+                                    AutomationProperties.Name="Hilfe zu Ausschlüssen"
+                                    ToolTip="Ein ausgeschlossenes Fenster wird von der Anwendung vollständig in Ruhe gelassen. Beim Ziehen erscheint kein Overlay, es rastet in keine Zone ein, keine Regel greift und seine Position wird weder gemerkt noch wiederhergestellt. Es behält dauerhaft die Grösse und Position, die du ihm selbst gibst. Ein Ausschluss ist stärker als jede Regel." />
+                        </StackPanel>
+                        <TextBlock Grid.Row="1"
+                                   Text="Nenne Fenster, die frei beweglich bleiben sollen. Gültige Änderungen werden automatisch gespeichert."
+                                   Style="{StaticResource HelpText}" Margin="0,0,0,22" />
+                        <Grid Grid.Row="2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="330" />
+                                <ColumnDefinition Width="12" />
+                                <ColumnDefinition Width="680" />
+                            </Grid.ColumnDefinitions>
+                            <Border Grid.Column="0" Style="{StaticResource SectionCard}">
+                                <DockPanel LastChildFill="True">
+                                    <StackPanel DockPanel.Dock="Top">
+                                        <TextBlock Text="Ausschlüsse" Style="{StaticResource SectionTitle}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,14,0,12">
+                                            <Button x:Name="AppExclusionAddButton" Content="+ Ausschluss" Click="AppExclusionAdd_Click" Margin="0,0,8,0"
+                                                    AutomationProperties.Name="Ausschluss hinzufügen" />
+                                            <Button x:Name="AppExclusionDeleteButton" Content="Löschen" Click="AppExclusionDelete_Click"
+                                                    IsEnabled="{Binding AppExclusions.CanDelete}" Margin="0"
+                                                    AutomationProperties.Name="Ausgewählten Ausschluss löschen" />
+                                        </StackPanel>
+                                    </StackPanel>
+                                    <ListBox x:Name="AppExclusionList" ItemsSource="{Binding AppExclusions.Exclusions}"
+                                             SelectedItem="{Binding AppExclusions.SelectedExclusion, Mode=TwoWay}"
+                                             MinHeight="320" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                             AutomationProperties.Name="Ausschlüsse">
+                                        <ListBox.ItemTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Margin="2,4" ToolTip="{Binding ProcessPath}">
+                                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding ProcessFileName}" Foreground="{DynamicResource MutedBrush}"
+                                                               FontSize="14" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </ListBox.ItemTemplate>
+                                    </ListBox>
+                                </DockPanel>
+                            </Border>
+                            <Border Grid.Column="2" Style="{StaticResource SectionCard}">
+                                <StackPanel>
+                                    <TextBlock Text="Ausschluss bearbeiten" Style="{StaticResource SectionTitle}" />
+                                    <CheckBox x:Name="AppExclusionEnabledCheckBox" Content="Ausschluss aktiv"
+                                              IsChecked="{Binding AppExclusions.IsEnabled, Mode=TwoWay}" Margin="0,14,0,16"
+                                              AutomationProperties.Name="Ausschluss aktiv" />
+
+                                    <!-- Gruppe 1: welches Programm ist gemeint -->
+                                    <Border Style="{StaticResource FieldGroup}">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                                <TextBlock Text="1 · Programm" Style="{StaticResource GroupTitle}" VerticalAlignment="Center" />
+                                                <Button x:Name="AppExclusionProcessInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Programmauswahl"
+                                                        ToolTip="Der Ausschluss gilt für alle Fenster dieses Programms. Du kannst entweder die Programmdatei auf der Festplatte auswählen – dann zählt der vollständige Pfad – oder ein gerade laufendes Programm aus der Liste übernehmen. Ein blosser Dateiname wie «notepad.exe» trifft das Programm unabhängig vom Installationsort und überlebt ein Update." />
+                                            </StackPanel>
+                                            <TextBlock Text="Wähle die Programmdatei (.exe) oder übernimm ein Programm, das gerade läuft. Willst du den Ausschluss stattdessen über den Fenstertitel oder die Fensterklasse stellen, lass dieses Feld leer."
+                                                       Style="{StaticResource HelpText}" Margin="0,0,0,10" />
+                                            <TextBlock Text="Prozess" Style="{StaticResource FieldLabel}" />
+                                            <TextBox x:Name="AppExclusionProcessPathText" VerticalContentAlignment="Center"
+                                                     Text="{Binding AppExclusions.ProcessPath, UpdateSourceTrigger=PropertyChanged}"
+                                                     AutomationProperties.Name="Prozesspfad oder Dateiname" />
+                                            <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+                                                <Button x:Name="AppExclusionBrowseButton" Content="Programmdatei wählen …" Click="AppExclusionBrowse_Click"
+                                                        Margin="0,0,8,0" AutomationProperties.Name="Prozess auswählen"
+                                                        ToolTip="Öffnet den Dateidialog. Damit wählst du auch Programme aus, die gerade nicht laufen." />
+                                                <Button x:Name="AppExclusionRunningProcessButton" Content="Laufendes Programm wählen …" Click="AppExclusionRunningProcess_Click"
+                                                        Margin="0" AutomationProperties.Name="Laufenden Prozess auswählen"
+                                                        ToolTip="Zeigt die aktuell laufenden Programme mit sichtbarem Fenster. Damit musst du den Installationsort nicht selbst suchen." />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Gruppe 2: optionale Eingrenzung -->
+                                    <Border Style="{StaticResource FieldGroup}">
+                                        <StackPanel>
+                                            <TextBlock Text="2 · Fenster eingrenzen (optional)" Style="{StaticResource GroupTitle}" />
+                                            <TextBlock Text="Alle drei Felder sind gleichrangige Filter. Leer bedeutet: keine Einschränkung. Ausgefüllt müssen sie zusätzlich passen. Mindestens eines der drei muss stehen – welches, entscheidest du."
+                                                       Style="{StaticResource HelpText}" Margin="0,0,0,12" />
+                                            <Grid>
+                                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="14" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                                <StackPanel>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="Titelmuster" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                                        <Button x:Name="AppExclusionTitleInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Titelmuster"
+                                                                ToolTip="Verglichen wird der Text in der Titelleiste des Fensters. Es genügt ein Teilstück, Gross- und Kleinschreibung spielen keine Rolle. Nützlich, wenn ein Programm mehrere Fensterarten hat und nur eine davon frei bleiben soll – etwa ein Vorschaufenster, während das Hauptfenster weiterhin einrastet. «*» und «?» dienen als Platzhalter." />
+                                                    </StackPanel>
+                                                    <TextBox x:Name="AppExclusionWindowTitleText" VerticalContentAlignment="Center"
+                                                             Text="{Binding AppExclusions.WindowTitlePattern, UpdateSourceTrigger=PropertyChanged}"
+                                                             AutomationProperties.Name="Optionales Fenstertitelmuster" />
+                                                    <TextBlock Text="Teil des Fenstertitels, z. B. «Vorschau». Leer = jeder Titel."
+                                                               Style="{StaticResource HelpText}" />
+                                                </StackPanel>
+                                                <StackPanel Grid.Column="2">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="Fensterklasse" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                                        <Button x:Name="AppExclusionWindowClassInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Fensterklasse"
+                                                                ToolTip="Die Fensterklasse ist ein interner Windows-Name, den ein Programm jedem seiner Fenstertypen gibt – zum Beispiel «CabinetWClass» für den Explorer. Anders als der Titel ändert sie sich nicht mit dem Inhalt. Verwende sie, wenn ein Programm Hauptfenster, Dialoge und Popups mischt und nur eine Sorte frei bleiben soll. Ist dir die Klasse nicht bekannt, lass das Feld leer." />
+                                                    </StackPanel>
+                                                    <TextBox x:Name="AppExclusionWindowClassText" VerticalContentAlignment="Center"
+                                                             Text="{Binding AppExclusions.WindowClass, UpdateSourceTrigger=PropertyChanged}"
+                                                             AutomationProperties.Name="Optionale Fensterklasse" />
+                                                    <TextBlock Text="Interner Windows-Fenstertyp, z. B. «CabinetWClass». Im Zweifel leer lassen."
+                                                               Style="{StaticResource HelpText}" />
+                                                </StackPanel>
+                                            </Grid>
+                                            <TextBlock x:Name="AppExclusionCriteriaStatusText" Text="{Binding AppExclusions.CriteriaStatus}"
+                                                       Style="{StaticResource HelpText}" Margin="0,12,0,0"
+                                                       AutomationProperties.Name="Status des Ausschlusses" />
+                                        </StackPanel>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+                    </Grid>
+                </ScrollViewer>
+            </TabItem>
+
             <TabItem x:Name="MonitorsTab" Header="Monitore">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="38,30" MaxWidth="960" HorizontalAlignment="Left">

@@ -55,6 +55,9 @@ public partial class MainWindow : Window
         NavigationTabs.Items.Add(MonitorsTab);
         NavigationTabs.Items.Add(LayoutsTab);
         NavigationTabs.Items.Add(RulesTab);
+        // Ausschluesse stehen direkt hinter den Regeln: beide beschreiben Fenster nach denselben drei
+        // Merkmalen, die eine Seite ordnet sie an, die andere laesst sie in Ruhe.
+        NavigationTabs.Items.Add(ExclusionsTab);
         NavigationTabs.Items.Add(ScalingTab);
         NavigationTabs.Items.Add(SettingsTab);
         NavigationTabs.Items.Add(TransferTab);
@@ -745,6 +748,79 @@ public partial class MainWindow : Window
             if (picker.ShowDialog() == true && picker.SelectedProcessPath is { Length: > 0 } path)
             {
                 viewModel.AppRules.ProcessPath = path;
+            }
+        }
+        catch (Exception exception)
+        {
+            viewModel.StatusMessage = $"Die laufenden Programme konnten nicht gelesen werden: {exception.Message}";
+        }
+    }
+
+    private void AppExclusionAdd_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.AppExclusions.AddExclusion();
+    }
+
+    private void AppExclusionDelete_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel?.AppExclusions.SelectedExclusion is not { } exclusion)
+        {
+            return;
+        }
+
+        if (System.Windows.MessageBox.Show(
+                $"Der Ausschluss für «{exclusion.DisplayName}» wird gelöscht. Danach zeigt das Overlay diese Fenster wieder an und sie rasten wieder ein.",
+                "Ausschluss löschen",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Warning) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        viewModel.AppExclusions.DeleteSelectedExclusion();
+    }
+
+    private void AppExclusionBrowse_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Prozess für Ausschluss auswählen",
+            Filter = "Programme (*.exe)|*.exe|Alle Dateien (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) == true)
+        {
+            viewModel.AppExclusions.ProcessPath = dialog.FileName;
+        }
+    }
+
+    private void AppExclusionRunningProcess_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var picker = new ProcessPickerWindow { Owner = this };
+            if (picker.ShowDialog() == true && picker.SelectedProcessPath is { Length: > 0 } path)
+            {
+                viewModel.AppExclusions.ProcessPath = path;
             }
         }
         catch (Exception exception)

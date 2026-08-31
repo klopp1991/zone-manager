@@ -576,6 +576,12 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             return;
         }
 
+        if (IsExcluded(environment.Configuration, snapshot))
+        {
+            MarkProcessed(context, snapshot.Identity);
+            return;
+        }
+
         var resolution = PlacementRuleResolver.Resolve(
             snapshot.Identity,
             snapshot.Title,
@@ -855,6 +861,13 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             return Task.CompletedTask;
         }
 
+        // Ein ausgeschlossenes Fenster wird nicht in den Katalog aufgenommen. Sonst wuerde seine
+        // Position gemerkt und beim naechsten Oeffnen wiederhergestellt, obwohl es frei bleiben soll.
+        if (IsExcluded(environment.Configuration, snapshot))
+        {
+            return Task.CompletedTask;
+        }
+
         var resolution = PlacementRuleResolver.Resolve(
             snapshot.Identity,
             snapshot.Title,
@@ -941,6 +954,20 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             zone.ZoneId == zoneId);
     }
 
+    /// <summary>
+    /// Ob das Fenster von einem Ausschluss erfasst ist. Ausgeschlossene Fenster werden weder platziert
+    /// noch in den Katalog aufgenommen und behalten dadurch dauerhaft ihre eigene Grösse und Position.
+    /// </summary>
+    private static bool IsExcluded(SnapConfiguration configuration, PlacementWindowSnapshot snapshot) =>
+        AppExclusionMatcher.IsExcluded(configuration.AppExclusions, ToAppWindowIdentity(snapshot));
+
+    private static AppWindowIdentity ToAppWindowIdentity(PlacementWindowSnapshot snapshot) =>
+        new(
+            0,
+            snapshot.ProcessPath ?? snapshot.Identity.ApplicationKey,
+            snapshot.Title,
+            snapshot.Identity.WindowClass);
+
     private static bool HasConfiguredAppRule(
         SnapConfiguration configuration,
         PlacementWindowSnapshot snapshot,
@@ -953,11 +980,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             WindowPlacementTrigger.ProfileActivated => AppRuleEvent.LayoutActivated,
             _ => throw new ArgumentOutOfRangeException(nameof(trigger), trigger, null)
         };
-        var identity = new AppWindowIdentity(
-            0,
-            snapshot.ProcessPath ?? snapshot.Identity.ApplicationKey,
-            snapshot.Title,
-            snapshot.Identity.WindowClass);
+        var identity = ToAppWindowIdentity(snapshot);
         return configuration.AppRules.Any(rule =>
             rule.Event == eventType &&
             AppRuleMatcher.Matches(rule, identity));

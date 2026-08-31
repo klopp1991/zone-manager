@@ -47,7 +47,8 @@ public sealed class WindowsWindowService : IWindowService
             processId == (uint)ownProcessId,
             (extendedStyle & ToolWindowStyle) != 0,
             cloaked != 0,
-            IsTitleBarDrag(window, cursor));
+            IsTitleBarDrag(window, cursor),
+            ReadAppIdentity(window, processId));
     }
 
     public bool TrySnap(nint window, PixelRect bounds)
@@ -299,6 +300,27 @@ public sealed class WindowsWindowService : IWindowService
         var title = new StringBuilder(capacity);
         _ = User32.GetWindowText(window, title, capacity);
         return title.ToString();
+    }
+
+    /// <summary>
+    /// Programm, Titel und Klasse des Fensters für die Auswertung von Ausschlüssen. Anders als
+    /// <see cref="InspectRuleCandidate"/> gibt diese Abfrage auch dann eine Identität zurück, wenn der
+    /// Programmpfad nicht lesbar ist — Windows verweigert ihn bei höher berechtigten Prozessen. Ein
+    /// Ausschluss über Fenstertitel oder Fensterklasse greift dann trotzdem.
+    /// </summary>
+    private static AppWindowIdentity? ReadAppIdentity(nint window, uint processId)
+    {
+        var windowClass = ReadWindowClass(window);
+        if (windowClass is null)
+        {
+            return null;
+        }
+
+        return new AppWindowIdentity(
+            processId > int.MaxValue ? 0 : (int)processId,
+            ReadProcessPath(processId) ?? string.Empty,
+            ReadWindowTitle(window),
+            windowClass);
     }
 
     private static string? ReadWindowClass(nint window)

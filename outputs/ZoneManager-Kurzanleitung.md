@@ -14,6 +14,13 @@ Rechts neben dem Editor liegt die Karte **Ausgewählte Zone**. Die **Masseinheit
 
 Eine Regel schiebt Fenster eines Programms in eine feste Zone. Das Programm wird entweder über **Programmdatei wählen …** aus dem Dateisystem gesucht oder über **Laufendes Programm wählen …** aus den gerade laufenden Programmen übernommen. Titelmuster und Fensterklasse grenzen optional weiter ein; leer bedeutet: jedes Fenster des Programms. Das Ereignis legt fest, wann die Regel greift, und wird unter der Auswahl im Klartext erklärt.
 
+## Ausschlüsse
+
+Ein Ausschluss lässt ein Fenster vollständig in Ruhe: kein Overlay beim Ziehen, kein Einrasten, keine Regel,
+kein Merken der Position. Das Fenster behält dauerhaft die Grösse und Position, die du ihm gibst. Beschrieben
+wird es wie bei einer Regel über Programm, Titelmuster und Fensterklasse; mindestens eines der drei muss
+stehen. Trifft auf ein Fenster beides zu, gewinnt der Ausschluss.
+
 ## Sicherheitsstatus
 
 - Autostart ist beim ersten Start ausgeschaltet.

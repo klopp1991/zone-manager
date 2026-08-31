@@ -5,7 +5,7 @@ namespace SnapZones.Core.Models;
 
 public sealed record SnapConfiguration
 {
-    public const int CurrentSchemaVersion = 4;
+    public const int CurrentSchemaVersion = 5;
 
     public SnapConfiguration()
     {
@@ -28,6 +28,11 @@ public sealed record SnapConfiguration
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
     public IReadOnlyList<string> MonitorOrder { get; init; } = [];
     public IReadOnlyList<AppRule> AppRules { get; init; } = [];
+
+    /// <summary>
+    /// Fenster, die die Anwendung vollstaendig in Ruhe laesst. Siehe <see cref="AppExclusion"/>.
+    /// </summary>
+    public IReadOnlyList<AppExclusion> AppExclusions { get; init; } = [];
 
     [JsonPropertyName("Profiles")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

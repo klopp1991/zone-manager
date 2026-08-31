@@ -1,3 +1,4 @@
+using SnapZones.Core.AppRules;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;
 using SnapZones.Core.PartMonitors;
@@ -9,17 +10,20 @@ public sealed class WindowDragCoordinator
     private readonly IReadOnlyList<PartMonitorTarget> targets;
     private readonly PartMonitorResolver resolver;
     private readonly OverlayScope overlayScope;
+    private readonly IReadOnlyList<AppExclusion> exclusions;
     private nint windowHandle;
     private PartMonitorPlacement? hoverPlacement;
 
     public WindowDragCoordinator(
         IReadOnlyList<PartMonitorTarget> targets,
         LayoutMetrics metrics,
-        OverlayScope overlayScope)
+        OverlayScope overlayScope,
+        IReadOnlyList<AppExclusion>? exclusions = null)
     {
         this.targets = targets;
         resolver = new PartMonitorResolver(targets, metrics);
         this.overlayScope = overlayScope;
+        this.exclusions = exclusions ?? [];
     }
 
     public event Action<DragAction>? ActionRequested;
@@ -28,7 +32,7 @@ public sealed class WindowDragCoordinator
 
     public void Start(nint handle, WindowSnapshot snapshot, PointInt cursor)
     {
-        if (State != DragState.Idle || !WindowCandidateEvaluator.IsEligible(snapshot))
+        if (State != DragState.Idle || !WindowCandidateEvaluator.IsEligible(snapshot, exclusions))
         {
             return;
         }

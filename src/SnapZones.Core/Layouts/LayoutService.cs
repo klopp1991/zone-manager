@@ -186,6 +186,12 @@ public sealed class LayoutService
         Configuration = Configuration with { AppRules = rules.ToArray() };
     }
 
+    public void UpdateAppExclusions(IReadOnlyList<AppExclusion> exclusions)
+    {
+        ArgumentNullException.ThrowIfNull(exclusions);
+        Configuration = Configuration with { AppExclusions = exclusions.ToArray() };
+    }
+
     public static bool BelongsToMonitor(MonitorIdentity first, MonitorIdentity second)
     {
         // Die StableId ist der verlässliche Schlüssel. Der GDI-Gerätename (\\.\DISPLAYn)

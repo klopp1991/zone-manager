@@ -29,6 +29,8 @@ public sealed class MainViewModel : ViewModelBase
             layoutService.Configuration.AppRules,
             RuleTargetLayouts());
         AppRules.RulesChanged += AppRules_RulesChanged;
+        AppExclusions = new AppExclusionEditorViewModel(layoutService.Configuration.AppExclusions);
+        AppExclusions.ExclusionsChanged += AppExclusions_ExclusionsChanged;
     }
 
     public event Action<SnapConfiguration>? SaveRequested;
@@ -37,6 +39,7 @@ public sealed class MainViewModel : ViewModelBase
     public ObservableCollection<MonitorLayout> Layouts { get; }
     public SettingsViewModel Settings { get; }
     public AppRuleEditorViewModel AppRules { get; }
+    public AppExclusionEditorViewModel AppExclusions { get; }
 
     public MonitorChoice? SelectedMonitor
     {
@@ -200,6 +203,7 @@ public sealed class MainViewModel : ViewModelBase
             layoutService = new LayoutService(replacement);
             Settings.Apply(layoutService.Configuration.Settings);
             AppRules.Refresh(layoutService.Configuration.AppRules, RuleTargetLayouts());
+            AppExclusions.Refresh(layoutService.Configuration.AppExclusions);
             RefreshMonitors();
             StatusMessage = "Importierte Konfiguration geladen";
         }
@@ -380,6 +384,17 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         layoutService.UpdateAppRules(rules);
+        RequestPersistence();
+    }
+
+    private void AppExclusions_ExclusionsChanged(IReadOnlyList<SnapZones.Core.AppRules.AppExclusion> exclusions)
+    {
+        if (suppressPersistence)
+        {
+            return;
+        }
+
+        layoutService.UpdateAppExclusions(exclusions);
         RequestPersistence();
     }
 

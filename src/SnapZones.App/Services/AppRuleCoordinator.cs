@@ -14,7 +14,8 @@ public enum AppRuleExecutionStatus
     CandidateUnavailable,
     TargetMissing,
     WindowsRejected,
-    Cancelled
+    Cancelled,
+    Excluded
 }
 
 public sealed record AppRuleExecutionResult(AppRuleExecutionStatus Status, Guid? RuleId = null);
@@ -79,6 +80,11 @@ public sealed class AppRuleCoordinator : IDisposable
             }
 
             var configuration = configurationProvider();
+            if (AppExclusionMatcher.IsExcluded(configuration.AppExclusions, initialCandidate.Identity))
+            {
+                return new AppRuleExecutionResult(AppRuleExecutionStatus.Excluded);
+            }
+
             var rule = AppRuleMatcher.Resolve(configuration.AppRules, eventType, initialCandidate.Identity);
             if (rule is null)
             {
@@ -103,6 +109,11 @@ public sealed class AppRuleCoordinator : IDisposable
             foreach (var candidate in windowGateway.GetCandidates())
             {
                 var configuration = configurationProvider();
+                if (AppExclusionMatcher.IsExcluded(configuration.AppExclusions, candidate.Identity))
+                {
+                    continue;
+                }
+
                 var rule = AppRuleMatcher.Resolve(
                     configuration.AppRules.Where(candidateRule => candidateRule.TargetLayoutId == layoutId),
                     AppRuleEvent.LayoutActivated,
@@ -177,6 +188,13 @@ public sealed class AppRuleCoordinator : IDisposable
                 !AppRuleMatcher.Matches(rule, currentCandidate.Identity))
             {
                 return new AppRuleExecutionResult(AppRuleExecutionStatus.CandidateUnavailable, ruleId);
+            }
+
+            // Der Ausschluss wird unmittelbar vor dem Platzieren erneut geprueft, weil zwischen Auswahl
+            // und Ausfuehrung eine konfigurierte Verzoegerung liegen kann.
+            if (AppExclusionMatcher.IsExcluded(configuration.AppExclusions, currentCandidate.Identity))
+            {
+                return new AppRuleExecutionResult(AppRuleExecutionStatus.Excluded, ruleId);
             }
 
             if (!TryResolveTarget(configuration, rule, out var bounds, out var targetName))
