@@ -815,10 +815,10 @@
                                         <ComboBox ItemsSource="{Binding Settings.ThemeModes}" SelectedItem="{Binding Settings.ThemeMode}" ItemTemplate="{StaticResource EnumItemTemplate}" SelectionChanged="Theme_SelectionChanged" />
                                         <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
                                             <CheckBox Content="Mit Windows starten" IsChecked="{Binding Settings.StartWithWindows}" />
-                                            <Button Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Autostart"
-                                                    ToolTip="Erstellt automatisch einen Autostarteintrag nur für den aktuellen Benutzer. Dafür werden weder Administratorrechte noch ein Windows-Dienst benötigt." />
+                                            <Button x:Name="StartWithWindowsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Autostart"
+                                                    ToolTip="Legt eine Anmeldeaufgabe der Windows-Aufgabenplanung nur für den aktuellen Benutzer an. Sie startet das Programm bereits erhöht, sodass bei der Anmeldung keine UAC-Abfrage erscheint. Ein Windows-Dienst und ein Treiber werden dafür nicht gebraucht. Lässt sich die Aufgabe nicht anlegen, weicht das Programm auf den bisherigen Registry-Eintrag aus; dann erscheint die Abfrage bei jeder Anmeldung wieder." />
                                         </StackPanel>
-                                        <TextBlock Text="Startet das Programm nach der Windows-Anmeldung automatisch."
+                                        <TextBlock Text="Startet das Programm nach der Windows-Anmeldung automatisch, ohne UAC-Abfrage."
                                                    Style="{StaticResource HelpText}" Margin="0,4,0,0" />
                                     </StackPanel>
                                 </Border>

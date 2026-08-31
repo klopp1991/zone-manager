@@ -102,7 +102,11 @@ Die Seite **Skalierung** liest die erkannten Werte des gewählten Monitors aus �
 - Sofortige Aktivierung oder Aktivierung mit Umschalttaste.
 - **Overlay-Abstände**: Aussenabstände links, oben, rechts und unten in Pixel, Zonenabstand und Magnetdistanz in ganzen Prozent. Diese Werte betreffen ausschliesslich die Vorschau beim Ziehen; wo ein Fenster tatsächlich landet, legt das Layout unter **Abstände zum Rand** fest. Neben jedem Prozentregler steht der abgeleitete Pixelwert als `≙ n px`.
 - Overlayfarbe, Deckkraft und ein-/ausblendbare Zonennamen.
-- Autostart pro Benutzer; die Windows-UAC-Abfrage muss auch beim Login bestätigt werden.
+- Autostart pro Benutzer über eine Anmeldeaufgabe der Windows-Aufgabenplanung. Sie startet das Programm
+  bereits erhöht, sodass bei der Anmeldung **keine** UAC-Abfrage erscheint. Das Anlegen der Aufgabe braucht
+  Administratorrechte, die das Programm im Normalbetrieb ohnehin besitzt. Schlägt es fehl, weicht das
+  Programm auf den bisherigen Registry-Eintrag `Run` aus und meldet das im Protokoll; dann erscheint die
+  Abfrage bei jeder Anmeldung wieder. Eingetragen ist immer nur einer der beiden Wege.
 
 Jede Einstellung erklärt direkt in der Oberfläche Wirkung, Gültigkeitsbereich und Einschränkungen. Wie Titel, Beschriftungen und Hilfetexte dabei aufgebaut sind, steht verbindlich in [ui-richtlinien.md](ui-richtlinien.md).
 

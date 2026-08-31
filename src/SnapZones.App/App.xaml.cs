@@ -27,7 +27,9 @@ public partial class App : System.Windows.Application
         var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SnapZones");
         var localData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SnapZones", "logs");
         log = new FileLog(localData);
-        var startupService = new WindowsStartupService(Environment.ProcessPath ?? throw new InvalidOperationException("Der Programmpfad fehlt."));
+        var startupService = new StartupRegistration(
+            Environment.ProcessPath ?? throw new InvalidOperationException("Der Programmpfad fehlt."),
+            message => log.Write("WARN", message));
 
         if (eventArgs.Args.Contains("--diagnostics", StringComparer.OrdinalIgnoreCase))
         {

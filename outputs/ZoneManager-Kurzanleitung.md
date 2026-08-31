@@ -30,7 +30,8 @@ stehen. Trifft auf ein Fenster beides zu, gewinnt der Ausschluss.
 ## Sicherheitsstatus
 
 - Autostart ist beim ersten Start ausgeschaltet.
-- Die Anwendung nutzt keinen Treiber, keinen Windows-Dienst und keine Code-Injektion. Die Registry wird nur nach bewusst gespeichertem Autostart verändert.
+- Die Anwendung nutzt keinen Treiber, keinen Windows-Dienst und keine Code-Injektion.
+- Autostart läuft über eine Anmeldeaufgabe der Windows-Aufgabenplanung und startet ohne UAC-Abfrage. Nur wenn sich die Aufgabe nicht anlegen lässt, wird ersatzweise der Registry-Eintrag `Run` gesetzt.
 - Normale Programmstarts wechseln über die Windows-UAC-Abfrage in den Administratormodus, damit auch erhöhte Fenster positioniert werden können.
 - `Ctrl + Alt + Shift + F12` deaktiviert Hook und Overlays sofort; `Escape` bricht nur den laufenden Ziehvorgang ab.
 - Ein Schutzschalter stoppt die Snap-Funktion bei Callback-Fehlern oder ungewöhnlich vielen Hook-Ereignissen.

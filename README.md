@@ -27,7 +27,7 @@ Der Lauf schliesst eine Per-Monitor-DPI-Prüfung ein, die die Oberfläche starte
 - Mehrere Zonen verbinden: mit gedrückter `Strg`-Taste über sie ziehen, das Fenster belegt ihre gemeinsame Fläche
 - Overlay auf allen Monitoren oder nur auf dem aktiven Monitor
 - Sofortige Layoutspeicherung, fünf automatische Backups sowie JSON-Export und -Import
-- System-, helles und dunkles Theme, Autostart und Not-Aus über `Ctrl + Alt + Shift + F12`
+- System-, helles und dunkles Theme, Autostart ohne UAC-Abfrage über eine Anmeldeaufgabe und Not-Aus über `Ctrl + Alt + Shift + F12`
 - Monitorerkennung über Displaypfad und EDID-Daten
 - Regeln nach Prozess, optionalem Fenstertitel und Fensterklasse mit Ereignis, Verzögerung, Wiederholungen und Zielzone; das Programm wird über den Dateidialog oder aus der Liste der laufenden Programme gewählt
 - Ausschlüsse nach denselben Merkmalen: ein ausgeschlossenes Fenster bekommt kein Overlay, rastet nicht ein, wird von keiner Regel bewegt und behält dauerhaft eigene Grösse und Position
