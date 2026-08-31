@@ -83,7 +83,8 @@ public static class SettingsCatalog
                 + "bewegst. «Nur mit Umschalttaste» blendet sie erst ein, wenn du zusätzlich Shift gedrückt hältst. "
                 + "Wähle die zweite Variante, wenn du Fenster oft frei verschiebst und das Overlay dabei stört: "
                 + "ohne Shift verhält sich das Ziehen dann genau wie ohne das Programm. Ein bereits begonnener "
-                + "Ziehvorgang lässt sich jederzeit mit Escape abbrechen.",
+                + "Ziehvorgang lässt sich jederzeit mit Escape abbrechen. Hältst du während des Ziehens Ctrl "
+                + "gedrückt, sammelst du mehrere Zonen ein; das Fenster füllt dann das umschliessende Rechteck.",
             Keywords: ["Shift", "Umschalttaste", "Auslöser", "Trigger", "sofort"]),
 
         new SettingDescriptor(

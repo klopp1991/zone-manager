@@ -75,6 +75,114 @@ public sealed class WindowDragCoordinatorTests
         Assert.DoesNotContain(actions, action => action is SnapWindowAction);
     }
 
+    [Fact]
+    public void Spanning_across_two_zones_places_the_window_in_the_enclosing_rectangle()
+    {
+        var coordinator = CreateCoordinator();
+        var actions = new List<DragAction>();
+        coordinator.ActionRequested += actions.Add;
+        coordinator.Start((nint)42, EligibleWindow(), new PointInt(100, 100));
+        actions.Clear();
+
+        coordinator.Update(new PointInt(500, 500), spanRequested: true);
+        coordinator.Update(new PointInt(1500, 500), spanRequested: true);
+        coordinator.End();
+
+        var highlight = actions.OfType<HighlightZoneAction>().Last();
+        Assert.Equal(2, highlight.ZoneIds.Count);
+
+        var snap = Assert.IsType<SnapWindowAction>(actions[^1]);
+        Assert.Equal(new PixelRect(0, 0, 1920, 1040), snap.Bounds);
+    }
+
+    [Fact]
+    public void Without_the_span_modifier_only_the_hovered_zone_stays_selected()
+    {
+        var coordinator = CreateCoordinator();
+        coordinator.Start((nint)42, EligibleWindow(), new PointInt(100, 100));
+
+        coordinator.Update(new PointInt(500, 500));
+        coordinator.Update(new PointInt(1500, 500));
+
+        var zone = Assert.Single(coordinator.SelectedZones);
+        Assert.Equal("Rechts", zone.Name);
+    }
+
+    [Fact]
+    public void Hovering_the_same_zone_twice_while_spanning_does_not_duplicate_it()
+    {
+        var coordinator = CreateCoordinator();
+        coordinator.Start((nint)42, EligibleWindow(), new PointInt(100, 100));
+
+        coordinator.Update(new PointInt(500, 500), spanRequested: true);
+        coordinator.Update(new PointInt(600, 600), spanRequested: true);
+
+        Assert.Single(coordinator.SelectedZones);
+    }
+
+    [Fact]
+    public void Releasing_the_span_modifier_reduces_the_selection_to_the_hovered_zone()
+    {
+        var coordinator = CreateCoordinator();
+        coordinator.Start((nint)42, EligibleWindow(), new PointInt(100, 100));
+        coordinator.Update(new PointInt(500, 500), spanRequested: true);
+        coordinator.Update(new PointInt(1500, 500), spanRequested: true);
+
+        coordinator.Update(new PointInt(1500, 500));
+
+        var zone = Assert.Single(coordinator.SelectedZones);
+        Assert.Equal("Rechts", zone.Name);
+    }
+
+    [Fact]
+    public void A_span_never_reaches_across_monitors()
+    {
+        var coordinator = CreateCoordinator();
+        var actions = new List<DragAction>();
+        coordinator.ActionRequested += actions.Add;
+        coordinator.Start((nint)42, EligibleWindow(), new PointInt(100, 100));
+        coordinator.Update(new PointInt(500, 500), spanRequested: true);
+        actions.Clear();
+
+        // Move onto the second monitor while still holding the modifier.
+        coordinator.Update(new PointInt(2500, 500), spanRequested: true);
+
+        var zone = Assert.Single(coordinator.SelectedZones);
+        Assert.Equal("Voll", zone.Name);
+
+        coordinator.End();
+        var snap = Assert.IsType<SnapWindowAction>(actions[^1]);
+        Assert.Equal(new PixelRect(1920, 0, 1920, 1040), snap.Bounds);
+    }
+
+    [Fact]
+    public void Ending_a_span_directly_from_the_final_cursor_still_spans()
+    {
+        var coordinator = CreateCoordinator();
+        var actions = new List<DragAction>();
+        coordinator.ActionRequested += actions.Add;
+        coordinator.Start((nint)42, EligibleWindow(), new PointInt(100, 100));
+        coordinator.Update(new PointInt(500, 500), spanRequested: true);
+        actions.Clear();
+
+        coordinator.End(new PointInt(1500, 500), spanRequested: true);
+
+        var snap = Assert.IsType<SnapWindowAction>(actions[^1]);
+        Assert.Equal(new PixelRect(0, 0, 1920, 1040), snap.Bounds);
+    }
+
+    [Fact]
+    public void A_cancelled_drag_clears_the_span_selection()
+    {
+        var coordinator = CreateCoordinator();
+        coordinator.Start((nint)42, EligibleWindow(), new PointInt(100, 100));
+        coordinator.Update(new PointInt(500, 500), spanRequested: true);
+
+        coordinator.Cancel();
+
+        Assert.Empty(coordinator.SelectedZones);
+    }
+
     private static WindowDragCoordinator CreateCoordinator()
     {
         var first = new LiveMonitor(

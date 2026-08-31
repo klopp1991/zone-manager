@@ -78,6 +78,9 @@ public sealed class WindowsWindowService : IWindowService
 
     public bool IsShiftPressed() => (User32.GetAsyncKeyState(0x10) & 0x8000) != 0;
 
+    /// <summary>Ctrl spans a drag across several zones, as in comparable tools.</summary>
+    public bool IsSpanModifierPressed() => (User32.GetAsyncKeyState(0x11) & 0x8000) != 0;
+
     private static bool IsTitleBarDrag(nint window, PointInt cursor)
     {
         var packedPoint = (nint)(((long)(cursor.Y & 0xffff) << 16) | (uint)(cursor.X & 0xffff));

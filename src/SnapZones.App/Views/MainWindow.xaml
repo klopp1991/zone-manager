@@ -433,7 +433,7 @@
                                     <StackPanel>
                                         <TextBlock Text="Snap-Funktion automatisch aktiv" FontWeight="SemiBold" />
                                         <TextBlock Style="{StaticResource HelpText}"
-                                                   Text="Sobald mindestens ein Layout mit Zonen vorhanden ist, werden Fenster beim Ziehen platziert. Escape bricht den laufenden Ziehvorgang ab." />
+                                                   Text="Sobald mindestens ein Layout mit Zonen vorhanden ist, werden Fenster beim Ziehen platziert. Ctrl beim Ziehen fasst mehrere Zonen zusammen, Escape bricht den Ziehvorgang ab." />
                                     </StackPanel>
                                     <TextBlock Grid.Column="1" Text="Not-Aus: Ctrl + Alt + Shift + F12" Foreground="{DynamicResource WarningBrush}"
                                                FontWeight="SemiBold" VerticalAlignment="Center" Margin="18,0,0,0" />

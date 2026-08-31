@@ -48,11 +48,12 @@ public sealed class OverlayManager : IDisposable
         }
     }
 
-    public void Highlight(string? monitorId, Guid? zoneId)
+    public void Highlight(string? monitorId, IReadOnlyList<Guid> zoneIds)
     {
         foreach (var pair in windows)
         {
-            pair.Value.Highlight(string.Equals(pair.Key, monitorId, StringComparison.OrdinalIgnoreCase) ? zoneId : null);
+            pair.Value.Highlight(
+                string.Equals(pair.Key, monitorId, StringComparison.OrdinalIgnoreCase) ? zoneIds : []);
         }
     }
 

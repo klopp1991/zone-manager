@@ -340,7 +340,7 @@ public sealed class ApplicationController : IDisposable
         log.Write("DEBUG", $"Verschiebeende bei Koordinatorstatus {coordinator?.State}.");
         if (windowService.TryGetCursorPosition(out var cursor))
         {
-            coordinator?.End(cursor);
+            coordinator?.End(cursor, windowService.IsSpanModifierPressed());
         }
         else
         {
@@ -359,7 +359,7 @@ public sealed class ApplicationController : IDisposable
         }
         else if (windowService.TryGetCursorPosition(out var cursor))
         {
-            coordinator?.Update(cursor);
+            coordinator?.Update(cursor, windowService.IsSpanModifierPressed());
         }
     }
 
@@ -376,7 +376,7 @@ public sealed class ApplicationController : IDisposable
                     configuration.Settings.ShowZoneNames);
                 break;
             case HighlightZoneAction highlight:
-                overlays.Highlight(highlight.MonitorId, highlight.ZoneId);
+                overlays.Highlight(highlight.MonitorId, highlight.ZoneIds);
                 break;
             case HideOverlaysAction:
                 overlays.HideAll();
