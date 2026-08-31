@@ -193,7 +193,7 @@ public static class SettingsCatalog
     public static string CategoryLabel(SettingCategory category) => category switch
     {
         SettingCategory.Program => "Programm",
-        SettingCategory.Activation => "Ziehen und Einblenden",
+        SettingCategory.Activation => "Beim Ziehen",
         SettingCategory.OverlayAppearance => "Darstellung des Overlays",
         SettingCategory.Spacing => "Abstände und Einrasten",
         _ => category.ToString()

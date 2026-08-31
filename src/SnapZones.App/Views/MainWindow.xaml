@@ -540,7 +540,7 @@
                     <StackPanel Grid.Row="0" Margin="38,30,38,14">
                         <TextBlock Text="Einstellungen" Style="{StaticResource PageTitle}" />
                         <TextBlock Style="{StaticResource SectionDescription}" MaxWidth="760" HorizontalAlignment="Left"
-                                   Text="Jede Änderung wird sofort gespeichert und ist unmittelbar wirksam. Unter jeder Einstellung steht, was sie bewirkt; das Info-Symbol blendet die ausführliche Erklärung ein." />
+                                   Text="Änderungen werden sofort gespeichert. Unter jeder Einstellung steht, was sie bewirkt; das Info-Symbol blendet die ausführliche Erklärung ein." />
 
                         <Grid Margin="0,18,0,0" MaxWidth="900" HorizontalAlignment="Left">
                             <Grid.ColumnDefinitions>
@@ -580,20 +580,6 @@
                     <ScrollViewer Grid.Row="1" x:Name="SettingsScroller" VerticalScrollBarVisibility="Auto"
                                   HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch">
                         <StackPanel x:Name="SettingsContent" Margin="38,0,38,30" HorizontalAlignment="Stretch">
-
-                            <Border Background="{DynamicResource WarningSoftBrush}" BorderBrush="{DynamicResource WarningBrush}"
-                                    BorderThickness="1" CornerRadius="8" Padding="18" Margin="0,0,0,12">
-                                <Grid>
-                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                    <StackPanel>
-                                        <TextBlock Text="Snap-Funktion automatisch aktiv" FontWeight="SemiBold" />
-                                        <TextBlock Style="{StaticResource HelpText}"
-                                                   Text="Sobald mindestens ein Layout mit Zonen vorhanden ist, werden Fenster beim Ziehen platziert. Ctrl beim Ziehen fasst mehrere Zonen zusammen, Escape bricht den Ziehvorgang ab." />
-                                    </StackPanel>
-                                    <TextBlock Grid.Column="1" Text="Not-Aus: Ctrl + Alt + Shift + F12" Foreground="{DynamicResource WarningBrush}"
-                                               FontWeight="SemiBold" VerticalAlignment="Center" Margin="18,0,0,0" />
-                                </Grid>
-                            </Border>
 
                             <!-- Shown instead of the sections when the search matches nothing. -->
                             <Border x:Name="NoSettingsFoundPanel" Style="{StaticResource SectionCard}"

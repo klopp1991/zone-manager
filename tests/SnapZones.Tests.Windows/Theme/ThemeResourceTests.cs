@@ -550,10 +550,16 @@ public sealed class ThemeResourceTests
     {
         WpfThemeHost.Invoke(() =>
         {
-            var window = new MainWindow();
+            // The section headings come from the settings catalog through the
+            // view model, so the page needs a data context to render them.
+            var window = new MainWindow
+            {
+                DataContext = new MainViewModel(SnapConfiguration.CreateDefault(), [])
+            };
             var root = Assert.IsType<Grid>(window.Content);
             var tabs = Assert.Single(root.Children.OfType<TabControl>());
             var settingsPage = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Einstellungen"));
+            settingsPage.UpdateLayout();
             var text = string.Join("\n", LogicalDescendants<TextBlock>(settingsPage)
                 .Select(textBlock => textBlock.Text)
                 .Where(value => !string.IsNullOrWhiteSpace(value)));
