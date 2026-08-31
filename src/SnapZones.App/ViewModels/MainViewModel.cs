@@ -21,13 +21,13 @@ public sealed class MainViewModel : ViewModelBase
         liveMonitors = monitors;
         Settings = new SettingsViewModel(layoutService.Configuration.Settings);
         Settings.PropertyChanged += Settings_PropertyChanged;
-        AppRules = new AppRuleEditorViewModel(
-            layoutService.Configuration.AppRules,
-            layoutService.Configuration.Layouts);
-        AppRules.RulesChanged += AppRules_RulesChanged;
         Monitors = [];
         Layouts = [];
         RefreshMonitors();
+        AppRules = new AppRuleEditorViewModel(
+            layoutService.Configuration.AppRules,
+            RuleTargetLayouts());
+        AppRules.RulesChanged += AppRules_RulesChanged;
     }
 
     public event Action<SnapConfiguration>? SaveRequested;
@@ -194,7 +194,7 @@ public sealed class MainViewModel : ViewModelBase
         {
             layoutService = new LayoutService(replacement);
             Settings.Apply(layoutService.Configuration.Settings);
-            AppRules.Refresh(layoutService.Configuration.AppRules, layoutService.Configuration.Layouts);
+            AppRules.Refresh(layoutService.Configuration.AppRules, RuleTargetLayouts());
             RefreshMonitors();
             StatusMessage = "Importierte Konfiguration geladen";
         }
@@ -323,7 +323,7 @@ public sealed class MainViewModel : ViewModelBase
 
     private void RequestPersistence()
     {
-        AppRules.RefreshTargets(layoutService.Configuration.Layouts);
+        AppRules.RefreshTargets(RuleTargetLayouts());
         StatusMessage = "Wird gespeichert …";
         SaveRequested?.Invoke(layoutService.Configuration);
     }
@@ -338,6 +338,14 @@ public sealed class MainViewModel : ViewModelBase
         layoutService.UpdateAppRules(rules);
         RequestPersistence();
     }
+
+    private IReadOnlyList<MonitorLayout> RuleTargetLayouts() =>
+        layoutService.Configuration.Layouts
+            .Select(layout => layout with
+            {
+                UserFacingMonitorName = GetMonitorDisplayName(layout.Monitor)
+            })
+            .ToArray();
 
     private void MoveSelectedMonitor(int offset)
     {

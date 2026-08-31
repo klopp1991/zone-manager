@@ -415,7 +415,7 @@
                                                     <DataTemplate>
                                                         <StackPanel>
                                                             <TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
-                                                            <TextBlock Text="{Binding Monitor.FriendlyName}" Foreground="{DynamicResource MutedBrush}" FontSize="12" />
+                                                            <TextBlock Text="{Binding UserFacingMonitorName}" Foreground="{DynamicResource MutedBrush}" FontSize="12" />
                                                         </StackPanel>
                                                     </DataTemplate>
                                                 </ComboBox.ItemTemplate>

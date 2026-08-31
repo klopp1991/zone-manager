@@ -1,5 +1,7 @@
 using SnapZones.App.ViewModels;
 using SnapZones.Core.AppRules;
+using SnapZones.Core.Geometry;
+using SnapZones.Core.Monitors;
 using SnapZones.Tests.Support;
 using Xunit;
 
@@ -92,6 +94,31 @@ public sealed class AppRuleEditorViewModelTests
         viewModel.AppRules.ProcessPath = "editor.exe";
 
         Assert.Equal("editor.exe", Assert.Single(saved!.AppRules).ProcessPath);
+    }
+
+    [Fact]
+    public void Main_view_model_uses_the_custom_monitor_name_for_rule_targets()
+    {
+        var configuration = ConfigurationSamples.TwoLayouts() with
+        {
+            MonitorNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["stable:DISPLAY-A"] = "Arbeitsmonitor"
+            }
+        };
+        var monitor = new LiveMonitor(
+            configuration.Layouts[0].Monitor,
+            new MonitorWorkArea(0, 0, 3440, 1440),
+            96,
+            96,
+            true);
+
+        var viewModel = new MainViewModel(configuration, [monitor]);
+
+        Assert.NotEmpty(viewModel.AppRules.TargetLayouts);
+        Assert.All(
+            viewModel.AppRules.TargetLayouts,
+            layout => Assert.Equal("Arbeitsmonitor", layout.UserFacingMonitorName));
     }
 
     private static AppRule Rule(Guid layoutId, Guid zoneId) => new(

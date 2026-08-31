@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace SnapZones.Core.Models;
 
 public sealed record MonitorLayout(
@@ -9,4 +11,7 @@ public sealed record MonitorLayout(
     public Guid Id { get; init; } = Guid.NewGuid();
     public string Name { get; init; } = "Standard";
     public bool IsActive { get; init; } = true;
+
+    [JsonIgnore]
+    public string? UserFacingMonitorName { get; init; }
 }
