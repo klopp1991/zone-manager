@@ -33,12 +33,26 @@ public partial class MainWindow : Window
     {
         pickOverlayColor = PickOverlayColorWithDialog;
         InitializeComponent();
+        ArrangeNavigationTabs();
     }
 
     public MainWindow(Func<string, string?> pickOverlayColor)
     {
         this.pickOverlayColor = pickOverlayColor ?? throw new ArgumentNullException(nameof(pickOverlayColor));
         InitializeComponent();
+        ArrangeNavigationTabs();
+    }
+
+    private void ArrangeNavigationTabs()
+    {
+        NavigationTabs.Items.Clear();
+        NavigationTabs.Items.Add(MonitorsTab);
+        NavigationTabs.Items.Add(LayoutsTab);
+        NavigationTabs.Items.Add(RulesTab);
+        NavigationTabs.Items.Add(ScalingTab);
+        NavigationTabs.Items.Add(SettingsTab);
+        NavigationTabs.Items.Add(TransferTab);
+        NavigationTabs.SelectedItem = LayoutsTab;
     }
 
     public void AttachViewModel(MainViewModel model)

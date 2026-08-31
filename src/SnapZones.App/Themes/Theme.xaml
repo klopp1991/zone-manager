@@ -240,8 +240,6 @@
             <Grid.ColumnDefinitions><ColumnDefinition Width="220" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
             <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
                 <DockPanel Margin="8,16,8,10">
-                    <TextBlock DockPanel.Dock="Top" Text="BEREICHE" Foreground="{DynamicResource MutedBrush}"
-                               FontSize="11" FontWeight="SemiBold" Margin="12,0,12,8" />
                     <TabPanel IsItemsHost="True" Background="Transparent" KeyboardNavigation.TabIndex="1" />
                 </DockPanel>
             </Border>

@@ -18,7 +18,7 @@ public sealed class ConfigurationTransferUiTests
             var tabs = Assert.Single(root.Children.OfType<TabControl>());
             var transferPage = tabs.Items
                 .OfType<TabItem>()
-                .Single(item => Equals(item.Header, "Import / Export"));
+                .Single(item => Equals(item.Header, "Import & Export"));
             var exportButton = Assert.IsType<Button>(window.FindName("ExportConfigurationButton"));
             var importButton = Assert.IsType<Button>(window.FindName("ImportConfigurationButton"));
             var pageButtons = LogicalDescendants<Button>(transferPage).ToArray();
