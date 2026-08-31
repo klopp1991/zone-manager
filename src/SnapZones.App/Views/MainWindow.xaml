@@ -179,40 +179,44 @@
                                                 <StackPanel Margin="0,0,6,0">
                                                     <TextBlock Text="X · von links" Style="{StaticResource FieldLabel}" />
                                                     <Grid>
-                                                        <TextBox x:Name="ZonePositionXText" Tag="PositionAndSize" Padding="10,7,48,7" FontFamily="Cascadia Mono"
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                                        <TextBox x:Name="ZonePositionXText" Tag="PositionAndSize" Padding="10,7" FontFamily="Cascadia Mono"
                                                                  AutomationProperties.Name="X-Position" TextChanged="ZoneField_TextChanged"
                                                                  GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
-                                                        <Button x:Name="ZonePositionXUnitButton" Tag="PositionX" Content="%" Click="ZoneUnitButton_Click"
+                                                        <Button Grid.Column="1" x:Name="ZonePositionXUnitButton" Tag="PositionX" Content="%" Click="ZoneUnitButton_Click"
                                                                 Style="{StaticResource UnitToggleButton}" AutomationProperties.Name="Einheit für X-Position: Prozent" />
                                                     </Grid>
                                                 </StackPanel>
                                                 <StackPanel Margin="6,0,0,0">
                                                     <TextBlock Text="Y · von oben" Style="{StaticResource FieldLabel}" />
                                                     <Grid>
-                                                        <TextBox x:Name="ZonePositionYText" Tag="PositionAndSize" Padding="10,7,48,7" FontFamily="Cascadia Mono"
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                                        <TextBox x:Name="ZonePositionYText" Tag="PositionAndSize" Padding="10,7" FontFamily="Cascadia Mono"
                                                                  AutomationProperties.Name="Y-Position" TextChanged="ZoneField_TextChanged"
                                                                  GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
-                                                        <Button x:Name="ZonePositionYUnitButton" Tag="PositionY" Content="%" Click="ZoneUnitButton_Click"
+                                                        <Button Grid.Column="1" x:Name="ZonePositionYUnitButton" Tag="PositionY" Content="%" Click="ZoneUnitButton_Click"
                                                                 Style="{StaticResource UnitToggleButton}" AutomationProperties.Name="Einheit für Y-Position: Prozent" />
                                                     </Grid>
                                                 </StackPanel>
                                                 <StackPanel Margin="0,12,6,0">
                                                     <TextBlock Text="Breite" Style="{StaticResource FieldLabel}" />
                                                     <Grid>
-                                                        <TextBox x:Name="ZoneWidthText" Tag="PositionAndSize" Padding="10,7,48,7" FontFamily="Cascadia Mono"
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                                        <TextBox x:Name="ZoneWidthText" Tag="PositionAndSize" Padding="10,7" FontFamily="Cascadia Mono"
                                                                  AutomationProperties.Name="Breite" TextChanged="ZoneField_TextChanged"
                                                                  GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
-                                                        <Button x:Name="ZoneWidthUnitButton" Tag="Width" Content="%" Click="ZoneUnitButton_Click"
+                                                        <Button Grid.Column="1" x:Name="ZoneWidthUnitButton" Tag="Width" Content="%" Click="ZoneUnitButton_Click"
                                                                 Style="{StaticResource UnitToggleButton}" AutomationProperties.Name="Einheit für Breite: Prozent" />
                                                     </Grid>
                                                 </StackPanel>
                                                 <StackPanel Margin="6,12,0,0">
                                                     <TextBlock Text="Höhe" Style="{StaticResource FieldLabel}" />
                                                     <Grid>
-                                                        <TextBox x:Name="ZoneHeightText" Tag="PositionAndSize" Padding="10,7,48,7" FontFamily="Cascadia Mono"
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                                        <TextBox x:Name="ZoneHeightText" Tag="PositionAndSize" Padding="10,7" FontFamily="Cascadia Mono"
                                                                  AutomationProperties.Name="Höhe" TextChanged="ZoneField_TextChanged"
                                                                  GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
-                                                        <Button x:Name="ZoneHeightUnitButton" Tag="Height" Content="%" Click="ZoneUnitButton_Click"
+                                                        <Button Grid.Column="1" x:Name="ZoneHeightUnitButton" Tag="Height" Content="%" Click="ZoneUnitButton_Click"
                                                                 Style="{StaticResource UnitToggleButton}" AutomationProperties.Name="Einheit für Höhe: Prozent" />
                                                     </Grid>
                                                 </StackPanel>
@@ -231,40 +235,44 @@
                                                 <StackPanel Margin="0,0,6,0">
                                                     <TextBlock Text="Links" Style="{StaticResource FieldLabel}" />
                                                     <Grid>
-                                                        <TextBox x:Name="ZoneMarginLeftText" Tag="Margins" Padding="10,7,48,7" FontFamily="Cascadia Mono"
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                                        <TextBox x:Name="ZoneMarginLeftText" Tag="Margins" Padding="10,7" FontFamily="Cascadia Mono"
                                                                  AutomationProperties.Name="Abstand links" TextChanged="ZoneField_TextChanged"
                                                                  GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
-                                                        <Button x:Name="ZoneMarginLeftUnitButton" Tag="MarginLeft" Content="%" Click="ZoneUnitButton_Click"
+                                                        <Button Grid.Column="1" x:Name="ZoneMarginLeftUnitButton" Tag="MarginLeft" Content="%" Click="ZoneUnitButton_Click"
                                                                 Style="{StaticResource UnitToggleButton}" AutomationProperties.Name="Einheit für Abstand links: Prozent" />
                                                     </Grid>
                                                 </StackPanel>
                                                 <StackPanel Margin="6,0,0,0">
                                                     <TextBlock Text="Oben" Style="{StaticResource FieldLabel}" />
                                                     <Grid>
-                                                        <TextBox x:Name="ZoneMarginTopText" Tag="Margins" Padding="10,7,48,7" FontFamily="Cascadia Mono"
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                                        <TextBox x:Name="ZoneMarginTopText" Tag="Margins" Padding="10,7" FontFamily="Cascadia Mono"
                                                                  AutomationProperties.Name="Abstand oben" TextChanged="ZoneField_TextChanged"
                                                                  GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
-                                                        <Button x:Name="ZoneMarginTopUnitButton" Tag="MarginTop" Content="%" Click="ZoneUnitButton_Click"
+                                                        <Button Grid.Column="1" x:Name="ZoneMarginTopUnitButton" Tag="MarginTop" Content="%" Click="ZoneUnitButton_Click"
                                                                 Style="{StaticResource UnitToggleButton}" AutomationProperties.Name="Einheit für Abstand oben: Prozent" />
                                                     </Grid>
                                                 </StackPanel>
                                                 <StackPanel Margin="0,12,6,0">
                                                     <TextBlock Text="Rechts" Style="{StaticResource FieldLabel}" />
                                                     <Grid>
-                                                        <TextBox x:Name="ZoneMarginRightText" Tag="Margins" Padding="10,7,48,7" FontFamily="Cascadia Mono"
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                                        <TextBox x:Name="ZoneMarginRightText" Tag="Margins" Padding="10,7" FontFamily="Cascadia Mono"
                                                                  AutomationProperties.Name="Abstand rechts" TextChanged="ZoneField_TextChanged"
                                                                  GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
-                                                        <Button x:Name="ZoneMarginRightUnitButton" Tag="MarginRight" Content="%" Click="ZoneUnitButton_Click"
+                                                        <Button Grid.Column="1" x:Name="ZoneMarginRightUnitButton" Tag="MarginRight" Content="%" Click="ZoneUnitButton_Click"
                                                                 Style="{StaticResource UnitToggleButton}" AutomationProperties.Name="Einheit für Abstand rechts: Prozent" />
                                                     </Grid>
                                                 </StackPanel>
                                                 <StackPanel Margin="6,12,0,0">
                                                     <TextBlock Text="Unten" Style="{StaticResource FieldLabel}" />
                                                     <Grid>
-                                                        <TextBox x:Name="ZoneMarginBottomText" Tag="Margins" Padding="10,7,48,7" FontFamily="Cascadia Mono"
+                                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                                        <TextBox x:Name="ZoneMarginBottomText" Tag="Margins" Padding="10,7" FontFamily="Cascadia Mono"
                                                                  AutomationProperties.Name="Abstand unten" TextChanged="ZoneField_TextChanged"
                                                                  GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
-                                                        <Button x:Name="ZoneMarginBottomUnitButton" Tag="MarginBottom" Content="%" Click="ZoneUnitButton_Click"
+                                                        <Button Grid.Column="1" x:Name="ZoneMarginBottomUnitButton" Tag="MarginBottom" Content="%" Click="ZoneUnitButton_Click"
                                                                 Style="{StaticResource UnitToggleButton}" AutomationProperties.Name="Einheit für Abstand unten: Prozent" />
                                                     </Grid>
                                                 </StackPanel>
