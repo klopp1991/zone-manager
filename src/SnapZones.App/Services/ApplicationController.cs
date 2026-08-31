@@ -594,7 +594,7 @@ public sealed class ApplicationController : IDisposable
 
     private void ActivateLayout(Guid layoutId)
     {
-        var layout = configuration.Layouts.Single(candidate => candidate.Id == layoutId);
+        var layout = configuration.Layouts.First(candidate => candidate.Id == layoutId);
         viewModel.ActivateLayout(layoutId);
         toast.ShowLayout($"{viewModel.GetMonitorDisplayName(layout.Monitor)}: {layout.Name}");
     }

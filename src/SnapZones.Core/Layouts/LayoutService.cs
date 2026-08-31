@@ -23,14 +23,14 @@ public sealed class LayoutService
         Configuration.Layouts.Where(layout => BelongsToMonitor(layout.Monitor, monitor)).ToArray();
 
     public MonitorLayout ActiveLayoutFor(MonitorIdentity monitor) =>
-        LayoutsFor(monitor).Single(layout => layout.IsActive);
+        ResolveActive(LayoutsFor(monitor));
 
     public MonitorLayout EnsureMonitor(MonitorIdentity monitor, int savedWidth, int savedHeight)
     {
         var existing = LayoutsFor(monitor);
         if (existing.Count > 0)
         {
-            return existing.Single(layout => layout.IsActive);
+            return ResolveActive(existing);
         }
 
         var layout = new MonitorLayout(
@@ -140,7 +140,7 @@ public sealed class LayoutService
                 ? layout with { IsActive = layout.Id == selected.Id }
                 : layout).ToArray();
         Configuration = Configuration with { Layouts = layouts };
-        return Configuration.Layouts.Single(layout => layout.Id == selected.Id);
+        return Configuration.Layouts.First(layout => layout.Id == selected.Id);
     }
 
     public void UpdateLayout(MonitorLayout layout)
@@ -162,9 +162,43 @@ public sealed class LayoutService
         Configuration = Configuration with { AppRules = rules.ToArray() };
     }
 
-    public static bool BelongsToMonitor(MonitorIdentity first, MonitorIdentity second) =>
-        EqualsIgnoreCase(first.StableId, second.StableId) ||
-        EqualsIgnoreCase(first.DeviceName, second.DeviceName);
+    public static bool BelongsToMonitor(MonitorIdentity first, MonitorIdentity second)
+    {
+        // Die StableId ist der verlässliche Schlüssel. Der GDI-Gerätename (\\.\DISPLAYn)
+        // wird von Windows neu vergeben und darf nur als Notnagel dienen, wenn mindestens
+        // eine Seite keine StableId besitzt – sonst greifen zwei verschiedene Monitore
+        // auf dieselben Layouts zu.
+        if (HasStableId(first) && HasStableId(second))
+        {
+            return EqualsIgnoreCase(first.StableId, second.StableId);
+        }
+
+        return EqualsIgnoreCase(first.DeviceName, second.DeviceName);
+    }
+
+    private static bool HasStableId(MonitorIdentity monitor) =>
+        !string.IsNullOrWhiteSpace(monitor.StableId);
+
+    /// <summary>
+    /// Liefert das aktive Layout einer Monitorgruppe und repariert dabei Konfigurationen,
+    /// in denen kein oder mehr als ein Layout als aktiv markiert ist.
+    /// </summary>
+    private MonitorLayout ResolveActive(IReadOnlyList<MonitorLayout> monitorLayouts)
+    {
+        var active = monitorLayouts.Where(layout => layout.IsActive).ToArray();
+        if (active.Length == 1)
+        {
+            return active[0];
+        }
+
+        var chosen = active.Length > 0 ? active[0] : monitorLayouts[0];
+        var repaired = Configuration.Layouts.Select(layout =>
+            monitorLayouts.Any(candidate => candidate.Id == layout.Id)
+                ? layout with { IsActive = layout.Id == chosen.Id }
+                : layout).ToArray();
+        Configuration = Configuration with { Layouts = repaired };
+        return chosen with { IsActive = true };
+    }
 
     private MonitorLayout Find(Guid layoutId) =>
         Configuration.Layouts.FirstOrDefault(layout => layout.Id == layoutId)

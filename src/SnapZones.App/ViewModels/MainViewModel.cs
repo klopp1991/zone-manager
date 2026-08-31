@@ -267,7 +267,7 @@ public sealed class MainViewModel : ViewModelBase
             selectedLayout = preferredLayoutId.HasValue
                 ? Layouts.FirstOrDefault(layout => layout.Id == preferredLayoutId.Value)
                 : null;
-            selectedLayout ??= Layouts.SingleOrDefault(layout => layout.IsActive);
+            selectedLayout ??= Layouts.FirstOrDefault(layout => layout.IsActive);
             ReplaceEditor(selectedLayout is null ? null : new LayoutEditorViewModel(selectedLayout));
         }
 
