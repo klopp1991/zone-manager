@@ -31,7 +31,6 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <Border Grid.Row="0" MinHeight="72" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
@@ -46,8 +45,8 @@
             </Grid>
         </Border>
 
-        <TabControl Grid.Row="1" Margin="0" TabStripPlacement="Left">
-            <TabItem Header="Layouts">
+        <TabControl x:Name="NavigationTabs" Grid.Row="1" Margin="0" TabStripPlacement="Left">
+            <TabItem x:Name="LayoutsTab" Header="Layouts">
                 <Grid Margin="12,18,12,16">
                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                     <Grid Grid.Row="0" Margin="0,0,0,14">
@@ -282,7 +281,7 @@
                 </Grid>
             </TabItem>
 
-            <TabItem Header="App-Regeln">
+            <TabItem x:Name="RulesTab" Header="Regeln">
                 <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                     <Grid Margin="38,30" MaxWidth="1120" HorizontalAlignment="Left">
                         <Grid.RowDefinitions>
@@ -291,10 +290,10 @@
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <TextBlock Text="App-Regeln" Style="{StaticResource PageTitle}" />
+                            <TextBlock Text="Regeln" Style="{StaticResource PageTitle}" />
                             <Button Style="{StaticResource InfoButton}" VerticalAlignment="Center"
-                                    AutomationProperties.Name="Hilfe zu App-Regeln"
-                                    ToolTip="App-Regeln verschieben passende Fenster nach einem Ereignis in eine feste Zone. Fehlende Ziele pausieren die Regel ohne Fallback." />
+                                    AutomationProperties.Name="Hilfe zu Regeln"
+                                    ToolTip="Regeln verschieben passende Fenster nach einem Ereignis in eine feste Zone. Fehlende Ziele pausieren die Regel ohne Fallback." />
                         </StackPanel>
                         <TextBlock Grid.Row="1"
                                    Text="Ordne Fenster über Prozess, optionalen Fenstertitel und Fensterklasse einer Zielzone zu. Gültige Änderungen werden automatisch gespeichert."
@@ -431,7 +430,7 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="Monitore">
+            <TabItem x:Name="MonitorsTab" Header="Monitore">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="38,30" MaxWidth="920" HorizontalAlignment="Left">
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
@@ -487,12 +486,12 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="Windows-Anzeige">
+            <TabItem x:Name="ScalingTab" Header="Skalierung">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="38,30" MaxWidth="1020" HorizontalAlignment="Left">
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,22">
-                            <TextBlock Text="Windows-Anzeige" Style="{StaticResource PageTitle}" />
-                            <Button Style="{StaticResource InfoButton}" VerticalAlignment="Center" AutomationProperties.Name="Hilfe zur Windows-Anzeige"
+                            <TextBlock Text="Skalierung" Style="{StaticResource PageTitle}" />
+                            <Button Style="{StaticResource InfoButton}" VerticalAlignment="Center" AutomationProperties.Name="Hilfe zur Skalierung"
                                     ToolTip="Diese Seite zeigt erkannte Monitorwerte und öffnet die passenden Windows-Einstellungen. Das Programm verändert keine privaten Explorer-, DPI- oder Registry-Strukturen." />
                         </StackPanel>
                         <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
@@ -533,7 +532,7 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="Einstellungen">
+            <TabItem x:Name="SettingsTab" Header="Einstellungen">
                 <ScrollViewer x:Name="SettingsScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                               HorizontalContentAlignment="Stretch">
                     <StackPanel x:Name="SettingsContent" Margin="38,30" HorizontalAlignment="Stretch">
@@ -696,10 +695,10 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem Header="Import / Export">
+            <TabItem x:Name="TransferTab" Header="Import &amp; Export">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="38,30" MaxWidth="940" HorizontalAlignment="Left">
-                        <TextBlock Text="Import / Export" Style="{StaticResource PageTitle}" Margin="0,0,0,8" />
+                        <TextBlock Text="Import &amp; Export" Style="{StaticResource PageTitle}" Margin="0,0,0,8" />
                         <TextBlock Text="Sichere die vollständige Konfiguration in einer Datei oder ersetze sie durch eine zuvor exportierte Konfiguration."
                                    Foreground="{DynamicResource MutedBrush}" TextWrapping="Wrap" Margin="0,0,0,22" />
                         <UniformGrid Columns="2">
@@ -729,8 +728,5 @@
             </TabItem>
         </TabControl>
 
-        <Border Grid.Row="2" MinHeight="34" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
-            <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource MutedBrush}" Margin="20,0" VerticalAlignment="Center" FontSize="13" />
-        </Border>
     </Grid>
 </Window>

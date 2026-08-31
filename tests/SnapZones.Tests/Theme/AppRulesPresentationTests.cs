@@ -21,7 +21,7 @@ public sealed class AppRulesPresentationTests
             var window = new MainWindow();
             window.AttachViewModel(new MainViewModel(configuration, []));
             var tabs = Assert.IsType<TabControl>(Assert.IsType<Grid>(window.Content).Children[1]);
-            var rulesTab = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "App-Regeln"));
+            var rulesTab = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Regeln"));
             tabs.SelectedItem = rulesTab;
 
             var process = Assert.IsType<TextBox>(window.FindName("AppRuleProcessPathText"));

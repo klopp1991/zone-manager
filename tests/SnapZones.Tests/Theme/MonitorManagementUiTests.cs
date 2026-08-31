@@ -24,12 +24,12 @@ public sealed class MonitorManagementUiTests
             var pages = tabs.Items.OfType<TabItem>().ToArray();
             var layoutsPage = pages.Single(page => Equals(page.Header, "Layouts"));
             var monitorsPage = pages.Single(page => Equals(page.Header, "Monitore"));
-            var windowsDisplayPage = pages.Single(page => Equals(page.Header, "Windows-Anzeige"));
+            var scalingPage = pages.Single(page => Equals(page.Header, "Skalierung"));
             var nameField = Assert.IsType<TextBox>(window.FindName("MonitorNameText"));
             var managementList = Assert.IsType<ListBox>(window.FindName("MonitorManagementList"));
             var identifyButton = Assert.IsType<Button>(window.FindName("IdentifyMonitorsButton"));
 
-            Assert.True(Array.IndexOf(pages, monitorsPage) < Array.IndexOf(pages, windowsDisplayPage));
+            Assert.True(Array.IndexOf(pages, monitorsPage) < Array.IndexOf(pages, scalingPage));
             Assert.Contains(nameField, LogicalDescendants<TextBox>(monitorsPage));
             Assert.Contains(managementList, LogicalDescendants<ListBox>(monitorsPage));
             Assert.Contains(identifyButton, LogicalDescendants<Button>(monitorsPage));
