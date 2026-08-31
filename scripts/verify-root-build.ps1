@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
 $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path

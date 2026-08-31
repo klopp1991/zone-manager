@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$SkipDpiCheck
 )
 
@@ -64,7 +64,7 @@ if ((Get-FileHash -LiteralPath $publishedExecutablePath).Hash -ne (Get-FileHash 
 & $rootExecutablePath --diagnostics | Out-File -LiteralPath $diagnosticPath -Encoding utf8
 if ($LASTEXITCODE -ne 0) { throw 'Die Diagnose ist fehlgeschlagen.' }
 
-$diagnostic = Get-Content -LiteralPath $diagnosticPath -Raw | ConvertFrom-Json
+$diagnostic = Get-Content -LiteralPath $diagnosticPath -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($diagnostic.application -ne "Sascha’s Zone Manager") { throw 'Die Diagnose meldet einen unerwarteten Programmnamen.' }
 if ($diagnostic.hookRegistered -ne $false) { throw 'Die Diagnose hat unerwartet einen Hook registriert.' }
 if ($diagnostic.settingsChanged -ne $false) { throw 'Die Diagnose hat unerwartet Einstellungen verändert.' }
