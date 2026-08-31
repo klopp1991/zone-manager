@@ -125,7 +125,7 @@ Die Version folgt dem Schema `YYYY.MMDD.NN`. `NN` beginnt an jedem Tag bei `01` 
 
 `scripts\publish-release.ps1` führt den vollständigen Weg aus: Version schreiben, `scripts\verify.ps1` ausführen, `Directory.Build.props` committen, Tag `v<Version>` setzen, Commit und Tag pushen und das GitHub-Release mit `ZoneManager.exe` als Anhang erstellen. Das Skript arbeitet nur auf `main` und nur bei sauberem Arbeitsbaum und reicht `-SkipDpiCheck` an den Prüflauf durch; ohne angemeldetes GitHub CLI oder `GH_TOKEN` endet es nach dem Push und nennt den Befehl für das Release.
 
-Die EXE wird bewusst nicht versioniert, sondern nur an Releases angehängt: Sie ist ein reproduzierbares Build-Artefakt von rund 72 MB, das die Repository-Historie sonst mit jeder Auslieferung dauerhaft vergrössern würde.
+Die EXE wird bewusst nicht versioniert, sondern nur an Releases angehängt: Sie ist ein reproduzierbares Build-Artefakt von rund 66 MB, das die Repository-Historie sonst mit jeder Auslieferung dauerhaft vergrössern würde.
 
 ## Entwicklung und Prüfung
 
@@ -138,6 +138,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1
 Das Skript erzeugt das Mehrgrössen-Icon, stellt Pakete wieder her, führt alle Tests aus, baut Release, veröffentlicht eine selbständige Einzeldatei für `win-x64`, kopiert `ZoneManager.exe` ins Rootverzeichnis und prüft Diagnose sowie Per-Monitor-DPI ohne aktivierten Hook.
 
 Der Lauf schliesst eine Per-Monitor-DPI-Prüfung ein, die die Oberfläche startet und deshalb eine interaktive Sitzung mit bestätigter UAC-Abfrage braucht. In nicht interaktiven Umgebungen bleibt dieser Schritt sonst an der unbeantworteten Abfrage stehen; `-SkipDpiCheck` überspringt ihn.
+
+Die Einzeldatei enthält die vollständige .NET-Laufzeit, damit sie ohne Installation startet. Sie liefert
+bewusst nur die englischen Satellitenressourcen mit (`SatelliteResourceLanguages`); die dreizehn übrigen
+Sprachordner enthielten übersetzte .NET-Meldungen, die in diesem einsprachig deutschen Programm nie
+erscheinen. Weiter lässt sich die Datei nicht verkleinern: `PublishTrimmed` ist für WPF nicht unterstützt,
+und der Self-contained-Publish liefert die Windows-Desktop-Laufzeit unabhängig davon vollständig mit —
+gemessen kostet ein zusätzlicher Verweis auf Windows Forms in der komprimierten Einzeldatei sechs Bytes.
 
 Auch ein normaler `dotnet build` oder Build in Visual Studio veröffentlicht nach erfolgreicher Kompilierung automatisch eine selbständige `win-x64`-Einzeldatei als `ZoneManager.exe` direkt ins Rootverzeichnis. Eine dort noch laufende Vorgängerversion wird atomar ersetzt und bis zu ihrem Prozessende als ignorierte Sicherungsdatei beibehalten.
 

@@ -18,6 +18,9 @@
     <StartupObject>SnapZones.App.Program</StartupObject>
     <ApplicationIcon>Assets\ZoneManager.ico</ApplicationIcon>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!-- Das Programm ist einsprachig deutsch. Ohne diese Zeile liefert der Self-contained-Publish
+         13 Ordner mit uebersetzten .NET-Framework-Meldungen mit, die nie erscheinen. -->
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
     <PublishSingleFile>true</PublishSingleFile>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>

@@ -13,7 +13,7 @@
       5. Das Release wird mit ZoneManager.exe als Asset erstellt.
 
     Die EXE liegt bewusst nur am Release und nicht im Repository: sie ist ein Build-Artefakt von
-    rund 72 MB, das sonst die Historie dauerhaft vergroessern wuerde.
+    rund 66 MB, das sonst die Historie dauerhaft vergroessern wuerde.
 
     Fuer Schritt 5 braucht es entweder ein angemeldetes GitHub CLI (gh auth login) oder ein Token
     in GH_TOKEN bzw. GITHUB_TOKEN mit dem Scope "repo"; ohne beides endet das Skript nach Schritt 4
