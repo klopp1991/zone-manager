@@ -14,6 +14,22 @@ Konfiguration und bestehende Installationen bleiben unter `%APPDATA%\SnapZones\s
 
 **Export** schreibt jederzeit ein vollständiges JSON-Backup mit sämtlichen Einstellungen, Monitorlayouts, Zonen, IDs und Parametern. **Import** validiert die komplette Datei, zeigt den exakten Ersetzungsumfang und sichert den bisherigen Zustand unmittelbar vor der bestätigten Übernahme. Bestehende Profilkonfigurationen aus Schema 1 werden beim Laden in unabhängige Layouts pro Monitor migriert.
 
+## Mehrere Zonen verbinden
+
+Wird ein Fenster mit gedrückter **Strg**-Taste über mehrere Zonen gezogen, sammeln sich die überstrichenen
+Zonen auf und werden gemeinsam hervorgehoben. Beim Loslassen belegt das Fenster ihre gemeinsame Fläche.
+Wird Strg wieder losgelassen, fällt die Auswahl auf die Zone unter dem Zeiger zurück.
+
+Strg ist dafür die einzige freie Taste: Umschalt löst je nach Einstellung erst das Einrasten aus, Alt schaltet
+im Layouteditor den Magnetismus ab.
+
+Zwei Grenzen sind bewusst gesetzt. Eine Auswahl bleibt auf einen Monitor beschränkt, weil die Fläche über zwei
+Bildschirme hinweg den Zwischenraum und fremde Zonen mit einschlösse. Und liegen die gewählten Zonen nicht
+aneinander, deckt das Fenster auch die Lücke dazwischen ab — ein Fenster kann nur ein Rechteck einnehmen.
+
+Ein so platziertes Fenster wird wie jedes andere gemerkt, allerdings über sein Rechteck statt über eine
+einzelne Zone.
+
 ## Regeln
 
 Auf der Seite **Regeln** verbindet eine Regel ein Fenster mit einer Zielzone. Der Editor führt in vier nummerierten Gruppen durch die Eingabe:

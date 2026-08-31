@@ -223,6 +223,10 @@ public sealed class WindowsWindowService : IWindowService
 
     public bool IsShiftPressed() => (User32.GetAsyncKeyState(0x10) & 0x8000) != 0;
 
+    // 0x11 ist VK_CONTROL. Strg ist die einzige freie Zusatztaste beim Ziehen: Umschalt loest je
+    // nach Einstellung das Einrasten aus, Alt schaltet den Magnetismus im Editor ab.
+    public bool IsControlPressed() => (User32.GetAsyncKeyState(0x11) & 0x8000) != 0;
+
     private static bool TryGetMovableTopLevelWindow(nint window, int ownProcessId, out WindowPlacement placement)
     {
         placement = default!;

@@ -21,6 +21,9 @@ public sealed class PartMonitorCommandService
         FillPartMonitorCommand fill => Place(
             fill.WindowHandle,
             resolver.Resolve(fill.MonitorId, fill.PartMonitorId)),
+        FillPartMonitorSpanCommand span => Place(
+            span.WindowHandle,
+            resolver.ResolveSpan(span.MonitorId, span.PartMonitorIds)),
         CyclePartMonitorCommand cycle => Place(
             cycle.WindowHandle,
             resolver.Cycle(

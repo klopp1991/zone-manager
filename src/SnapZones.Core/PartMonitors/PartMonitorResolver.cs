@@ -40,6 +40,37 @@ public sealed class PartMonitorResolver
         return target is null ? null : ToPlacement(target, partMonitorId);
     }
 
+    /// <summary>
+    /// Loest mehrere Zonen desselben Monitors zu einer gemeinsamen Zielflaeche auf. Das Ergebnis traegt
+    /// die erste noch vorhandene Zone als Kennung, damit Verlauf und Weiterschalten unveraendert
+    /// weiterarbeiten. Unbekannte Zonen werden uebergangen; bleibt keine uebrig, ist das Ziel leer.
+    /// </summary>
+    public PartMonitorPlacement? ResolveSpan(string monitorId, IReadOnlyList<Guid> partMonitorIds)
+    {
+        ArgumentNullException.ThrowIfNull(partMonitorIds);
+        var target = targets.FirstOrDefault(candidate =>
+            string.Equals(candidate.Monitor.Identity.StableId, monitorId, StringComparison.OrdinalIgnoreCase));
+        if (target is null)
+        {
+            return null;
+        }
+
+        PartMonitorPlacement? combined = null;
+        foreach (var partMonitorId in partMonitorIds)
+        {
+            if (ToPlacement(target, partMonitorId) is not { } placement)
+            {
+                continue;
+            }
+
+            combined = combined is null
+                ? placement
+                : combined with { Bounds = combined.Bounds.Union(placement.Bounds) };
+        }
+
+        return combined;
+    }
+
     public PartMonitorPlacement? Cycle(
         string currentMonitorId,
         Guid currentPartMonitorId,

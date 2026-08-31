@@ -15,4 +15,7 @@ public interface IWindowService : IPartMonitorWindowGateway
     bool TryGetCursorPosition(out PointInt point);
     bool IsEscapePressed();
     bool IsShiftPressed();
+
+    /// <summary>Ob Strg gedrueckt ist. Waehlt beim Ziehen mehrere Zonen gleichzeitig aus.</summary>
+    bool IsControlPressed();
 }

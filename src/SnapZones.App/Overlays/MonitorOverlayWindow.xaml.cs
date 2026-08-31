@@ -17,7 +17,7 @@ public partial class MonitorOverlayWindow : Window
     private string accent = "#2F6FED";
     private double overlayOpacity = 0.24;
     private bool showZoneNames = true;
-    private Guid? highlightedZoneId;
+    private IReadOnlyList<Guid> highlightedZoneIds = [];
 
     public MonitorOverlayWindow()
     {
@@ -37,7 +37,7 @@ public partial class MonitorOverlayWindow : Window
         accent = colour;
         overlayOpacity = opacity;
         showZoneNames = displayZoneNames;
-        highlightedZoneId = null;
+        highlightedZoneIds = [];
 
         if (!IsVisible)
         {
@@ -54,14 +54,22 @@ public partial class MonitorOverlayWindow : Window
         RenderZones();
     }
 
-    public void Highlight(Guid? zoneId)
+    public void Highlight(Guid? zoneId) =>
+        Highlight(zoneId is { } id ? [id] : []);
+
+    /// <summary>
+    /// Hebt genau die genannten Zonen hervor. Beim Ziehen ueber mehrere Zonen sind das alle
+    /// ueberstrichenen; sonst hoechstens eine.
+    /// </summary>
+    public void Highlight(IReadOnlyList<Guid> zoneIds)
     {
-        if (highlightedZoneId == zoneId)
+        ArgumentNullException.ThrowIfNull(zoneIds);
+        if (highlightedZoneIds.SequenceEqual(zoneIds))
         {
             return;
         }
 
-        highlightedZoneId = zoneId;
+        highlightedZoneIds = zoneIds.ToArray();
         RenderZones();
     }
 
@@ -79,7 +87,7 @@ public partial class MonitorOverlayWindow : Window
         foreach (var zone in target.PartMonitors)
         {
             var pixels = ZoneGeometry.ToPixels(zone.Bounds, target.Monitor.WorkArea, metrics);
-            var active = zone.Id == highlightedZoneId;
+            var active = highlightedZoneIds.Contains(zone.Id);
             var rawWidth = pixels.Width * scaleX;
             var rawHeight = pixels.Height * scaleY;
             var insetX = Math.Min(VisualInset, Math.Max(0, (rawWidth - 1) / 2));

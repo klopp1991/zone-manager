@@ -10,6 +10,12 @@ Unter **Layouts** besitzt jeder erkannte Monitor eigene Layouts, die unabhängig
 
 Rechts neben dem Editor liegt die Karte **Ausgewählte Zone**. Die **Masseinheit** wird dort einmal auf Prozent oder Pixel gestellt und gilt für alle acht Zahlenfelder. **Position und Grösse** und **Abstände zum Rand** beschreiben dieselbe Zone, einmal von links oben und einmal von den vier Rändern aus.
 
+## Mehrere Zonen verbinden
+
+Fenster mit gedrückter **Strg**-Taste über mehrere Zonen ziehen: die überstrichenen Zonen werden gemeinsam
+hervorgehoben, beim Loslassen belegt das Fenster ihre gemeinsame Fläche. Eine Auswahl bleibt auf einen Monitor
+beschränkt.
+
 ## Regeln
 
 Eine Regel schiebt Fenster eines Programms in eine feste Zone. Das Programm wird entweder über **Programmdatei wählen …** aus dem Dateisystem gesucht oder über **Laufendes Programm wählen …** aus den gerade laufenden Programmen übernommen. Titelmuster und Fensterklasse grenzen optional weiter ein; leer bedeutet: jedes Fenster des Programms. Das Ereignis legt fest, wann die Regel greift, und wird unter der Auswahl im Klartext erklärt.

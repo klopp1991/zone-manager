@@ -543,7 +543,7 @@ public sealed class ApplicationController : IDisposable
         log.Write("DEBUG", $"Verschiebeende bei Koordinatorstatus {coordinator?.State}.");
         if (windowService.TryGetCursorPosition(out var cursor))
         {
-            coordinator?.End(cursor);
+            coordinator?.End(cursor, windowService.IsControlPressed());
         }
         else
         {
@@ -562,7 +562,7 @@ public sealed class ApplicationController : IDisposable
         }
         else if (windowService.TryGetCursorPosition(out var cursor))
         {
-            coordinator?.Update(cursor);
+            coordinator?.Update(cursor, windowService.IsControlPressed());
         }
     }
 
@@ -580,6 +580,27 @@ public sealed class ApplicationController : IDisposable
                 break;
             case HighlightZoneAction highlight:
                 overlays.Highlight(highlight.MonitorId, highlight.ZoneId);
+                break;
+            case HighlightZoneSpanAction span:
+                overlays.Highlight(span.MonitorId, span.ZoneIds);
+                break;
+            case FillPartMonitorSpanAction fillSpan:
+                var spanResult = partMonitorCommands?.Execute(new FillPartMonitorSpanCommand(
+                    fillSpan.WindowHandle,
+                    fillSpan.MonitorId,
+                    fillSpan.PartMonitorIds));
+                if (spanResult?.Status == PartMonitorCommandStatus.Successful)
+                {
+                    log.Write("DEBUG", $"Fenster wurde über {fillSpan.PartMonitorIds.Count} Zonen gelegt.");
+                }
+                else
+                {
+                    log.Write(
+                        "WARN",
+                        "Zonenübergreifende Platzierung abgelehnt: " +
+                        (spanResult?.Status.ToString() ?? "Komponente nicht bereit"));
+                }
+
                 break;
             case HideOverlaysAction:
                 overlays.HideAll();

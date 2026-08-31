@@ -24,6 +24,7 @@ Der Lauf schliesst eine Per-Monitor-DPI-Prüfung ein, die die Oberfläche starte
 - Layouts und Zonen je Monitor, wahlweise in Prozent oder Pixel; die Einheit wird pro Karte an einer Stelle umgeschaltet
 - Zonen per Maus, acht Griffen oder exakten Abständen bearbeiten
 - Magnetismus an Monitor- und Zonenkanten; `Alt` deaktiviert ihn temporär
+- Mehrere Zonen verbinden: mit gedrückter `Strg`-Taste über sie ziehen, das Fenster belegt ihre gemeinsame Fläche
 - Overlay auf allen Monitoren oder nur auf dem aktiven Monitor
 - Sofortige Layoutspeicherung, fünf automatische Backups sowie JSON-Export und -Import
 - System-, helles und dunkles Theme, Autostart und Not-Aus über `Ctrl + Alt + Shift + F12`

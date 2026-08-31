@@ -7,6 +7,14 @@ public sealed record FillPartMonitorCommand(
     string MonitorId,
     Guid PartMonitorId) : PartMonitorCommand(WindowHandle);
 
+/// <summary>
+/// Ein Fenster ueber mehrere Zonen desselben Monitors legen. Ziel ist die Huellbox dieser Zonen.
+/// </summary>
+public sealed record FillPartMonitorSpanCommand(
+    nint WindowHandle,
+    string MonitorId,
+    IReadOnlyList<Guid> PartMonitorIds) : PartMonitorCommand(WindowHandle);
+
 public sealed record CyclePartMonitorCommand(
     nint WindowHandle,
     string CurrentMonitorId,

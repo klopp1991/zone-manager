@@ -11,8 +11,10 @@ public sealed class WindowDragCoordinator
     private readonly PartMonitorResolver resolver;
     private readonly OverlayScope overlayScope;
     private readonly IReadOnlyList<AppExclusion> exclusions;
+    private readonly List<Guid> spannedZoneIds = [];
     private nint windowHandle;
     private PartMonitorPlacement? hoverPlacement;
+    private string? spanMonitorId;
 
     public WindowDragCoordinator(
         IReadOnlyList<PartMonitorTarget> targets,
@@ -52,7 +54,15 @@ public sealed class WindowDragCoordinator
             visibleTargets.Select(target => target.Monitor.Identity.StableId).ToArray()));
     }
 
-    public void Update(PointInt cursor)
+    public void Update(PointInt cursor) => Update(cursor, spanRequested: false);
+
+    /// <summary>
+    /// Verfolgt den Zeiger waehrend des Ziehens. Ist <paramref name="spanRequested"/> gesetzt, sammeln
+    /// sich die ueberstrichenen Zonen desselben Monitors auf, statt einander abzuloesen; das Fenster
+    /// belegt beim Loslassen deren gemeinsame Flaeche. Wird die Taste wieder losgelassen, faellt die
+    /// Auswahl auf die Zone unter dem Zeiger zurueck.
+    /// </summary>
+    public void Update(PointInt cursor, bool spanRequested)
     {
         if (State != DragState.Tracking)
         {
@@ -60,7 +70,17 @@ public sealed class WindowDragCoordinator
         }
 
         var placement = resolver.FindAt(cursor);
-        if (placement == hoverPlacement)
+        if (spanRequested && placement is not null)
+        {
+            AddToSpan(placement);
+            return;
+        }
+
+        if (!spanRequested && spannedZoneIds.Count > 0)
+        {
+            ClearSpan();
+        }
+        else if (placement == hoverPlacement)
         {
             return;
         }
@@ -90,7 +110,14 @@ public sealed class WindowDragCoordinator
         }
 
         ActionRequested?.Invoke(new HideOverlaysAction());
-        if (hoverPlacement is not null)
+        if (spanMonitorId is { } monitorId && spannedZoneIds.Count > 1)
+        {
+            ActionRequested?.Invoke(new FillPartMonitorSpanAction(
+                windowHandle,
+                monitorId,
+                spannedZoneIds.ToArray()));
+        }
+        else if (hoverPlacement is not null)
         {
             ActionRequested?.Invoke(new FillPartMonitorAction(
                 windowHandle,
@@ -101,10 +128,39 @@ public sealed class WindowDragCoordinator
         ResetState();
     }
 
-    public void End(PointInt finalCursor)
+    public void End(PointInt finalCursor) => End(finalCursor, spanRequested: false);
+
+    public void End(PointInt finalCursor, bool spanRequested)
     {
-        Update(finalCursor);
+        Update(finalCursor, spanRequested);
         End();
+    }
+
+    private void AddToSpan(PartMonitorPlacement placement)
+    {
+        // Eine Auswahl bleibt auf einen Monitor beschraenkt. Ein Fenster ueber zwei Bildschirme zu
+        // spannen ergaebe eine Huellbox, die den Zwischenraum und fremde Zonen mit einschliesst.
+        if (spanMonitorId is not null &&
+            !string.Equals(spanMonitorId, placement.MonitorId, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        hoverPlacement = placement;
+        if (spannedZoneIds.Contains(placement.PartMonitorId))
+        {
+            return;
+        }
+
+        spanMonitorId = placement.MonitorId;
+        spannedZoneIds.Add(placement.PartMonitorId);
+        ActionRequested?.Invoke(new HighlightZoneSpanAction(spanMonitorId, spannedZoneIds.ToArray()));
+    }
+
+    private void ClearSpan()
+    {
+        spannedZoneIds.Clear();
+        spanMonitorId = null;
     }
 
     private void ResetState()
@@ -112,5 +168,6 @@ public sealed class WindowDragCoordinator
         State = DragState.Idle;
         windowHandle = 0;
         hoverPlacement = null;
+        ClearSpan();
     }
 }
