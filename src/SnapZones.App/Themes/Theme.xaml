@@ -548,7 +548,8 @@
     </Style>
 
     <!-- Slider plus a numeric box that both edit the same value in its real unit. -->
-    <Style x:Key="ValueBox" TargetType="TextBox">
+    <!-- BasedOn keeps the themed TextBox template: an explicit style would otherwise replace it. -->
+    <Style x:Key="ValueBox" TargetType="TextBox" BasedOn="{StaticResource {x:Type TextBox}}">
         <Setter Property="TextAlignment" Value="Right" />
         <Setter Property="FontFamily" Value="Cascadia Mono" />
         <Setter Property="Margin" Value="12,0,6,0" />
