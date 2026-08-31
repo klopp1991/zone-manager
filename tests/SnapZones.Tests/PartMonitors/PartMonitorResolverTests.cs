@@ -26,14 +26,14 @@ public sealed class PartMonitorResolverTests
     }
 
     [Fact]
-    public void Resolve_applies_layout_margins_and_gap_once()
+    public void Resolve_returns_exact_layout_bounds_even_when_overlay_has_margins_and_gap()
     {
         var resolver = CreateResolver(new LayoutMetrics(8, 8));
 
         var placement = resolver.Resolve("LEFT-MONITOR", LeftId);
 
         Assert.NotNull(placement);
-        Assert.Equal(new PixelRect(-1912, 8, 948, 1024), placement.Bounds);
+        Assert.Equal(new PixelRect(-1920, 0, 960, 1040), placement.Bounds);
     }
 
     [Fact]

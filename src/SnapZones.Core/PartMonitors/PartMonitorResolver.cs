@@ -73,6 +73,6 @@ public sealed class PartMonitorResolver
             : new PartMonitorPlacement(
                 target.Monitor.Identity.StableId,
                 partMonitor.Id,
-                ZoneGeometry.ToPixels(partMonitor.Bounds, target.Monitor.WorkArea, metrics));
+                ZoneGeometry.ToPixels(partMonitor.Bounds, target.Monitor.WorkArea));
     }
 }

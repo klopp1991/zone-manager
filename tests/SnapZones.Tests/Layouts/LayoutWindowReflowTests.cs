@@ -19,8 +19,6 @@ public sealed class LayoutWindowReflowTests
             oldLayout,
             newLayout,
             new MonitorWorkArea(0, 0, 1000, 800),
-            new LayoutMetrics(0, 0),
-            new LayoutMetrics(0, 0),
             [new WindowPlacement((nint)42, new PixelRect(0, 0, 500, 800))]);
 
         var target = Assert.Single(targets);
@@ -40,8 +38,6 @@ public sealed class LayoutWindowReflowTests
             oldLayout,
             newLayout,
             new MonitorWorkArea(0, 0, 1000, 800),
-            new LayoutMetrics(0, 0),
-            new LayoutMetrics(0, 0),
             [new WindowPlacement((nint)42, new PixelRect(0, 0, 501, 800))]);
 
         Assert.Empty(targets);

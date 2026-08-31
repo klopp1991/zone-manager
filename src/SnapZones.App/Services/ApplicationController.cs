@@ -188,12 +188,6 @@ public sealed class ApplicationController : IDisposable
         try
         {
             var windows = windowService.GetMovableTopLevelWindows(Environment.ProcessId);
-            var oldMetrics = new LayoutMetrics(
-                previousConfiguration.Settings.EffectiveOuterMargins,
-                previousConfiguration.Settings.ZoneGap);
-            var newMetrics = new LayoutMetrics(
-                newConfiguration.Settings.EffectiveOuterMargins,
-                newConfiguration.Settings.ZoneGap);
             foreach (var monitor in monitors)
             {
                 var oldLayout = previousConfiguration.Layouts.FirstOrDefault(layout =>
@@ -206,7 +200,7 @@ public sealed class ApplicationController : IDisposable
                 }
 
                 foreach (var target in LayoutWindowReflow.Plan(
-                    oldLayout, newLayout, monitor.WorkArea, oldMetrics, newMetrics, windows))
+                    oldLayout, newLayout, monitor.WorkArea, windows))
                 {
                     if (windowService.TrySnap(target.WindowHandle, target.Bounds))
                     {

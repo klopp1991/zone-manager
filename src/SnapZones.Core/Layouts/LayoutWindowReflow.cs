@@ -11,8 +11,6 @@ public static class LayoutWindowReflow
         MonitorLayout oldLayout,
         MonitorLayout newLayout,
         MonitorWorkArea workArea,
-        LayoutMetrics oldMetrics,
-        LayoutMetrics newMetrics,
         IEnumerable<WindowPlacement> windows)
     {
         ArgumentNullException.ThrowIfNull(oldLayout);
@@ -24,13 +22,13 @@ public static class LayoutWindowReflow
         foreach (var window in windows)
         {
             var oldZone = oldLayout.Zones.FirstOrDefault(zone =>
-                ZoneGeometry.ToPixels(zone.Bounds, workArea, oldMetrics).Contains(window.Bounds));
+                ZoneGeometry.ToPixels(zone.Bounds, workArea).Contains(window.Bounds));
             if (oldZone is null || !newZones.TryGetValue(oldZone.Id, out var newZone))
             {
                 continue;
             }
 
-            var targetBounds = ZoneGeometry.ToPixels(newZone.Bounds, workArea, newMetrics);
+            var targetBounds = ZoneGeometry.ToPixels(newZone.Bounds, workArea);
             if (targetBounds != window.Bounds)
             {
                 targets.Add(new WindowPlacement(window.WindowHandle, targetBounds));
