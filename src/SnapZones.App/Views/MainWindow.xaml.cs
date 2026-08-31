@@ -120,7 +120,7 @@ public partial class MainWindow : Window
             Filter = "Sascha’s Zone Manager Vollbackup (*.swz.json)|*.swz.json|JSON-Dateien (*.json)|*.json",
             DefaultExt = ".swz.json",
             AddExtension = true,
-            FileName = $"SaschaZoneManager-Vollbackup-{DateTime.Now:yyyy-MM-dd-HHmm}.swz.json"
+            FileName = $"ZoneManager-Vollbackup-{DateTime.Now:yyyy-MM-dd-HHmm}.swz.json"
         };
         if (dialog.ShowDialog(this) == true && ExportConfigurationRequested is { } export)
         {

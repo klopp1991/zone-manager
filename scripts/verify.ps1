@@ -9,16 +9,16 @@ $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $scriptDirectory '..'))
 $solutionPath = Join-Path $projectRoot 'SnapZones.sln'
 $projectPath = Join-Path $projectRoot 'src\SnapZones.App\SnapZones.App.csproj'
-$outputPath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'outputs\Sascha-Zone-Manager-prototype'))
+$outputPath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'outputs\ZoneManager-prototype'))
 $expectedOutputParent = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'outputs'))
-$rootExecutablePath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'SaschaZoneManager.exe'))
+$rootExecutablePath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'ZoneManager.exe'))
 $maximumExecutableBytes = 100000000
 
 if (-not $outputPath.StartsWith($expectedOutputParent + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
     throw 'Der Publish-Pfad liegt ausserhalb des Ausgabeordners.'
 }
 
-if ([System.IO.Path]::GetFileName($outputPath) -ne 'Sascha-Zone-Manager-prototype') {
+if ([System.IO.Path]::GetFileName($outputPath) -ne 'ZoneManager-prototype') {
     throw 'Der Publish-Zielordner ist unerwartet.'
 }
 
@@ -44,10 +44,10 @@ if ($LASTEXITCODE -ne 0) { throw 'Der Release-Build ist fehlgeschlagen.' }
 dotnet publish $projectPath -c Release -r win-x64 --self-contained true --no-restore -o $outputPath
 if ($LASTEXITCODE -ne 0) { throw 'Der Publish ist fehlgeschlagen.' }
 
-$publishedExecutablePath = Join-Path $outputPath 'SaschaZoneManager.exe'
-$diagnosticPath = Join-Path $projectRoot 'outputs\sascha-zone-manager-diagnostics.json'
+$publishedExecutablePath = Join-Path $outputPath 'ZoneManager.exe'
+$diagnosticPath = Join-Path $projectRoot 'outputs\zonemanager-diagnostics.json'
 if (-not (Test-Path -LiteralPath $publishedExecutablePath -PathType Leaf)) {
-    throw 'SaschaZoneManager.exe fehlt im Publish-Ordner.'
+    throw 'ZoneManager.exe fehlt im Publish-Ordner.'
 }
 
 $publishedExecutableBytes = (Get-Item -LiteralPath $publishedExecutablePath).Length
@@ -60,7 +60,7 @@ if ($publishedExecutableBytes -gt $maximumExecutableBytes) {
     -RootExecutablePath $rootExecutablePath
 if ($LASTEXITCODE -ne 0) { throw 'Die Root-EXE konnte nicht aktualisiert werden.' }
 if (-not (Test-Path -LiteralPath $rootExecutablePath -PathType Leaf)) {
-    throw 'SaschaZoneManager.exe fehlt im Rootverzeichnis.'
+    throw 'ZoneManager.exe fehlt im Rootverzeichnis.'
 }
 
 if ((Get-FileHash -LiteralPath $publishedExecutablePath).Hash -ne (Get-FileHash -LiteralPath $rootExecutablePath).Hash) {

@@ -10,7 +10,7 @@ $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $scriptDirectory '..'))
 $projectPath = Join-Path $projectRoot 'src\SnapZones.App\SnapZones.App.csproj'
 $workRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'work'))
 $testDirectory = [System.IO.Path]::GetFullPath((Join-Path $workRoot 'root-build-verification'))
-$testExecutable = Join-Path $testDirectory 'SaschaZoneManager.exe'
+$testExecutable = Join-Path $testDirectory 'ZoneManager.exe'
 $diagnosticPath = Join-Path $testDirectory 'diagnostics.json'
 
 if (-not $testDirectory.StartsWith($workRoot + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -28,7 +28,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'Der Build für die Root-Artefaktprüfung ist fehlgeschlagen.' }
 
     if (-not (Test-Path -LiteralPath $testExecutable -PathType Leaf)) {
-        throw 'Der normale Build hat keine SaschaZoneManager.exe am vorgegebenen Root-Pfad erzeugt.'
+        throw 'Der normale Build hat keine ZoneManager.exe am vorgegebenen Root-Pfad erzeugt.'
     }
 
     & $testExecutable --diagnostics | Out-File -LiteralPath $diagnosticPath -Encoding utf8

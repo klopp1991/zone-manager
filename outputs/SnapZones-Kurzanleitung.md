@@ -2,7 +2,7 @@
 
 ## Start
 
-`SaschaZoneManager.exe` startet den Layout-Editor unter Windows 11 x64. Unter **Layouts** besitzt jeder erkannte Monitor eigene Layouts, die unabhängig aktiviert, erstellt, umbenannt, gelöscht und bearbeitet werden können.
+`ZoneManager.exe` startet den Layout-Editor unter Windows 11 x64. Unter **Layouts** besitzt jeder erkannte Monitor eigene Layouts, die unabhängig aktiviert, erstellt, umbenannt, gelöscht und bearbeitet werden können.
 
 ## Sicherheitsstatus
 

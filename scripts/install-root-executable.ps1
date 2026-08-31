@@ -31,7 +31,7 @@ $workRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'work'))
 $sourcePath = [System.IO.Path]::GetFullPath($PublishedExecutablePath)
 $destinationPath = [System.IO.Path]::GetFullPath($RootExecutablePath)
 $destinationDirectory = [System.IO.Path]::GetDirectoryName($destinationPath)
-$defaultDestination = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'SaschaZoneManager.exe'))
+$defaultDestination = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'ZoneManager.exe'))
 $isTestDestination = $destinationPath.StartsWith(
     $workRoot + [System.IO.Path]::DirectorySeparatorChar,
     [System.StringComparison]::OrdinalIgnoreCase)
@@ -40,7 +40,7 @@ if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
     throw "Die veröffentlichte EXE fehlt: $sourcePath"
 }
 
-if ([System.IO.Path]::GetFileName($destinationPath) -ne 'SaschaZoneManager.exe') {
+if ([System.IO.Path]::GetFileName($destinationPath) -ne 'ZoneManager.exe') {
     throw 'Der Name der Root-EXE ist unerwartet.'
 }
 

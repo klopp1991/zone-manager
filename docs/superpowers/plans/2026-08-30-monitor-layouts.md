@@ -158,7 +158,7 @@ Erwarte vollständigen Erfolg ohne grafische Abnahme.
 - Modify: `outputs/SnapZones-Kurzanleitung.md`
 
 **Interfaces:**
-- Produces: getestete Release-Einzeldatei `SaschaZoneManager.exe` im Projektroot und identisches Publish-Artefakt.
+- Produces: getestete Release-Einzeldatei `ZoneManager.exe` im Projektroot und identisches Publish-Artefakt.
 
 - [ ] **Step 1: Führe die vollständige Testsuite aus**
 

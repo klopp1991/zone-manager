@@ -703,7 +703,7 @@ internal static class WpfThemeHost
         {
             _ = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             var resources = Assert.IsType<ResourceDictionary>(Application.LoadComponent(
-                new Uri("/SaschaZoneManager;component/Themes/Theme.xaml", UriKind.Relative)));
+                new Uri("/ZoneManager;component/Themes/Theme.xaml", UriKind.Relative)));
             Application.Current.Resources.MergedDictionaries.Add(resources);
             Ready.Set();
             Dispatcher.Run();

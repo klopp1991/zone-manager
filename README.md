@@ -10,7 +10,7 @@ Voraussetzungen: Windows 11 x64 und das [.NET 8 SDK](https://dotnet.microsoft.co
 git clone https://github.com/klopp1991/zone-manager.git
 Set-Location zone-manager
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1
-.\SaschaZoneManager.exe
+ .\ZoneManager.exe
 ```
 
 Der Prüf- und Publish-Lauf stellt Pakete wieder her, führt die Tests aus, baut eine selbständige `win-x64`-Einzeldatei und prüft Diagnose sowie Per-Monitor-DPI. Beim normalen Start ist eine Windows-UAC-Bestätigung erforderlich; `--diagnostics` läuft absichtlich ohne Elevation.

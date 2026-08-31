@@ -13,7 +13,7 @@ public sealed class ElevationStartupServiceTests
         ProcessStartInfo? capturedStartInfo = null;
 
         var result = ElevationStartupService.EnsureElevation(
-            @"C:\Program Files\SaschaZoneManager.exe",
+            @"C:\Program Files\ZoneManager.exe",
             ["--autostart", "--sample", "Wert mit Leerzeichen"],
             isAdministrator: false,
             startElevated: startInfo =>
@@ -25,7 +25,7 @@ public sealed class ElevationStartupServiceTests
         Assert.Equal(ElevationStartupStatus.Relaunched, result.Status);
         Assert.Null(result.ErrorMessage);
         Assert.NotNull(capturedStartInfo);
-        Assert.Equal(@"C:\Program Files\SaschaZoneManager.exe", capturedStartInfo.FileName);
+        Assert.Equal(@"C:\Program Files\ZoneManager.exe", capturedStartInfo.FileName);
         Assert.Equal("runas", capturedStartInfo.Verb);
         Assert.True(capturedStartInfo.UseShellExecute);
         Assert.Equal(@"C:\Program Files", capturedStartInfo.WorkingDirectory);
@@ -43,7 +43,7 @@ public sealed class ElevationStartupServiceTests
         string[] arguments)
     {
         var result = ElevationStartupService.EnsureElevation(
-            @"C:\SaschaZoneManager.exe",
+            @"C:\ZoneManager.exe",
             arguments,
             isAdministrator,
             _ => throw new InvalidOperationException("Ein Neustart wäre in diesem Fall falsch."));
@@ -56,7 +56,7 @@ public sealed class ElevationStartupServiceTests
     public void EnsureElevation_stops_instead_of_restarting_when_elevation_marker_remains_unelevated()
     {
         var result = ElevationStartupService.EnsureElevation(
-            @"C:\SaschaZoneManager.exe",
+            @"C:\ZoneManager.exe",
             ["--elevation-attempted"],
             isAdministrator: false,
             _ => throw new InvalidOperationException("Eine Neustartschleife darf nicht entstehen."));
@@ -69,7 +69,7 @@ public sealed class ElevationStartupServiceTests
     public void EnsureElevation_reports_a_cancelled_uac_request_without_continuing()
     {
         var result = ElevationStartupService.EnsureElevation(
-            @"C:\SaschaZoneManager.exe",
+            @"C:\ZoneManager.exe",
             [],
             isAdministrator: false,
             _ => throw new Win32Exception(1223));
@@ -82,7 +82,7 @@ public sealed class ElevationStartupServiceTests
     public void EnsureElevation_reports_an_unexpected_relaunch_failure()
     {
         var result = ElevationStartupService.EnsureElevation(
-            @"C:\SaschaZoneManager.exe",
+            @"C:\ZoneManager.exe",
             [],
             isAdministrator: false,
             _ => throw new Win32Exception(5, "Zugriff verweigert"));
