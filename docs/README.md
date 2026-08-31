@@ -77,7 +77,9 @@ Zone und das Fensterrechteck und stellt diesen Stand beim nächsten Öffnen dess
 Ändert sich die Auflösung, wird die gemerkte Lage anteilig umgerechnet. Der Katalog fasst höchstens 500
 Einträge und liegt neben den Einstellungen.
 
-Ein Fenster wird dabei an Programm, Fensterklasse und Fensterart erkannt, nicht am Titel. Mehrere Fenster
+Zurückgelegt wird ein Fenster nur beim Erscheinen; ein blosser Fokuswechsel verschiebt nie ein Fenster,
+das gerade von Hand irgendwohin gestellt wurde. Erkannt wird ein Fenster an Programm, Fensterklasse und
+Fensterart, nicht am Titel. Mehrere Fenster
 desselben Programms teilen sich deshalb einen Eintrag. Ausgeschlossene Fenster kommen gar nicht erst in den
 Katalog.
 

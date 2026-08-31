@@ -257,64 +257,6 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         }, propagateExceptions: true);
     }
 
-    public Task ApplyProfileRulesAsync(Guid profileId, CancellationToken cancellationToken)
-    {
-        if (profileId == Guid.Empty)
-        {
-            throw new ArgumentException("Die Profil-ID darf nicht leer sein.", nameof(profileId));
-        }
-
-        return RunOperation(async () =>
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var environment = environmentFactory();
-            if (!environment.Configuration.Layouts.Any(layout =>
-                    layout.Id == profileId && layout.IsActive))
-            {
-                return;
-            }
-
-            var placements = new List<Task>();
-            foreach (var windowHandle in windowService.EnumerateEligibleWindows(ownProcessId))
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                var snapshot = windowService.Inspect(windowHandle, ownProcessId);
-                if (snapshot is null)
-                {
-                    continue;
-                }
-
-                var resolution = PlacementRuleResolver.Resolve(
-                    snapshot.Identity,
-                    snapshot.Title,
-                    WindowPlacementTrigger.ProfileActivated,
-                    Array.Empty<WindowPlacementRule>());
-                if (resolution.Rule?.ProfileId != profileId)
-                {
-                    continue;
-                }
-
-                HandleState state;
-                OperationContext context;
-                lock (synchronization)
-                {
-                    state = GetOrCreateHandleStateLocked(windowHandle);
-                    context = CreateContextLocked(windowHandle, state);
-                }
-
-                placements.Add(RestoreTriggeredAsync(
-                    windowHandle,
-                    state,
-                    context,
-                    WindowPlacementTrigger.ProfileActivated,
-                    profileId,
-                    cancellationToken));
-            }
-
-            await Task.WhenAll(placements).ConfigureAwait(false);
-        }, propagateExceptions: true);
-    }
-
     public void Forget(WindowIdentity identity)
     {
         ArgumentNullException.ThrowIfNull(identity);
@@ -433,14 +375,12 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
                 ScheduleTriggeredPlacement(
                     lifecycleEvent.WindowHandle,
                     WindowPlacementTrigger.WindowCreated,
-                    activatedProfileId: null,
                     suppressAlreadyProcessed: true);
                 break;
             case WindowLifecycleEventKind.Focused:
                 ScheduleTriggeredPlacement(
                     lifecycleEvent.WindowHandle,
                     WindowPlacementTrigger.WindowFocused,
-                    activatedProfileId: null,
                     suppressAlreadyProcessed: false);
                 break;
             case WindowLifecycleEventKind.LocationChanged:
@@ -468,7 +408,6 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
     private void ScheduleTriggeredPlacement(
         nint windowHandle,
         WindowPlacementTrigger trigger,
-        Guid? activatedProfileId,
         bool suppressAlreadyProcessed)
     {
         HandleState state = null!;
@@ -539,7 +478,6 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
                     state,
                     context,
                     trigger,
-                    activatedProfileId,
                     state.LifetimeCancellation.Token).ConfigureAwait(false);
             }
             finally
@@ -560,7 +498,6 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         HandleState state,
         OperationContext context,
         WindowPlacementTrigger trigger,
-        Guid? activatedProfileId,
         CancellationToken cancellationToken)
     {
         PlacementWindowSnapshot? snapshot = null;
@@ -587,13 +524,6 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             return;
         }
 
-        if (trigger == WindowPlacementTrigger.ProfileActivated &&
-            !environment.Configuration.Layouts.Any(layout =>
-                layout.Id == activatedProfileId && layout.IsActive))
-        {
-            return;
-        }
-
         if (HasConfiguredAppRule(environment.Configuration, snapshot, trigger))
         {
             return;
@@ -611,94 +541,22 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             return;
         }
 
-        var resolution = PlacementRuleResolver.Resolve(
-            snapshot.Identity,
-            snapshot.Title,
-            trigger,
-            Array.Empty<WindowPlacementRule>());
-        if (resolution.HasConflict)
+        // Zurueckgelegt wird nur ein neu erschienenes Fenster. Ein Fokuswechsel darf ein Fenster nicht
+        // verschieben, das der Benutzer gerade selbst irgendwohin gestellt hat.
+        if (trigger != WindowPlacementTrigger.WindowCreated)
         {
-            log($"Regelkonflikt für {snapshot.Identity.ApplicationKey}.");
+            return;
+        }
+
+        var entry = FindCatalogEntry(snapshot.Identity);
+        if (entry is null)
+        {
             MarkProcessed(context, snapshot.Identity);
             return;
         }
 
-        if (resolution.Rule?.Action == WindowPlacementMode.Exclude)
-        {
-            MarkProcessed(context, snapshot.Identity);
-            return;
-        }
-
-        if (trigger != WindowPlacementTrigger.WindowCreated && resolution.Rule is null)
-        {
-            return;
-        }
-
-        if (trigger == WindowPlacementTrigger.ProfileActivated &&
-            resolution.Rule?.ProfileId != activatedProfileId)
-        {
-            return;
-        }
-
-        if (resolution.Rule is { DelayMilliseconds: > 0 } delayedRule)
-        {
-            await delay(TimeSpan.FromMilliseconds(delayedRule.DelayMilliseconds), cancellationToken).ConfigureAwait(false);
-            cancellationToken.ThrowIfCancellationRequested();
-            var currentSnapshot = windowService.Inspect(windowHandle, ownProcessId);
-            if (currentSnapshot is null ||
-                currentSnapshot.IsMinimized ||
-                currentSnapshot.Identity != snapshot.Identity)
-            {
-                return;
-            }
-
-            snapshot = currentSnapshot;
-            SetCachedSnapshot(windowHandle, state, snapshot);
-            environment = environmentFactory();
-            if (trigger == WindowPlacementTrigger.ProfileActivated &&
-                !environment.Configuration.Layouts.Any(layout =>
-                    layout.Id == activatedProfileId && layout.IsActive))
-            {
-                return;
-            }
-
-            resolution = PlacementRuleResolver.Resolve(
-                snapshot.Identity,
-                snapshot.Title,
-                trigger,
-                Array.Empty<WindowPlacementRule>());
-            if (resolution.HasConflict || resolution.Rule?.Id != delayedRule.Id)
-            {
-                return;
-            }
-        }
-
-        PixelRect targetBounds;
-        var maximize = false;
-        if (resolution.Rule?.Action == WindowPlacementMode.FixedZone)
-        {
-            var targetZone = ResolveFixedZone(resolution.Rule, environment);
-            if (targetZone is null)
-            {
-                log($"Die Zielzone für {snapshot.Identity.ApplicationKey} ist nicht verfügbar.");
-                MarkProcessed(context, snapshot.Identity);
-                return;
-            }
-
-            targetBounds = targetZone.Bounds;
-        }
-        else
-        {
-            var entry = FindCatalogEntry(snapshot.Identity);
-            if (entry is null)
-            {
-                MarkProcessed(context, snapshot.Identity);
-                return;
-            }
-
-            targetBounds = PlacementGeometry.Resolve(entry, environment.Monitors, environment.Zones);
-            maximize = entry.WasMaximized;
-        }
+        var targetBounds = PlacementGeometry.Resolve(entry, environment.Monitors, environment.Zones);
+        var maximize = entry.WasMaximized;
 
         cancellationToken.ThrowIfCancellationRequested();
         TryPlaceIfCurrent(windowHandle, state, context, snapshot.Identity, targetBounds, maximize);
@@ -902,21 +760,6 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             return Task.CompletedTask;
         }
 
-        var resolution = PlacementRuleResolver.Resolve(
-            snapshot.Identity,
-            snapshot.Title,
-            Array.Empty<WindowPlacementRule>());
-        if (resolution.HasConflict)
-        {
-            log($"Regelkonflikt für {snapshot.Identity.ApplicationKey}.");
-            return Task.CompletedTask;
-        }
-
-        if (resolution.Rule?.Action == WindowPlacementMode.Exclude)
-        {
-            return Task.CompletedTask;
-        }
-
         var monitor = explicitMonitorStableId is null
             ? FindBestMonitor(snapshot.NormalBounds, environment.Monitors)
             : environment.Monitors.FirstOrDefault(item => item.StableId == explicitMonitorStableId);
@@ -971,23 +814,6 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         return Task.CompletedTask;
     }
 
-    private static PlacementZoneTarget? ResolveFixedZone(WindowPlacementRule rule, PlacementEnvironment environment)
-    {
-        if (rule.ProfileId is not Guid profileId ||
-            rule.ZoneId is not Guid zoneId ||
-            string.IsNullOrWhiteSpace(rule.MonitorStableId) ||
-            !environment.Configuration.Layouts.Any(layout => layout.Id == profileId) ||
-            !environment.Monitors.Any(monitor => monitor.StableId == rule.MonitorStableId))
-        {
-            return null;
-        }
-
-        return environment.Zones.FirstOrDefault(zone =>
-            zone.ProfileId == profileId &&
-            zone.MonitorStableId == rule.MonitorStableId &&
-            zone.ZoneId == zoneId);
-    }
-
     /// <summary>
     /// Ob das Fenster von einem Ausschluss erfasst ist. Ausgeschlossene Fenster werden weder platziert
     /// noch in den Katalog aufgenommen und behalten dadurch dauerhaft ihre eigene Grösse und Position.
@@ -1011,7 +837,6 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         {
             WindowPlacementTrigger.WindowCreated => AppRuleEvent.WindowCreated,
             WindowPlacementTrigger.WindowFocused => AppRuleEvent.WindowFocused,
-            WindowPlacementTrigger.ProfileActivated => AppRuleEvent.LayoutActivated,
             _ => throw new ArgumentOutOfRangeException(nameof(trigger), trigger, null)
         };
         var identity = ToAppWindowIdentity(snapshot);

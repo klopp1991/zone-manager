@@ -12,7 +12,6 @@ public interface IWindowPlacementEngine
     void EmergencyStop();
     void ReplaceCatalog(WindowPlacementCatalog catalog);
     Task ApplyNowAsync(WindowIdentity identity, CancellationToken cancellationToken);
-    Task ApplyProfileRulesAsync(Guid profileId, CancellationToken cancellationToken);
     void Forget(WindowIdentity identity);
     void ForgetAll();
     void RememberExplicitZone(nint windowHandle, Guid profileId, string monitorStableId, Guid zoneId);
