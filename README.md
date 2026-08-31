@@ -57,7 +57,7 @@ Ein Release entsteht auf `main` mit sauberem Arbeitsbaum:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\publish-release.ps1
 ```
 
-Das Skript schreibt die nächste Version des Tages nach `Directory.Build.props`, führt `scripts\verify.ps1` aus, committet die Versionsdatei, setzt den Tag `v<Version>`, pusht beides und erstellt das GitHub-Release mit `ZoneManager.exe` als Anhang. Dafür braucht es ein angemeldetes [GitHub CLI](https://cli.github.com/) (`gh auth login`) oder ein Token in `GH_TOKEN`; fehlt beides, bleiben Commit und Tag bestehen und das Skript nennt den Befehl zum Nachholen.
+Das Skript schreibt die nächste Version des Tages nach `Directory.Build.props`, führt `scripts\verify.ps1` aus (`-SkipDpiCheck` reicht den Schalter durch, wenn keine interaktive Sitzung für die UAC-Abfrage der DPI-Prüfung bereitsteht), committet die Versionsdatei, setzt den Tag `v<Version>`, pusht beides und erstellt das GitHub-Release mit `ZoneManager.exe` als Anhang. Dafür braucht es ein angemeldetes [GitHub CLI](https://cli.github.com/) (`gh auth login`) oder ein Token in `GH_TOKEN`; fehlt beides, bleiben Commit und Tag bestehen und das Skript nennt den Befehl zum Nachholen.
 
 Nur die Version setzen, ohne zu veröffentlichen: `scripts\set-version.ps1` (mit `-WhatIfOnly` als reine Vorschau). Die erzeugte `Directory.Build.props` wird nicht von Hand bearbeitet. Assemblys können keine führenden Nullen speichern; `AssemblyVersion` und `FileVersion` tragen deshalb `2026.831.1`, während die angezeigte Version `2026.0831.01` lautet.
 

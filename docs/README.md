@@ -80,7 +80,7 @@ Die Version folgt dem Schema `YYYY.MMDD.NN`. `NN` beginnt an jedem Tag bei `01` 
 
 `Directory.Build.props` hält die Werte für alle Projekte und wird ausschliesslich von `scripts\set-version.ps1` geschrieben. Die Anzeigeform mit führender Null (`2026.0831.01`) steht in `ZoneManagerVersion` und `InformationalVersion`; `AssemblyVersion` und `FileVersion` tragen die numerische Form `2026.831.1`, weil Assemblyversionen keine führenden Nullen speichern können. Die Anwendung liest ausschliesslich die `InformationalVersion` und schneidet ein etwaiges Metadatensuffix ab.
 
-`scripts\publish-release.ps1` führt den vollständigen Weg aus: Version schreiben, `scripts\verify.ps1` ausführen, `Directory.Build.props` committen, Tag `v<Version>` setzen, Commit und Tag pushen und das GitHub-Release mit `ZoneManager.exe` als Anhang erstellen. Das Skript arbeitet nur auf `main` und nur bei sauberem Arbeitsbaum; ohne angemeldetes GitHub CLI oder `GH_TOKEN` endet es nach dem Push und nennt den Befehl für das Release.
+`scripts\publish-release.ps1` führt den vollständigen Weg aus: Version schreiben, `scripts\verify.ps1` ausführen, `Directory.Build.props` committen, Tag `v<Version>` setzen, Commit und Tag pushen und das GitHub-Release mit `ZoneManager.exe` als Anhang erstellen. Das Skript arbeitet nur auf `main` und nur bei sauberem Arbeitsbaum und reicht `-SkipDpiCheck` an den Prüflauf durch; ohne angemeldetes GitHub CLI oder `GH_TOKEN` endet es nach dem Push und nennt den Befehl für das Release.
 
 Die EXE wird bewusst nicht versioniert, sondern nur an Releases angehängt: Sie ist ein reproduzierbares Build-Artefakt von rund 72 MB, das die Repository-Historie sonst mit jeder Auslieferung dauerhaft vergrössern würde.
 

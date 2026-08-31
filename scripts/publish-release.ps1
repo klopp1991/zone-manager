@@ -30,6 +30,7 @@ param(
     [ValidateRange(1, 99999)]
     [int]$Increment,
     [switch]$SkipVerify,
+    [switch]$SkipDpiCheck,
     [switch]$SkipPush
 )
 
@@ -76,7 +77,9 @@ if ($SkipVerify) {
     Write-Warning 'Der Prueflauf wurde uebersprungen; die vorhandene ZoneManager.exe wird veroeffentlicht.'
 }
 else {
-    & (Join-Path $scriptDirectory 'verify.ps1')
+    # Die DPI-Pruefung startet die Oberflaeche und braucht eine bestaetigte UAC-Abfrage; ohne
+    # interaktive Sitzung bleibt der Lauf daran stehen.
+    & (Join-Path $scriptDirectory 'verify.ps1') -SkipDpiCheck:$SkipDpiCheck
 }
 
 if (-not (Test-Path -LiteralPath $executablePath -PathType Leaf)) {
