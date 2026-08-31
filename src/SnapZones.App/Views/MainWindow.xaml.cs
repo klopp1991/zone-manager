@@ -510,6 +510,16 @@ public partial class MainWindow : Window
         OverlayColorText.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateSource();
     }
 
+    private void UniformOuterMargin_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is not null)
+        {
+            viewModel.Settings.OuterMargin = viewModel.Settings.OuterMarginLeft;
+        }
+    }
+
     private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs eventArgs)
     {
         _ = sender;

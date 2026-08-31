@@ -11,6 +11,7 @@ using SnapZones.App.Controls;
 using SnapZones.Presentation.ViewModels;
 using SnapZones.App.Views;
 using SnapZones.Core.Models;
+using SnapZones.Core.Settings;
 using Xunit;
 
 namespace SnapZones.Tests.Theme;
@@ -325,7 +326,7 @@ public sealed class ThemeResourceTests
     }
 
     [Fact]
-    public void Main_window_hides_explanations_behind_accessible_info_buttons()
+    public void Layout_editor_explanations_stay_reachable_from_accessible_info_buttons()
     {
         WpfThemeHost.Invoke(() =>
         {
@@ -334,16 +335,7 @@ public sealed class ThemeResourceTests
             {
                 "LayoutInfoButton",
                 "ZonePositionInfoButton",
-                "ZoneMarginsInfoButton",
-                "ThemeInfoButton",
-                "OverlayScopeInfoButton",
-                "TriggerModeInfoButton",
-                "OuterMarginsInfoButton",
-                "ZoneGapInfoButton",
-                "MagnetDistanceInfoButton",
-                "OverlayColourInfoButton",
-                "OverlayOpacityInfoButton",
-                "OverlayVisualMarginInfoButton"
+                "ZoneMarginsInfoButton"
             };
 
             foreach (var name in requiredHelpButtons)
@@ -355,11 +347,51 @@ public sealed class ThemeResourceTests
                 Assert.True(helpText.Length >= 30, $"{name} enthält keinen ausreichenden Hilfetext.");
                 Assert.False(string.IsNullOrWhiteSpace(System.Windows.Automation.AutomationProperties.GetName(button)));
             }
+        });
+    }
 
-            var helpStyle = Assert.IsType<Style>(Application.Current.Resources["HelpText"]);
-            Assert.DoesNotContain(
-                LogicalDescendants<TextBlock>(window),
-                textBlock => ReferenceEquals(textBlock.Style, helpStyle));
+    [Fact]
+    public void Every_setting_is_rendered_as_a_self_explaining_block()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var viewModel = new MainViewModel(SnapConfiguration.CreateDefault(), []);
+            var window = new MainWindow { DataContext = viewModel, Left = -10000 };
+            window.Show();
+            try
+            {
+                var blocks = LogicalDescendants<HeaderedContentControl>(window)
+                    .Where(block => block.DataContext is SettingFieldViewModel)
+                    .ToArray();
+
+                var rendered = blocks
+                    .Select(block => ((SettingFieldViewModel)block.DataContext).Key)
+                    .ToArray();
+
+                // The settings page must show every setting the catalog defines, exactly once.
+                Assert.Equal(
+                    SettingsCatalog.All.Select(descriptor => descriptor.Key).OrderBy(key => key),
+                    rendered.OrderBy(key => key));
+
+                foreach (var block in blocks)
+                {
+                    var field = (SettingFieldViewModel)block.DataContext;
+
+                    // The editor control itself.
+                    Assert.NotNull(block.Content);
+
+                    // The permanently visible explanation, and a detailed one behind the toggle.
+                    Assert.False(string.IsNullOrWhiteSpace(field.ShortHelp));
+                    Assert.False(string.IsNullOrWhiteSpace(field.LongHelp));
+                    Assert.False(field.IsHelpExpanded);
+                    Assert.False(string.IsNullOrWhiteSpace(field.HelpButtonName));
+                    Assert.False(string.IsNullOrWhiteSpace(field.ResetButtonName));
+                }
+            }
+            finally
+            {
+                window.Close();
+            }
         });
     }
 
@@ -399,10 +431,9 @@ public sealed class ThemeResourceTests
     }
 
     [Theory]
-    [InlineData("ZoneGapPercentText", "ZoneGapPercent")]
-    [InlineData("MagnetThresholdPercentText", "MagnetThresholdPercent")]
-    [InlineData("OverlayOpacityPercentText", "OverlayOpacityPercent")]
-    public void Settings_sliders_accept_percentage_input_from_the_keyboard(string textBoxName, string propertyName)
+    [InlineData("ZoneGapValueText", 40)]
+    [InlineData("MagnetThresholdValueText", 20)]
+    public void Pixel_settings_accept_typed_input_in_their_own_unit(string textBoxName, int entered)
     {
         WpfThemeHost.Invoke(() =>
         {
@@ -414,14 +445,43 @@ public sealed class ThemeResourceTests
             {
                 var textBox = Assert.IsType<TextBox>(window.FindName(textBoxName));
 
+                textBox.Text = entered.ToString(System.Globalization.CultureInfo.CurrentCulture);
+                var binding = textBox.GetBindingExpression(TextBox.TextProperty);
+                Assert.NotNull(binding);
+                binding.UpdateSource();
+
+                var actual = textBoxName == "ZoneGapValueText"
+                    ? settings.ZoneGap
+                    : settings.MagnetThresholdPixels;
+                Assert.Equal(entered, actual);
+                Assert.False(textBox.IsReadOnly);
+            }
+            finally
+            {
+                window.Close();
+            }
+        });
+    }
+
+    [Fact]
+    public void Overlay_opacity_accepts_typed_percentages_from_the_keyboard()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var viewModel = new MainViewModel(SnapConfiguration.CreateDefault(), []);
+            var settings = viewModel.Settings;
+            var window = new MainWindow { DataContext = viewModel, Left = -10000 };
+            window.Show();
+            try
+            {
+                var textBox = Assert.IsType<TextBox>(window.FindName("OverlayOpacityPercentText"));
+
                 textBox.Text = "50.5";
                 var binding = textBox.GetBindingExpression(TextBox.TextProperty);
                 Assert.NotNull(binding);
                 binding.UpdateSource();
 
-                var property = typeof(SettingsViewModel).GetProperty(propertyName);
-                Assert.NotNull(property);
-                Assert.Equal(50.5, Assert.IsType<double>(property.GetValue(settings)));
+                Assert.Equal(50.5, settings.OverlayOpacityPercent);
                 Assert.False(textBox.IsReadOnly);
             }
             finally

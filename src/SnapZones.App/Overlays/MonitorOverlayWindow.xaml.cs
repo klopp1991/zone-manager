@@ -5,13 +5,14 @@ using System.Windows.Media;
 using SnapZones.Core.Drag;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;
+using SnapZones.Core.Settings;
 using SnapZones.Windows.Windows;
 
 namespace SnapZones.App.Overlays;
 
 public partial class MonitorOverlayWindow : Window
 {
-    private const double VisualInset = 8d;
+    private const double VisualInset = SettingsCatalog.OverlayMinimumVisualGap;
     private DragMonitorTarget? target;
     private LayoutMetrics metrics = LayoutMetrics.Default;
     private string accent = "#2F6FED";

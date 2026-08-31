@@ -41,7 +41,7 @@ public sealed class SettingsViewModel : ViewModelBase
         foreach (var descriptor in SettingsCatalog.All)
         {
             var key = descriptor.Key;
-            fields[key] = new SettingFieldViewModel(descriptor, () => ResetToDefault(key));
+            fields[key] = new SettingFieldViewModel(descriptor, this, () => ResetToDefault(key));
         }
 
         Sections = new ObservableCollection<SettingSectionViewModel>(
@@ -72,6 +72,14 @@ public sealed class SettingsViewModel : ViewModelBase
     public ObservableCollection<SettingSectionViewModel> Sections { get; }
 
     public SettingFieldViewModel Field(SettingKey key) => fields[key];
+
+    public SettingSectionViewModel Section(SettingCategory category) =>
+        Sections.Single(section => section.Category == category);
+
+    public SettingSectionViewModel ProgramSection => Section(SettingCategory.Program);
+    public SettingSectionViewModel ActivationSection => Section(SettingCategory.Activation);
+    public SettingSectionViewModel OverlayAppearanceSection => Section(SettingCategory.OverlayAppearance);
+    public SettingSectionViewModel SpacingSection => Section(SettingCategory.Spacing);
 
     public SettingFieldViewModel ThemeField => fields[SettingKey.ThemeMode];
     public SettingFieldViewModel StartWithWindowsField => fields[SettingKey.StartWithWindows];

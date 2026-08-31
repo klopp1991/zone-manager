@@ -12,10 +12,6 @@
         <BitmapImage UriSource="/SaschaZoneManager;component/Assets/SaschaWindowZones.ico" DecodePixelWidth="64" />
     </Window.Icon>
     <Window.Resources>
-        <viewModels:EnumDisplayConverter x:Key="EnumDisplayConverter" />
-        <DataTemplate x:Key="EnumItemTemplate">
-            <TextBlock Text="{Binding Converter={StaticResource EnumDisplayConverter}}" />
-        </DataTemplate>
         <DataTemplate x:Key="MonitorItemTemplate">
             <StackPanel MinWidth="190">
                 <TextBlock Text="{Binding UserFacingName}" FontWeight="SemiBold" TextWrapping="Wrap" />
@@ -379,170 +375,270 @@
             </TabItem>
 
             <TabItem Header="Einstellungen">
-                <ScrollViewer x:Name="SettingsScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                              HorizontalContentAlignment="Stretch">
-                    <StackPanel x:Name="SettingsContent" Margin="38,30" HorizontalAlignment="Stretch">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,22">
-                            <TextBlock Text="Einstellungen" Style="{StaticResource PageTitle}" />
-                            <Button Style="{StaticResource InfoButton}" VerticalAlignment="Center" AutomationProperties.Name="Hilfe zu den Einstellungen"
-                                    ToolTip="Gültige Änderungen werden automatisch gespeichert und sofort für die Snap-Funktion wirksam. Die Theme-Vorschau wird direkt angezeigt." />
-                        </StackPanel>
-                        <Border Background="{DynamicResource WarningSoftBrush}" BorderBrush="{DynamicResource WarningBrush}" BorderThickness="1" CornerRadius="8" Padding="18" Margin="0,0,0,12">
-                            <Grid>
-                                <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                <StackPanel Orientation="Horizontal">
-                                    <TextBlock Text="Snap-Funktion automatisch aktiv" FontWeight="SemiBold" VerticalAlignment="Center" />
-                                    <Button Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Snap-Funktion"
-                                            ToolTip="Die Snap-Funktion läuft automatisch, sobald mindestens ein aktives Layout vorhanden ist. Escape beendet nur den aktuellen Ziehvorgang; der Not-Aus deaktiviert die Snap-Funktion bis zum nächsten Programmstart." />
+                <Grid Margin="0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- Page header with the settings search and the global reset. -->
+                    <StackPanel Grid.Row="0" Margin="38,30,38,14">
+                        <TextBlock Text="Einstellungen" Style="{StaticResource PageTitle}" />
+                        <TextBlock Style="{StaticResource SectionDescription}" MaxWidth="760" HorizontalAlignment="Left"
+                                   Text="Jede Änderung wird sofort gespeichert und ist unmittelbar wirksam. Unter jeder Einstellung steht, was sie bewirkt; das Info-Symbol blendet die ausführliche Erklärung ein." />
+
+                        <Grid Margin="0,18,0,0" MaxWidth="900" HorizontalAlignment="Left">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="360" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="SettingsSearchBox"
+                                     Text="{Binding Settings.SearchTerm, UpdateSourceTrigger=PropertyChanged}"
+                                     AutomationProperties.Name="Einstellungen durchsuchen"
+                                     ToolTip="Durchsucht Bezeichnungen und Hilfetexte aller Einstellungen." />
+                            <TextBlock Grid.Column="0" Text="Einstellungen durchsuchen …" IsHitTestVisible="False"
+                                       Foreground="{DynamicResource MutedBrush}" Margin="12,0,0,0" VerticalAlignment="Center">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="Visibility" Value="Collapsed" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding Settings.SearchTerm}" Value="">
+                                                <Setter Property="Visibility" Value="Visible" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <Button Grid.Column="1" x:Name="ClearSettingsSearchButton" Content="Suche löschen"
+                                    Style="{StaticResource LinkButton}" Command="{Binding Settings.ClearSearchCommand}"
+                                    AutomationProperties.Name="Suche löschen" />
+                            <Button Grid.Column="3" x:Name="ResetAllSettingsButton" Content="Alle auf Standard zurücksetzen"
+                                    Command="{Binding Settings.ResetAllCommand}" Margin="0"
+                                    AutomationProperties.Name="Alle Einstellungen auf Standard zurücksetzen"
+                                    ToolTip="Setzt jede Einstellung auf dieser Seite auf ihren Auslieferungswert zurück. Layouts und Zonen bleiben unverändert." />
+                        </Grid>
+                        <TextBlock Text="{Binding Settings.SearchResultSummary}" Style="{StaticResource HelpText}" Margin="0,8,0,0" />
+                    </StackPanel>
+
+                    <ScrollViewer Grid.Row="1" x:Name="SettingsScroller" VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch">
+                        <StackPanel x:Name="SettingsContent" Margin="38,0,38,30" HorizontalAlignment="Stretch">
+
+                            <Border Background="{DynamicResource WarningSoftBrush}" BorderBrush="{DynamicResource WarningBrush}"
+                                    BorderThickness="1" CornerRadius="8" Padding="18" Margin="0,0,0,12">
+                                <Grid>
+                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                    <StackPanel>
+                                        <TextBlock Text="Snap-Funktion automatisch aktiv" FontWeight="SemiBold" />
+                                        <TextBlock Style="{StaticResource HelpText}"
+                                                   Text="Sobald mindestens ein Layout mit Zonen vorhanden ist, werden Fenster beim Ziehen platziert. Escape bricht den laufenden Ziehvorgang ab." />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="1" Text="Not-Aus: Ctrl + Alt + Shift + F12" Foreground="{DynamicResource WarningBrush}"
+                                               FontWeight="SemiBold" VerticalAlignment="Center" Margin="18,0,0,0" />
+                                </Grid>
+                            </Border>
+
+                            <!-- Shown instead of the sections when the search matches nothing. -->
+                            <Border x:Name="NoSettingsFoundPanel" Style="{StaticResource SectionCard}"
+                                    Visibility="{Binding Settings.HasSearchResults, Converter={StaticResource InverseBooleanToVisibilityConverter}}">
+                                <StackPanel>
+                                    <TextBlock Text="Keine passende Einstellung" Style="{StaticResource SectionTitle}" />
+                                    <TextBlock Style="{StaticResource SectionDescription}"
+                                               Text="Versuche einen anderen Begriff, oder lösche die Suche, um wieder alle Einstellungen zu sehen." />
+                                    <Button Content="Suche löschen" Command="{Binding Settings.ClearSearchCommand}"
+                                            HorizontalAlignment="Left" Margin="0,16,0,0" />
                                 </StackPanel>
-                                <TextBlock Grid.Column="1" Text="Not-Aus: Ctrl + Alt + Shift + F12" Foreground="{DynamicResource WarningBrush}" FontWeight="SemiBold" VerticalAlignment="Center" />
-                            </Grid>
-                        </Border>
-                        <Grid>
-                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-                            <StackPanel Grid.Column="0">
-                                <Border Style="{StaticResource SectionCard}">
-                                    <StackPanel>
-                                        <TextBlock Text="Programm" Style="{StaticResource SectionTitle}" />
-                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,5">
-                                            <TextBlock Text="Theme" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
-                                            <Button x:Name="ThemeInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Theme"
-                                                    ToolTip="Windows-System folgt automatisch dem App-Modus von Windows. Hell oder Dunkel überschreibt diese Auswahl nur für Sascha’s Zone Manager." />
-                                        </StackPanel>
-                                        <ComboBox ItemsSource="{Binding Settings.ThemeModes}" SelectedItem="{Binding Settings.ThemeMode}" ItemTemplate="{StaticResource EnumItemTemplate}" SelectionChanged="Theme_SelectionChanged" />
-                                        <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
-                                            <CheckBox Content="Mit Windows starten" IsChecked="{Binding Settings.StartWithWindows}" />
-                                            <Button Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Autostart"
-                                                    ToolTip="Erstellt automatisch einen Autostarteintrag nur für den aktuellen Benutzer. Dafür werden weder Administratorrechte noch ein Windows-Dienst benötigt." />
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-                                <Border Style="{StaticResource SectionCard}">
-                                    <StackPanel>
-                                        <TextBlock Text="Ziehen und Overlay" Style="{StaticResource SectionTitle}" />
-                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,5">
-                                            <TextBlock Text="Overlays anzeigen" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
-                                            <Button x:Name="OverlayScopeInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Overlaybereich"
-                                                    ToolTip="Alle Monitore zeigt die Zonen auf jeder aktiven Anzeige. Aktiver Monitor zeigt nur die Zonen des Bildschirms, auf dem sich der Mauszeiger befindet." />
-                                        </StackPanel>
-                                        <ComboBox ItemsSource="{Binding Settings.OverlayScopes}" SelectedItem="{Binding Settings.OverlayScope}" ItemTemplate="{StaticResource EnumItemTemplate}" />
-                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,5">
-                                            <TextBlock Text="Aktivierung" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
-                                            <Button x:Name="TriggerModeInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Overlayaktivierung"
-                                                    ToolTip="Sofort zeigt die Zonen bei jedem geeigneten Ziehen an der Titelleiste. Umschalttaste zeigt sie nur, wenn du beim Ziehen zusätzlich Shift gedrückt hältst." />
-                                        </StackPanel>
-                                        <ComboBox ItemsSource="{Binding Settings.TriggerModes}" SelectedItem="{Binding Settings.TriggerMode}" ItemTemplate="{StaticResource EnumItemTemplate}" />
-                                        <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
-                                            <CheckBox Content="Zonennamen anzeigen" IsChecked="{Binding Settings.ShowZoneNames}" />
-                                            <Button Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Zonennamen"
-                                                    ToolTip="Zeigt beim Verschieben den Namen jeder Zone auf einer kleinen dunklen Beschriftungsfläche. Kontur und Zielfläche bleiben auch ohne Namen sichtbar." />
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-                                <Border Style="{StaticResource SectionCard}">
-                                    <StackPanel>
-                                        <TextBlock Text="Overlay-Darstellung" Style="{StaticResource SectionTitle}" />
-                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,5">
-                                            <TextBlock Text="Farbe" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
-                                            <Button x:Name="OverlayColourInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Overlayfarbe"
-                                                    ToolTip="Gib eine RGB-Farbe im Format #RRGGBB ein. Das neutrale Windows-Grau #707070 wirkt ruhig; eine eigene Farbe bleibt möglich." />
-                                        </StackPanel>
+                            </Border>
+
+
+                            <!-- Two columns so the page fills wide windows without over-long text lines. -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="16" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel Grid.Column="0">
+                            <!-- ========== Programm ========== -->
+                            <Border x:Name="ProgramSettingsCard" Style="{StaticResource SectionCard}"
+                                    Visibility="{Binding Settings.ProgramSection.IsVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Settings.ProgramSection.Title}" Style="{StaticResource SectionTitle}" />
+                                    <TextBlock Text="{Binding Settings.ProgramSection.Description}" Style="{StaticResource SectionDescription}" Margin="0,4,0,20" />
+
+                                    <HeaderedContentControl Style="{StaticResource SettingBlock}" DataContext="{Binding Settings.ThemeField}">
+                                        <ComboBox x:Name="ThemeSelector" ItemsSource="{Binding Owner.ThemeModes}"
+                                                  SelectedItem="{Binding Owner.ThemeMode}"
+                                                  ItemTemplate="{StaticResource EnumItemTemplate}"
+                                                  SelectionChanged="Theme_SelectionChanged"
+                                                  AutomationProperties.Name="Erscheinungsbild wählen" />
+                                    </HeaderedContentControl>
+
+                                    <HeaderedContentControl Style="{StaticResource SettingBlock}" DataContext="{Binding Settings.StartWithWindowsField}" Margin="0">
+                                        <CheckBox x:Name="StartWithWindowsCheckBox" Content="Beim Anmelden automatisch starten"
+                                                  IsChecked="{Binding Owner.StartWithWindows}"
+                                                  AutomationProperties.Name="Mit Windows starten" />
+                                    </HeaderedContentControl>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- ========== Darstellung des Overlays ========== -->
+                            <Border x:Name="OverlayAppearanceSettingsCard" Style="{StaticResource SectionCard}"
+                                    Visibility="{Binding Settings.OverlayAppearanceSection.IsVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Settings.OverlayAppearanceSection.Title}" Style="{StaticResource SectionTitle}" />
+                                    <TextBlock Text="{Binding Settings.OverlayAppearanceSection.Description}" Style="{StaticResource SectionDescription}" Margin="0,4,0,20" />
+
+                                    <!-- Live preview so colour and opacity can be judged without dragging a window. -->
+                                    <TextBlock Text="Vorschau" Style="{StaticResource FieldLabel}" />
+                                    <controls:OverlayAppearancePreview x:Name="OverlayPreview" Height="150" Margin="0,0,0,4"
+                                                                       OverlayColor="{Binding Settings.OverlayColor}"
+                                                                       OverlayOpacityPercent="{Binding Settings.OverlayOpacityPercent}"
+                                                                       ZoneGap="{Binding Settings.ZoneGap}"
+                                                                       ShowZoneNames="{Binding Settings.ShowZoneNames}"
+                                                                       AutomationProperties.Name="Vorschau des Overlays" />
+                                    <TextBlock Style="{StaticResource HelpText}" Margin="0,0,0,22"
+                                               Text="So sehen die Zonen beim Ziehen aus. Die hervorgehobene Fläche zeigt die Zone unter dem Mauszeiger." />
+
+                                    <HeaderedContentControl Style="{StaticResource SettingBlock}" DataContext="{Binding Settings.OverlayColorField}">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="38" />
                                                 <ColumnDefinition Width="*" />
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
-                                            <Border x:Name="OverlayColorPreview" Width="38" Height="38" Background="{Binding Settings.OverlayColor}"
+                                            <Border x:Name="OverlayColorPreview" Width="38" Height="38" Background="{Binding Owner.OverlayColor}"
                                                     BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="5"
                                                     AutomationProperties.Name="Vorschau der Overlayfarbe" />
                                             <TextBox x:Name="OverlayColorText" Grid.Column="1" Margin="10,0,0,0"
-                                                     Text="{Binding Settings.OverlayColor, UpdateSourceTrigger=PropertyChanged}" FontFamily="Cascadia Mono"
+                                                     Text="{Binding Owner.OverlayColor, UpdateSourceTrigger=PropertyChanged}" FontFamily="Cascadia Mono"
                                                      AutomationProperties.Name="Hexwert der Overlayfarbe" />
                                             <Button x:Name="OverlayColorPickerButton" Grid.Column="2" Content="Farbe wählen" Click="OverlayColorPicker_Click"
                                                     Margin="10,0,0,0" AutomationProperties.Name="Overlayfarbe auswählen" />
                                         </Grid>
-                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,3">
-                                            <TextBlock Text="Deckkraft" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
-                                            <Button x:Name="OverlayOpacityInfoButton" Style="{StaticResource InfoButton}" Margin="7,0,0,0" AutomationProperties.Name="Hilfe zur Overlaydeckkraft"
-                                                    ToolTip="Eine kleine Deckkraft hält das Overlay sehr dezent. Die aktive Zielzone wird nur leicht verstärkt, damit das Ziel erkennbar bleibt, ohne den Bildschirm zu überdecken." />
-                                        </StackPanel>
+                                    </HeaderedContentControl>
+
+                                    <HeaderedContentControl Style="{StaticResource SettingBlock}" DataContext="{Binding Settings.OverlayOpacityField}" Margin="0">
                                         <Grid>
-                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="120" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                            <Slider x:Name="OverlayOpacitySlider" Minimum="8" Maximum="75" Value="{Binding Settings.OverlayOpacityPercent}"
-                                                    TickFrequency="0.5" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" />
-                                            <TextBox x:Name="OverlayOpacityPercentText" Grid.Column="1" Margin="12,0,8,0" TextAlignment="Right"
-                                                     Text="{Binding Settings.OverlayOpacityPercent, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:0.#}}"
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="96" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <Slider x:Name="OverlayOpacitySlider" Minimum="{Binding Minimum}" Maximum="{Binding Maximum}"
+                                                    Value="{Binding Owner.OverlayOpacityPercent}"
+                                                    TickFrequency="0.5" SmallChange="{Binding Step}" LargeChange="10" IsSnapToTickEnabled="True"
+                                                    AutomationProperties.Name="Deckkraft" />
+                                            <TextBox x:Name="OverlayOpacityPercentText" Grid.Column="1" Style="{StaticResource ValueBox}"
+                                                     Text="{Binding Owner.OverlayOpacityPercent, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:0.#}}"
                                                      AutomationProperties.Name="Deckkraft in Prozent" />
-                                            <TextBlock Grid.Column="2" Text="%" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Unit}" Style="{StaticResource UnitLabel}" />
                                         </Grid>
-                                    </StackPanel>
-                                </Border>
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <Border Style="{StaticResource SectionCard}">
-                                    <StackPanel>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="Overlay-Abstände und Andocken" Style="{StaticResource SectionTitle}" />
-                                            <Button x:Name="OuterMarginsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu äusseren Abständen"
-                                                    ToolTip="Diese Werte bestimmen ausschliesslich die zusätzlichen Aussenabstände des Overlays. Fenster und Layoutdefinition bleiben unverändert; das Overlay behält auch bei 0 einen kleinen visuellen Mindestabstand. Zulässig sind 0 bis 400 Pixel." />
-                                        </StackPanel>
-                                        <TextBlock Text="Overlay-Aussenabstände in Pixel" Style="{StaticResource FieldLabel}" Margin="0,16,0,5" />
-                                        <UniformGrid Columns="4">
-                                            <StackPanel Margin="0,0,8,0"><TextBlock Text="Links" Style="{StaticResource FieldLabel}" /><TextBox Text="{Binding Settings.OuterMarginLeft, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                                            <StackPanel Margin="0,0,8,0"><TextBlock Text="Oben" Style="{StaticResource FieldLabel}" /><TextBox Text="{Binding Settings.OuterMarginTop, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                                            <StackPanel Margin="0,0,8,0"><TextBlock Text="Rechts" Style="{StaticResource FieldLabel}" /><TextBox Text="{Binding Settings.OuterMarginRight, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                                            <StackPanel><TextBlock Text="Unten" Style="{StaticResource FieldLabel}" /><TextBox Text="{Binding Settings.OuterMarginBottom, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
-                                        </UniformGrid>
-                                        <Grid Margin="0,20,0,3">
-                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                            <TextBlock Text="Overlay-Zonenabstand" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
-                                            <Button Grid.Column="1" x:Name="ZoneGapInfoButton" Style="{StaticResource InfoButton}" Margin="7,0,0,0" AutomationProperties.Name="Hilfe zum Zonenabstand"
-                                                    ToolTip="Bestimmt den zusätzlichen Abstand zwischen benachbarten Overlayflächen. Fenster folgen exakt der Layoutdefinition; bei 0 behält das Overlay trotzdem seinen visuellen Mindestabstand." />
-                                            <TextBlock Grid.Column="3" Text="{Binding Settings.ZoneGap, StringFormat={}{0} px}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                                        </Grid>
+                                    </HeaderedContentControl>
+                                </StackPanel>
+                            </Border>
+
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                            <!-- ========== Ziehen und Einblenden ========== -->
+                            <Border x:Name="ActivationSettingsCard" Style="{StaticResource SectionCard}"
+                                    Visibility="{Binding Settings.ActivationSection.IsVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Settings.ActivationSection.Title}" Style="{StaticResource SectionTitle}" />
+                                    <TextBlock Text="{Binding Settings.ActivationSection.Description}" Style="{StaticResource SectionDescription}" Margin="0,4,0,20" />
+
+                                    <HeaderedContentControl Style="{StaticResource SettingBlock}" DataContext="{Binding Settings.TriggerModeField}">
+                                        <ComboBox x:Name="TriggerModeSelector" ItemsSource="{Binding Owner.TriggerModes}"
+                                                  SelectedItem="{Binding Owner.TriggerMode}"
+                                                  ItemTemplate="{StaticResource EnumItemTemplate}"
+                                                  AutomationProperties.Name="Zeitpunkt der Einblendung wählen" />
+                                    </HeaderedContentControl>
+
+                                    <HeaderedContentControl Style="{StaticResource SettingBlock}" DataContext="{Binding Settings.OverlayScopeField}">
+                                        <ComboBox x:Name="OverlayScopeSelector" ItemsSource="{Binding Owner.OverlayScopes}"
+                                                  SelectedItem="{Binding Owner.OverlayScope}"
+                                                  ItemTemplate="{StaticResource EnumItemTemplate}"
+                                                  AutomationProperties.Name="Monitore für das Overlay wählen" />
+                                    </HeaderedContentControl>
+
+                                    <HeaderedContentControl Style="{StaticResource SettingBlock}" DataContext="{Binding Settings.ShowZoneNamesField}" Margin="0">
+                                        <CheckBox x:Name="ShowZoneNamesCheckBox" Content="Namen der Zonen im Overlay einblenden"
+                                                  IsChecked="{Binding Owner.ShowZoneNames}"
+                                                  AutomationProperties.Name="Zonennamen anzeigen" />
+                                    </HeaderedContentControl>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- ========== Abstände und Einrasten ========== -->
+                            <Border x:Name="SpacingSettingsCard" Style="{StaticResource SectionCard}"
+                                    Visibility="{Binding Settings.SpacingSection.IsVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <StackPanel>
+                                    <TextBlock Text="{Binding Settings.SpacingSection.Title}" Style="{StaticResource SectionTitle}" />
+                                    <TextBlock Text="{Binding Settings.SpacingSection.Description}" Style="{StaticResource SectionDescription}" Margin="0,4,0,20" />
+
+                                    <HeaderedContentControl Style="{StaticResource SettingBlock}" DataContext="{Binding Settings.ZoneGapField}">
                                         <Grid>
-                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="120" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                            <Slider x:Name="ZoneGapSlider" Minimum="0" Maximum="100" Value="{Binding Settings.ZoneGapPercent}"
-                                                    TickFrequency="0.5" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" />
-                                            <TextBox x:Name="ZoneGapPercentText" Grid.Column="1" Margin="12,0,8,0" TextAlignment="Right"
-                                                     Text="{Binding Settings.ZoneGapPercent, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:0.#}}"
-                                                     AutomationProperties.Name="Zonenabstand in Prozent" />
-                                            <TextBlock Grid.Column="2" Text="%" VerticalAlignment="Center" />
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="96" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <Slider x:Name="ZoneGapSlider" Minimum="{Binding Minimum}" Maximum="{Binding Maximum}"
+                                                    Value="{Binding Owner.ZoneGap}"
+                                                    TickFrequency="1" SmallChange="{Binding Step}" LargeChange="8" IsSnapToTickEnabled="True"
+                                                    AutomationProperties.Name="Abstand zwischen Zonen" />
+                                            <TextBox x:Name="ZoneGapValueText" Grid.Column="1" Style="{StaticResource ValueBox}"
+                                                     Text="{Binding Owner.ZoneGap, UpdateSourceTrigger=PropertyChanged}"
+                                                     AutomationProperties.Name="Abstand zwischen Zonen in Pixel" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Unit}" Style="{StaticResource UnitLabel}" />
                                         </Grid>
-                                        <Grid Margin="0,16,0,3">
-                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                            <TextBlock Text="Magnetdistanz" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
-                                            <Button Grid.Column="1" x:Name="MagnetDistanceInfoButton" Style="{StaticResource InfoButton}" Margin="7,0,0,0" AutomationProperties.Name="Hilfe zur Magnetdistanz"
-                                                    ToolTip="Kanten innerhalb dieser Distanz docken im Editor automatisch an Monitor- oder Zonenkanten an. 0 deaktiviert das Andocken; Alt pausiert es beim Ziehen." />
-                                            <TextBlock Grid.Column="3" Text="{Binding Settings.MagnetThresholdPixels, StringFormat={}{0} px}" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
-                                        </Grid>
+                                    </HeaderedContentControl>
+
+                                    <HeaderedContentControl Style="{StaticResource SettingBlock}" DataContext="{Binding Settings.MagnetThresholdField}">
                                         <Grid>
-                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="120" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                                            <Slider x:Name="MagnetThresholdSlider" Minimum="0" Maximum="100" Value="{Binding Settings.MagnetThresholdPercent}"
-                                                    TickFrequency="0.5" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" />
-                                            <TextBox x:Name="MagnetThresholdPercentText" Grid.Column="1" Margin="12,0,8,0" TextAlignment="Right"
-                                                     Text="{Binding Settings.MagnetThresholdPercent, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:0.#}}"
-                                                     AutomationProperties.Name="Magnetdistanz in Prozent" />
-                                            <TextBlock Grid.Column="2" Text="%" VerticalAlignment="Center" />
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="96" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <Slider x:Name="MagnetThresholdSlider" Minimum="{Binding Minimum}" Maximum="{Binding Maximum}"
+                                                    Value="{Binding Owner.MagnetThresholdPixels}"
+                                                    TickFrequency="1" SmallChange="{Binding Step}" LargeChange="5" IsSnapToTickEnabled="True"
+                                                    AutomationProperties.Name="Magnetdistanz im Editor" />
+                                            <TextBox x:Name="MagnetThresholdValueText" Grid.Column="1" Style="{StaticResource ValueBox}"
+                                                     Text="{Binding Owner.MagnetThresholdPixels, UpdateSourceTrigger=PropertyChanged}"
+                                                     AutomationProperties.Name="Magnetdistanz in Pixel" />
+                                            <TextBlock Grid.Column="2" Text="{Binding Unit}" Style="{StaticResource UnitLabel}" />
                                         </Grid>
-                                    </StackPanel>
-                                </Border>
-                                <Border Style="{StaticResource SectionCard}">
-                                    <StackPanel>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="Visueller Mindestabstand" Style="{StaticResource SectionTitle}" />
-                                            <Button x:Name="OverlayVisualMarginInfoButton" Style="{StaticResource InfoButton}"
-                                                    AutomationProperties.Name="Hilfe zum visuellen Overlay-Abstand"
-                                                    ToolTip="Dieser Abstand betrifft nur die Vorschau beim Ziehen. Die tatsächlichen Fenster bleiben exakt in den definierten Zonen und können direkt aneinander oder am Bildschirmrand liegen." />
+                                    </HeaderedContentControl>
+
+                                    <HeaderedContentControl Style="{StaticResource SettingBlock}" DataContext="{Binding Settings.OuterMarginsField}" Margin="0">
+                                        <StackPanel>
+                                            <UniformGrid Columns="4">
+                                                <StackPanel Margin="0,0,8,0">
+                                                    <TextBlock Text="Links" Style="{StaticResource FieldLabel}" FontWeight="Normal" />
+                                                    <TextBox x:Name="OuterMarginLeftText" Text="{Binding Owner.OuterMarginLeft, UpdateSourceTrigger=PropertyChanged}"
+                                                             AutomationProperties.Name="Aussenabstand links in Pixel" />
+                                                </StackPanel>
+                                                <StackPanel Margin="0,0,8,0">
+                                                    <TextBlock Text="Oben" Style="{StaticResource FieldLabel}" FontWeight="Normal" />
+                                                    <TextBox x:Name="OuterMarginTopText" Text="{Binding Owner.OuterMarginTop, UpdateSourceTrigger=PropertyChanged}"
+                                                             AutomationProperties.Name="Aussenabstand oben in Pixel" />
+                                                </StackPanel>
+                                                <StackPanel Margin="0,0,8,0">
+                                                    <TextBlock Text="Rechts" Style="{StaticResource FieldLabel}" FontWeight="Normal" />
+                                                    <TextBox x:Name="OuterMarginRightText" Text="{Binding Owner.OuterMarginRight, UpdateSourceTrigger=PropertyChanged}"
+                                                             AutomationProperties.Name="Aussenabstand rechts in Pixel" />
+                                                </StackPanel>
+                                                <StackPanel>
+                                                    <TextBlock Text="Unten" Style="{StaticResource FieldLabel}" FontWeight="Normal" />
+                                                    <TextBox x:Name="OuterMarginBottomText" Text="{Binding Owner.OuterMarginBottom, UpdateSourceTrigger=PropertyChanged}"
+                                                             AutomationProperties.Name="Aussenabstand unten in Pixel" />
+                                                </StackPanel>
+                                            </UniformGrid>
+                                            <Button x:Name="UniformOuterMarginButton" Content="Alle vier Seiten angleichen"
+                                                    Click="UniformOuterMargin_Click" HorizontalAlignment="Left" Margin="0,10,0,0"
+                                                    AutomationProperties.Name="Alle vier Aussenabstände auf den linken Wert setzen"
+                                                    ToolTip="Setzt oben, rechts und unten auf den Wert von links." />
                                         </StackPanel>
-                                        <TextBlock Text="8 px visuell" FontSize="24" FontWeight="SemiBold" Margin="0,16,0,0" />
-                                    </StackPanel>
-                                </Border>
-                            </StackPanel>
-                        </Grid>
-                    </StackPanel>
-                </ScrollViewer>
+                                    </HeaderedContentControl>
+                                </StackPanel>
+                            </Border>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
             </TabItem>
 
             <TabItem Header="Import / Export">

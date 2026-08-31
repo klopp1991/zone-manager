@@ -15,18 +15,28 @@ public sealed class SettingFieldViewModel : ViewModelBase
     private bool isVisible = true;
     private bool isDefault = true;
 
-    public SettingFieldViewModel(SettingDescriptor descriptor, Action resetToDefault)
+    public SettingFieldViewModel(SettingDescriptor descriptor, SettingsViewModel owner, Action resetToDefault)
     {
         ArgumentNullException.ThrowIfNull(descriptor);
+        ArgumentNullException.ThrowIfNull(owner);
         ArgumentNullException.ThrowIfNull(resetToDefault);
 
         Descriptor = descriptor;
+        Owner = owner;
         this.resetToDefault = resetToDefault;
         ResetCommand = new RelayCommand(() => this.resetToDefault(), () => !IsDefault);
         ToggleHelpCommand = new RelayCommand(() => IsHelpExpanded = !IsHelpExpanded);
     }
 
     public SettingDescriptor Descriptor { get; }
+
+    /// <summary>
+    /// The settings page this field belongs to. Lets the editor control inside a
+    /// setting block bind straight to the stored value, for example
+    /// <c>{Binding Owner.ZoneGap}</c>, while the surrounding block binds to the
+    /// field's caption and help text.
+    /// </summary>
+    public SettingsViewModel Owner { get; }
 
     public SettingKey Key => Descriptor.Key;
     public SettingCategory Category => Descriptor.Category;
