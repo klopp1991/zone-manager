@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using SnapZones.Core.Layouts;
 using SnapZones.Core.Models;
+using SnapZones.Core.Geometry;
 using SnapZones.Core.Monitors;
 
 namespace SnapZones.App.ViewModels;
@@ -73,7 +74,8 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     public LayoutEditorViewModel? Editor => editor;
-    public bool CanDeleteSelectedLayout => selectedMonitor is not null && Layouts.Count > 1;
+    public bool CanDeleteSelectedLayout =>
+        selectedMonitor is not null && (Layouts.Count > 1 || !selectedMonitor.IsConnected);
     public string StatusMessage
     {
         get => statusMessage;
@@ -170,9 +172,12 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         var monitor = selectedLayout.Monitor;
-        layoutService.DeleteLayout(selectedLayout.Id);
+        var disconnected = selectedMonitor is { IsConnected: false };
+        layoutService.DeleteLayout(selectedLayout.Id, allowRemovingLastLayout: disconnected);
         RefreshMonitors(monitor);
-        StatusMessage = "Layout gelöscht";
+        StatusMessage = disconnected && Monitors.All(choice => !LayoutService.BelongsToMonitor(choice.Live.Identity, monitor))
+            ? "Letztes Layout gelöscht – der nicht verbundene Monitor wird nicht mehr aufgeführt"
+            : "Layout gelöscht";
         RequestPersistence();
     }
 
@@ -241,12 +246,51 @@ public sealed class MainViewModel : ViewModelBase
                 layoutService.CustomMonitorNameFor(live.Identity)));
         }
 
+        AddMonitorsWithoutConnection(orderedMonitors.Length);
+
         selectedMonitor = wantedMonitor is null
             ? Monitors.FirstOrDefault()
             : Monitors.FirstOrDefault(choice => LayoutService.BelongsToMonitor(choice.Live.Identity, wantedMonitor))
               ?? Monitors.FirstOrDefault();
         OnPropertyChanged(nameof(SelectedMonitor));
         RefreshLayouts(preferredLayoutId);
+    }
+
+    /// <summary>
+    /// Ergänzt Monitore, die nicht angeschlossen sind, für die aber noch Layouts gespeichert sind.
+    /// Ohne sie wären diese Layouts in der Oberfläche unerreichbar: sie tauchen weiterhin als Regelziel
+    /// auf, lassen sich aber nirgends löschen.
+    /// </summary>
+    private void AddMonitorsWithoutConnection(int connectedCount)
+    {
+        var number = connectedCount;
+        foreach (var identity in layoutService.MonitorsWithLayouts())
+        {
+            if (Monitors.Any(choice => LayoutService.BelongsToMonitor(choice.Live.Identity, identity)))
+            {
+                continue;
+            }
+
+            var layouts = layoutService.LayoutsFor(identity);
+            if (layouts.Count == 0)
+            {
+                continue;
+            }
+
+            var layout = layouts.FirstOrDefault(candidate => candidate.IsActive) ?? layouts[0];
+            number++;
+            Monitors.Add(new MonitorChoice(
+                new LiveMonitor(
+                    identity,
+                    new MonitorWorkArea(0, 0, Math.Max(1, layout.SavedWidth), Math.Max(1, layout.SavedHeight)),
+                    96,
+                    96,
+                    false),
+                layout,
+                MonitorNaming.ResolveDisplayNumber(identity, number),
+                layoutService.CustomMonitorNameFor(identity),
+                IsConnected: false));
+        }
     }
 
     private void RefreshLayouts(Guid? preferredLayoutId = null)

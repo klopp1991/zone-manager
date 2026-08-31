@@ -111,17 +111,41 @@ public sealed class LayoutService
         Configuration = Configuration with { MonitorOrder = orderedKeys };
     }
 
-    public void DeleteLayout(Guid layoutId)
+    /// <summary>
+    /// Die Monitore, für die überhaupt ein Layout gespeichert ist – auch solche, die gerade nicht
+    /// angeschlossen sind. Ohne diese Liste blieben Layouts nicht mehr vorhandener Monitore als
+    /// unerreichbare Leichen in der Konfiguration zurück.
+    /// </summary>
+    public IReadOnlyList<MonitorIdentity> MonitorsWithLayouts()
+    {
+        var seen = new List<MonitorIdentity>();
+        foreach (var layout in Configuration.Layouts)
+        {
+            if (!seen.Any(known => BelongsToMonitor(known, layout.Monitor)))
+            {
+                seen.Add(layout.Monitor);
+            }
+        }
+
+        return seen;
+    }
+
+    /// <param name="allowRemovingLastLayout">
+    /// Erlaubt das Löschen auch des letzten Layouts eines Monitors. Notwendig für Monitore, die nicht
+    /// mehr angeschlossen sind: erst wenn deren letztes Layout weg ist, verschwindet der Monitor aus
+    /// der Oberfläche.
+    /// </param>
+    public void DeleteLayout(Guid layoutId, bool allowRemovingLastLayout = false)
     {
         var deleted = Find(layoutId);
         var monitorLayouts = LayoutsFor(deleted.Monitor);
-        if (monitorLayouts.Count == 1)
+        if (monitorLayouts.Count == 1 && !allowRemovingLastLayout)
         {
             throw new InvalidOperationException("Das letzte Layout dieses Monitors kann nicht gelöscht werden.");
         }
 
         var remaining = Configuration.Layouts.Where(layout => layout.Id != layoutId).ToArray();
-        if (deleted.IsActive)
+        if (deleted.IsActive && remaining.Any(layout => BelongsToMonitor(layout.Monitor, deleted.Monitor)))
         {
             var replacementId = remaining.First(layout => BelongsToMonitor(layout.Monitor, deleted.Monitor)).Id;
             remaining = remaining.Select(layout => layout.Id == replacementId

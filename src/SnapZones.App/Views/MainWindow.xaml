@@ -325,10 +325,12 @@
                                              AutomationProperties.Name="App-Regeln">
                                         <ListBox.ItemTemplate>
                                             <DataTemplate>
-                                                <StackPanel Margin="2,4">
-                                                    <TextBlock Text="{Binding ProcessPath}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                <StackPanel Margin="2,4" ToolTip="{Binding ProcessPath}">
+                                                    <TextBlock Text="{Binding DisplayName}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding ProcessFileName}" Foreground="{DynamicResource MutedBrush}"
+                                                               FontSize="14" Margin="0,3,0,0" TextTrimming="CharacterEllipsis" />
                                                     <TextBlock Text="{Binding Event, Converter={StaticResource EnumDisplayConverter}}"
-                                                               Foreground="{DynamicResource SubtleInkBrush}" FontSize="14" Margin="0,3,0,0" />
+                                                               Foreground="{DynamicResource SubtleInkBrush}" FontSize="13" Margin="0,2,0,0" />
                                                 </StackPanel>
                                             </DataTemplate>
                                         </ListBox.ItemTemplate>

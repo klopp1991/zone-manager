@@ -11,6 +11,14 @@ namespace SnapZones.App.Services;
 public sealed record RunningProcessEntry(string DisplayName, string ProcessPath, string WindowTitle)
 {
     public bool HasFullPath => ProcessPath.Contains('\\', StringComparison.Ordinal);
+
+    /// <summary>
+    /// Der Wert, der in die Regel übernommen wird: nur der Dateiname, nicht der vollständige Pfad.
+    /// Viele Programme installieren sich in ein Verzeichnis mit Versionsnummer – etwa
+    /// <c>…\AnthropicClaude\app-1.2.3\claude.exe</c>. Eine Regel auf diesen Pfad hört beim nächsten
+    /// Update auf zu greifen, während <c>claude.exe</c> unabhängig vom Installationsort trifft.
+    /// </summary>
+    public string RuleIdentity => DisplayName;
 }
 
 /// <summary>

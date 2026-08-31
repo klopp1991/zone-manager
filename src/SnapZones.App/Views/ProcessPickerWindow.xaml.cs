@@ -69,7 +69,8 @@ public partial class ProcessPickerWindow : Window
             return;
         }
 
-        SelectedProcessPath = entry.ProcessPath;
+        // Bewusst nur der Dateiname: er überlebt Updates, die den Installationspfad ändern.
+        SelectedProcessPath = entry.RuleIdentity;
         DialogResult = true;
     }
 

@@ -18,6 +18,7 @@ public sealed class WindowsWindowService : IWindowService
     private const uint RootAncestor = 2;
     private const uint NonClientHitTest = 0x0084;
     private const int CloakedAttribute = 14;
+    private const int ExtendedFrameBoundsAttribute = 9;
     private const uint AbortIfHung = 0x0002;
     private const int Restore = 9;
     private const uint NoZOrder = 0x0004;
@@ -57,14 +58,40 @@ public sealed class WindowsWindowService : IWindowService
         }
 
         _ = User32.ShowWindow(window, Restore);
+        var placement = CompensateInvisibleBorder(window, bounds);
         return User32.SetWindowPos(
             window,
             0,
-            bounds.X,
-            bounds.Y,
-            bounds.Width,
-            bounds.Height,
+            placement.X,
+            placement.Y,
+            placement.Width,
+            placement.Height,
             NoZOrder | NoActivate | NoOwnerZOrder | AsyncWindowPosition);
+    }
+
+    /// <summary>
+    /// Rechnet die Zielzone auf das Fensterrechteck um, damit der sichtbare Rahmen genau in der Zone
+    /// liegt. Ohne diesen Ausgleich stehen Fenster in lückenlos aneinandergrenzenden Zonen sichtbar
+    /// auseinander, weil Windows dem Fenster einen unsichtbaren Griffbereich zum Grössenziehen gibt.
+    /// Ist der Rahmen nicht messbar oder unplausibel, bleibt die Zone unverändert.
+    /// </summary>
+    private static PixelRect CompensateInvisibleBorder(nint window, PixelRect bounds)
+    {
+        if (!User32.GetWindowRect(window, out var windowRectangle))
+        {
+            return bounds;
+        }
+
+        if (DwmApi.DwmGetWindowRectAttribute(
+                window,
+                ExtendedFrameBoundsAttribute,
+                out var frame,
+                Marshal.SizeOf<RectNative>()) != 0)
+        {
+            return bounds;
+        }
+
+        return WindowFrameCompensation.Apply(bounds, ToPixelRect(windowRectangle), ToPixelRect(frame));
     }
 
     public WindowPlacementSnapshot? Capture(nint window)
@@ -100,7 +127,8 @@ public sealed class WindowsWindowService : IWindowService
             return false;
         }
 
-        return User32.SetWindowPos(identity.Handle, 0, bounds.X, bounds.Y, bounds.Width, bounds.Height,
+        var placement = CompensateInvisibleBorder(identity.Handle, bounds);
+        return User32.SetWindowPos(identity.Handle, 0, placement.X, placement.Y, placement.Width, placement.Height,
             NoZOrder | NoActivate | NoOwnerZOrder | AsyncWindowPosition);
     }
 

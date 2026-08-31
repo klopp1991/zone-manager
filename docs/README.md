@@ -18,10 +18,12 @@ Konfiguration und bestehende Installationen bleiben unter `%APPDATA%\SnapZones\s
 
 Auf der Seite **Regeln** verbindet eine Regel ein Programm mit einer Zielzone. Der Editor führt in vier nummerierten Gruppen durch die Eingabe:
 
-1. **Programm** — Prozesspfad oder Programmname. Zwei Wege führen dorthin: **Programmdatei wählen …** öffnet den Dateidialog und eignet sich auch für Programme, die gerade nicht laufen; **Laufendes Programm wählen …** listet die aktuell laufenden Programme mit sichtbarem Fenster samt Fenstertitel und Pfad und ist durchsuchbar. Läuft ein Programm mit erhöhten Rechten, gibt Windows den Pfad nicht preis; dann wird der Programmname übernommen, was für die Regel genügt.
+1. **Programm** — Prozesspfad oder Programmname. Zwei Wege führen dorthin: **Programmdatei wählen …** öffnet den Dateidialog und trägt den vollständigen Pfad ein; das ist die richtige Wahl, wenn genau eine bestimmte Programmdatei gemeint ist. **Laufendes Programm wählen …** listet die laufenden Programme mit sichtbarem Fenster samt Fenstertitel und Pfad, ist durchsuchbar und übernimmt bewusst **nur den Dateinamen**, etwa `claude.exe`. Viele Programme installieren sich in ein Verzeichnis mit Versionsnummer; eine Regel auf den vollständigen Pfad hört beim nächsten Update auf zu greifen, während der blosse Dateiname unabhängig vom Installationsort trifft. Läuft ein Programm mit erhöhten Rechten, gibt Windows den Pfad ohnehin nicht preis; dann steht der Programmname allein zur Verfügung.
 2. **Fenster eingrenzen (optional)** — Titelmuster vergleicht einen Teil des Fenstertitels ohne Rücksicht auf Gross- und Kleinschreibung; Fensterklasse vergleicht den internen Windows-Fenstertyp wie `CabinetWClass`. Leer bedeutet jeweils: die Regel gilt für jedes Fenster des Programms. `*` und `?` dienen als Platzhalter.
 3. **Auslöser** — Ereignis, Verzögerung von 0 bis 30000 Millisekunden, 0 bis 3 Wiederholungen, Priorität von 0 bis 100. Unter der Zeile erklärt ein Hinweisfeld das gewählte Ereignis im Klartext: **Fenster wird geöffnet** greift einmalig beim Erscheinen eines neuen Fensters, **Fenster erhält den Fokus** jedes Mal beim Wechsel zu einem passenden Fenster, **Layout wird aktiviert** ordnet beim Layoutwechsel alle bereits offenen passenden Fenster neu an.
 4. **Ziel** — Ziellayout und Zielzone; das Layout bestimmt zugleich den Monitor.
+
+In der Regelliste steht als Überschrift das Titelmuster, sofern eines gesetzt ist, sonst der Dateiname des Programms – nie der vollständige Pfad. Den vollständigen Pfad zeigt der Tooltip des Listeneintrags.
 
 Vor jedem Platzierungsversuch werden Fensteridentität, Regel und Ziel erneut geprüft. Fehlende Layouts, Monitore oder Zonen pausieren die Regel sichtbar; es gibt keinen stillen Fallback und Regeln starten keine Programme.
 
@@ -32,10 +34,13 @@ Vor jedem Platzierungsversuch werden Fensteridentität, Regel und Ziel erneut ge
 - Die Karte **Ausgewählte Zone** schaltet die **Masseinheit** an einer einzigen Stelle um; die Umschaltung gilt gemeinsam für alle acht Zahlenfelder. **Prozent** bleibt bei Auflösungsänderungen proportional; **Pixel** bezieht sich auf die aktuelle Windows-Arbeitsfläche des Monitors.
 - **Position und Grösse** bearbeitet X, Y, Breite und Höhe; **Abstände zum Rand** beschreibt dieselbe Zone von den vier Rändern aus.
 - Überlappende, zu kleine oder ausserhalb liegende Zonen werden markiert und können nicht gespeichert werden.
+- Beim Einrasten wird der unsichtbare Fensterrand ausgeglichen. Windows gibt Fenstern mit veränderbarer Grösse einen Griffbereich zum Ziehen, der zum Fensterrechteck zählt, aber nicht gezeichnet wird – typischerweise sieben Pixel links, rechts und unten. Ohne Ausgleich stünden zwei Fenster in lückenlos aneinandergrenzenden Zonen sichtbar auseinander. Das Programm vergrössert das Fensterrechteck deshalb um genau diesen Rand, sodass der sichtbare Rahmen exakt in der Zone liegt.
 
 ## Monitore
 
 Auf der Seite **Monitore** wählt die Liste links den Monitor, der im ganzen Programm als aktiver Monitor gilt. **Nach oben** und **Nach unten** ändern die Reihenfolge, **Monitore identifizieren** blendet den verwendeten Namen drei Sekunden lang auf jedem Bildschirm ein. Rechts wird der Monitor umbenannt; ein leerer Name stellt die automatische Bezeichnung wieder her. Monitornamen werden bevorzugt aus dem aktiven Displaypfad und den EDID-Daten gelesen.
+
+Die Liste enthält auch Monitore, die gerade **nicht verbunden** sind, solange für sie noch mindestens ein Layout gespeichert ist. Sie sind als solche gekennzeichnet und stehen am Ende der Liste. Der Grund: solche Layouts erscheinen weiterhin als Regelziel, wären ohne diesen Eintrag aber nirgends erreichbar und liessen sich nicht mehr löschen. Bei einem nicht verbundenen Monitor darf deshalb auch sein letztes Layout gelöscht werden — danach verschwindet der Monitor aus der Liste. Bei einem verbundenen Monitor bleibt das letzte Layout weiterhin geschützt.
 
 ## Skalierung
 

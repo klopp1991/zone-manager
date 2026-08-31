@@ -17,7 +17,7 @@
 
             <TextBlock Text="Laufendes Programm wählen" Style="{StaticResource SectionTitle}" />
             <TextBlock Grid.Row="1"
-                       Text="Aufgelistet sind Programme mit sichtbarem Fenster. Bei Programmen, die mit erhöhten Rechten laufen, kann Windows den Pfad nicht preisgeben; dann wird der Programmname übernommen, was für die Regel genügt."
+                       Text="Aufgelistet sind Programme mit sichtbarem Fenster. Übernommen wird jeweils nur der Dateiname – etwa «claude.exe» –, damit die Regel auch nach einem Update oder einer Neuinstallation weiter greift. Der vollständige Pfad dient nur der Orientierung; brauchst du genau eine bestimmte Programmdatei, wähle sie stattdessen über «Programmdatei wählen …»."
                        Style="{StaticResource HelpText}" Margin="0,6,0,14" />
 
             <Grid Grid.Row="2">
