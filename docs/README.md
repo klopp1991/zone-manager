@@ -84,11 +84,41 @@ SaschaZoneManager.exe --diagnostics
 
 Die Diagnose liest Konfigurationsstatus, Monitore, DPI und Autostartstatus. Sie registriert keinen Fenster-Hook und verändert weder Einstellungen noch Registry.
 
+## Vergleich mit anderen Programmen
+
+Die folgenden Punkte fehlen gegenüber vergleichbaren Werkzeugen
+(PowerToys FancyZones, AquaSnap, DisplayFusion) und sind nach erwartetem Nutzen
+geordnet. Sie sind bewusst noch nicht umgesetzt, nicht übersehen.
+
+1. **Fenster per Tastatur platzieren.** `Win` + Pfeiltasten in ein Zielfeld
+   verschieben, wahlweise nach Zonenindex oder nach geometrischer Lage. Die
+   sinnvolle Ergänzung dazu ist, die entstehende Tastenkombination direkt unter
+   der jeweiligen Auswahl anzuzeigen, weil genau diese Einstellung bei
+   FancyZones am häufigsten missverstanden wird.
+2. **Fenster nach Auflösungs- oder Monitorwechsel zurücksetzen.** Nach einem
+   Wechsel der Arbeitsfläche die Fenster erneut in ihre Zonen einpassen. Dazu
+   gehört eine definierte und dokumentierte Regel für den Fall, dass das neue
+   Layout weniger Zonen hat als das alte.
+3. **Zuletzt benutzte Zone je Anwendung merken**, damit ein neu geöffnetes
+   Fenster dort erscheint, wo es zuletzt lag.
+4. **Regeln pro Anwendung**, die über eine Ausschlussliste hinausgehen: Treffer
+   auf Prozessname, Fensterklasse oder Titel, wahlweise exakt, mit Präfix,
+   Suffix oder Ausdruck, und sowohl «nie einrasten» als auch «immer in Zone N».
+5. **Standardlayout je Monitorausrichtung**, damit ein neu angeschlossener
+   Bildschirm sofort etwas Sinnvolles zeigt.
+6. **Benannte Fensteranordnungen**, die die Position aller offenen Fenster
+   sichern und per Tastenkombination wiederherstellen.
+
+Ausdrücklich nicht geplant sind Eingriffe, die einen Treiber, einen
+Windows-Dienst oder Code-Injektion erfordern, etwa zusätzliche Schaltflächen in
+fremden Titelleisten.
+
 ## Einschränkungen
 
 - Nur Windows 11 x64.
 - Wird die Windows-UAC-Abfrage abgebrochen, startet die Anwendung nicht.
-- Nicht rechteckige oder überlappende Zonen, virtuelle Desktops, Fensterregeln und automatische Updates sind noch nicht enthalten.
+- Erhöht laufende Fenster lassen sich nur positionieren, wenn auch Sascha’s Zone Manager erhöht läuft.
+- Nicht rechteckige Zonen, virtuelle Desktops, Fensterregeln und automatische Updates sind noch nicht enthalten.
 - Eigene Layouts können nicht über eine dokumentierte API in das native Windows-Snap-Popup eingefügt werden; die Anwendung verwendet ein eigenes Overlay.
 - Der Prototyp ist nicht digital signiert und kann beim ersten Start eine Windows-Sicherheitswarnung auslösen.
 
