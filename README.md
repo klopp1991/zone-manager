@@ -4,7 +4,9 @@ Sascha’s Zone Manager ist ein Windows-11-Programm für frei bearbeitbare Fenst
 
 ## Schnellstart
 
-Voraussetzungen: Windows 11 x64 und das [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
+Fertige Programmdatei: `ZoneManager.exe` liegt beim jeweils neuesten [Release](https://github.com/klopp1991/zone-manager/releases/latest) und nicht im Repository. Herunterladen, starten, fertig - eine Installation gibt es nicht.
+
+Selbst bauen - Voraussetzungen: Windows 11 x64 und das [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
 
 ```powershell
 git clone https://github.com/klopp1991/zone-manager.git
@@ -41,7 +43,23 @@ dotnet build ZoneManager.sln -c Release
 
 Jeder Build des App-Projekts veröffentlicht anschliessend automatisch die selbständige Root-`ZoneManager.exe`. Für schnelle Zwischenbuilds lässt sich dieser Schritt mit `-p:SkipRootExecutablePublish=true` überspringen.
 
-Die Lösung ist in `SnapZones.Core`, `SnapZones.Windows` und `SnapZones.App` geteilt. Tests liegen unter `tests\SnapZones.Tests`; der reproduzierbare Gesamtcheck ist `scripts\verify.ps1`.
+Die Lösung ist in `SnapZones.Core`, `SnapZones.Windows` und `SnapZones.App` geteilt. Tests liegen unter `tests\SnapZones.Tests`; der reproduzierbare Gesamtcheck ist `scripts\verify.ps1`. Die Skripte `scripts\test-new-task-worktree.ps1` und `scripts\test-set-version.ps1` prüfen die Hilfsskripte und laufen ausserhalb von `verify.ps1`.
+
+Die gebaute `ZoneManager.exe` im Wurzelverzeichnis ist ein Build-Artefakt und wird nicht versioniert; sie entsteht bei jedem Build neu und wird nur an Releases angehängt.
+
+## Versionen und Releases
+
+Die Version folgt dem Schema `YYYY.MMDD.NN`; `NN` beginnt an jedem Tag bei `01` und zählt je Veröffentlichung des Tages um eins hoch. Das Hauptfenster zeigt sie oben rechts, die Dateieigenschaften der EXE tragen sie als Datei- und Produktversion.
+
+Ein Release entsteht auf `main` mit sauberem Arbeitsbaum:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\publish-release.ps1
+```
+
+Das Skript schreibt die nächste Version des Tages nach `Directory.Build.props`, führt `scripts\verify.ps1` aus, committet die Versionsdatei, setzt den Tag `v<Version>`, pusht beides und erstellt das GitHub-Release mit `ZoneManager.exe` als Anhang. Dafür braucht es ein angemeldetes [GitHub CLI](https://cli.github.com/) (`gh auth login`) oder ein Token in `GH_TOKEN`; fehlt beides, bleiben Commit und Tag bestehen und das Skript nennt den Befehl zum Nachholen.
+
+Nur die Version setzen, ohne zu veröffentlichen: `scripts\set-version.ps1` (mit `-WhatIfOnly` als reine Vorschau). Die erzeugte `Directory.Build.props` wird nicht von Hand bearbeitet. Assemblys können keine führenden Nullen speichern; `AssemblyVersion` und `FileVersion` tragen deshalb `2026.831.1`, während die angezeigte Version `2026.0831.01` lautet.
 
 ## Sicherheit und Einschränkungen
 

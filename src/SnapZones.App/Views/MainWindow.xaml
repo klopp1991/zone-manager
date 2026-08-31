@@ -36,12 +36,15 @@
         <Border Grid.Row="0" MinHeight="72" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
             <Grid Margin="20,0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" /><ColumnDefinition Width="14" /><ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" /><ColumnDefinition Width="14" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="10" /><ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <Image Width="36" Height="36" Source="/ZoneManager;component/Assets/ZoneManager.Header.png"
                        RenderOptions.BitmapScalingMode="HighQuality" SnapsToDevicePixels="True" VerticalAlignment="Center" />
                 <TextBlock Grid.Column="2" Text="Sascha’s Zone Manager" FontFamily="Segoe UI Variable Display"
                            FontSize="22" FontWeight="SemiBold" VerticalAlignment="Center" />
+                <TextBlock x:Name="VersionLabel" Grid.Column="4" Foreground="{DynamicResource MutedBrush}"
+                           FontSize="13" VerticalAlignment="Center" Margin="0,6,0,0"
+                           AutomationProperties.Name="Programmversion" />
             </Grid>
         </Border>
 

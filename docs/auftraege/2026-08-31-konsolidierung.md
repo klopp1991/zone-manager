@@ -28,7 +28,8 @@ Sascha's Zone Manager ist ein Windows-11-x64-Programm für frei bearbeitbare Fen
 | Compilerstrenge | `TreatWarningsAsErrors` in allen vier Projekten |
 | Prüflauf | `scripts\verify.ps1`, Laufzeit ca. 1:37 mit `-SkipDpiCheck` |
 | Root-EXE | `ZoneManager.exe` im Projektstamm, ca. 71.9 MB, self-contained win-x64 |
-| Versionskontrolle | **kein Git-Repository vorhanden** — siehe AP5 |
+| Versionskontrolle | Git, Branch `main`, Remote `https://github.com/klopp1991/zone-manager.git` (Stand 31.08.2026) |
+| Version | Schema `YYYY.MMDD.NN` aus `Directory.Build.props`, geschrieben von `scripts\set-version.ps1` |
 
 ### 1.2 Relevante Codestellen
 
@@ -110,6 +111,12 @@ Reihenfolge ist bindend: AP5, dann AP1, dann AP3, dann AP2. AP4 gilt durchgehend
 3. Erster Commit als Bestandsaufnahme des jetzigen, grünen Standes.
 4. `scripts\test-new-task-worktree.ps1` ausführen und das Ergebnis im Auftrag festhalten.
 5. Klären und dokumentieren, ob ein Remote gewünscht ist. Das README nennt `https://github.com/klopp1991/zone-manager.git`; ob dieses Remote existiert und benutzt werden soll, ist **ungeprüft**. Ohne ausdrückliche Freigabe von Sascha nichts pushen und kein Remote anlegen.
+
+**Ergebnis 31.08.2026:** Das Remote existierte bereits mit eigener Historie; der lokale Ordner war nur nicht damit verbunden. Statt eines neuen `git init` mit Erstcommit wurde der vorhandene Stand über `git init`, `git remote add origin`, `git fetch` und `git reset origin/main` an die bestehende Historie angeschlossen. Sascha hat Push ausdrücklich freigegeben. Die 27 Abweichungen des Ordners gegenüber `main` sind in drei Commits eingegangen: abgeschlossenes Rebranding, `ZoneManager.exe` aus der Versionierung genommen und der Startfehler bei recyceltem Monitor-Gerätenamen. Die EXE wird seither nur noch als Release-Asset ausgeliefert.
+
+**Abweichung von Punkt 2 und den Akzeptanzkriterien:** `ZoneManager.exe` stand bereits im Index des Remote-Repositories und liess sich deshalb nicht durch `.gitignore` fernhalten; sie wurde mit `git rm --cached` entfernt. Die alten EXE-Blobs bleiben in der Historie. `git log` zeigt entsprechend mehr als einen Commit, weil an eine bestehende Historie angeschlossen wurde.
+
+Da der Ordner auf einem Netzlaufwerk liegt, verlangt Git für den Projektpfad und für jeden neuen Worktree einen `safe.directory`-Eintrag in der globalen Konfiguration; ohne ihn brechen alle Git-Aufrufe mit "dubious ownership" ab.
 
 **Akzeptanzkriterien**
 
@@ -241,7 +248,7 @@ Das ist keine einmalige Aufgabe, sondern eine Dauerregel. Sie steht als Abschnit
 
 | AP | Thema | Status | Datum | Ergebnis |
 |---|---|---|---|---|
-| AP5 | Git einführen | offen | | |
+| AP5 | Git einführen | erledigt | 31.08.2026 | An bestehendes Remote `klopp1991/zone-manager` angeschlossen, drei Commits gepusht, EXE aus dem Index entfernt |
 | AP1 | Elevation vorher prüfen | offen | | |
 | AP3 | Laufzeitordner umbenennen | offen | | |
 | AP2 | Projekte und Namespaces umbenennen | offen | | |
@@ -251,5 +258,5 @@ Das ist keine einmalige Aufgabe, sondern eine Dauerregel. Sie steht als Abschnit
 
 ## 6. Offene Fragen an Sascha
 
-1. Soll ein Git-Remote verwendet werden, und falls ja welches? Die im README genannte Adresse `https://github.com/klopp1991/zone-manager.git` ist ungeprüft.
+1. ~~Soll ein Git-Remote verwendet werden, und falls ja welches?~~ **Beantwortet 31.08.2026:** `https://github.com/klopp1991/zone-manager.git`, Branch `main`, Push freigegeben. Ausgelieferte Programmdateien liegen als Release-Assets, nicht im Repository.
 2. Für AP1: Soll der nicht erhöhte Betrieb beim nächsten Start automatisch erneut eine Erhöhung versuchen, oder erst nach ausdrücklicher Bestätigung in der Oberfläche?

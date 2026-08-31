@@ -33,13 +33,19 @@ public partial class MainWindow : Window
     {
         pickOverlayColor = PickOverlayColorWithDialog;
         InitializeComponent();
-        ArrangeNavigationTabs();
+        InitializeShell();
     }
 
     public MainWindow(Func<string, string?> pickOverlayColor)
     {
         this.pickOverlayColor = pickOverlayColor ?? throw new ArgumentNullException(nameof(pickOverlayColor));
         InitializeComponent();
+        InitializeShell();
+    }
+
+    private void InitializeShell()
+    {
+        VersionLabel.Text = $"Version {ProductInfo.Version}";
         ArrangeNavigationTabs();
     }
 
