@@ -4,16 +4,25 @@ Vor Arbeitsbeginn `docs/auftraege/2026-08-31-konsolidierung.md` lesen. Dort steh
 
 # Parallele Arbeit
 
-Vor jeder Dateiänderung muss jede Aufgabe in einem eigenen Git-Worktree und auf einem eigenen Branch arbeiten.
+`main` ist der einzige dauerhafte Branch. Aufgabenbranches leben Minuten bis Stunden, nie Tage. Es gibt keine Themen-, Feature- oder Sammelbranches.
 
-1. Im primären Worktree auf `main` sind nur Bestandsaufnahme und abschliessende Integration erlaubt; dort niemals Quellcode, Tests, Dokumentation oder Build-Artefakte ändern.
-2. Befindet sich die Aufgabe noch im primären Worktree, `scripts/new-task-worktree.ps1 -TaskName "<kurzer-name>"` ausführen und danach alle Befehle ausschliesslich im ausgegebenen `WorktreePath` ausführen.
-3. Einen bereits vorhandenen verknüpften Worktree weiterverwenden; innerhalb eines Worktrees keinen weiteren Worktree anlegen.
-4. Nie fremde Änderungen stagen, stashen, zurücksetzen, bereinigen oder überschreiben. Jeder Aufgabenbranch enthält nur die Änderungen dieser Aufgabe.
-5. Vor einer Integration Arbeitsbaum, Zielbranch und `git worktree list` prüfen. Nur vollständig commitete und geprüfte Aufgabenbranches in einem sauberen Integrations-Worktree zusammenführen.
-6. Die Root-EXE nur in einer ausdrücklich dafür vorgesehenen Integrations- oder Release-Aufgabe aktualisieren.
+1. Standardfall ist die direkte Arbeit im primaeren Worktree auf `main`. Arbeitet gerade kein zweiter Agent am Repository, wird kein Branch und kein Worktree angelegt.
+2. Ein eigener Worktree wird nur angelegt, wenn tatsaechlich ein zweiter Agent gleichzeitig arbeitet. Der Grund ist technische Isolation, nicht Prozess: ein gemeinsamer Git-Index und gemeinsame `obj/`- und `bin/`-Verzeichnisse vertragen keine zwei gleichzeitigen Laeufe. Dann `scripts/new-task-worktree.ps1 -TaskName "<kurzer-name>"` ausfuehren und alle weiteren Befehle ausschliesslich im ausgegebenen `WorktreePath`.
+3. Einen bereits vorhandenen verknuepften Worktree weiterverwenden; innerhalb eines Worktrees keinen weiteren Worktree anlegen.
+4. Aufgaben werden so geschnitten, dass gleichzeitig laufende Agents verschiedene Dateien anfassen. Ueberschneiden sich zwei Aufgaben inhaltlich, werden sie nacheinander erledigt statt parallel.
+5. Nie fremde Aenderungen stagen, stashen, zuruecksetzen, bereinigen oder ueberschreiben. Jeder Aufgabenbranch enthaelt nur die Aenderungen dieser Aufgabe.
+6. Die Root-EXE nur in einer ausdruecklich dafuer vorgesehenen Integrations- oder Release-Aufgabe aktualisieren.
 
-Wenn ein sauberer Integrations-Worktree nicht verfügbar ist, die Arbeit auf dem Aufgabenbranch abschliessen und die Integration als offen melden; niemals ersatzweise in einen belegten `main`-Worktree schreiben.
+# Abschluss einer Aufgabe
+
+Die Integration gehoert zur Aufgabe. Eine Aufgabe, deren Ergebnis nicht in `main` steht, ist nicht fertig.
+
+1. Alle Aenderungen commiten, bis der Arbeitsbaum sauber ist.
+2. `scripts/finish-task.ps1` ausfuehren. Das Skript holt `origin/main`, rebased die Aufgabe darauf, laesst die Testsuite laufen, zieht `main` per Fast-Forward auf den Aufgabenstand, pusht nach `origin/main` und entfernt Worktree und Aufgabenbranch.
+3. Die Standardpruefung ist die Testsuite, nicht der Release-Lauf. `scripts/verify.ps1` publisht eine 72-MB-EXE und schreibt die Root-EXE; es laeuft nur in einer Release-Aufgabe, dort ueber `scripts/finish-task.ps1 -Check Full`. `-Check None` ist nur zulaessig, wenn die Pruefung in derselben Aufgabe schon auf dem endgueltigen Stand gelaufen ist.
+4. Bricht das Skript ab, wird die Ursache in derselben Aufgabe behoben: Rebase-Konflikte aufloesen, fehlgeschlagene Pruefungen reparieren, danach erneut ausfuehren. Ein Aufgabenbranch wird nicht liegengelassen und nicht an eine spaetere Aufgabe uebergeben.
+5. Laesst sich eine Aufgabe nicht abschliessen, wird sie zurueckgenommen statt gestapelt: Worktree und Branch entfernen und den erreichten Stand im zugehoerigen Auftrag unter `docs/auftraege/` festhalten.
+6. Es wird nicht gemerged. `main` bleibt linear.
 
 # Dokumentation
 
