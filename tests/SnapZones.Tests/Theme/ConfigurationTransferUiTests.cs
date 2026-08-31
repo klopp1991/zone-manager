@@ -33,6 +33,11 @@ public sealed class ConfigurationTransferUiTests
             Assert.Contains(importButton, pageButtons);
             Assert.DoesNotContain(exportButton, headerButtons);
             Assert.DoesNotContain(importButton, headerButtons);
+
+            // Beide Aktionen sind gleichrangig und teilen sich denselben farbigen Schaltflaechenstil.
+            var primary = Assert.IsType<Style>(Application.Current.Resources["PrimaryButton"]);
+            Assert.Same(primary, exportButton.Style);
+            Assert.Same(primary, importButton.Style);
         });
     }
 

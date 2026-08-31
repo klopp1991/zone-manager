@@ -19,14 +19,14 @@ Der Lauf schliesst eine Per-Monitor-DPI-Prüfung ein, die die Oberfläche starte
 
 ## Funktionen
 
-- Layouts und Zonen je Monitor mit Prozent- oder Pixelmassen
+- Layouts und Zonen je Monitor, wahlweise in Prozent oder Pixel; die Einheit wird pro Karte an einer Stelle umgeschaltet
 - Zonen per Maus, acht Griffen oder exakten Abständen bearbeiten
 - Magnetismus an Monitor- und Zonenkanten; `Alt` deaktiviert ihn temporär
 - Overlay auf allen Monitoren oder nur auf dem aktiven Monitor
 - Sofortige Layoutspeicherung, fünf automatische Backups sowie JSON-Export und -Import
 - System-, helles und dunkles Theme, Autostart und Not-Aus über `Ctrl + Alt + Shift + F12`
 - Monitorerkennung über Displaypfad und EDID-Daten
-- App-Regeln nach Prozess, optionalem Fenstertitel und Fensterklasse mit Ereignis, Verzögerung, Wiederholungen und Zielzone
+- Regeln nach Prozess, optionalem Fenstertitel und Fensterklasse mit Ereignis, Verzögerung, Wiederholungen und Zielzone; das Programm wird über den Dateidialog oder aus der Liste der laufenden Programme gewählt
 
 ## Konfiguration
 
@@ -47,7 +47,7 @@ Die Lösung ist in `SnapZones.Core`, `SnapZones.Windows` und `SnapZones.App` get
 
 Die Anwendung verwendet keinen Treiber, keinen Windows-Dienst und keine Code-Injektion. Sie unterstützt nur Windows 11 x64, ist nicht digital signiert und kann deshalb beim ersten Start eine Sicherheitswarnung auslösen. Das native Windows-Snap-Popup kann nicht über eine dokumentierte API um eigene Zonen erweitert werden; Sascha’s Zone Manager verwendet dafür ein eigenes Overlay.
 
-Weitere Bedienungs- und Architekturdetails stehen in [docs/README.md](docs/README.md), der [Kurzanleitung](outputs/ZoneManager-Kurzanleitung.md) und dem [Prüfbericht](outputs/ZoneManager-Pruefbericht.md).
+Weitere Bedienungs- und Architekturdetails stehen in [docs/README.md](docs/README.md), der [Kurzanleitung](outputs/ZoneManager-Kurzanleitung.md) und dem [Prüfbericht](outputs/ZoneManager-Pruefbericht.md). Für Änderungen an der Oberfläche gelten verbindlich die [UI-Richtlinien](docs/ui-richtlinien.md).
 
 ## Mitwirken
 

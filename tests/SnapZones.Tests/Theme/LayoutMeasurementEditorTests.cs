@@ -14,7 +14,7 @@ namespace SnapZones.Tests.Theme;
 public sealed class LayoutMeasurementEditorTests
 {
     [Fact]
-    public void Layout_editor_uses_eight_direct_unit_fields_without_mode_dropdowns()
+    public void Layout_editor_uses_eight_direct_fields_and_one_shared_unit_switch()
     {
         WpfThemeHost.Invoke(() =>
         {
@@ -24,21 +24,47 @@ public sealed class LayoutMeasurementEditorTests
                 "ZonePositionXText", "ZonePositionYText", "ZoneWidthText", "ZoneHeightText",
                 "ZoneMarginLeftText", "ZoneMarginTopText", "ZoneMarginRightText", "ZoneMarginBottomText"
             };
-            var unitButtonNames = new[]
+            var retiredUnitButtons = new[]
             {
                 "ZonePositionXUnitButton", "ZonePositionYUnitButton", "ZoneWidthUnitButton", "ZoneHeightUnitButton",
                 "ZoneMarginLeftUnitButton", "ZoneMarginTopUnitButton", "ZoneMarginRightUnitButton", "ZoneMarginBottomUnitButton"
             };
 
             Assert.All(fieldNames, name => Assert.IsType<TextBox>(window.FindName(name)));
-            Assert.All(unitButtonNames, name =>
-            {
-                var button = Assert.IsType<Button>(window.FindName(name));
-                Assert.Equal("%", button.Content);
-                Assert.Contains("Einheit", AutomationProperties.GetName(button));
-            });
+
+            // Die Einheit wird an einer einzigen Stelle umgeschaltet und gilt fuer alle acht Felder.
+            Assert.All(retiredUnitButtons, name => Assert.Null(window.FindName(name)));
+            var percent = Assert.IsType<Button>(window.FindName("ZoneUnitPercentButton"));
+            var pixels = Assert.IsType<Button>(window.FindName("ZoneUnitPixelButton"));
+
+            Assert.Equal("%", percent.Content);
+            Assert.Equal("px", pixels.Content);
+            Assert.Contains("Prozent", AutomationProperties.GetName(percent));
+            Assert.Contains("Pixel", AutomationProperties.GetName(pixels));
+            Assert.Same(window.FindResource("UnitSegmentActive"), percent.Style);
+            Assert.Same(window.FindResource("UnitSegment"), pixels.Style);
             Assert.Null(window.FindName("ZoneUnitCombo"));
             Assert.Null(window.FindName("ZoneDefinitionCombo"));
+        });
+    }
+
+    [Fact]
+    public void Zone_measurement_fields_are_wide_enough_for_six_digit_pixel_values()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var window = CreateWindow();
+            var fieldNames = new[]
+            {
+                "ZonePositionXText", "ZonePositionYText", "ZoneWidthText", "ZoneHeightText",
+                "ZoneMarginLeftText", "ZoneMarginTopText", "ZoneMarginRightText", "ZoneMarginBottomText"
+            };
+
+            Assert.All(fieldNames, name =>
+            {
+                var field = Assert.IsType<TextBox>(window.FindName(name));
+                Assert.True(field.MinWidth >= 110d, $"{name} ist zu schmal fuer sechsstellige Pixelwerte.");
+            });
         });
     }
 
@@ -90,18 +116,20 @@ public sealed class LayoutMeasurementEditorTests
         {
             var window = CreateWindow();
             var positionX = Assert.IsType<TextBox>(window.FindName("ZonePositionXText"));
-            var positionXUnit = Assert.IsType<Button>(window.FindName("ZonePositionXUnitButton"));
+            var pixelSwitch = Assert.IsType<Button>(window.FindName("ZoneUnitPixelButton"));
+            var percentSwitch = Assert.IsType<Button>(window.FindName("ZoneUnitPercentButton"));
             var positionY = Assert.IsType<TextBox>(window.FindName("ZonePositionYText"));
             var width = Assert.IsType<TextBox>(window.FindName("ZoneWidthText"));
             var height = Assert.IsType<TextBox>(window.FindName("ZoneHeightText"));
 
-            positionXUnit.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            pixelSwitch.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             positionX.Text = "320";
             positionY.Text = "10";
             width.Text = "50";
             height.Text = "50";
             var editor = Assert.IsType<LayoutEditorViewModel>(Assert.IsType<MainViewModel>(window.DataContext).Editor);
-            Assert.Equal("px", positionXUnit.Content);
+            Assert.Same(window.FindResource("UnitSegmentActive"), pixelSwitch.Style);
+            Assert.Same(window.FindResource("UnitSegment"), percentSwitch.Style);
             Assert.Equal(new NormalizedRect(0.1, 10d / 1080d, 50d / 3200d, 50d / 1080d), editor.SelectedZone?.Bounds);
             Assert.Equal("2830", Assert.IsType<TextBox>(window.FindName("ZoneMarginRightText")).Text);
         });

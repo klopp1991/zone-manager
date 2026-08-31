@@ -7,6 +7,7 @@
     <SolidColorBrush x:Key="ControlBorderBrush" Color="#748196" />
     <SolidColorBrush x:Key="InkBrush" Color="#172033" />
     <SolidColorBrush x:Key="MutedBrush" Color="#58667C" />
+    <SolidColorBrush x:Key="SubtleInkBrush" Color="#66707F" />
     <SolidColorBrush x:Key="AccentBrush" Color="#2F6FED" />
     <SolidColorBrush x:Key="AccentInkBrush" Color="#FFFFFF" />
     <SolidColorBrush x:Key="AccentHoverBrush" Color="#245ED0" />
@@ -67,12 +68,12 @@
         </ControlTemplate.Triggers>
     </ControlTemplate>
 
-    <ControlTemplate x:Key="UnitToggleButtonTemplate" TargetType="Button">
+    <ControlTemplate x:Key="UnitSegmentTemplate" TargetType="Button">
         <Border x:Name="UnitBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
-                BorderThickness="1,0,0,0" CornerRadius="0,4,4,0" SnapsToDevicePixels="True">
+                BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" SnapsToDevicePixels="True">
             <Grid>
                 <Border x:Name="FocusBorder" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2"
-                        CornerRadius="0,4,4,0" Visibility="Collapsed" />
+                        CornerRadius="4" Visibility="Collapsed" />
                 <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
             </Grid>
         </Border>
@@ -102,8 +103,8 @@
     <ControlTemplate x:Key="ToolTipTemplate" TargetType="ToolTip">
         <Border Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource ControlBorderBrush}"
                 BorderThickness="1" CornerRadius="5" Padding="12,10" SnapsToDevicePixels="True">
-            <TextBlock Text="{TemplateBinding Content}" MaxWidth="360" Foreground="{DynamicResource InkBrush}"
-                       FontFamily="Segoe UI Variable Text" FontSize="14" TextWrapping="Wrap" LineHeight="20" />
+            <TextBlock Text="{TemplateBinding Content}" MaxWidth="420" Foreground="{DynamicResource InkBrush}"
+                       FontFamily="Segoe UI Variable Text" FontSize="15" TextWrapping="Wrap" LineHeight="21" />
         </Border>
     </ControlTemplate>
 
@@ -131,7 +132,7 @@
                 BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4" SnapsToDevicePixels="True">
             <Grid>
                 <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="34" /></Grid.ColumnDefinitions>
-                <ContentPresenter Margin="10,0,6,0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                <ContentPresenter Margin="12,0,6,0" HorizontalAlignment="Left" VerticalAlignment="Center"
                                   Content="{Binding SelectionBoxItem, RelativeSource={RelativeSource AncestorType=ComboBox}}"
                                   ContentTemplate="{Binding SelectionBoxItemTemplate, RelativeSource={RelativeSource AncestorType=ComboBox}}"
                                   ContentTemplateSelector="{Binding ItemTemplateSelector, RelativeSource={RelativeSource AncestorType=ComboBox}}" />
@@ -318,12 +319,13 @@
     </ControlTemplate>
 
     <Style TargetType="Window">
-        <Setter Property="FontFamily" Value="Segoe UI Variable Text" /><Setter Property="FontSize" Value="15" />
+        <Setter Property="FontFamily" Value="Segoe UI Variable Text" /><Setter Property="FontSize" Value="16" />
         <Setter Property="Foreground" Value="{DynamicResource InkBrush}" /><Setter Property="Background" Value="{DynamicResource CanvasBrush}" />
     </Style>
     <Style TargetType="TextBlock"><Setter Property="Foreground" Value="{DynamicResource InkBrush}" /></Style>
+    <!-- Einheitliche Steuerelementhöhe: Button, TextBox und ComboBox teilen sich ControlHeight (40). -->
     <Style TargetType="Button">
-        <Setter Property="MinHeight" Value="38" /><Setter Property="Padding" Value="14,7" /><Setter Property="Margin" Value="0,0,8,8" />
+        <Setter Property="MinHeight" Value="40" /><Setter Property="Padding" Value="16,6" /><Setter Property="Margin" Value="0" />
         <Setter Property="HorizontalContentAlignment" Value="Center" /><Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" /><Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" /><Setter Property="BorderThickness" Value="1" />
@@ -343,24 +345,30 @@
         <Setter Property="ToolTipService.InitialShowDelay" Value="250" /><Setter Property="ToolTipService.BetweenShowDelay" Value="0" />
         <Setter Property="ToolTipService.ShowDuration" Value="30000" /><Setter Property="Template" Value="{StaticResource InfoButtonTemplate}" />
     </Style>
-    <Style x:Key="UnitToggleButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-        <Setter Property="Width" Value="42" /><Setter Property="Height" Value="36" />
-        <Setter Property="MinHeight" Value="36" /><Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="0,1,1,1" />
-        <Setter Property="HorizontalAlignment" Value="Right" /><Setter Property="VerticalAlignment" Value="Stretch" />
-        <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" /><Setter Property="Foreground" Value="{DynamicResource AccentStatusBrush}" />
-        <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" /><Setter Property="FontFamily" Value="Cascadia Mono" />
-        <Setter Property="FontSize" Value="12" /><Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Template" Value="{StaticResource UnitToggleButtonTemplate}" />
+    <!-- Segmentierter Einheitenumschalter: eine Stelle schaltet alle Messfelder einer Karte um. -->
+    <Style x:Key="UnitSegment" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="MinWidth" Value="54" /><Setter Property="MinHeight" Value="32" /><Setter Property="Height" Value="32" />
+        <Setter Property="Padding" Value="10,0" /><Setter Property="Margin" Value="0" />
+        <Setter Property="Background" Value="Transparent" /><Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+        <Setter Property="BorderBrush" Value="Transparent" /><Setter Property="BorderThickness" Value="1" />
+        <Setter Property="FontFamily" Value="Cascadia Mono" /><Setter Property="FontSize" Value="13" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Template" Value="{StaticResource UnitSegmentTemplate}" />
+    </Style>
+    <Style x:Key="UnitSegmentActive" TargetType="Button" BasedOn="{StaticResource UnitSegment}">
+        <Setter Property="Background" Value="{DynamicResource AccentSoftBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource AccentStatusBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
     </Style>
     <Style TargetType="TextBox">
-        <Setter Property="MinHeight" Value="38" /><Setter Property="Padding" Value="10,7" />
+        <Setter Property="MinHeight" Value="40" /><Setter Property="Padding" Value="12,0" />
         <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" /><Setter Property="BorderThickness" Value="1" />
         <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" /><Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
         <Setter Property="CaretBrush" Value="{DynamicResource InkBrush}" /><Setter Property="VerticalContentAlignment" Value="Center" />
         <Setter Property="Template" Value="{StaticResource TextBoxTemplate}" />
     </Style>
     <Style TargetType="ComboBox">
-        <Setter Property="MinHeight" Value="38" /><Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+        <Setter Property="MinHeight" Value="40" /><Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" /><Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
         <Setter Property="Foreground" Value="{DynamicResource InkBrush}" /><Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="Template" Value="{StaticResource ComboBoxTemplate}" />
@@ -378,7 +386,7 @@
         <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
     </Style>
     <Style TargetType="ListBoxItem">
-        <Setter Property="Padding" Value="11,10" /><Setter Property="Margin" Value="0,0,0,5" />
+        <Setter Property="Padding" Value="12,11" /><Setter Property="Margin" Value="0,0,0,6" />
         <Setter Property="Background" Value="Transparent" /><Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="1" /><Setter Property="HorizontalContentAlignment" Value="Stretch" />
         <Setter Property="VerticalContentAlignment" Value="Center" /><Setter Property="Template" Value="{StaticResource ListBoxItemTemplate}" />
@@ -416,15 +424,30 @@
         <Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
     </Style>
     <Style x:Key="SectionTitle" TargetType="TextBlock">
-        <Setter Property="FontFamily" Value="Segoe UI Variable Display" /><Setter Property="FontSize" Value="19" />
+        <Setter Property="FontFamily" Value="Segoe UI Variable Display" /><Setter Property="FontSize" Value="20" />
+        <Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+    </Style>
+    <!--
+        Texthierarchie, verbindlich fuer alle Seiten (siehe docs/ui-richtlinien.md):
+        PageTitle 30 > SectionTitle 20 > GroupTitle 16 > FieldLabel 15 SemiBold > Fliesstext 16 > HelpText 14 dezent.
+        HelpText ist der einzige Stil mit SubtleInkBrush; dadurch bleibt Hilfetext vom Label unterscheidbar.
+    -->
+    <Style x:Key="GroupTitle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Segoe UI Variable Display" /><Setter Property="FontSize" Value="16" />
         <Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
     </Style>
     <Style x:Key="FieldLabel" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{DynamicResource InkBrush}" /><Setter Property="FontSize" Value="14" />
-        <Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Margin" Value="0,0,0,5" />
+        <Setter Property="Foreground" Value="{DynamicResource InkBrush}" /><Setter Property="FontSize" Value="15" />
+        <Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Margin" Value="0,0,0,6" />
     </Style>
     <Style x:Key="HelpText" TargetType="TextBlock">
-        <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" /><Setter Property="FontSize" Value="13.5" />
-        <Setter Property="TextWrapping" Value="Wrap" /><Setter Property="LineHeight" Value="19" /><Setter Property="Margin" Value="0,5,0,0" />
+        <Setter Property="Foreground" Value="{DynamicResource SubtleInkBrush}" /><Setter Property="FontSize" Value="14" />
+        <Setter Property="FontWeight" Value="Normal" />
+        <Setter Property="TextWrapping" Value="Wrap" /><Setter Property="LineHeight" Value="20" /><Setter Property="Margin" Value="0,6,0,0" />
+    </Style>
+    <Style x:Key="FieldGroup" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="6" /><Setter Property="Padding" Value="14" />
+        <Setter Property="Margin" Value="0,0,0,12" />
     </Style>
 </ResourceDictionary>
