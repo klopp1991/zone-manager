@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using SnapZones.App.Services;
+using SnapZones.Core.Models;
 using Xunit;
 
 namespace SnapZones.Tests.Services;
@@ -16,6 +17,7 @@ public sealed class ElevationStartupServiceTests
             @"C:\Program Files\ZoneManager.exe",
             ["--autostart", "--sample", "Wert mit Leerzeichen"],
             isAdministrator: false,
+            ElevationMode.Always,
             startElevated: startInfo =>
             {
                 capturedStartInfo = startInfo;
@@ -46,6 +48,7 @@ public sealed class ElevationStartupServiceTests
             @"C:\ZoneManager.exe",
             arguments,
             isAdministrator,
+            ElevationMode.Always,
             _ => throw new InvalidOperationException("Ein Neustart wäre in diesem Fall falsch."));
 
         Assert.Equal(ElevationStartupStatus.Continue, result.Status);
@@ -59,6 +62,7 @@ public sealed class ElevationStartupServiceTests
             @"C:\ZoneManager.exe",
             ["--elevation-attempted"],
             isAdministrator: false,
+            ElevationMode.Always,
             _ => throw new InvalidOperationException("Eine Neustartschleife darf nicht entstehen."));
 
         Assert.Equal(ElevationStartupStatus.Failed, result.Status);
@@ -72,6 +76,7 @@ public sealed class ElevationStartupServiceTests
             @"C:\ZoneManager.exe",
             [],
             isAdministrator: false,
+            ElevationMode.Always,
             _ => throw new Win32Exception(1223));
 
         Assert.Equal(ElevationStartupStatus.Cancelled, result.Status);
@@ -85,9 +90,38 @@ public sealed class ElevationStartupServiceTests
             @"C:\ZoneManager.exe",
             [],
             isAdministrator: false,
+            ElevationMode.Always,
             _ => throw new Win32Exception(5, "Zugriff verweigert"));
 
         Assert.Equal(ElevationStartupStatus.Failed, result.Status);
         Assert.Contains("Zugriff verweigert", result.ErrorMessage, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void The_default_never_elevates_at_startup()
+    {
+        // Ein dauerhaft erhoehter Prozess ist eine grosse Angriffsflaeche. Voreingestellt startet das
+        // Programm deshalb mit gewoehnlichen Rechten und fragt erst nach, wenn es sie wirklich braucht.
+        var result = ElevationStartupService.EnsureElevation(
+            @"C:\ZoneManager.exe",
+            [],
+            isAdministrator: false,
+            ElevationMode.WhenNeeded,
+            _ => throw new InvalidOperationException("Voreingestellt darf nicht erhoeht werden."));
+
+        Assert.Equal(ElevationStartupStatus.Continue, result.Status);
+    }
+
+    [Fact]
+    public void Diagnostics_never_elevate_even_when_the_setting_demands_it()
+    {
+        var result = ElevationStartupService.EnsureElevation(
+            @"C:\ZoneManager.exe",
+            ["--diagnostics"],
+            isAdministrator: false,
+            ElevationMode.Always,
+            _ => throw new InvalidOperationException("Die Diagnose laeuft bewusst ohne Elevation."));
+
+        Assert.Equal(ElevationStartupStatus.Continue, result.Status);
     }
 }

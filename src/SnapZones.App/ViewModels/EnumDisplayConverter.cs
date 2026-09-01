@@ -21,6 +21,8 @@ public sealed class EnumDisplayConverter : IValueConverter
             ThemeMode.System => "Windows-System",
             ThemeMode.Light => "Hell",
             ThemeMode.Dark => "Dunkel",
+            ElevationMode.WhenNeeded => "Nur wenn nötig (empfohlen)",
+            ElevationMode.Always => "Immer beim Start",
             AppRuleEvent.WindowCreated => "Fenster wird geöffnet",
             AppRuleEvent.WindowFocused => "Fenster erhält den Fokus",
             AppRuleEvent.LayoutActivated => "Layout wird aktiviert",

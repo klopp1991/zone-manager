@@ -70,7 +70,8 @@ public partial class App : System.Windows.Application
         log = new FileLog(localData);
         var startupService = new StartupRegistration(
             Environment.ProcessPath ?? throw new InvalidOperationException("Der Programmpfad fehlt."),
-            message => log.Write("WARN", message));
+            message => log.Write("WARN", message),
+            () => ElevationPreference.Read(appData) == ElevationMode.Always);
 
         if (eventArgs.Args.Contains("--diagnostics", StringComparer.OrdinalIgnoreCase))
         {

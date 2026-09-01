@@ -37,7 +37,8 @@ public sealed record AppSettings(
     bool ShowZoneNames = true,
     EdgeInsets? OuterMargins = null,
     bool RememberWindowPositions = true,
-    bool CheckForUpdatesOnStart = false)
+    bool CheckForUpdatesOnStart = false,
+    ElevationMode ElevationMode = ElevationMode.WhenNeeded)
 {
     public EdgeInsets EffectiveOuterMargins =>
         (OuterMargins ?? EdgeInsets.Uniform(OuterMargin)).Clamp(0, 400);
@@ -57,5 +58,6 @@ public sealed record AppSettings(
         ShowZoneNames: true,
         OuterMargins: EdgeInsets.Uniform(8),
         RememberWindowPositions: true,
-        CheckForUpdatesOnStart: false);
+        CheckForUpdatesOnStart: false,
+        ElevationMode: ElevationMode.WhenNeeded);
 }

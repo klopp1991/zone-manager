@@ -369,7 +369,8 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
     {
         if (!Enum.IsDefined(settings.OverlayScope) ||
             !Enum.IsDefined(settings.TriggerMode) ||
-            !Enum.IsDefined(settings.ThemeMode))
+            !Enum.IsDefined(settings.ThemeMode) ||
+            !Enum.IsDefined(settings.ElevationMode))
         {
             throw new InvalidDataException("Die Konfiguration enthält einen unbekannten Einstellungswert.");
         }

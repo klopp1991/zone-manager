@@ -869,6 +869,31 @@
                                 <Border Style="{StaticResource SectionCard}">
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Rechte" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" />
+                                            <Button x:Name="ElevationInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu den Rechten"
+                                                    ToolTip="Windows teilt laufende Programme in Vertrauensstufen ein. Ein Programm darf nur Fenster verschieben, die derselben oder einer niedrigeren Stufe angehoeren. Alltaegliche Fenster wie Browser, Editor oder Explorer gehoeren zur gewoehnlichen Stufe; der Taskmanager, der Registrierungs-Editor und alles «als Administrator» Gestartete stehen darueber. Nur fuer diese zweite Gruppe braucht Sascha's Zone Manager selbst Administratorrechte." />
+                                        </StackPanel>
+                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,14,0,0" TextWrapping="Wrap"
+                                                   Text="Fast alle Fenster lassen sich ohne besondere Rechte einrasten. Nur Fenster von Programmen, die mit Administratorrechten laufen, brauchen sie ebenfalls – das betrifft im Alltag wenige Fenster." />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Administratorrechte anfordern" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <ComboBox x:Name="ElevationModeSelector" ItemsSource="{Binding Settings.ElevationModes}"
+                                                  SelectedItem="{Binding Settings.ElevationMode}"
+                                                  ItemTemplate="{StaticResource EnumItemTemplate}"
+                                                  AutomationProperties.Name="Wann Administratorrechte angefordert werden" />
+                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                                   Text="Nur wenn noetig: Das Programm startet ohne Abfrage. Trifft es spaeter auf ein Fenster, das es nicht bewegen darf, fragt es einmal je Sitzung nach. Das ist die sichere Wahl, weil ein Fehler im Programm sich nicht zu Administratorrechten ausweiten kann." />
+                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                                   Text="Immer beim Start: Bei jedem Start erscheint die Windows-Abfrage, dafuer nie wieder im Betrieb. Sinnvoll, wenn du taeglich Fenster von Programmen mit Administratorrechten einrastest." />
+                                        <TextBlock x:Name="ElevationHintText" Style="{StaticResource HelpText}" Margin="0,10,0,0" TextWrapping="Wrap"
+                                                   Text="Die Umstellung wirkt beim naechsten Start: ein laufendes Programm kann seine Rechte weder ablegen noch nachtraeglich erweitern. Ist der Autostart eingeschaltet, wird die Anmeldeaufgabe mit umgestellt."
+                                                   AutomationProperties.Name="Hinweis zur Wirksamkeit" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="Installation" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" />
                                             <Button x:Name="InstallInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Installation"
                                                     ToolTip="Kopiert die Programmdatei nach «Programme», legt eine Verknuepfung im Startmenue an und traegt das Programm in «Apps und Features» ein. Von dort laesst es sich wie jedes andere Programm entfernen; die Einstellungen unter %APPDATA%\SnapZones bleiben dabei erhalten. Ohne Installation laeuft das Programm aus dem Verzeichnis, in dem die Datei liegt – das genuegt, ist aber im Downloadordner unaufgeraeumt." />

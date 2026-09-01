@@ -4,13 +4,18 @@ using SnapZones.Windows.Native;
 
 namespace SnapZones.Windows.Windows;
 
-internal static class WindowsIntegrityLevelReader
+public static class WindowsIntegrityLevelReader
 {
     private const uint ProcessQueryLimitedInformation = 0x1000;
     private const uint TokenQuery = 0x0008;
     private const int TokenIntegrityLevel = 25;
 
-    internal static bool CanControl(uint targetProcessId)
+    /// <summary>
+    /// Ob dieser Prozess ein Fenster des genannten Prozesses ueberhaupt bewegen darf. Windows laesst nur
+    /// Fenster derselben oder einer niedrigeren Vertrauensstufe zu. Laesst sich eine der beiden Stufen
+    /// nicht lesen, lautet die Antwort «nein» — im Zweifel wird nichts angefasst.
+    /// </summary>
+    public static bool CanControl(uint targetProcessId)
     {
         try
         {

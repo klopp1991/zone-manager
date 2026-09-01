@@ -56,6 +56,7 @@ public sealed class ApplicationController : IDisposable
     private bool allowClose;
     private bool shuttingDown;
     private readonly UpdateCoordinator updates;
+    private readonly ElevationEscalation elevation;
     private bool disposed;
 
     public ApplicationController(
@@ -117,6 +118,11 @@ public sealed class ApplicationController : IDisposable
         identificationTimer.Tick += IdentificationTimer_Tick;
         tray = new TrayIconService(window, ActivateLayout, RequestExit);
 
+        elevation = new ElevationEscalation(question => System.Windows.MessageBox.Show(
+            question,
+            "Administratorrechte erforderlich",
+            System.Windows.MessageBoxButton.YesNo,
+            System.Windows.MessageBoxImage.Question) == System.Windows.MessageBoxResult.Yes);
         updates = new UpdateCoordinator(
             () => viewModel.ProductVersion,
             () => Environment.ProcessPath,
@@ -444,6 +450,43 @@ public sealed class ApplicationController : IDisposable
             "Die neue Version liegt bereit, liess sich aber nicht starten. Beim naechsten Start wird sie verwendet.";
     }
 
+    /// <summary>
+    /// Prueft nach einer abgelehnten Platzierung, ob das Fenster einem hoeher berechtigten Programm
+    /// gehoert, und bietet in diesem Fall einmalig den erhoehten Neustart an. Andere Gruende — ein
+    /// inzwischen geschlossenes Fenster, eine feste Mindestgroesse — fuehren zu keiner Nachfrage.
+    /// </summary>
+    private void OfferElevationIfWindowIsOutOfReach(nint windowHandle)
+    {
+        if (elevation.HasOffered ||
+            configuration.Settings.ElevationMode == ElevationMode.Always ||
+            !windowService.RequiresElevation(windowHandle))
+        {
+            return;
+        }
+
+        var result = elevation.Offer(
+            Environment.ProcessPath ?? string.Empty,
+            Environment.GetCommandLineArgs().Skip(1).ToArray());
+        switch (result.Status)
+        {
+            case ElevationEscalationStatus.Restarting:
+                viewModel.Save();
+                RequestExit();
+                break;
+            case ElevationEscalationStatus.Declined:
+                viewModel.StatusMessage =
+                    "Fenster hoeher berechtigter Programme bleiben unberuehrt. "
+                        + "Unter Einstellungen laesst sich das aendern.";
+                break;
+            case ElevationEscalationStatus.Failed:
+                viewModel.StatusMessage = result.Message ?? "Der erhoehte Neustart ist fehlgeschlagen.";
+                log.Write("WARN", result.Message ?? "Der erhoehte Neustart ist fehlgeschlagen.");
+                break;
+            default:
+                break;
+        }
+    }
+
     private void PublishInstallationStatus()
     {
         var installed = InstallationService.InstalledPath;
@@ -764,6 +807,7 @@ public sealed class ApplicationController : IDisposable
                         "WARN",
                         "Zonenübergreifende Platzierung abgelehnt: " +
                         (spanResult?.Status.ToString() ?? "Komponente nicht bereit"));
+                    OfferElevationIfWindowIsOutOfReach(fillSpan.WindowHandle);
                 }
 
                 break;
@@ -785,6 +829,7 @@ public sealed class ApplicationController : IDisposable
                         "WARN",
                         "Teilmonitor-Platzierung abgelehnt: " +
                         (result?.Status.ToString() ?? "Komponente nicht bereit"));
+                    OfferElevationIfWindowIsOutOfReach(fill.WindowHandle);
                 }
                 break;
         }

@@ -25,10 +25,11 @@ public sealed class ScheduledTaskStartupService : IStartupService
     private static readonly TimeSpan CommandTimeout = TimeSpan.FromSeconds(20);
     private readonly string executablePath;
     private readonly string userId;
+    private readonly Func<bool> elevated;
     private readonly Func<IReadOnlyList<string>, string?, ProcessResult> runScheduleTasks;
 
-    public ScheduledTaskStartupService(string executablePath)
-        : this(executablePath, BuildUserId(), RunScheduleTasks)
+    public ScheduledTaskStartupService(string executablePath, Func<bool>? elevated = null)
+        : this(executablePath, BuildUserId(), RunScheduleTasks, elevated)
     {
     }
 
@@ -36,7 +37,8 @@ public sealed class ScheduledTaskStartupService : IStartupService
     public ScheduledTaskStartupService(
         string executablePath,
         string userId,
-        Func<IReadOnlyList<string>, string?, ProcessResult> runScheduleTasks)
+        Func<IReadOnlyList<string>, string?, ProcessResult> runScheduleTasks,
+        Func<bool>? elevated = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(executablePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
@@ -44,6 +46,7 @@ public sealed class ScheduledTaskStartupService : IStartupService
         this.executablePath = executablePath;
         this.userId = userId;
         this.runScheduleTasks = runScheduleTasks;
+        this.elevated = elevated ?? (() => false);
     }
 
     public sealed record ProcessResult(int ExitCode, string Output);
@@ -69,7 +72,7 @@ public sealed class ScheduledTaskStartupService : IStartupService
 
         var result = runScheduleTasks(
             ["/Create", "/TN", TaskName, "/XML", DefinitionPlaceholder, "/F"],
-            BuildDefinitionXml(executablePath, userId));
+            BuildDefinitionXml(executablePath, userId, elevated()));
         if (result.ExitCode != 0)
         {
             throw new InvalidOperationException(
@@ -91,7 +94,7 @@ public sealed class ScheduledTaskStartupService : IStartupService
     /// Aufgabe, die im Akkubetrieb nicht startet oder nach drei Tagen beendet wird, wäre als Autostart
     /// eines dauerhaft laufenden Programms unbrauchbar.
     /// </summary>
-    public static string BuildDefinitionXml(string executablePath, string userId)
+    public static string BuildDefinitionXml(string executablePath, string userId, bool elevated = true)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(executablePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(userId);
@@ -121,7 +124,7 @@ public sealed class ScheduledTaskStartupService : IStartupService
         builder.Append("""
             </UserId>
                   <LogonType>InteractiveToken</LogonType>
-                  <RunLevel>HighestAvailable</RunLevel>
+                  <RunLevel>PLATZHALTER_RUNLEVEL</RunLevel>
                 </Principal>
               </Principals>
               <Settings>
@@ -157,7 +160,12 @@ public sealed class ScheduledTaskStartupService : IStartupService
               </Actions>
             </Task>
             """);
-        return builder.ToString();
+        // Die Anmeldeaufgabe startet nur dann erhoeht, wenn das Programm auch sonst erhoeht laufen soll.
+        // Sonst waere der Autostart maechtiger als jeder Start von Hand.
+        return builder.ToString().Replace(
+            "PLATZHALTER_RUNLEVEL",
+            elevated ? "HighestAvailable" : "LeastPrivilege",
+            StringComparison.Ordinal);
     }
 
     /// <summary>

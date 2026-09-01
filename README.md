@@ -15,7 +15,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1
  .\ZoneManager.exe
 ```
 
-Der Prüf- und Publish-Lauf stellt Pakete wieder her, führt die Tests aus, baut eine selbständige `win-x64`-Einzeldatei und prüft Diagnose sowie Per-Monitor-DPI. Beim normalen Start ist eine Windows-UAC-Bestätigung erforderlich; `--diagnostics` läuft absichtlich ohne Elevation.
+Der Prüf- und Publish-Lauf stellt Pakete wieder her, führt die Tests aus, baut eine selbständige `win-x64`-Einzeldatei und prüft Diagnose sowie Per-Monitor-DPI. Der normale Start kommt ohne UAC-Bestätigung aus; Administratorrechte fordert das Programm erst an, wenn es auf ein Fenster trifft, das es sonst nicht bewegen dürfte. `--diagnostics` läuft immer ohne Elevation.
 
 Der Lauf schliesst eine Per-Monitor-DPI-Prüfung ein, die die Oberfläche startet und deshalb eine interaktive Sitzung mit bestätigter UAC-Abfrage braucht. In nicht interaktiven Umgebungen bleibt dieser Schritt sonst an der unbeantworteten Abfrage stehen; `-SkipDpiCheck` überspringt ihn.
 
@@ -28,6 +28,7 @@ Der Lauf schliesst eine Per-Monitor-DPI-Prüfung ein, die die Oberfläche starte
 - Overlay auf allen Monitoren oder nur auf dem aktiven Monitor
 - Sofortige Layoutspeicherung, fünf automatische Backups sowie JSON-Export und -Import
 - System-, helles und dunkles Theme, Autostart ohne UAC-Abfrage über eine Anmeldeaufgabe und Not-Aus über `Ctrl + Alt + Shift + F12`
+- Administratorrechte nur auf Bedarf: Start ohne Abfrage, Nachfrage höchstens einmal je Sitzung und nur, wenn ein Fenster sie wirklich verlangt
 - Monitorerkennung über Displaypfad und EDID-Daten
 - Update aus dem Programm heraus: Suche auf Anstoss oder beim Start, Download nur aus der Release-Ablage über HTTPS, Austausch der laufenden Programmdatei mit Rückfall auf den alten Stand
 - Regeln nach Prozess, optionalem Fenstertitel und Fensterklasse mit Ereignis, Verzögerung, Wiederholungen und Zielzone; das Programm wird über den Dateidialog oder aus der Liste der laufenden Programme gewählt

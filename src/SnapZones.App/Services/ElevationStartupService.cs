@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
+using SnapZones.Core.Models;
 
 namespace SnapZones.App.Services;
 
@@ -22,17 +23,32 @@ public static class ElevationStartupService
     private const string ElevationAttemptedArgument = "--elevation-attempted";
     private const int OperationCancelledError = 1223;
 
+    /// <summary>
+    /// Entscheidet vor dem Laden der Oberfläche, ob sich das Programm erhöht.
+    ///
+    /// Voreingestellt geschieht das <b>nicht</b>. Ein dauerhaft erhöhter Prozess ist eine grosse
+    /// Angriffsfläche: jeder ausnutzbare Fehler darin — auch in einer Abhängigkeit — wäre eine lokale
+    /// Rechteausweitung. Erhöht wird deshalb nur, wenn der Benutzer es in den Einstellungen
+    /// ausdrücklich verlangt hat; sonst fragt das Programm erst, wenn es tatsächlich auf ein höher
+    /// berechtigtes Fenster trifft.
+    ///
+    /// Auch die Setup-Modi laufen ohne diesen Weg: sie holen sich die Rechte selbst, wenn sie sie
+    /// brauchen, und sollen keine Abfrage auslösen, bevor klar ist, was zu tun ist.
+    /// </summary>
     public static ElevationStartupResult EnsureElevation(
         string executablePath,
         IReadOnlyList<string> arguments,
         bool isAdministrator,
+        ElevationMode mode,
         Func<ProcessStartInfo, bool> startElevated)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(executablePath);
         ArgumentNullException.ThrowIfNull(arguments);
         ArgumentNullException.ThrowIfNull(startElevated);
 
-        if (isAdministrator || Contains(arguments, DiagnosticsArgument))
+        if (isAdministrator ||
+            mode != ElevationMode.Always ||
+            Contains(arguments, DiagnosticsArgument))
         {
             return new ElevationStartupResult(ElevationStartupStatus.Continue);
         }

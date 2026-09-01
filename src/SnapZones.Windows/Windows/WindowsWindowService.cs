@@ -227,6 +227,17 @@ public sealed class WindowsWindowService : IWindowService
     // nach Einstellung das Einrasten aus, Alt schaltet den Magnetismus im Editor ab.
     public bool IsControlPressed() => (User32.GetAsyncKeyState(0x11) & 0x8000) != 0;
 
+    public bool RequiresElevation(nint window)
+    {
+        if (window == 0 || !User32.IsWindow(window))
+        {
+            return false;
+        }
+
+        _ = User32.GetWindowThreadProcessId(window, out var processId);
+        return processId != 0 && !WindowsIntegrityLevelReader.CanControl(processId);
+    }
+
     private static bool TryGetMovableTopLevelWindow(nint window, int ownProcessId, out WindowPlacement placement)
     {
         placement = default!;

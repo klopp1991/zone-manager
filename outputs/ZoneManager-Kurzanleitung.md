@@ -2,7 +2,7 @@
 
 ## Start
 
-`ZoneManager.exe` im Rootverzeichnis starten und die Windows-UAC-Abfrage bestätigen. Der Diagnosemodus `ZoneManager.exe --diagnostics` läuft absichtlich ohne Elevation.
+`ZoneManager.exe` starten – eine UAC-Abfrage erscheint dabei nicht. Administratorrechte fordert das Programm erst an, wenn du ein Fenster einrasten willst, das einem Programm mit höheren Rechten gehört; dann fragt es einmal je Sitzung nach. Unter **Einstellungen → Rechte** lässt sich stattdessen «Immer beim Start» wählen.
 
 Unter **Layouts** besitzt jeder erkannte Monitor eigene Layouts, die unabhängig aktiviert, erstellt, umbenannt, gelöscht und bearbeitet werden können. Sobald mindestens ein Layout aktiv ist, zeigt die Snap-Funktion beim Ziehen eines Fensters an der Titelleiste das Overlay; beim Loslassen füllt das Fenster die gewählte Zone.
 
@@ -52,7 +52,7 @@ nächsten Start als Sicherung daneben liegen.
 - Autostart ist beim ersten Start ausgeschaltet.
 - Die Anwendung nutzt keinen Treiber, keinen Windows-Dienst und keine Code-Injektion.
 - Autostart läuft über eine Anmeldeaufgabe der Windows-Aufgabenplanung und startet ohne UAC-Abfrage. Nur wenn sich die Aufgabe nicht anlegen lässt, wird ersatzweise der Registry-Eintrag `Run` gesetzt.
-- Normale Programmstarts wechseln über die Windows-UAC-Abfrage in den Administratormodus, damit auch erhöhte Fenster positioniert werden können.
+- Das Programm startet ohne Administratorrechte und fragt erst nach, wenn ein Fenster sie wirklich verlangt – höchstens einmal je Sitzung.
 - `Ctrl + Alt + Shift + F12` deaktiviert Hook und Overlays sofort; `Escape` bricht nur den laufenden Ziehvorgang ab.
 - Ein Schutzschalter stoppt die Snap-Funktion bei Callback-Fehlern oder ungewöhnlich vielen Hook-Ereignissen.
 

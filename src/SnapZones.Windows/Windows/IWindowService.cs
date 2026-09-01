@@ -18,4 +18,10 @@ public interface IWindowService : IPartMonitorWindowGateway
 
     /// <summary>Ob Strg gedrueckt ist. Waehlt beim Ziehen mehrere Zonen gleichzeitig aus.</summary>
     bool IsControlPressed();
+
+    /// <summary>
+    /// Ob das Fenster nur mit Administratorrechten bewegt werden koennte, weil es einem hoeher
+    /// berechtigten Programm gehoert.
+    /// </summary>
+    bool RequiresElevation(nint window);
 }

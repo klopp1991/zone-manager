@@ -16,9 +16,12 @@ public sealed class StartupRegistration : IStartupService
     private readonly IStartupService registryRun;
     private readonly Action<string>? reportFallback;
 
-    public StartupRegistration(string executablePath, Action<string>? reportFallback = null)
+    public StartupRegistration(
+        string executablePath,
+        Action<string>? reportFallback = null,
+        Func<bool>? elevated = null)
         : this(
-            new ScheduledTaskStartupService(executablePath),
+            new ScheduledTaskStartupService(executablePath, elevated),
             new WindowsStartupService(executablePath),
             reportFallback)
     {

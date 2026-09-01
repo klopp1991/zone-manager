@@ -162,9 +162,43 @@ beiseitegeschobenen Dateien gelöscht.
 Ohne digitale Signatur kann das Programm die geladene Datei nur an Herkunft und Grösse prüfen, nicht an
 einer Signatur. Wer das nicht will, lädt Releases von Hand herunter und lässt die Suche ausgeschaltet.
 
-## Sicherheit und Not-Aus
+## Rechte
 
-Normale Programmstarts wechseln vor dem Laden der Oberfläche über die Windows-UAC-Abfrage in den Administratormodus. Dadurch kann die Anwendung auch erhöhte Fenster positionieren; der reine Diagnosemodus bleibt absichtlich ohne Elevation. `Ctrl + Alt + Shift + F12` deaktiviert Hook und Overlays bis zum nächsten Programmstart. `Escape` beendet nur den aktuellen Ziehvorgang. Die Anwendung enthält keinen Treiber, keinen Windows-Dienst und keine Code-Injektion; ein Schutzschalter stoppt die Snap-Funktion bei Callback-Fehlern oder ungewöhnlich vielen Hook-Ereignissen.
+Windows teilt laufende Programme in Vertrauensstufen ein. Ein Programm darf nur Fenster verschieben, die
+derselben oder einer niedrigeren Stufe angehören. Alltägliche Fenster — Browser, Editor, Explorer — gehören
+zur gewöhnlichen Stufe; der Taskmanager, der Registrierungs-Editor und alles «als Administrator» Gestartete
+stehen darüber.
+
+Unter **Einstellungen → Rechte** steht deshalb zur Wahl:
+
+- **Nur wenn nötig** (Voreinstellung). Das Programm startet ohne UAC-Abfrage. Trifft es später auf ein
+  Fenster, das es nicht bewegen darf, fragt es **einmal je Sitzung** nach und startet auf Wunsch erhöht neu.
+  Wer ablehnt, arbeitet normal weiter; nur diese eine Sorte Fenster bleibt unberührt.
+- **Immer beim Start**. Das bisherige Verhalten: jeder Start geht über die UAC-Abfrage, dafür kommt im
+  Betrieb keine Nachfrage mehr.
+
+Die Voreinstellung ist die zurückhaltende, weil ein dauerhaft erhöhter Prozess eine grosse Angriffsfläche
+ist: jeder ausnutzbare Fehler darin — auch in einer Abhängigkeit — wäre eine lokale Rechteausweitung.
+
+Die Umstellung wirkt beim nächsten Start; ein laufendes Programm kann seine Rechte weder ablegen noch
+nachträglich erweitern. Ist der Autostart eingeschaltet, wird die Anmeldeaufgabe mit umgestellt: sie startet
+nur dann erhöht, wenn das Programm es auch sonst tut — sonst wäre der Autostart mächtiger als jeder Start von
+Hand.
+
+Die Rechte-Einstellung wird vor dem Laden der Oberfläche gelesen, also aus `settings.json` allein für dieses
+eine Feld. Lässt sich die Datei nicht lesen, gilt die Voreinstellung.
+
+Nicht erreichbar bleibt der Weg über `uiAccess`, mit dem ein Programm höher berechtigte Fenster **ohne**
+Administratorrechte bewegen dürfte. Windows verlangt dafür zwingend eine gültige Authenticode-Signatur; eine
+unsignierte Anwendung mit diesem Merkmal startet gar nicht (Fehler 740). Solange das Programm nicht signiert
+ist, bleiben die beiden Wahlmöglichkeiten oben die einzigen.
+
+## Not-Aus und Schutzschalter
+
+`Ctrl + Alt + Shift + F12` deaktiviert Hook und Overlays bis zum nächsten Programmstart. `Escape` beendet nur
+den aktuellen Ziehvorgang. Die Anwendung enthält keinen Treiber, keinen Windows-Dienst und keine
+Code-Injektion; ein Schutzschalter stoppt die Snap-Funktion bei Callback-Fehlern oder ungewöhnlich vielen
+Hook-Ereignissen. Der Diagnosemodus läuft bewusst ohne Elevation.
 
 ## Beenden
 
@@ -183,7 +217,8 @@ Die Diagnose liest Konfigurationsstatus, Monitore, DPI und Autostartstatus. Sie 
 ## Einschränkungen
 
 - Nur Windows 11 x64.
-- Wird die Windows-UAC-Abfrage abgebrochen, startet die Anwendung nicht.
+- Wird die Windows-UAC-Abfrage bei «Immer beim Start» abgebrochen, startet die Anwendung nicht.
+- Fenster höher berechtigter Programme lassen sich nur einrasten, wenn das Programm selbst erhöht läuft; ein Weg über `uiAccess` scheidet ohne Signatur aus.
 - Nicht rechteckige oder überlappende Zonen und virtuelle Desktops sind noch nicht enthalten.
 - Updates werden nur auf Anstoss oder beim Start gesucht, nie im Hintergrund während des Betriebs.
 - Die geladene Programmdatei wird an Herkunft und Grösse geprüft, nicht an einer digitalen Signatur.

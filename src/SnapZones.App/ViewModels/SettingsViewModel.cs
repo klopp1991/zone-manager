@@ -7,6 +7,7 @@ public sealed class SettingsViewModel : ViewModelBase
     private bool startWithWindows;
     private bool rememberWindowPositions = true;
     private bool checkForUpdatesOnStart;
+    private ElevationMode elevationMode = ElevationMode.WhenNeeded;
     private OverlayScope overlayScope;
     private TriggerMode triggerMode;
     private ThemeMode themeMode;
@@ -27,6 +28,7 @@ public sealed class SettingsViewModel : ViewModelBase
         startWithWindows = settings.StartWithWindows;
         rememberWindowPositions = settings.RememberWindowPositions;
         checkForUpdatesOnStart = settings.CheckForUpdatesOnStart;
+        elevationMode = settings.ElevationMode;
         overlayScope = settings.OverlayScope;
         triggerMode = settings.TriggerMode;
         themeMode = settings.ThemeMode;
@@ -47,6 +49,7 @@ public sealed class SettingsViewModel : ViewModelBase
     public IReadOnlyList<OverlayScope> OverlayScopes { get; } = Enum.GetValues<OverlayScope>();
     public IReadOnlyList<TriggerMode> TriggerModes { get; } = Enum.GetValues<TriggerMode>();
     public IReadOnlyList<ThemeMode> ThemeModes { get; } = Enum.GetValues<ThemeMode>();
+    public IReadOnlyList<ElevationMode> ElevationModes { get; } = Enum.GetValues<ElevationMode>();
 
     public bool StartWithWindows
     {
@@ -73,6 +76,16 @@ public sealed class SettingsViewModel : ViewModelBase
     {
         get => checkForUpdatesOnStart;
         set => SetProperty(ref checkForUpdatesOnStart, value);
+    }
+
+    /// <summary>
+    /// Wann sich das Programm Administratorrechte holt. Die Umstellung wirkt erst beim naechsten Start:
+    /// ein laufender Prozess kann seine Rechte weder ablegen noch nachtraeglich erweitern.
+    /// </summary>
+    public ElevationMode ElevationMode
+    {
+        get => elevationMode;
+        set => SetProperty(ref elevationMode, value);
     }
 
     public OverlayScope OverlayScope
@@ -218,7 +231,8 @@ public sealed class SettingsViewModel : ViewModelBase
             OuterMarginRight,
             OuterMarginBottom),
         RememberWindowPositions: RememberWindowPositions,
-        CheckForUpdatesOnStart: CheckForUpdatesOnStart);
+        CheckForUpdatesOnStart: CheckForUpdatesOnStart,
+        ElevationMode: ElevationMode);
 
     public void Apply(AppSettings settings)
     {
@@ -226,6 +240,7 @@ public sealed class SettingsViewModel : ViewModelBase
         StartWithWindows = settings.StartWithWindows;
         RememberWindowPositions = settings.RememberWindowPositions;
         CheckForUpdatesOnStart = settings.CheckForUpdatesOnStart;
+        ElevationMode = settings.ElevationMode;
         OverlayScope = settings.OverlayScope;
         TriggerMode = settings.TriggerMode;
         ThemeMode = settings.ThemeMode;
