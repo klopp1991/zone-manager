@@ -12,7 +12,10 @@ work/
 outputs/ZoneManager-prototype/
 outputs/zonemanager-diagnostics.json
 
-# Root-EXE inklusive der atomaren Austauschdateien
+# Root-EXE und Fensterhelfer inklusive der atomaren Austauschdateien
 /ZoneManager.exe
 /ZoneManager.exe.new
 /ZoneManager.exe.previous.*
+/ZoneManager.Helper.exe
+/ZoneManager.Helper.exe.new
+/ZoneManager.Helper.exe.previous.*

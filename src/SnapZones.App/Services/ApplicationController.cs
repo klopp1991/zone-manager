@@ -159,6 +159,7 @@ public sealed class ApplicationController : IDisposable
         window.ExportConfigurationRequested += ExportConfigurationAsync;
         window.ImportConfigurationRequested += ImportConfigurationAsync;
         window.IdentifyMonitorsRequested += IdentifyMonitors;
+        window.SettingsPageOpened += PublishCertificateStatus;
         moveHook.MoveStarted += MoveStarted;
         moveHook.MoveEnded += _ => MoveEnded();
         moveHook.EmergencyStopped += reason => EmergencyStop(reason);
@@ -237,6 +238,7 @@ public sealed class ApplicationController : IDisposable
         window.ExportConfigurationRequested -= ExportConfigurationAsync;
         window.ImportConfigurationRequested -= ImportConfigurationAsync;
         window.IdentifyMonitorsRequested -= IdentifyMonitors;
+        window.SettingsPageOpened -= PublishCertificateStatus;
     }
 
     private void SaveRequested(SnapConfiguration newConfiguration)

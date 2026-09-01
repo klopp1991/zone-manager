@@ -210,6 +210,13 @@ Unter **Einstellungen → Fensterhelfer ohne Administratorrechte** wird ein selb
 erzeugt, in die Vertrauensspeicher der lokalen Maschine gelegt und der Helfer damit signiert. Das ist
 freiwillig; ohne diesen Schritt bleiben die beiden Wahlmöglichkeiten oben die einzigen.
 
+Die Karte nennt den Zustand in zwei Worten — **Eingerichtet** oder **Nicht eingerichtet** — und darunter
+ausführlich, was das im Einzelnen heisst; eine zweite Zeile sagt dasselbe für den Fensterhelfer. Darunter
+steht genau **eine** Schaltfläche, die sich nach dem Zustand richtet: **Zertifikat einrichten**, solange
+keines besteht, und **Zertifikat entfernen**, sobald eines eingerichtet ist. Der Zustand wird bei jedem
+Öffnen der Seite neu gelesen, weil sich am Zertifikatspeicher auch ausserhalb des Programms etwas ändern
+kann.
+
 **Was das bedeutet.** Der Rechner vertraut anschliessend allem, was mit diesem Zertifikat signiert wurde.
 Der private Schlüssel liegt auf der Maschine. Wer ihn erbeutet, kann Schadsoftware so signieren, dass
 Windows sie für vertrauenswürdig hält. Zwei Dinge halten den Schaden klein: das Zertifikat ist **keine**

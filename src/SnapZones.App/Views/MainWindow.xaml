@@ -1008,7 +1008,13 @@
                                         <TextBlock Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
                                                    Text="Das Programm muss nach «Programme» installiert sein – Windows akzeptiert uiAccess nur aus einem geschuetzten Verzeichnis. Das Einrichten selbst braucht einmalig Administratorrechte, weil es in den Zertifikatspeicher des Rechners schreibt." />
 
-                                        <TextBlock Text="Zertifikat" Style="{StaticResource FieldLabel}" Margin="0,18,0,0" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                                            <TextBlock Text="Zertifikat" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                            <TextBlock x:Name="CertificateStateText" Text="{Binding CertificateStateLabel}"
+                                                       Style="{StaticResource FieldLabel}" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       AutomationProperties.Name="Zustand des Zertifikats in zwei Worten" />
+                                        </StackPanel>
                                         <TextBlock x:Name="CertificateStatusText" Text="{Binding CertificateStatus}"
                                                    Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
                                                    AutomationProperties.Name="Zustand des Zertifikats" />
@@ -1017,17 +1023,10 @@
                                                    Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
                                                    AutomationProperties.Name="Zustand des Fensterhelfers" />
 
-                                        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-                                            <Button x:Name="InstallCertificateButton" Content="Zertifikat einrichten"
-                                                    Click="InstallCertificate_Click" Margin="0,0,8,0"
-                                                    IsEnabled="{Binding CanInstallCertificate}"
-                                                    AutomationProperties.Name="Zertifikat einrichten und Fensterhelfer signieren" />
-                                            <Button x:Name="RemoveCertificateButton" Content="Zertifikat entfernen"
-                                                    Click="RemoveCertificate_Click" Margin="0"
-                                                    IsEnabled="{Binding IsCertificateInstalled}"
-                                                    AutomationProperties.Name="Zertifikat entfernen"
-                                                    ToolTip="Nimmt das Zertifikat aus allen Speichern. Der Fensterhelfer startet danach nicht mehr, und das Programm fragt bei Bedarf wieder nach Administratorrechten." />
-                                        </StackPanel>
+                                        <Button x:Name="CertificateActionButton" Content="{Binding CertificateActionLabel}"
+                                                Click="CertificateAction_Click" HorizontalAlignment="Left" Margin="0,14,0,0"
+                                                ToolTip="{Binding CertificateActionHint}"
+                                                AutomationProperties.Name="{Binding CertificateActionLabel}" />
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource SectionCard}">

@@ -29,6 +29,13 @@ public partial class MainWindow : Window
     public event Func<string, Task>? ImportConfigurationRequested;
     public event Action? IdentifyMonitorsRequested;
 
+    /// <summary>
+    /// Wird ausgeloest, sobald die Einstellungsseite sichtbar wird. Zertifikat und Fensterhelfer koennen
+    /// sich ausserhalb des Programms geaendert haben; ihr Zustand wird deshalb beim Oeffnen neu gelesen
+    /// statt einmal beim Start.
+    /// </summary>
+    public event Action? SettingsPageOpened;
+
     public MainWindow()
     {
         pickOverlayColor = PickOverlayColorWithDialog;
@@ -49,6 +56,15 @@ public partial class MainWindow : Window
         ArrangeNavigationTabs();
     }
 
+    private void NavigationTabs_SelectionChanged(object sender, SelectionChangedEventArgs eventArgs)
+    {
+        _ = sender;
+        if (eventArgs.AddedItems.Count > 0 && ReferenceEquals(eventArgs.AddedItems[0], SettingsTab))
+        {
+            SettingsPageOpened?.Invoke();
+        }
+    }
+
     private void ArrangeNavigationTabs()
     {
         NavigationTabs.Items.Clear();
@@ -62,6 +78,7 @@ public partial class MainWindow : Window
         NavigationTabs.Items.Add(SettingsTab);
         NavigationTabs.Items.Add(TransferTab);
         NavigationTabs.SelectedItem = LayoutsTab;
+        NavigationTabs.SelectionChanged += NavigationTabs_SelectionChanged;
     }
 
     public void AttachViewModel(MainViewModel model)
@@ -756,7 +773,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void InstallCertificate_Click(object sender, RoutedEventArgs eventArgs)
+    private void CertificateAction_Click(object sender, RoutedEventArgs eventArgs)
     {
         _ = sender;
         _ = eventArgs;
@@ -766,46 +783,31 @@ public partial class MainWindow : Window
         }
 
         // Ein Eingriff in den Zertifikatspeicher des Rechners wird nicht beilaeufig bestaetigt. Die
-        // Rueckfrage nennt darum noch einmal, was passiert und was das Risiko ist.
+        // Rueckfrage nennt darum noch einmal, was passiert und was es bedeutet.
+        var (question, title) = viewModel.IsCertificateInstalled
+            ? ("Das Zertifikat wird aus allen Speichern entfernt. Der Fensterhelfer startet danach "
+                + "nicht mehr; für Fenster von Programmen mit Administratorrechten fragt das Programm "
+                + "dann wieder nach eigenen Rechten.",
+               "Zertifikat entfernen")
+            : ("Es wird ein eigenes Zertifikat auf diesem Rechner erzeugt und in die "
+                + "Vertrauensspeicher von Windows eingetragen. Damit wird anschliessend der "
+                + "Fensterhelfer unterschrieben.\n\n"
+                + "Dein Rechner vertraut danach allem, was mit diesem Zertifikat unterschrieben "
+                + "wurde. Der geheime Schlüssel bleibt auf dieser Maschine und lässt sich nicht "
+                + "exportieren; das Zertifikat kann keine weiteren Zertifikate ausstellen.\n\n"
+                + "Windows fragt gleich nach Administratorrechten. Fortfahren?",
+               "Zertifikat einrichten");
+
         if (System.Windows.MessageBox.Show(
-                "Es wird ein eigenes Zertifikat auf diesem Rechner erzeugt und in die "
-                    + "Vertrauensspeicher von Windows eingetragen. Damit wird anschliessend der "
-                    + "Fensterhelfer unterschrieben.\n\n"
-                    + "Dein Rechner vertraut danach allem, was mit diesem Zertifikat unterschrieben "
-                    + "wurde. Der geheime Schlüssel bleibt auf dieser Maschine und lässt sich nicht "
-                    + "exportieren; das Zertifikat kann keine weiteren Zertifikate ausstellen.\n\n"
-                    + "Windows fragt gleich nach Administratorrechten. Fortfahren?",
-                "Zertifikat einrichten",
+                question,
+                title,
                 MessageBoxButton.OKCancel,
                 MessageBoxImage.Warning) != MessageBoxResult.OK)
         {
             return;
         }
 
-        viewModel.InstallCertificate();
-    }
-
-    private void RemoveCertificate_Click(object sender, RoutedEventArgs eventArgs)
-    {
-        _ = sender;
-        _ = eventArgs;
-        if (viewModel is null)
-        {
-            return;
-        }
-
-        if (System.Windows.MessageBox.Show(
-                "Das Zertifikat wird aus allen Speichern entfernt. Der Fensterhelfer startet danach "
-                    + "nicht mehr; für Fenster von Programmen mit Administratorrechten fragt das "
-                    + "Programm dann wieder nach eigenen Rechten.",
-                "Zertifikat entfernen",
-                MessageBoxButton.OKCancel,
-                MessageBoxImage.Warning) != MessageBoxResult.OK)
-        {
-            return;
-        }
-
-        viewModel.RemoveCertificate();
+        viewModel.ToggleCertificate();
     }
 
     private void Install_Click(object sender, RoutedEventArgs eventArgs)

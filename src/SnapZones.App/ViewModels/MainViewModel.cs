@@ -170,6 +170,10 @@ public sealed class MainViewModel : ViewModelBase
         set => SetProperty(ref helperStatus, value);
     }
 
+    /// <summary>
+    /// Ob das eigene Zertifikat eingerichtet und gültig ist. Danach richtet sich die einzige
+    /// Schaltfläche der Karte: einrichten, solange es fehlt — entfernen, sobald es steht.
+    /// </summary>
     public bool IsCertificateInstalled
     {
         get => isCertificateInstalled;
@@ -177,16 +181,47 @@ public sealed class MainViewModel : ViewModelBase
         {
             if (SetProperty(ref isCertificateInstalled, value))
             {
-                OnPropertyChanged(nameof(CanInstallCertificate));
+                OnPropertyChanged(nameof(CertificateActionLabel));
+                OnPropertyChanged(nameof(CertificateActionHint));
+                OnPropertyChanged(nameof(CertificateStateLabel));
             }
         }
     }
 
-    public bool CanInstallCertificate => !isCertificateInstalled;
+    /// <summary>Der Zustand in zwei Worten, unabhängig von jeder Farbe.</summary>
+    public string CertificateStateLabel => isCertificateInstalled
+        ? "Eingerichtet"
+        : "Nicht eingerichtet";
+
+    public string CertificateActionLabel => isCertificateInstalled
+        ? "Zertifikat entfernen"
+        : "Zertifikat einrichten";
+
+    public string CertificateActionHint => isCertificateInstalled
+        ? "Nimmt das Zertifikat aus allen Speichern. Der Fensterhelfer startet danach nicht mehr, und "
+            + "das Programm fragt bei Bedarf wieder nach eigenen Administratorrechten."
+        : "Erzeugt ein eigenes Zertifikat, legt es in die Vertrauensspeicher von Windows und signiert "
+            + "damit den Fensterhelfer. Windows fragt dabei einmalig nach Administratorrechten.";
 
     public void InstallCertificate() => CertificateInstallRequested?.Invoke();
 
     public void RemoveCertificate() => CertificateRemoveRequested?.Invoke();
+
+    /// <summary>
+    /// Führt aus, was der Zustand gerade vorsieht. Die Oberfläche zeigt nur eine Schaltfläche; welche
+    /// der beiden Richtungen sie auslöst, entscheidet sich hier an einer Stelle.
+    /// </summary>
+    public void ToggleCertificate()
+    {
+        if (isCertificateInstalled)
+        {
+            RemoveCertificate();
+        }
+        else
+        {
+            InstallCertificate();
+        }
+    }
 
     public MonitorChoice? SelectedMonitor
     {
