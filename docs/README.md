@@ -103,7 +103,14 @@ Die Seite **Skalierung** liest die erkannten Werte des gewählten Monitors aus �
 ## Einstellungen
 
 - System-, helles oder dunkles Theme; Systemänderungen werden ohne Neustart übernommen.
-- Overlay auf allen Monitoren oder nur auf dem aktiven Monitor.
+- **Zonen anzeigen auf** bestimmt, wo die Zonen beim Ziehen erscheinen:
+  - **Alle Monitore** — gleichzeitig auf jeder Anzeige.
+  - **Monitor beim Ziehbeginn** — nur auf dem Bildschirm, auf dem das Fenster angefasst wurde. Die Zonen
+    bleiben dort; wandert der Zeiger auf einen anderen Bildschirm, sieht er dort keine Zonen.
+  - **Monitor unter dem Mauszeiger** — die Zonen wandern mit. Sie erscheinen immer auf dem Bildschirm, auf
+    dem der Zeiger gerade steht, und verschwinden auf allen übrigen. Liegt der Zeiger kurz auf keinem
+    Bildschirm — über der Taskleiste oder in der Lücke zwischen zwei unterschiedlich hohen Monitoren —,
+    bleibt die bisherige Anzeige stehen, statt zu flackern.
 - Sofortige Aktivierung oder Aktivierung mit Umschalttaste.
 - **Overlay-Abstände**: Aussenabstände links, oben, rechts und unten in Pixel, Zonenabstand und Magnetdistanz in ganzen Prozent. Diese Werte betreffen ausschliesslich die Vorschau beim Ziehen; wo ein Fenster tatsächlich landet, legt das Layout unter **Abstände zum Rand** fest. Neben jedem Prozentregler steht der abgeleitete Pixelwert als `≙ n px`.
 - Overlayfarbe, Deckkraft und ein-/ausblendbare Zonennamen.

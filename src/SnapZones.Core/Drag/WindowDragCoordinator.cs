@@ -15,6 +15,7 @@ public sealed class WindowDragCoordinator
     private nint windowHandle;
     private PartMonitorPlacement? hoverPlacement;
     private string? spanMonitorId;
+    private string? shownMonitorId;
 
     public WindowDragCoordinator(
         IReadOnlyList<PartMonitorTarget> targets,
@@ -47,11 +48,46 @@ public sealed class WindowDragCoordinator
 
         windowHandle = handle;
         State = DragState.Tracking;
+        ShowOverlaysFor(activeTarget);
+    }
+
+    /// <summary>
+    /// Zeigt die Zonen dort, wo der eingestellte Geltungsbereich sie verlangt. Auf allen Monitoren
+    /// gleichzeitig, oder nur auf dem genannten; im zweiten Fall verschwinden sie auf allen uebrigen.
+    /// </summary>
+    private void ShowOverlaysFor(PartMonitorTarget target)
+    {
         var visibleTargets = overlayScope == OverlayScope.AllMonitors
             ? targets
-            : [activeTarget];
+            : [target];
+        shownMonitorId = target.Monitor.Identity.StableId;
         ActionRequested?.Invoke(new ShowOverlaysAction(
-            visibleTargets.Select(target => target.Monitor.Identity.StableId).ToArray()));
+            visibleTargets.Select(candidate => candidate.Monitor.Identity.StableId).ToArray()));
+    }
+
+    /// <summary>
+    /// Laesst die Zonen dem Mauszeiger ueber die Monitorgrenze folgen. Nur fuer
+    /// <see cref="OverlayScope.CursorMonitor"/>; die uebrigen Geltungsbereiche bleiben unberuehrt.
+    ///
+    /// Liegt der Zeiger gerade auf keinem Monitor — etwa ueber der Taskleiste oder in der Luecke
+    /// zwischen zwei unterschiedlich hohen Bildschirmen —, bleibt die bisherige Anzeige stehen. Sie in
+    /// diesem Moment auszublenden und gleich wieder einzublenden ergaebe nur ein Flackern.
+    /// </summary>
+    private void FollowCursorAcrossMonitors(PointInt cursor)
+    {
+        if (overlayScope != OverlayScope.CursorMonitor)
+        {
+            return;
+        }
+
+        var target = resolver.FindPhysicalMonitor(cursor);
+        if (target is null ||
+            string.Equals(target.Monitor.Identity.StableId, shownMonitorId, StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        ShowOverlaysFor(target);
     }
 
     public void Update(PointInt cursor) => Update(cursor, spanRequested: false);
@@ -68,6 +104,8 @@ public sealed class WindowDragCoordinator
         {
             return;
         }
+
+        FollowCursorAcrossMonitors(cursor);
 
         var placement = resolver.FindAt(cursor);
         if (spanRequested && placement is not null)
@@ -168,6 +206,7 @@ public sealed class WindowDragCoordinator
         State = DragState.Idle;
         windowHandle = 0;
         hoverPlacement = null;
+        shownMonitorId = null;
         ClearSpan();
     }
 }

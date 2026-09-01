@@ -15,7 +15,8 @@ public sealed class EnumDisplayConverter : IValueConverter
         return value switch
         {
             OverlayScope.AllMonitors => "Alle Monitore",
-            OverlayScope.ActiveMonitor => "Aktiver Monitor",
+            OverlayScope.ActiveMonitor => "Monitor beim Ziehbeginn",
+            OverlayScope.CursorMonitor => "Monitor unter dem Mauszeiger",
             TriggerMode.Immediate => "Sofort beim Ziehen",
             TriggerMode.ShiftKey => "Nur mit Umschalttaste",
             ThemeMode.System => "Windows-System",

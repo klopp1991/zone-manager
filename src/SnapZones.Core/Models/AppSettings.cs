@@ -4,8 +4,21 @@ namespace SnapZones.Core.Models;
 
 public enum OverlayScope
 {
+    /// <summary>Die Zonen erscheinen gleichzeitig auf jedem Monitor.</summary>
     AllMonitors,
-    ActiveMonitor
+
+    /// <summary>
+    /// Die Zonen erscheinen nur auf dem Monitor, auf dem das Ziehen begonnen hat, und bleiben dort.
+    /// Wandert der Zeiger auf einen anderen Monitor, sieht er dort keine Zonen.
+    /// </summary>
+    ActiveMonitor,
+
+    /// <summary>
+    /// Die Zonen wandern mit: sie erscheinen immer auf dem Monitor unter dem Mauszeiger und
+    /// verschwinden auf allen uebrigen. Der neue Wert steht am Ende, damit bestehende gespeicherte
+    /// Konfigurationen ihre Bedeutung behalten.
+    /// </summary>
+    CursorMonitor
 }
 
 public enum TriggerMode

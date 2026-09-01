@@ -915,11 +915,12 @@
                                         <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
                                             <TextBlock Text="Zonen anzeigen auf" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
                                             <Button x:Name="OverlayScopeInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Overlaybereich"
-                                                    ToolTip="Alle Monitore zeigt die Zonen auf jeder aktiven Anzeige. Aktiver Monitor zeigt nur die Zonen des Bildschirms, auf dem sich der Mauszeiger befindet." />
+                                                    ToolTip="Alle Monitore zeigt die Zonen gleichzeitig auf jeder Anzeige. Monitor beim Ziehbeginn zeigt sie nur auf dem Bildschirm, auf dem du das Fenster angefasst hast, und laesst sie dort stehen – ziehst du auf einen anderen Bildschirm, siehst du dort keine Zonen. Monitor unter dem Mauszeiger laesst die Zonen mitwandern: sie erscheinen immer auf dem Bildschirm, auf dem der Zeiger gerade steht, und verschwinden auf allen uebrigen." />
                                         </StackPanel>
-                                        <ComboBox ItemsSource="{Binding Settings.OverlayScopes}" SelectedItem="{Binding Settings.OverlayScope}" ItemTemplate="{StaticResource EnumItemTemplate}" />
-                                        <TextBlock Text="Wähle alle Bildschirme oder nur den Bildschirm unter dem Mauszeiger."
-                                                   Style="{StaticResource HelpText}" />
+                                        <ComboBox x:Name="OverlayScopeSelector" ItemsSource="{Binding Settings.OverlayScopes}" SelectedItem="{Binding Settings.OverlayScope}" ItemTemplate="{StaticResource EnumItemTemplate}"
+                                                  AutomationProperties.Name="Wo die Zonen beim Ziehen erscheinen" />
+                                        <TextBlock Text="Alle Bildschirme, nur der Bildschirm des Ziehbeginns, oder der Bildschirm unter dem Mauszeiger – dann wandern die Zonen beim Monitorwechsel mit."
+                                                   Style="{StaticResource HelpText}" TextWrapping="Wrap" />
                                         <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
                                             <TextBlock Text="Zonen einblenden" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
                                             <Button x:Name="TriggerModeInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Overlayaktivierung"
