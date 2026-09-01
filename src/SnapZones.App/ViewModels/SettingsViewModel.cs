@@ -6,6 +6,7 @@ public sealed class SettingsViewModel : ViewModelBase
 {
     private bool startWithWindows;
     private bool rememberWindowPositions = true;
+    private bool checkForUpdatesOnStart;
     private OverlayScope overlayScope;
     private TriggerMode triggerMode;
     private ThemeMode themeMode;
@@ -25,6 +26,7 @@ public sealed class SettingsViewModel : ViewModelBase
     {
         startWithWindows = settings.StartWithWindows;
         rememberWindowPositions = settings.RememberWindowPositions;
+        checkForUpdatesOnStart = settings.CheckForUpdatesOnStart;
         overlayScope = settings.OverlayScope;
         triggerMode = settings.TriggerMode;
         themeMode = settings.ThemeMode;
@@ -61,6 +63,16 @@ public sealed class SettingsViewModel : ViewModelBase
     {
         get => rememberWindowPositions;
         set => SetProperty(ref rememberWindowPositions, value);
+    }
+
+    /// <summary>
+    /// Ob beim Start einmal nach einer neueren Veroeffentlichung gefragt wird. Voreingestellt aus: eine
+    /// Abfrage geht ins Netz, und das soll das Programm nur tun, wenn es ausdruecklich gewollt ist.
+    /// </summary>
+    public bool CheckForUpdatesOnStart
+    {
+        get => checkForUpdatesOnStart;
+        set => SetProperty(ref checkForUpdatesOnStart, value);
     }
 
     public OverlayScope OverlayScope
@@ -205,13 +217,15 @@ public sealed class SettingsViewModel : ViewModelBase
             OuterMarginTop,
             OuterMarginRight,
             OuterMarginBottom),
-        RememberWindowPositions: RememberWindowPositions);
+        RememberWindowPositions: RememberWindowPositions,
+        CheckForUpdatesOnStart: CheckForUpdatesOnStart);
 
     public void Apply(AppSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);
         StartWithWindows = settings.StartWithWindows;
         RememberWindowPositions = settings.RememberWindowPositions;
+        CheckForUpdatesOnStart = settings.CheckForUpdatesOnStart;
         OverlayScope = settings.OverlayScope;
         TriggerMode = settings.TriggerMode;
         ThemeMode = settings.ThemeMode;

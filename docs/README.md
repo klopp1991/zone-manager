@@ -117,6 +117,31 @@ Die Seite **Skalierung** liest die erkannten Werte des gewählten Monitors aus �
 
 Jede Einstellung erklärt direkt in der Oberfläche Wirkung, Gültigkeitsbereich und Einschränkungen. Wie Titel, Beschriftungen und Hilfetexte dabei aufgebaut sind, steht verbindlich in [ui-richtlinien.md](ui-richtlinien.md).
 
+## Updates
+
+Unter **Einstellungen → Updates** steht die installierte Version, daneben **Nach Updates suchen** und
+**Update installieren und neu starten**.
+
+Die Suche fragt die Veröffentlichungen des Projekts ab und sendet dabei nichts ausser der Anfrage selbst —
+keine Version, keine Rechnerkennung, keine Zählung. Sie ist deshalb voreingestellt aus und läuft sonst nur
+auf Anstoss; **Beim Start nach Updates suchen** schaltet sie ein. Ein erfolgloser Blick beim Start bleibt
+still im Protokoll, gemeldet wird nur ein gefundenes Update.
+
+Angeboten wird ausschliesslich eine eindeutig höhere Version im Schema `YYYY.MMDD.NN`. Lässt sich eine der
+beiden Versionen nicht lesen, wird nichts angeboten, statt auf Verdacht eine fremde Datei vorzuschlagen.
+Heruntergeladen wird nur über HTTPS aus der Release-Ablage des Projekts; ein Verweis auf eine andere Adresse
+wird abgelehnt. Die geladene Datei muss ausserdem genau die angekündigte Grösse haben, sonst wird sie
+verworfen — eine abgebrochene Übertragung sieht sonst wie eine vollständige Datei aus.
+
+Der Austausch geht in drei Schritten, weil Windows eine laufende Programmdatei nicht überschreiben lässt:
+die neue Datei landet zuerst daneben, dann wird die laufende als `ZoneManager.exe.previous.<Zeitstempel>`
+beiseitegeschoben, dann die neue an ihren Platz gelegt. Scheitert der zweite Schritt, kommt die alte Datei
+zurück; es bleibt nie eine halb ersetzte Programmdatei liegen. Beim nächsten Start werden die
+beiseitegeschobenen Dateien gelöscht.
+
+Ohne digitale Signatur kann das Programm die geladene Datei nur an Herkunft und Grösse prüfen, nicht an
+einer Signatur. Wer das nicht will, lädt Releases von Hand herunter und lässt die Suche ausgeschaltet.
+
 ## Sicherheit und Not-Aus
 
 Normale Programmstarts wechseln vor dem Laden der Oberfläche über die Windows-UAC-Abfrage in den Administratormodus. Dadurch kann die Anwendung auch erhöhte Fenster positionieren; der reine Diagnosemodus bleibt absichtlich ohne Elevation. `Ctrl + Alt + Shift + F12` deaktiviert Hook und Overlays bis zum nächsten Programmstart. `Escape` beendet nur den aktuellen Ziehvorgang. Die Anwendung enthält keinen Treiber, keinen Windows-Dienst und keine Code-Injektion; ein Schutzschalter stoppt die Snap-Funktion bei Callback-Fehlern oder ungewöhnlich vielen Hook-Ereignissen.
@@ -139,7 +164,9 @@ Die Diagnose liest Konfigurationsstatus, Monitore, DPI und Autostartstatus. Sie 
 
 - Nur Windows 11 x64.
 - Wird die Windows-UAC-Abfrage abgebrochen, startet die Anwendung nicht.
-- Nicht rechteckige oder überlappende Zonen, virtuelle Desktops und automatische Updates sind noch nicht enthalten.
+- Nicht rechteckige oder überlappende Zonen und virtuelle Desktops sind noch nicht enthalten.
+- Updates werden nur auf Anstoss oder beim Start gesucht, nie im Hintergrund während des Betriebs.
+- Die geladene Programmdatei wird an Herkunft und Grösse geprüft, nicht an einer digitalen Signatur.
 - Die gemerkten Fensterpositionen lassen sich nur gesamthaft verwerfen, nicht einzeln ansehen oder löschen.
 - Eigene Layouts können nicht über eine dokumentierte API in das native Windows-Snap-Popup eingefügt werden; die Anwendung verwendet ein eigenes Overlay.
 - Der Prototyp ist nicht digital signiert und kann beim ersten Start eine Windows-Sicherheitswarnung auslösen.

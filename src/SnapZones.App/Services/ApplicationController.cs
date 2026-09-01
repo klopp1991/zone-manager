@@ -13,6 +13,7 @@ using SnapZones.Core.Monitors;
 using SnapZones.Core.PartMonitors;
 using SnapZones.Core.Persistence;
 using SnapZones.Core.Placement;
+using SnapZones.Core.Updates;
 using SnapZones.Windows.Hooks;
 using SnapZones.Windows.Hotkeys;
 using SnapZones.Windows.Startup;
@@ -52,6 +53,7 @@ public sealed class ApplicationController : IDisposable
     private bool emergencyStopped;
     private bool allowClose;
     private bool shuttingDown;
+    private readonly UpdateCoordinator updates;
     private bool disposed;
 
     public ApplicationController(
@@ -113,8 +115,14 @@ public sealed class ApplicationController : IDisposable
         identificationTimer.Tick += IdentificationTimer_Tick;
         tray = new TrayIconService(window, ActivateLayout, RequestExit);
 
+        updates = new UpdateCoordinator(
+            () => viewModel.ProductVersion,
+            () => Environment.ProcessPath,
+            log.Write);
         viewModel.SaveRequested += SaveRequested;
         viewModel.ForgetWindowPositionsRequested += ForgetWindowPositions;
+        viewModel.UpdateCheckRequested += () => _ = CheckForUpdatesAsync(announceUpToDate: true);
+        viewModel.UpdateInstallRequested += () => _ = InstallUpdateAsync();
         placementEngine.CatalogChanged += PublishRememberedWindowCount;
         viewModel.RememberedWindowCount = placementEngine.Catalog.Entries.Count;
         window.ExportConfigurationRequested += ExportConfigurationAsync;
@@ -130,6 +138,22 @@ public sealed class ApplicationController : IDisposable
         window.Closing += Window_Closing;
 
         Reconfigure(configuration);
+
+        // Eine vom letzten Update beiseitegeschobene Programmdatei laesst sich erst loeschen, wenn der
+        // Prozess, der sie belegte, geendet hat. Der naechste Start ist der erste Zeitpunkt dafuer.
+        if (Environment.ProcessPath is { Length: > 0 } processPath)
+        {
+            var removed = UpdateInstaller.RemoveSupersededFiles(processPath);
+            if (removed > 0)
+            {
+                log.Write("INFO", $"{removed} Vorgaengerdatei(en) nach einem Update entfernt.");
+            }
+        }
+
+        if (configuration.Settings.CheckForUpdatesOnStart)
+        {
+            _ = CheckForUpdatesAsync(announceUpToDate: false);
+        }
     }
 
     public void EmergencyStop(string reason)
@@ -346,6 +370,74 @@ public sealed class ApplicationController : IDisposable
             log.Write("ERROR", "Konfiguration konnte nicht gespeichert werden.", exception);
             viewModel.StatusMessage = $"Speichern fehlgeschlagen: {exception.Message}";
         });
+    }
+
+    /// <summary>
+    /// Sieht nach einer neueren Veroeffentlichung. Beim Start geschieht das still: nur ein gefundenes
+    /// Update wird gemeldet, ein erfolgloser Blick bleibt im Protokoll.
+    /// </summary>
+    private async Task CheckForUpdatesAsync(bool announceUpToDate)
+    {
+        if (viewModel.IsUpdateBusy)
+        {
+            return;
+        }
+
+        viewModel.IsUpdateBusy = true;
+        viewModel.UpdateStatus = "Suche nach Updates \u2026";
+        try
+        {
+            var result = await updates.CheckAsync(CancellationToken.None);
+            viewModel.IsUpdateAvailable = result.Availability == UpdateAvailability.UpdateAvailable;
+            if (result.Availability != UpdateAvailability.UpToDate || announceUpToDate)
+            {
+                viewModel.UpdateStatus = result.Message;
+            }
+        }
+        finally
+        {
+            viewModel.IsUpdateBusy = false;
+        }
+    }
+
+    private async Task InstallUpdateAsync()
+    {
+        if (viewModel.IsUpdateBusy || !viewModel.IsUpdateAvailable)
+        {
+            return;
+        }
+
+        viewModel.IsUpdateBusy = true;
+        viewModel.UpdateStatus = "Update wird geladen \u2026";
+        try
+        {
+            var result = await updates.InstallAsync(CancellationToken.None);
+            viewModel.UpdateStatus = result.Message;
+            if (result.Status != UpdateInstallStatus.Applied)
+            {
+                return;
+            }
+
+            viewModel.IsUpdateAvailable = false;
+        }
+        finally
+        {
+            viewModel.IsUpdateBusy = false;
+        }
+
+        // Erst speichern, dann den neuen Stand starten, dann selbst enden. Zwei Staende duerfen nie
+        // gleichzeitig laufen.
+        viewModel.Save();
+        await saveCoordinator.FlushAsync(CancellationToken.None);
+        await placementEngine.FlushAsync(CancellationToken.None);
+        if (updates.TryRestart())
+        {
+            RequestExit();
+            return;
+        }
+
+        viewModel.StatusMessage =
+            "Die neue Version liegt bereit, liess sich aber nicht starten. Beim naechsten Start wird sie verwendet.";
     }
 
     private void ForgetWindowPositions()

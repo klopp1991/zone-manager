@@ -34,6 +34,13 @@ kein Merken der Position. Das Fenster behält dauerhaft die Grösse und Position
 wird es wie bei einer Regel über Programm, Titelmuster und Fensterklasse; mindestens eines der drei muss
 stehen. Trifft auf ein Fenster beides zu, gewinnt der Ausschluss.
 
+## Updates
+
+**Einstellungen → Updates** zeigt die installierte Version, sucht auf Knopfdruck nach einer neueren und
+installiert sie mitsamt Neustart. Die Suche ist voreingestellt aus und sendet nichts ausser der Anfrage
+selbst. Geladen wird nur aus der Release-Ablage des Projekts; die bisherige Programmdatei bleibt bis zum
+nächsten Start als Sicherung daneben liegen.
+
 ## Sicherheitsstatus
 
 - Autostart ist beim ersten Start ausgeschaltet.

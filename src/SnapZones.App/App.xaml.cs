@@ -70,7 +70,10 @@ public partial class App : System.Windows.Application
             themeService = new ThemeService();
             themeService.Apply(loadResult.Configuration.Settings.ThemeMode);
             var monitors = new WindowsMonitorService().GetMonitors();
-            var viewModel = new MainViewModel(loadResult.Configuration, monitors);
+            var viewModel = new MainViewModel(loadResult.Configuration, monitors)
+            {
+                ProductVersion = ProductInfo.Version
+            };
             if (loadResult.RecoveredFromError)
             {
                 viewModel.StatusMessage = loadResult.ErrorMessage ?? "Die Konfiguration wurde zurückgesetzt.";

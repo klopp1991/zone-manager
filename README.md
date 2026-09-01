@@ -29,6 +29,7 @@ Der Lauf schliesst eine Per-Monitor-DPI-Prüfung ein, die die Oberfläche starte
 - Sofortige Layoutspeicherung, fünf automatische Backups sowie JSON-Export und -Import
 - System-, helles und dunkles Theme, Autostart ohne UAC-Abfrage über eine Anmeldeaufgabe und Not-Aus über `Ctrl + Alt + Shift + F12`
 - Monitorerkennung über Displaypfad und EDID-Daten
+- Update aus dem Programm heraus: Suche auf Anstoss oder beim Start, Download nur aus der Release-Ablage über HTTPS, Austausch der laufenden Programmdatei mit Rückfall auf den alten Stand
 - Regeln nach Prozess, optionalem Fenstertitel und Fensterklasse mit Ereignis, Verzögerung, Wiederholungen und Zielzone; das Programm wird über den Dateidialog oder aus der Liste der laufenden Programme gewählt
 - Ausschlüsse nach denselben Merkmalen: ein ausgeschlossenes Fenster bekommt kein Overlay, rastet nicht ein, wird von keiner Regel bewegt und behält dauerhaft eigene Grösse und Position
 
@@ -65,7 +66,7 @@ Nur die Version setzen, ohne zu veröffentlichen: `scripts\set-version.ps1` (mit
 
 ## Sicherheit und Einschränkungen
 
-Die Anwendung verwendet keinen Treiber, keinen Windows-Dienst und keine Code-Injektion. Sie unterstützt nur Windows 11 x64, ist nicht digital signiert und kann deshalb beim ersten Start eine Sicherheitswarnung auslösen. Das native Windows-Snap-Popup kann nicht über eine dokumentierte API um eigene Zonen erweitert werden; Sascha’s Zone Manager verwendet dafür ein eigenes Overlay.
+Die Anwendung verwendet keinen Treiber, keinen Windows-Dienst und keine Code-Injektion. Sie unterstützt nur Windows 11 x64, ist nicht digital signiert und kann deshalb beim ersten Start eine Sicherheitswarnung auslösen. Aus demselben Grund prüft die Updatefunktion die geladene Datei nur an Herkunft und Grösse. Das native Windows-Snap-Popup kann nicht über eine dokumentierte API um eigene Zonen erweitert werden; Sascha’s Zone Manager verwendet dafür ein eigenes Overlay.
 
 Weitere Bedienungs- und Architekturdetails stehen in [docs/README.md](docs/README.md), der [Kurzanleitung](outputs/ZoneManager-Kurzanleitung.md) und dem [Prüfbericht](outputs/ZoneManager-Pruefbericht.md). Für Änderungen an der Oberfläche gelten verbindlich die [UI-Richtlinien](docs/ui-richtlinien.md).
 

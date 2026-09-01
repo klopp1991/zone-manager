@@ -15,6 +15,9 @@ public sealed class MainViewModel : ViewModelBase
     private LayoutEditorViewModel? editor;
     private string statusMessage = "Bereit";
     private int rememberedWindowCount;
+    private string updateStatus = "Noch nicht nach Updates gesucht.";
+    private bool isUpdateAvailable;
+    private bool isUpdateBusy;
     private bool suppressPersistence;
 
     public MainViewModel(SnapConfiguration configuration, IReadOnlyList<LiveMonitor> monitors)
@@ -38,6 +41,12 @@ public sealed class MainViewModel : ViewModelBase
 
     /// <summary>Bittet darum, saemtliche gemerkten Fensterpositionen zu verwerfen.</summary>
     public event Action? ForgetWindowPositionsRequested;
+
+    /// <summary>Bittet darum, nach einer neueren Veroeffentlichung zu sehen.</summary>
+    public event Action? UpdateCheckRequested;
+
+    /// <summary>Bittet darum, die gefundene Veroeffentlichung zu installieren.</summary>
+    public event Action? UpdateInstallRequested;
 
     public ObservableCollection<MonitorChoice> Monitors { get; }
     public ObservableCollection<MonitorLayout> Layouts { get; }
@@ -72,6 +81,50 @@ public sealed class MainViewModel : ViewModelBase
     };
 
     public void ForgetWindowPositions() => ForgetWindowPositionsRequested?.Invoke();
+
+    /// <summary>Die laufende Produktversion im Schema JJJJ.MMTT.NN.</summary>
+    public string ProductVersion { get; init; } = string.Empty;
+
+    /// <summary>Was der letzte Blick auf die Veroeffentlichungen ergeben hat, im Klartext.</summary>
+    public string UpdateStatus
+    {
+        get => updateStatus;
+        set => SetProperty(ref updateStatus, value);
+    }
+
+    /// <summary>Ob eine neuere Veroeffentlichung bereitsteht und angeboten werden darf.</summary>
+    public bool IsUpdateAvailable
+    {
+        get => isUpdateAvailable;
+        set
+        {
+            if (SetProperty(ref isUpdateAvailable, value))
+            {
+                OnPropertyChanged(nameof(CanInstallUpdate));
+            }
+        }
+    }
+
+    /// <summary>Ob gerade gesucht oder geladen wird. Sperrt beide Schaltflaechen.</summary>
+    public bool IsUpdateBusy
+    {
+        get => isUpdateBusy;
+        set
+        {
+            if (SetProperty(ref isUpdateBusy, value))
+            {
+                OnPropertyChanged(nameof(CanCheckForUpdates));
+                OnPropertyChanged(nameof(CanInstallUpdate));
+            }
+        }
+    }
+
+    public bool CanCheckForUpdates => !isUpdateBusy;
+    public bool CanInstallUpdate => isUpdateAvailable && !isUpdateBusy;
+
+    public void CheckForUpdates() => UpdateCheckRequested?.Invoke();
+
+    public void InstallUpdate() => UpdateInstallRequested?.Invoke();
 
     public MonitorChoice? SelectedMonitor
     {

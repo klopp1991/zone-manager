@@ -36,7 +36,8 @@ public sealed record AppSettings(
     int MagnetThresholdPixels = 20,
     bool ShowZoneNames = true,
     EdgeInsets? OuterMargins = null,
-    bool RememberWindowPositions = true)
+    bool RememberWindowPositions = true,
+    bool CheckForUpdatesOnStart = false)
 {
     public EdgeInsets EffectiveOuterMargins =>
         (OuterMargins ?? EdgeInsets.Uniform(OuterMargin)).Clamp(0, 400);
@@ -55,5 +56,6 @@ public sealed record AppSettings(
         MagnetThresholdPixels: 20,
         ShowZoneNames: true,
         OuterMargins: EdgeInsets.Uniform(8),
-        RememberWindowPositions: true);
+        RememberWindowPositions: true,
+        CheckForUpdatesOnStart: false);
 }

@@ -756,6 +756,35 @@ public partial class MainWindow : Window
         }
     }
 
+    private void CheckForUpdates_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.CheckForUpdates();
+    }
+
+    private void InstallUpdate_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        if (System.Windows.MessageBox.Show(
+                "Die neue Programmdatei wird geladen und an die Stelle der laufenden gelegt. "
+                    + "Danach startet das Programm neu; Einstellungen und Layouts bleiben erhalten.",
+                "Update installieren",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Information) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        viewModel.InstallUpdate();
+    }
+
     private void ForgetWindowPositions_Click(object sender, RoutedEventArgs eventArgs)
     {
         _ = sender;
