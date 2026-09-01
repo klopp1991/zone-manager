@@ -982,6 +982,57 @@
                                 <Border Style="{StaticResource SectionCard}">
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Fensterhelfer ohne Administratorrechte" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                            <Button x:Name="CertificateInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Fensterhelfer"
+                                                    ToolTip="Windows kennt eine Ausnahme namens uiAccess: ein Programm darf hoeher berechtigte Fenster bewegen, ohne selbst Administratorrechte zu besitzen. Es verlangt dafuer zwingend eine gueltige digitale Signatur und einen geschuetzten Installationsort. Ein oeffentlich anerkanntes Zertifikat kostet mehrere hundert Euro im Jahr und verlangt einen Hardware-Token. Fuer den eigenen Rechner genuegt ein selbst ausgestelltes Zertifikat, dem dieser Rechner vertraut – genau das richtet diese Seite ein." />
+                                        </StackPanel>
+
+                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,14,0,0" TextWrapping="Wrap"
+                                                   Text="Diese Einrichtung ist freiwillig. Ohne sie funktioniert alles wie beschrieben; nur fuer Fenster von Programmen mit Administratorrechten fragt Sascha's Zone Manager dann nach eigenen Administratorrechten." />
+
+                                        <TextBlock Text="Was hier eingerichtet wird" Style="{StaticResource GroupTitle}" Margin="0,18,0,0" />
+                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                                   Text="Erstens ein eigenes Zertifikat, also ein digitaler Ausweis, den dein Rechner selbst ausstellt. Zweitens wird damit ein kleines Zusatzprogramm unterschrieben – der Fensterhelfer. Er liegt neben dem Hauptprogramm, ist rund zehnmal kleiner und kann genau eine Sache: ein Fenster an eine bestimmte Stelle setzen. Er liest keine Dateien, startet nichts und nimmt nur vom Hauptprogramm Befehle entgegen." />
+
+                                        <TextBlock Text="Was du damit gewinnst" Style="{StaticResource GroupTitle}" Margin="0,18,0,0" />
+                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                                   Text="Auch Fenster von Programmen mit Administratorrechten – Taskmanager, Registrierungs-Editor, alles «als Administrator» Gestartete – rasten dann ein, und zwar ohne dass Sascha's Zone Manager selbst jemals Administratorrechte bekommt. Es erscheint keine UAC-Abfrage mehr." />
+
+                                        <TextBlock Text="Was du dafuer in Kauf nimmst" Style="{StaticResource GroupTitle}" Margin="0,18,0,0" />
+                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                                   Text="Dein Rechner vertraut anschliessend allem, was mit diesem Zertifikat unterschrieben wurde. Der zugehoerige geheime Schluessel liegt auf dieser Maschine. Wer ihn stiehlt, koennte Schadsoftware so unterschreiben, dass Windows sie fuer vertrauenswuerdig haelt. Zwei Dinge halten das klein: das Zertifikat ist selbst keine Ausgabestelle und kann keine weiteren Zertifikate erzeugen, und sein Schluessel laesst sich nicht exportieren. Ein Restrisiko bleibt – deshalb steht das hier und nicht im Kleingedruckten." />
+                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                                   Text="Das Zertifikat gilt nur auf diesem Rechner. Gibst du das Programm weiter, muesste der Empfaenger dein Zertifikat installieren – dazu solltest du niemanden auffordern." />
+
+                                        <TextBlock Text="Voraussetzungen" Style="{StaticResource GroupTitle}" Margin="0,18,0,0" />
+                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                                   Text="Das Programm muss nach «Programme» installiert sein – Windows akzeptiert uiAccess nur aus einem geschuetzten Verzeichnis. Das Einrichten selbst braucht einmalig Administratorrechte, weil es in den Zertifikatspeicher des Rechners schreibt." />
+
+                                        <TextBlock Text="Zertifikat" Style="{StaticResource FieldLabel}" Margin="0,18,0,0" />
+                                        <TextBlock x:Name="CertificateStatusText" Text="{Binding CertificateStatus}"
+                                                   Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                                   AutomationProperties.Name="Zustand des Zertifikats" />
+                                        <TextBlock Text="Fensterhelfer" Style="{StaticResource FieldLabel}" Margin="0,12,0,0" />
+                                        <TextBlock x:Name="HelperStatusText" Text="{Binding HelperStatus}"
+                                                   Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                                   AutomationProperties.Name="Zustand des Fensterhelfers" />
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                            <Button x:Name="InstallCertificateButton" Content="Zertifikat einrichten"
+                                                    Click="InstallCertificate_Click" Margin="0,0,8,0"
+                                                    IsEnabled="{Binding CanInstallCertificate}"
+                                                    AutomationProperties.Name="Zertifikat einrichten und Fensterhelfer signieren" />
+                                            <Button x:Name="RemoveCertificateButton" Content="Zertifikat entfernen"
+                                                    Click="RemoveCertificate_Click" Margin="0"
+                                                    IsEnabled="{Binding IsCertificateInstalled}"
+                                                    AutomationProperties.Name="Zertifikat entfernen"
+                                                    ToolTip="Nimmt das Zertifikat aus allen Speichern. Der Fensterhelfer startet danach nicht mehr, und das Programm fragt bei Bedarf wieder nach Administratorrechten." />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal">
                                             <TextBlock Text="Overlay-Abstände" Style="{StaticResource SectionTitle}" />
                                             <Button x:Name="OuterMarginsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu äusseren Abständen"
                                                     ToolTip="Diese Werte bestimmen ausschliesslich die zusätzlichen Aussenabstände des Overlays, also der Vorschau beim Ziehen. Fenster und Layoutdefinition bleiben unverändert; das Overlay behält auch bei 0 einen kleinen visuellen Mindestabstand. Zulässig sind 0 bis 400 Pixel." />

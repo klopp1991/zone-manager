@@ -29,6 +29,7 @@ Der Lauf schliesst eine Per-Monitor-DPI-Prüfung ein, die die Oberfläche starte
 - Sofortige Layoutspeicherung, fünf automatische Backups sowie JSON-Export und -Import
 - System-, helles und dunkles Theme, Autostart ohne UAC-Abfrage über eine Anmeldeaufgabe und Not-Aus über `Ctrl + Alt + Shift + F12`
 - Administratorrechte nur auf Bedarf: Start ohne Abfrage, Nachfrage höchstens einmal je Sitzung und nur, wenn ein Fenster sie wirklich verlangt
+- Wahlweise ein signierter Fensterhelfer mit `uiAccess`: auch Fenster höher berechtigter Programme rasten ein, ohne dass das Programm selbst je Administratorrechte bekommt
 - Monitorerkennung über Displaypfad und EDID-Daten
 - Update aus dem Programm heraus: Suche auf Anstoss oder beim Start, Download nur aus der Release-Ablage über HTTPS, Austausch der laufenden Programmdatei mit Rückfall auf den alten Stand
 - Regeln nach Prozess, optionalem Fenstertitel und Fensterklasse mit Ereignis, Verzögerung, Wiederholungen und Zielzone; das Programm wird über den Dateidialog oder aus der Liste der laufenden Programme gewählt

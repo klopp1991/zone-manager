@@ -69,6 +69,13 @@ public sealed class InstallationService
         {
             Directory.CreateDirectory(plan.TargetDirectory);
             CopyOverwritingRunningFile(plan.SourcePath, plan.TargetPath);
+
+            // Der Fensterhelfer wird mitgenommen, wenn er neben der Quelldatei liegt. Fehlt er, bleibt
+            // die Installation gueltig; das Programm geht dann seinen Weg ueber die UAC-Abfrage.
+            if (File.Exists(plan.SourceHelperPath))
+            {
+                CopyOverwritingRunningFile(plan.SourceHelperPath, plan.TargetHelperPath);
+            }
             RegisterUninstall(plan, version);
             TryCreateShortcut(plan);
             return new InstallationResult(
@@ -106,6 +113,7 @@ public sealed class InstallationService
             Environment.GetFolderPath(Environment.SpecialFolder.CommonPrograms));
 
         TryDelete(plan.ShortcutPath, problems);
+        TryDelete(plan.TargetHelperPath, problems);
 
         // Die laufende Programmdatei laesst sich nicht loeschen, wohl aber umbenennen. Sie wird deshalb
         // beiseitegeschoben und zum Loeschen beim naechsten Neustart vorgemerkt.

@@ -51,6 +51,12 @@ public sealed class WindowsWindowService : IWindowService
             ReadAppIdentity(window, processId));
     }
 
+    /// <summary>
+    /// Der Fensterhelfer mit uiAccess, sofern eingerichtet. Er wird nur fuer Fenster gebraucht, die
+    /// dieser Prozess selbst nicht bewegen darf.
+    /// </summary>
+    public Func<nint, PixelRect, bool>? ElevatedPlacement { get; set; }
+
     public bool TrySnap(nint window, PixelRect bounds)
     {
         if (window == 0 || !User32.IsWindow(window) || bounds.Width < 1 || bounds.Height < 1)
@@ -58,8 +64,16 @@ public sealed class WindowsWindowService : IWindowService
             return false;
         }
 
-        _ = User32.ShowWindow(window, Restore);
         var placement = CompensateInvisibleBorder(window, bounds);
+
+        // Fenster hoeher berechtigter Programme gehen ueber den Helfer, alle uebrigen direkt. Der
+        // Umweg kostet einen Prozesswechsel und lohnt sich nur dort, wo er noetig ist.
+        if (RequiresElevation(window) && ElevatedPlacement is { } elevated && elevated(window, placement))
+        {
+            return true;
+        }
+
+        _ = User32.ShowWindow(window, Restore);
         return User32.SetWindowPos(
             window,
             0,

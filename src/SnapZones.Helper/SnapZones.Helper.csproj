@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <AssemblyName>ZoneManager.Helper</AssemblyName>
+    <AssemblyTitle>Sascha’s Zone Manager – Fensterhelfer</AssemblyTitle>
+    <Product>Sascha’s Zone Manager</Product>
+    <RootNamespace>SnapZones.Helper</RootNamespace>
+    <OutputType>WinExe</OutputType>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>12</LangVersion>
+    <PlatformTarget>x64</PlatformTarget>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <!--
+      Selbstaendig, getrimmt und komprimiert. Selbstaendig, weil die Hauptanwendung ohne installierte
+      Laufzeit auskommt und der Helfer das auch muss; getrimmt, weil er ohne Oberflaeche auskommt und
+      dadurch auf rund ein Sechstel der Hauptdatei schrumpft.
+    -->
+    <SelfContained>true</SelfContained>
+    <PublishTrimmed>true</PublishTrimmed>
+    <PublishSingleFile>true</PublishSingleFile>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <DebugType>embedded</DebugType>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SnapZones.Core\SnapZones.Core.csproj" />
+  </ItemGroup>
+</Project>

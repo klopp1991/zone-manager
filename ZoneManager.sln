@@ -1,4 +1,4 @@
-Microsoft Visual Studio Solution File, Format Version 12.00
+﻿Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
@@ -9,6 +9,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SnapZones.App", "src\SnapZones.App\SnapZones.App.csproj", "{A1131DC9-50B8-46A5-8A08-4909D7A02CB4}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SnapZones.Tests", "tests\SnapZones.Tests\SnapZones.Tests.csproj", "{A51C5DCE-2979-4D69-A9D1-089409569A83}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{D715F96F-0F1D-4BEF-9B7F-9740BB927017}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SnapZones.Helper", "src\SnapZones.Helper\SnapZones.Helper.csproj", "{B4F9F05E-E602-4D12-9105-3F55C22AC289}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -32,5 +36,12 @@ Global
 		{A51C5DCE-2979-4D69-A9D1-089409569A83}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A51C5DCE-2979-4D69-A9D1-089409569A83}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A51C5DCE-2979-4D69-A9D1-089409569A83}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B4F9F05E-E602-4D12-9105-3F55C22AC289}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B4F9F05E-E602-4D12-9105-3F55C22AC289}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B4F9F05E-E602-4D12-9105-3F55C22AC289}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B4F9F05E-E602-4D12-9105-3F55C22AC289}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{B4F9F05E-E602-4D12-9105-3F55C22AC289} = {D715F96F-0F1D-4BEF-9B7F-9740BB927017}
 	EndGlobalSection
 EndGlobal

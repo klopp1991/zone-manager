@@ -20,6 +20,9 @@ public sealed class MainViewModel : ViewModelBase
     private bool isUpdateBusy;
     private string installationStatus = string.Empty;
     private bool canInstall = true;
+    private string certificateStatus = string.Empty;
+    private string helperStatus = string.Empty;
+    private bool isCertificateInstalled;
     private bool suppressPersistence;
 
     public MainViewModel(SnapConfiguration configuration, IReadOnlyList<LiveMonitor> monitors)
@@ -52,6 +55,12 @@ public sealed class MainViewModel : ViewModelBase
 
     /// <summary>Bittet darum, das Programm nach «Programme» zu installieren.</summary>
     public event Action? InstallRequested;
+
+    /// <summary>Bittet darum, das eigene Zertifikat einzurichten und den Fensterhelfer zu signieren.</summary>
+    public event Action? CertificateInstallRequested;
+
+    /// <summary>Bittet darum, das eigene Zertifikat wieder zu entfernen.</summary>
+    public event Action? CertificateRemoveRequested;
 
     public ObservableCollection<MonitorChoice> Monitors { get; }
     public ObservableCollection<MonitorLayout> Layouts { get; }
@@ -146,6 +155,38 @@ public sealed class MainViewModel : ViewModelBase
     }
 
     public void Install() => InstallRequested?.Invoke();
+
+    /// <summary>Ob das eigene Zertifikat eingerichtet und gültig ist, im Klartext.</summary>
+    public string CertificateStatus
+    {
+        get => certificateStatus;
+        set => SetProperty(ref certificateStatus, value);
+    }
+
+    /// <summary>Ob der Fensterhelfer läuft, im Klartext.</summary>
+    public string HelperStatus
+    {
+        get => helperStatus;
+        set => SetProperty(ref helperStatus, value);
+    }
+
+    public bool IsCertificateInstalled
+    {
+        get => isCertificateInstalled;
+        set
+        {
+            if (SetProperty(ref isCertificateInstalled, value))
+            {
+                OnPropertyChanged(nameof(CanInstallCertificate));
+            }
+        }
+    }
+
+    public bool CanInstallCertificate => !isCertificateInstalled;
+
+    public void InstallCertificate() => CertificateInstallRequested?.Invoke();
+
+    public void RemoveCertificate() => CertificateRemoveRequested?.Invoke();
 
     public MonitorChoice? SelectedMonitor
     {

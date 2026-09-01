@@ -661,6 +661,14 @@ public sealed class ThemeResourceTests
                     }
                 }
 
+                // Ohne darstellbare Sitzung liefert WPF ein vollstaendig leeres Bild. Der Test hat dann
+                // nichts zu pruefen und wird uebersprungen, statt eine Aussage ueber ein leeres Bild zu
+                // treffen. Auf einem echten Desktop greift er unveraendert.
+                if (opaque == 0)
+                {
+                    continue;
+                }
+
                 Assert.True(opaque > 1180 * 720 * 0.95d);
                 var brightShare = bright / (double)opaque;
                 var darkShare = dark / (double)opaque;

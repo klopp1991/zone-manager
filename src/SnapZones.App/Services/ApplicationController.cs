@@ -14,6 +14,8 @@ using SnapZones.Core.PartMonitors;
 using SnapZones.Core.Persistence;
 using SnapZones.Core.Placement;
 using SnapZones.Core.Updates;
+using SnapZones.Core.Elevation;
+using SnapZones.Windows.Elevation;
 using SnapZones.Core.Setup;
 using SnapZones.Windows.Hooks;
 using SnapZones.Windows.Hotkeys;
@@ -57,6 +59,8 @@ public sealed class ApplicationController : IDisposable
     private bool shuttingDown;
     private readonly UpdateCoordinator updates;
     private readonly ElevationEscalation elevation;
+    private readonly SigningCertificateService certificates = new();
+    private readonly HelperChannel? helper;
     private bool disposed;
 
     public ApplicationController(
@@ -132,7 +136,24 @@ public sealed class ApplicationController : IDisposable
         viewModel.UpdateCheckRequested += () => _ = CheckForUpdatesAsync(announceUpToDate: true);
         viewModel.UpdateInstallRequested += () => _ = InstallUpdateAsync();
         viewModel.InstallRequested += InstallToProgramFiles;
+        viewModel.CertificateInstallRequested += InstallSigningCertificate;
+        viewModel.CertificateRemoveRequested += RemoveSigningCertificate;
+
+        // Der Helfer wird nur angelegt, wenn seine Datei ueberhaupt neben dem Programm liegt. Gestartet
+        // wird er erst beim ersten Fenster, das ihn braucht.
+        var helperPath = HelperChannel.ResolvePath(Environment.ProcessPath ?? string.Empty);
+        if (File.Exists(helperPath))
+        {
+            helper = new HelperChannel(helperPath, log.Write);
+            if (windowService is WindowsWindowService concrete)
+            {
+                concrete.ElevatedPlacement = (handle, bounds) =>
+                    helper.TryPlace(handle, bounds.X, bounds.Y, bounds.Width, bounds.Height);
+            }
+        }
+
         PublishInstallationStatus();
+        PublishCertificateStatus();
         placementEngine.CatalogChanged += PublishRememberedWindowCount;
         viewModel.RememberedWindowCount = placementEngine.Catalog.Entries.Count;
         window.ExportConfigurationRequested += ExportConfigurationAsync;
@@ -202,6 +223,7 @@ public sealed class ApplicationController : IDisposable
         overlays.HideAll();
         tray.Dispose();
         hotkeys.Dispose();
+        helper?.Dispose();
         moveHook.Dispose();
         appRuleCoordinator.Dispose();
         appRuleHook.Dispose();
@@ -485,6 +507,39 @@ public sealed class ApplicationController : IDisposable
             default:
                 break;
         }
+    }
+
+    /// <summary>
+    /// Fuehrt Zertifikats- und Helferstand in den Einstellungen nach. Beide gehoeren zusammen: ein
+    /// Zertifikat ohne signierten Helfer nuetzt nichts, ein Helfer ohne Zertifikat startet nicht.
+    /// </summary>
+    private void PublishCertificateStatus()
+    {
+        var status = certificates.Read();
+        viewModel.IsCertificateInstalled = status.State == CertificateState.Trusted;
+        viewModel.CertificateStatus = status.Message;
+        viewModel.HelperStatus = helper is null
+            ? "Der Fensterhelfer ist nicht vorhanden. Er entsteht bei der Installation nach «Programme»."
+            : helper.Status.State == HelperState.Idle && status.State != CertificateState.Trusted
+                ? "Der Fensterhelfer wartet auf ein eingerichtetes Zertifikat."
+                : helper.Probe().Message;
+    }
+
+    private void InstallSigningCertificate()
+    {
+        var helperPath = HelperChannel.ResolvePath(Environment.ProcessPath ?? string.Empty);
+        var result = certificates.Install(helperPath, TimeProvider.System.GetUtcNow());
+        viewModel.StatusMessage = result.Message;
+        log.Write(result.Successful ? "INFO" : "ERROR", result.Message);
+        PublishCertificateStatus();
+    }
+
+    private void RemoveSigningCertificate()
+    {
+        var result = certificates.Remove();
+        viewModel.StatusMessage = result.Message;
+        log.Write(result.Successful ? "INFO" : "ERROR", result.Message);
+        PublishCertificateStatus();
     }
 
     private void PublishInstallationStatus()

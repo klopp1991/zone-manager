@@ -37,6 +37,16 @@ public sealed record InstallationPlan(
 
     public const string ExecutableName = "ZoneManager.exe";
 
+    /// <summary>Der Fensterhelfer liegt neben der Programmdatei; ohne sie hat er keinen Zweck.</summary>
+    public const string HelperName = "ZoneManager.Helper.exe";
+
+    /// <summary>Der Fensterhelfer neben der Quelldatei, sofern vorhanden.</summary>
+    public string SourceHelperPath =>
+        Path.Combine(Path.GetDirectoryName(SourcePath) ?? string.Empty, HelperName);
+
+    /// <summary>Der Fensterhelfer am Installationsort.</summary>
+    public string TargetHelperPath => Path.Combine(TargetDirectory, HelperName);
+
     /// <summary>Ob die Programmdatei tatsächlich kopiert werden muss.</summary>
     public bool RequiresCopy => State != InstallationState.AlreadyInstalled;
 

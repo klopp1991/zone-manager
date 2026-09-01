@@ -188,10 +188,41 @@ Hand.
 Die Rechte-Einstellung wird vor dem Laden der Oberfläche gelesen, also aus `settings.json` allein für dieses
 eine Feld. Lässt sich die Datei nicht lesen, gilt die Voreinstellung.
 
-Nicht erreichbar bleibt der Weg über `uiAccess`, mit dem ein Programm höher berechtigte Fenster **ohne**
-Administratorrechte bewegen dürfte. Windows verlangt dafür zwingend eine gültige Authenticode-Signatur; eine
-unsignierte Anwendung mit diesem Merkmal startet gar nicht (Fehler 740). Solange das Programm nicht signiert
-ist, bleiben die beiden Wahlmöglichkeiten oben die einzigen.
+### Fensterhelfer ohne Administratorrechte
+
+Windows kennt eine dritte Möglichkeit: `uiAccess`. Ein Programm mit diesem Merkmal darf höher berechtigte
+Fenster bewegen, **ohne** selbst Administratorrechte zu besitzen. Windows verlangt dafür zwingend zweierlei
+— eine gültige Authenticode-Signatur und einen geschützten Installationsort. Fehlt eines von beiden, startet
+die Datei gar nicht (gemessen: Win32-Fehler 740).
+
+Weil das Hauptprogramm auch unsigniert und aus jedem Verzeichnis starten können muss, trägt es dieses
+Merkmal nicht. Stattdessen liegt neben ihm ein eigenes, rund 10 MB grosses Hilfsprogramm
+`ZoneManager.Helper.exe`. Es kann genau eine Sache: ein Fenster an eine bestimmte Stelle setzen. Es öffnet
+keine Datei, startet keinen Prozess, sendet keine Fenstermeldungen und keine Eingaben, nimmt nur über eine
+benannte Pipe Befehle entgegen und endet, sobald die Verbindung abreisst.
+
+Abgesichert ist der Weg dreifach: die Pipe trägt einen bei jedem Lauf zufälligen Namen und eine
+Zugriffsliste, die nur den angemeldeten Benutzer zulässt; der Helfer prüft, dass am anderen Ende wirklich
+`ZoneManager.exe` aus seinem eigenen Verzeichnis sitzt; und das Protokoll kennt genau zwei Befehle, deren
+Zahlen streng geprüft werden. Der Helfer wird erst beim ersten Fenster gestartet, das ihn wirklich braucht.
+
+Unter **Einstellungen → Fensterhelfer ohne Administratorrechte** wird ein selbst ausgestelltes Zertifikat
+erzeugt, in die Vertrauensspeicher der lokalen Maschine gelegt und der Helfer damit signiert. Das ist
+freiwillig; ohne diesen Schritt bleiben die beiden Wahlmöglichkeiten oben die einzigen.
+
+**Was das bedeutet.** Der Rechner vertraut anschliessend allem, was mit diesem Zertifikat signiert wurde.
+Der private Schlüssel liegt auf der Maschine. Wer ihn erbeutet, kann Schadsoftware so signieren, dass
+Windows sie für vertrauenswürdig hält. Zwei Dinge halten den Schaden klein: das Zertifikat ist **keine**
+Zertifizierungsstelle und kann keine weiteren Zertifikate ausstellen, und sein Schlüssel ist nicht
+exportierbar. Ein Restrisiko bleibt. Das Zertifikat gilt zudem nur auf diesem Rechner — weitergeben lässt
+sich das Programm damit nicht.
+
+Das Einrichten und das Entfernen verlangen einmalig Administratorrechte, weil sie in den Zertifikatspeicher
+der lokalen Maschine schreiben. Gearbeitet wird über die Windows-eigene PowerShell
+(`New-SelfSignedCertificate`, `Set-AuthenticodeSignature`); ein externes Werkzeug wird nicht gebraucht.
+
+**Entfernen** nimmt das Zertifikat aus allen drei Speichern. Der Helfer startet danach nicht mehr, und das
+Programm fragt bei Bedarf wieder nach eigenen Administratorrechten.
 
 ## Not-Aus und Schutzschalter
 
@@ -218,7 +249,8 @@ Die Diagnose liest Konfigurationsstatus, Monitore, DPI und Autostartstatus. Sie 
 
 - Nur Windows 11 x64.
 - Wird die Windows-UAC-Abfrage bei «Immer beim Start» abgebrochen, startet die Anwendung nicht.
-- Fenster höher berechtigter Programme lassen sich nur einrasten, wenn das Programm selbst erhöht läuft; ein Weg über `uiAccess` scheidet ohne Signatur aus.
+- Fenster höher berechtigter Programme lassen sich nur einrasten, wenn das Programm selbst erhöht läuft oder der signierte Fensterhelfer eingerichtet ist.
+- Der Fensterhelfer ist mit einem selbst ausgestellten Zertifikat signiert und funktioniert deshalb nur auf dem Rechner, auf dem es eingerichtet wurde.
 - Nicht rechteckige oder überlappende Zonen und virtuelle Desktops sind noch nicht enthalten.
 - Updates werden nur auf Anstoss oder beim Start gesucht, nie im Hintergrund während des Betriebs.
 - Die geladene Programmdatei wird an Herkunft und Grösse geprüft, nicht an einer digitalen Signatur.
@@ -247,6 +279,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\verify.ps1
 Das Skript erzeugt das Mehrgrössen-Icon, stellt Pakete wieder her, führt alle Tests aus, baut Release, veröffentlicht eine selbständige Einzeldatei für `win-x64`, kopiert `ZoneManager.exe` ins Rootverzeichnis und prüft Diagnose sowie Per-Monitor-DPI ohne aktivierten Hook.
 
 Der Lauf schliesst eine Per-Monitor-DPI-Prüfung ein, die die Oberfläche startet und deshalb eine interaktive Sitzung mit bestätigter UAC-Abfrage braucht. In nicht interaktiven Umgebungen bleibt dieser Schritt sonst an der unbeantworteten Abfrage stehen; `-SkipDpiCheck` überspringt ihn.
+
+Neben der Programmdatei entsteht `ZoneManager.Helper.exe` mit rund 10 MB. Sie ist getrimmt, weil sie ohne
+Oberfläche auskommt, und wird von der Installation mitgenommen.
 
 Die Einzeldatei enthält die vollständige .NET-Laufzeit, damit sie ohne Installation startet. Sie liefert
 bewusst nur die englischen Satellitenressourcen mit (`SatelliteResourceLanguages`); die dreizehn übrigen
