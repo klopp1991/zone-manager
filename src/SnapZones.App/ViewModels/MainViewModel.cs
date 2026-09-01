@@ -18,6 +18,8 @@ public sealed class MainViewModel : ViewModelBase
     private string updateStatus = "Noch nicht nach Updates gesucht.";
     private bool isUpdateAvailable;
     private bool isUpdateBusy;
+    private string installationStatus = string.Empty;
+    private bool canInstall = true;
     private bool suppressPersistence;
 
     public MainViewModel(SnapConfiguration configuration, IReadOnlyList<LiveMonitor> monitors)
@@ -47,6 +49,9 @@ public sealed class MainViewModel : ViewModelBase
 
     /// <summary>Bittet darum, die gefundene Veroeffentlichung zu installieren.</summary>
     public event Action? UpdateInstallRequested;
+
+    /// <summary>Bittet darum, das Programm nach «Programme» zu installieren.</summary>
+    public event Action? InstallRequested;
 
     public ObservableCollection<MonitorChoice> Monitors { get; }
     public ObservableCollection<MonitorLayout> Layouts { get; }
@@ -125,6 +130,22 @@ public sealed class MainViewModel : ViewModelBase
     public void CheckForUpdates() => UpdateCheckRequested?.Invoke();
 
     public void InstallUpdate() => UpdateInstallRequested?.Invoke();
+
+    /// <summary>Wo das Programm liegt und ob es installiert ist, im Klartext.</summary>
+    public string InstallationStatus
+    {
+        get => installationStatus;
+        set => SetProperty(ref installationStatus, value);
+    }
+
+    /// <summary>Falsch, sobald das Programm bereits aus dem Installationsverzeichnis laeuft.</summary>
+    public bool CanInstall
+    {
+        get => canInstall;
+        set => SetProperty(ref canInstall, value);
+    }
+
+    public void Install() => InstallRequested?.Invoke();
 
     public MonitorChoice? SelectedMonitor
     {

@@ -756,6 +756,28 @@ public partial class MainWindow : Window
         }
     }
 
+    private void Install_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        if (System.Windows.MessageBox.Show(
+                "Die Programmdatei wird nach «Programme» kopiert, im Startmenü verknüpft und in "
+                    + "«Apps und Features» eingetragen. Das Programm startet danach von dort neu.",
+                "Installieren",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Information) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        viewModel.Install();
+    }
+
     private void CheckForUpdates_Click(object sender, RoutedEventArgs eventArgs)
     {
         _ = sender;

@@ -4,7 +4,7 @@ Sascha’s Zone Manager ist ein Windows-11-Programm für frei bearbeitbare Fenst
 
 ## Schnellstart
 
-Fertige Programmdatei: `ZoneManager.exe` liegt beim jeweils neuesten [Release](https://github.com/klopp1991/zone-manager/releases/latest) und nicht im Repository. Herunterladen, starten, fertig - eine Installation gibt es nicht.
+Fertige Programmdatei: `ZoneManager.exe` liegt beim jeweils neuesten [Release](https://github.com/klopp1991/zone-manager/releases/latest) und nicht im Repository. Herunterladen und starten genügt; das Programm läuft aus dem Verzeichnis, in dem die Datei liegt. Wer es dauerhaft einrichten will, wählt **Einstellungen → Installation** oder ruft `ZoneManager.exe --install` auf — das kopiert die Datei nach `%ProgramFiles%`, verknüpft sie im Startmenü und trägt sie in «Apps und Features» ein.
 
 Selbst bauen - Voraussetzungen: Windows 11 x64 und das [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0).
 

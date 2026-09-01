@@ -34,6 +34,12 @@ kein Merken der Position. Das Fenster behält dauerhaft die Grösse und Position
 wird es wie bei einer Regel über Programm, Titelmuster und Fensterklasse; mindestens eines der drei muss
 stehen. Trifft auf ein Fenster beides zu, gewinnt der Ausschluss.
 
+## Installation
+
+Das Programm läuft auch ohne Installation. **Einstellungen → Installation** kopiert es nach «Programme»,
+verknüpft es im Startmenü und trägt es in «Apps und Features» ein; von dort lässt es sich wie jedes andere
+Programm entfernen. Die Einstellungen bleiben dabei erhalten.
+
 ## Updates
 
 **Einstellungen → Updates** zeigt die installierte Version, sucht auf Knopfdruck nach einer neueren und

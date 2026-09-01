@@ -868,6 +868,22 @@
                                 </Border>
                                 <Border Style="{StaticResource SectionCard}">
                                     <StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Installation" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" />
+                                            <Button x:Name="InstallInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Installation"
+                                                    ToolTip="Kopiert die Programmdatei nach «Programme», legt eine Verknuepfung im Startmenue an und traegt das Programm in «Apps und Features» ein. Von dort laesst es sich wie jedes andere Programm entfernen; die Einstellungen unter %APPDATA%\SnapZones bleiben dabei erhalten. Ohne Installation laeuft das Programm aus dem Verzeichnis, in dem die Datei liegt – das genuegt, ist aber im Downloadordner unaufgeraeumt." />
+                                        </StackPanel>
+                                        <TextBlock x:Name="InstallationStatusText" Text="{Binding InstallationStatus}"
+                                                   Style="{StaticResource HelpText}" Margin="0,14,0,0" TextWrapping="Wrap"
+                                                   AutomationProperties.Name="Installationsstatus" />
+                                        <Button x:Name="InstallButton" Content="Nach «Programme» installieren"
+                                                Click="Install_Click" HorizontalAlignment="Left" Margin="0,12,0,0"
+                                                IsEnabled="{Binding CanInstall}"
+                                                AutomationProperties.Name="Nach Programme installieren" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
                                         <TextBlock Text="Beim Ziehen" Style="{StaticResource SectionTitle}" />
                                         <TextBlock Text="Bestimme, wann und wo die Zonen beim Ziehen eines Fensters angezeigt werden."
                                                    Style="{StaticResource HelpText}" />

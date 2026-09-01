@@ -6,6 +6,7 @@ using SnapZones.App.ViewModels;
 using SnapZones.App.Views;
 using SnapZones.Core.Persistence;
 using SnapZones.Windows.Displays;
+using SnapZones.Windows.Setup;
 using SnapZones.Windows.Startup;
 using SnapZones.Core.Models;
 
@@ -19,6 +20,46 @@ public partial class App : System.Windows.Application
     private ThemeService? themeService;
 
     public void ApplyTheme(ThemeMode mode) => themeService?.Apply(mode);
+
+    private void RunSetup(SetupRunner.Mode mode, IReadOnlyList<string> arguments)
+    {
+        var (exitCode, message, startPath) = SetupRunner.Run(
+            mode,
+            Environment.ProcessPath ?? throw new InvalidOperationException("Der Programmpfad fehlt."),
+            ProductInfo.Version,
+            new InstallationService());
+        log?.Write(exitCode == 0 ? "INFO" : "ERROR", message);
+
+        if (!SetupRunner.IsSilent(arguments))
+        {
+            System.Windows.MessageBox.Show(
+                message,
+                mode == SetupRunner.Mode.Install ? "Installation" : "Deinstallation",
+                MessageBoxButton.OK,
+                exitCode == 0 ? MessageBoxImage.Information : MessageBoxImage.Error);
+        }
+
+        // Nach einer erfolgreichen Installation laeuft das Programm aus dem Installationsverzeichnis
+        // weiter, nicht aus dem Download-Ordner.
+        if (startPath is { Length: > 0 } path)
+        {
+            try
+            {
+                using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = path,
+                    WorkingDirectory = Path.GetDirectoryName(path) ?? AppContext.BaseDirectory,
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception exception)
+            {
+                log?.Write("WARN", "Der Start aus dem Installationsverzeichnis ist fehlgeschlagen.", exception);
+            }
+        }
+
+        Shutdown(exitCode);
+    }
 
     protected override async void OnStartup(StartupEventArgs eventArgs)
     {
@@ -35,6 +76,14 @@ public partial class App : System.Windows.Application
         {
             var exitCode = await DiagnosticRunner.RunAsync(appData, startupService);
             Shutdown(exitCode);
+            return;
+        }
+
+        // Installieren und Deinstallieren laufen ohne Hauptfenster und ohne Hook.
+        var setupMode = SetupRunner.Decide(eventArgs.Args);
+        if (setupMode != SetupRunner.Mode.None)
+        {
+            RunSetup(setupMode, eventArgs.Args);
             return;
         }
 

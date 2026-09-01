@@ -14,9 +14,11 @@ using SnapZones.Core.PartMonitors;
 using SnapZones.Core.Persistence;
 using SnapZones.Core.Placement;
 using SnapZones.Core.Updates;
+using SnapZones.Core.Setup;
 using SnapZones.Windows.Hooks;
 using SnapZones.Windows.Hotkeys;
 using SnapZones.Windows.Startup;
+using SnapZones.Windows.Setup;
 using SnapZones.Windows.Windows;
 
 namespace SnapZones.App.Services;
@@ -123,6 +125,8 @@ public sealed class ApplicationController : IDisposable
         viewModel.ForgetWindowPositionsRequested += ForgetWindowPositions;
         viewModel.UpdateCheckRequested += () => _ = CheckForUpdatesAsync(announceUpToDate: true);
         viewModel.UpdateInstallRequested += () => _ = InstallUpdateAsync();
+        viewModel.InstallRequested += InstallToProgramFiles;
+        PublishInstallationStatus();
         placementEngine.CatalogChanged += PublishRememberedWindowCount;
         viewModel.RememberedWindowCount = placementEngine.Catalog.Entries.Count;
         window.ExportConfigurationRequested += ExportConfigurationAsync;
@@ -438,6 +442,63 @@ public sealed class ApplicationController : IDisposable
 
         viewModel.StatusMessage =
             "Die neue Version liegt bereit, liess sich aber nicht starten. Beim naechsten Start wird sie verwendet.";
+    }
+
+    private void PublishInstallationStatus()
+    {
+        var installed = InstallationService.InstalledPath;
+        var plan = InstallationService.CreatePlan(Environment.ProcessPath ?? string.Empty);
+        viewModel.CanInstall = plan.State != InstallationState.AlreadyInstalled;
+        viewModel.InstallationStatus = plan.State switch
+        {
+            InstallationState.AlreadyInstalled =>
+                $"Installiert unter {plan.TargetDirectory}.",
+            InstallationState.UpgradeInPlace =>
+                $"Es liegt bereits eine Installation unter {plan.TargetDirectory}; sie wird ersetzt. "
+                    + $"Dieser Stand läuft aus {System.IO.Path.GetDirectoryName(plan.SourcePath)}.",
+            _ when installed is { Length: > 0 } =>
+                $"Registriert ist eine Installation unter {installed}, dieser Stand läuft aber aus "
+                    + $"{System.IO.Path.GetDirectoryName(plan.SourcePath)}.",
+            _ =>
+                $"Nicht installiert. Dieser Stand läuft aus {System.IO.Path.GetDirectoryName(plan.SourcePath)}."
+        };
+    }
+
+    private void InstallToProgramFiles()
+    {
+        var (exitCode, message, startPath) = SetupRunner.Run(
+            SetupRunner.Mode.Install,
+            Environment.ProcessPath ?? string.Empty,
+            viewModel.ProductVersion,
+            new InstallationService());
+        viewModel.StatusMessage = message;
+        log.Write(exitCode == 0 ? "INFO" : "ERROR", message);
+        PublishInstallationStatus();
+
+        if (exitCode != 0 || startPath is not { Length: > 0 })
+        {
+            return;
+        }
+
+        // Der installierte Stand uebernimmt; zwei Staende duerfen nie gleichzeitig laufen.
+        viewModel.Save();
+        try
+        {
+            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = startPath,
+                WorkingDirectory = System.IO.Path.GetDirectoryName(startPath) ?? AppContext.BaseDirectory,
+                UseShellExecute = true
+            });
+            if (process is not null)
+            {
+                RequestExit();
+            }
+        }
+        catch (Exception exception)
+        {
+            log.Write("WARN", "Der Start aus dem Installationsverzeichnis ist fehlgeschlagen.", exception);
+        }
     }
 
     private void ForgetWindowPositions()

@@ -117,6 +117,26 @@ Die Seite **Skalierung** liest die erkannten Werte des gewählten Monitors aus �
 
 Jede Einstellung erklärt direkt in der Oberfläche Wirkung, Gültigkeitsbereich und Einschränkungen. Wie Titel, Beschriftungen und Hilfetexte dabei aufgebaut sind, steht verbindlich in [ui-richtlinien.md](ui-richtlinien.md).
 
+## Installation
+
+Das Programm läuft ohne Installation aus dem Verzeichnis, in dem die Datei liegt. Das genügt, ist im
+Downloadordner aber unaufgeräumt und erschwert Updates.
+
+**Einstellungen → Installation** kopiert die Programmdatei nach `%ProgramFiles%\ZoneManager`, legt eine
+Verknüpfung im Startmenü an und trägt das Programm in «Apps und Features» ein. Danach startet es von dort
+neu. Dasselbe leistet `ZoneManager.exe --install` auf der Kommandozeile.
+
+Entfernt wird es über «Apps und Features» wie jedes andere Programm, oder mit
+`ZoneManager.exe --uninstall`. Die Einstellungen unter `%APPDATA%\SnapZones` bleiben dabei erhalten — sie
+gehören dem Benutzer, und eine Neuinstallation soll sie wiederfinden. Wer sie loswerden will, löscht das
+Verzeichnis von Hand.
+
+Es gibt bewusst kein getrenntes Setup-Programm: es müsste die 66 MB grosse Programmdatei ein zweites Mal
+enthalten und die Auslieferung verdoppeln. Installieren und Entfernen sind deshalb Modi derselben Datei.
+
+Beides schreibt nach `%ProgramFiles%` und in `HKEY_LOCAL_MACHINE` und verlangt darum Administratorrechte,
+die das Programm im Normalbetrieb ohnehin besitzt.
+
 ## Updates
 
 Unter **Einstellungen → Updates** steht die installierte Version, daneben **Nach Updates suchen** und
