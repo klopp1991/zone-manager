@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Net.Http;
+using SnapZones.Core.Setup;
 
 namespace SnapZones.Core.Updates;
 
@@ -20,6 +21,11 @@ public sealed record UpdateInstallResult(UpdateInstallStatus Status, string Mess
 /// geht deshalb in drei Schritten: die neue Datei landet zuerst daneben, dann wird die laufende
 /// beiseitegeschoben, dann die neue an ihren Platz gelegt. Bricht ein Schritt ab, wird der vorherige
 /// Zustand wiederhergestellt — es darf nie eine halb ersetzte Programmdatei zurückbleiben.
+///
+/// Bringt die Veröffentlichung den Fensterhelfer mit, wird er im selben Zug ersetzt: erst der Helfer,
+/// dann die Programmdatei. Scheitert der zweite Schritt, wandert auch der Helfer zurück — sonst liefe
+/// eine alte Anwendung gegen einen neuen Helfer, also genau die Paarung, die dieser Ablauf verhindern
+/// soll.
 ///
 /// Die beiseitegeschobene Datei bleibt liegen, bis der laufende Prozess endet; erst danach lässt sie
 /// sich löschen. <see cref="RemoveSupersededFiles"/> räumt sie beim nächsten Start weg.
@@ -48,9 +54,68 @@ public sealed class UpdateInstaller
         }
 
         var downloadPath = executablePath + ".download";
+        if (await FetchAsync(
+                release.DownloadUrl,
+                release.SizeInBytes,
+                release.ChecksumUrl!,
+                downloadPath,
+                cancellationToken).ConfigureAwait(false) is { } failure)
+        {
+            return failure;
+        }
+
+        // Der Fensterhelfer wird vor dem Austausch vollstaendig geladen und geprueft. Erst wenn beide
+        // Dateien fertig danebenliegen, wird etwas ersetzt.
+        string? helperPath = null;
+        string? helperDownloadPath = null;
+        if (UpdateCheck.HasHelper(release))
+        {
+            helperPath = BuildHelperPath(executablePath);
+            helperDownloadPath = helperPath + ".download";
+            if (await FetchAsync(
+                    release.HelperUrl!,
+                    release.HelperSizeInBytes,
+                    release.HelperChecksumUrl!,
+                    helperDownloadPath,
+                    cancellationToken).ConfigureAwait(false) is { } helperFailure)
+            {
+                TryDelete(downloadPath);
+                return helperFailure;
+            }
+        }
+
+        return ReplaceAll(
+            executablePath,
+            downloadPath,
+            helperPath,
+            helperDownloadPath,
+            TimeProvider.System.GetUtcNow());
+    }
+
+    /// <summary>Der Fensterhelfer liegt neben der Programmdatei.</summary>
+    public static string BuildHelperPath(string executablePath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(executablePath);
+        return Path.Combine(
+            Path.GetDirectoryName(executablePath) ?? string.Empty,
+            InstallationPlan.HelperName);
+    }
+
+    /// <summary>
+    /// Lädt eine Datei der Veröffentlichung und prüft sie an Grösse und Prüfsumme. Gibt <c>null</c>
+    /// zurück, wenn die Datei einwandfrei danebenliegt, sonst den Grund des Abbruchs; die halbe Datei
+    /// ist dann bereits entfernt.
+    /// </summary>
+    private async Task<UpdateInstallResult?> FetchAsync(
+        string url,
+        long expectedSize,
+        string checksumUrl,
+        string downloadPath,
+        CancellationToken cancellationToken)
+    {
         try
         {
-            await DownloadAsync(release, downloadPath, cancellationToken).ConfigureAwait(false);
+            await DownloadAsync(url, downloadPath, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception exception)
         {
@@ -61,13 +126,13 @@ public sealed class UpdateInstaller
         }
 
         var actualSize = new FileInfo(downloadPath).Length;
-        if (actualSize != release.SizeInBytes)
+        if (actualSize != expectedSize)
         {
             // Eine abgebrochene Uebertragung sieht wie eine vollstaendige Datei aus.
             TryDelete(downloadPath);
             return new UpdateInstallResult(
                 UpdateInstallStatus.DownloadFailed,
-                $"Die geladene Datei ist {actualSize} statt {release.SizeInBytes} Bytes gross und wird verworfen.");
+                $"Die geladene Datei ist {actualSize} statt {expectedSize} Bytes gross und wird verworfen.");
         }
 
         // Die Pruefsumme kommt aus einer zweiten Datei derselben Veroeffentlichung. Wer die Programmdatei
@@ -75,7 +140,7 @@ public sealed class UpdateInstaller
         string expectedChecksum;
         try
         {
-            var checksumContent = await DownloadTextAsync(release.ChecksumUrl!, cancellationToken).ConfigureAwait(false);
+            var checksumContent = await DownloadTextAsync(checksumUrl, cancellationToken).ConfigureAwait(false);
             if (!UpdateCheck.TryParseChecksum(checksumContent, out expectedChecksum))
             {
                 TryDelete(downloadPath);
@@ -101,7 +166,7 @@ public sealed class UpdateInstaller
                 "Die Prüfsumme der geladenen Datei stimmt nicht mit der Veröffentlichung überein; die Datei wird verworfen.");
         }
 
-        return Replace(executablePath, downloadPath, TimeProvider.System.GetUtcNow());
+        return null;
     }
 
     /// <summary>SHA-256 einer Datei als Hexadezimalzeichen in Kleinbuchstaben.</summary>
@@ -132,10 +197,63 @@ public sealed class UpdateInstaller
     public static UpdateInstallResult Replace(
         string executablePath,
         string downloadPath,
+        DateTimeOffset now) =>
+        Replace(executablePath, downloadPath, now, out _);
+
+    /// <summary>
+    /// Ersetzt Programmdatei und Fensterhelfer als ein Vorgang. Der Helfer geht zuerst, weil sich sein
+    /// Austausch noch folgenlos zurücknehmen lässt; scheitert danach die Programmdatei, wandert er
+    /// zurück. Ohne Helfer verhält sich der Aufruf wie <see cref="Replace(string, string, DateTimeOffset)"/>.
+    /// </summary>
+    public static UpdateInstallResult ReplaceAll(
+        string executablePath,
+        string downloadPath,
+        string? helperPath,
+        string? helperDownloadPath,
         DateTimeOffset now)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(executablePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(downloadPath);
+
+        if (helperPath is not { Length: > 0 } || helperDownloadPath is not { Length: > 0 })
+        {
+            return Replace(executablePath, downloadPath, now);
+        }
+
+        var helperResult = Replace(helperPath, helperDownloadPath, now, out var helperSupersededPath);
+        if (helperResult.Status != UpdateInstallStatus.Applied)
+        {
+            TryDelete(downloadPath);
+            return helperResult with
+            {
+                Message = $"Der Fensterhelfer liess sich nicht ersetzen: {helperResult.Message}",
+            };
+        }
+
+        var result = Replace(executablePath, downloadPath, now);
+        if (result.Status != UpdateInstallStatus.Applied)
+        {
+            // Der Helfer ist schon neu, die Anwendung nicht: dieser Stand wird zurueckgenommen, damit
+            // keine Paarung aus alter Anwendung und neuem Helfer entsteht.
+            TryDelete(helperPath);
+            if (helperSupersededPath is { Length: > 0 })
+            {
+                TryMoveBack(helperSupersededPath, helperPath);
+            }
+        }
+
+        return result;
+    }
+
+    private static UpdateInstallResult Replace(
+        string executablePath,
+        string downloadPath,
+        DateTimeOffset now,
+        out string? supersededPathIfMoved)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(executablePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(downloadPath);
+        supersededPathIfMoved = null;
 
         if (!File.Exists(downloadPath))
         {
@@ -155,6 +273,7 @@ public sealed class UpdateInstaller
             }
 
             File.Move(downloadPath, executablePath);
+            supersededPathIfMoved = moved ? supersededPath : null;
             return new UpdateInstallResult(
                 UpdateInstallStatus.Applied,
                 "Die neue Version liegt bereit und wird beim Neustart verwendet.");
@@ -207,13 +326,13 @@ public sealed class UpdateInstaller
             $"{executablePath}{SupersededMarker}{now.ToUnixTimeMilliseconds()}");
 
     private async Task DownloadAsync(
-        ReleaseDescription release,
+        string url,
         string downloadPath,
         CancellationToken cancellationToken)
     {
         using var client = clientFactory();
         using var response = await client
-            .GetAsync(release.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+            .GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
             .ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
 

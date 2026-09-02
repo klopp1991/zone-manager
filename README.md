@@ -33,7 +33,7 @@ Der Lauf schliesst eine Per-Monitor-DPI-Prüfung ein, die die Oberfläche starte
 - Administratorrechte nur auf Bedarf: Start ohne Abfrage, Nachfrage höchstens einmal je Sitzung und nur, wenn ein Fenster sie wirklich verlangt
 - Wahlweise ein signierter Fensterhelfer mit `uiAccess`: auch Fenster höher berechtigter Programme rasten ein, ohne dass das Programm selbst je Administratorrechte bekommt
 - Monitorerkennung über Displaypfad und EDID-Daten; umgesteckte Monitore werden an Modell und Seriennummer wiedererkannt, Monitorwechsel zur Laufzeit werden ohne Neustart übernommen, und je Monitorkombination bleibt die zuletzt aktive Layoutauswahl gemerkt
-- Update aus dem Programm heraus: Suche auf Anstoss oder beim Start, Download nur aus der Release-Ablage über HTTPS mit Prüfung der SHA-256-Prüfsumme (`ZoneManager.exe.sha256`), Austausch der laufenden Programmdatei mit Rückfall auf den alten Stand
+- Update aus dem Programm heraus: Suche auf Anstoss oder beim Start, Download nur aus der Release-Ablage über HTTPS mit Prüfung der SHA-256-Prüfsumme (`ZoneManager.exe.sha256`, `ZoneManager.Helper.exe.sha256`), Austausch von Programmdatei und Fensterhelfer als ein Vorgang mit Rückfall auf den alten Stand
 - Tastenkürzel für das Vordergrundfenster (`Ctrl + Alt + Links/Rechts`, `Ctrl + Alt + 1..9`, `Ctrl + Alt + Rücktaste`, Zusatztasten wählbar), Rückgängig und Wiederholen im Layouteditor, Zonennummern in Editor und Overlay, Vorschau des Entwurfs auf dem echten Monitor
 - Erweiterte Einstellungen für erfahrene Anwender: Toleranzen, Verzögerungen, Overlay-Stil, Schutzgrenzen und Katalogumfang, alle mit sicherem Standard und Zurücksetzen
 - Regeln nach Prozess, optionalem Fenstertitel und Fensterklasse mit Ereignis, Verzögerung, Wiederholungen und Zielzone; das Programm wird über den Dateidialog oder aus der Liste der laufenden Programme gewählt
@@ -56,7 +56,7 @@ Jeder Build des App-Projekts veröffentlicht anschliessend automatisch die selbs
 
 Die Lösung ist in `SnapZones.Core`, `SnapZones.Windows` und `SnapZones.App` geteilt. Tests liegen unter `tests\SnapZones.Tests`; der reproduzierbare Gesamtcheck ist `scripts\verify.ps1`. Die Skripte `scripts\test-new-task-worktree.ps1` und `scripts\test-set-version.ps1` prüfen die Hilfsskripte und laufen ausserhalb von `verify.ps1`.
 
-Die gebaute `ZoneManager.exe` im Wurzelverzeichnis ist ein Build-Artefakt und wird nicht versioniert; sie entsteht bei jedem Build neu und wird nur an Releases angehängt.
+Die gebaute `ZoneManager.exe` und der daneben liegende `ZoneManager.Helper.exe` im Wurzelverzeichnis sind Build-Artefakte und werden nicht versioniert; sie entstehen bei jedem Build neu und werden nur an Releases angehängt. `scripts\verify.ps1` erneuert beide — sonst bliebe neben einer frischen Programmdatei ein Helfer aus einem früheren Lauf liegen, und genau dieser Stand ginge ins Release.
 
 ## Versionen und Releases
 
@@ -68,7 +68,9 @@ Ein Release entsteht auf `main` mit sauberem Arbeitsbaum:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\publish-release.ps1
 ```
 
-Das Skript schreibt die nächste Version des Tages nach `Directory.Build.props`, führt `scripts\verify.ps1` aus (`-SkipDpiCheck` reicht den Schalter durch, wenn keine interaktive Sitzung für die UAC-Abfrage der DPI-Prüfung bereitsteht), committet die Versionsdatei, setzt den Tag `v<Version>`, pusht beides und erstellt das GitHub-Release mit `ZoneManager.exe` und der Prüfsummendatei `ZoneManager.exe.sha256` als Anhänge; ohne die Prüfsummendatei lädt das Programm kein Update. Dafür braucht es ein angemeldetes [GitHub CLI](https://cli.github.com/) (`gh auth login`) oder ein Token in `GH_TOKEN`; fehlt beides, bleiben Commit und Tag bestehen und das Skript nennt den Befehl zum Nachholen.
+Das Skript schreibt die nächste Version des Tages nach `Directory.Build.props`, führt `scripts\verify.ps1` aus (`-SkipDpiCheck` reicht den Schalter durch, wenn keine interaktive Sitzung für die UAC-Abfrage der DPI-Prüfung bereitsteht), committet die Versionsdatei, setzt den Tag `v<Version>`, pusht beides und erstellt das GitHub-Release mit vier Anhängen: `ZoneManager.exe`, `ZoneManager.Helper.exe` und je einer Prüfsummendatei `*.sha256`; ohne die Prüfsummendatei lädt das Programm kein Update. Der Fensterhelfer hängt mit am Release, weil das Programm ihn beim Update mit ersetzt — läge nur die Programmdatei bei, liefe nach einem Update eine neue Anwendung gegen einen alten Helfer. Dafür braucht es ein angemeldetes [GitHub CLI](https://cli.github.com/) (`gh auth login`) oder ein Token in `GH_TOKEN`; fehlt beides, bleiben Commit und Tag bestehen und das Skript nennt den Befehl zum Nachholen.
+
+Solange das Repository privat ist, findet die Updatesuche nichts: sie fragt bewusst ohne Anmeldung und ohne Token an, und `releases/latest` antwortet einem anonymen Aufruf bei einem privaten Repository mit `404`. Das Update greift erst, wenn die Releases öffentlich erreichbar sind.
 
 Nur die Version setzen, ohne zu veröffentlichen: `scripts\set-version.ps1` (mit `-WhatIfOnly` als reine Vorschau). Die erzeugte `Directory.Build.props` wird nicht von Hand bearbeitet. Assemblys können keine führenden Nullen speichern; `AssemblyVersion` und `FileVersion` tragen deshalb `2026.831.1`, während die angezeigte Version `2026.0831.01` lautet.
 

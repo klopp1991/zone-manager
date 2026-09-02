@@ -17,12 +17,23 @@ public enum UpdateAvailability
 /// Die Adresse der Prüfsummendatei <c>ZoneManager.exe.sha256</c>. Ohne sie wird nichts geladen: die
 /// Grösse allein ist kein Echtheitsmerkmal.
 /// </param>
+/// <param name="HelperUrl">
+/// Die Adresse des Fensterhelfers <c>ZoneManager.Helper.exe</c>, sofern die Veröffentlichung ihn
+/// mitbringt. Ältere Veröffentlichungen tragen ihn nicht; dann bleibt der vorhandene Helfer liegen.
+/// </param>
+/// <param name="HelperChecksumUrl">
+/// Die Adresse von <c>ZoneManager.Helper.exe.sha256</c>. Liegt ein Helfer bei, ist sie Pflicht — sonst
+/// wäre er die eine Datei der Veröffentlichung, die niemand nachrechnet.
+/// </param>
 public sealed record ReleaseDescription(
     string TagName,
     string DownloadUrl,
     long SizeInBytes,
     string? Notes,
-    string? ChecksumUrl = null);
+    string? ChecksumUrl = null,
+    string? HelperUrl = null,
+    long HelperSizeInBytes = 0,
+    string? HelperChecksumUrl = null);
 
 public sealed record UpdateCheckResult(
     UpdateAvailability Availability,
@@ -102,7 +113,52 @@ public static class UpdateCheck
     {
         ArgumentNullException.ThrowIfNull(release);
 
-        if (!Uri.TryCreate(release.DownloadUrl, UriKind.Absolute, out var uri) ||
+        if (!IsAcceptableFile(
+                release.DownloadUrl,
+                release.SizeInBytes,
+                release.ChecksumUrl,
+                "ZoneManager.exe.sha256",
+                out rejection))
+        {
+            return false;
+        }
+
+        // Bringt die Veroeffentlichung einen Fensterhelfer mit, gelten fuer ihn dieselben Regeln. Ein
+        // Helfer ohne Pruefsumme waere die eine Datei, die niemand nachrechnet -- und er laeuft mit
+        // uiAccess. Lieber gar kein Update als eines mit einer ungeprueften zweiten Datei.
+        if (HasHelper(release) &&
+            !IsAcceptableFile(
+                release.HelperUrl,
+                release.HelperSizeInBytes,
+                release.HelperChecksumUrl,
+                "ZoneManager.Helper.exe.sha256",
+                out rejection))
+        {
+            return false;
+        }
+
+        rejection = string.Empty;
+        return true;
+    }
+
+    /// <summary>
+    /// Ob die Veröffentlichung einen Fensterhelfer mitbringt. Ältere Veröffentlichungen tragen ihn nicht;
+    /// dann bleibt der vorhandene Helfer unangetastet.
+    /// </summary>
+    public static bool HasHelper(ReleaseDescription release)
+    {
+        ArgumentNullException.ThrowIfNull(release);
+        return !string.IsNullOrWhiteSpace(release.HelperUrl);
+    }
+
+    private static bool IsAcceptableFile(
+        string? url,
+        long sizeInBytes,
+        string? checksumUrl,
+        string checksumFileName,
+        out string rejection)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
             uri.Scheme != Uri.UriSchemeHttps ||
             !IsTrustedHost(uri.Host))
         {
@@ -110,17 +166,17 @@ public static class UpdateCheck
             return false;
         }
 
-        if (release.SizeInBytes <= 0 || release.SizeInBytes > MaximumDownloadBytes)
+        if (sizeInBytes <= 0 || sizeInBytes > MaximumDownloadBytes)
         {
             rejection = "Die angebotene Datei hat eine unplausible Grösse und wird nicht geladen.";
             return false;
         }
 
-        if (!Uri.TryCreate(release.ChecksumUrl, UriKind.Absolute, out var checksumUri) ||
+        if (!Uri.TryCreate(checksumUrl, UriKind.Absolute, out var checksumUri) ||
             checksumUri.Scheme != Uri.UriSchemeHttps ||
             !IsTrustedHost(checksumUri.Host))
         {
-            rejection = "Die Veröffentlichung trägt keine Prüfsumme (ZoneManager.exe.sha256) und wird nicht geladen.";
+            rejection = $"Die Veröffentlichung trägt keine Prüfsumme ({checksumFileName}) und wird nicht geladen.";
             return false;
         }
 

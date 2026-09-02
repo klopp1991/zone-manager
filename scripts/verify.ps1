@@ -9,9 +9,11 @@ $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $scriptDirectory '..'))
 $solutionPath = Join-Path $projectRoot 'ZoneManager.sln'
 $projectPath = Join-Path $projectRoot 'src\SnapZones.App\SnapZones.App.csproj'
+$helperProjectPath = Join-Path $projectRoot 'src\SnapZones.Helper\SnapZones.Helper.csproj'
 $outputPath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'outputs\ZoneManager-prototype'))
 $expectedOutputParent = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'outputs'))
 $rootExecutablePath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'ZoneManager.exe'))
+$rootHelperPath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'ZoneManager.Helper.exe'))
 $maximumExecutableBytes = 100000000
 
 if (-not $outputPath.StartsWith($expectedOutputParent + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
@@ -32,6 +34,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Die Paketwiederherstellung ist fehlgeschlagen.
 dotnet restore $projectPath -r win-x64
 if ($LASTEXITCODE -ne 0) { throw 'Die win-x64-Laufzeitwiederherstellung ist fehlgeschlagen.' }
 
+dotnet restore $helperProjectPath -r win-x64
+if ($LASTEXITCODE -ne 0) { throw 'Die win-x64-Laufzeitwiederherstellung des Fensterhelfers ist fehlgeschlagen.' }
+
 # Die aufgerufenen Skripte melden Fehler ueber eine terminierende Ausnahme; $LASTEXITCODE bliebe hier
 # auf dem Wert des zuletzt gestarteten nativen Befehls stehen und waere deshalb keine gueltige Pruefung.
 & (Join-Path $scriptDirectory 'build-icon.ps1')
@@ -51,7 +56,14 @@ if ($LASTEXITCODE -ne 0) { throw 'Der Release-Build ist fehlgeschlagen.' }
 dotnet publish $projectPath -c Release -r win-x64 --self-contained true --no-restore -o $outputPath -p:SkipRootExecutablePublish=true
 if ($LASTEXITCODE -ne 0) { throw 'Der Publish ist fehlgeschlagen.' }
 
+# Der Fensterhelfer wird in denselben Ordner veroeffentlicht und danach ebenfalls ins Wurzelverzeichnis
+# gelegt. Ohne diesen Schritt bliebe neben einer frisch gebauten Programmdatei ein Helfer aus einem
+# frueheren Lauf liegen -- und genau dieser Stand ginge ins Release.
+dotnet publish $helperProjectPath -c Release -r win-x64 --no-restore -o $outputPath
+if ($LASTEXITCODE -ne 0) { throw 'Der Publish des Fensterhelfers ist fehlgeschlagen.' }
+
 $publishedExecutablePath = Join-Path $outputPath 'ZoneManager.exe'
+$publishedHelperPath = Join-Path $outputPath 'ZoneManager.Helper.exe'
 $diagnosticPath = Join-Path $projectRoot 'outputs\zonemanager-diagnostics.json'
 if (-not (Test-Path -LiteralPath $publishedExecutablePath -PathType Leaf)) {
     throw 'ZoneManager.exe fehlt im Publish-Ordner.'
@@ -71,6 +83,21 @@ if (-not (Test-Path -LiteralPath $rootExecutablePath -PathType Leaf)) {
 
 if ((Get-FileHash -LiteralPath $publishedExecutablePath).Hash -ne (Get-FileHash -LiteralPath $rootExecutablePath).Hash) {
     throw 'Die EXE im Rootverzeichnis stimmt nicht mit dem Publish-Artefakt ueberein.'
+}
+
+if (-not (Test-Path -LiteralPath $publishedHelperPath -PathType Leaf)) {
+    throw 'ZoneManager.Helper.exe fehlt im Publish-Ordner.'
+}
+
+& (Join-Path $scriptDirectory 'install-root-executable.ps1') `
+    -PublishedExecutablePath $publishedHelperPath `
+    -RootExecutablePath $rootHelperPath
+if (-not (Test-Path -LiteralPath $rootHelperPath -PathType Leaf)) {
+    throw 'ZoneManager.Helper.exe fehlt im Rootverzeichnis.'
+}
+
+if ((Get-FileHash -LiteralPath $publishedHelperPath).Hash -ne (Get-FileHash -LiteralPath $rootHelperPath).Hash) {
+    throw 'Der Fensterhelfer im Rootverzeichnis stimmt nicht mit dem Publish-Artefakt ueberein.'
 }
 
 & $rootExecutablePath --diagnostics | Out-File -LiteralPath $diagnosticPath -Encoding utf8
@@ -107,4 +134,4 @@ else {
 
 $files = Get-ChildItem -LiteralPath $outputPath -File -Recurse
 $bytes = ($files | Measure-Object -Property Length -Sum).Sum
-Write-Output "VERIFY_OK tests=passed rootBuild=passed dpi=$dpiStatus windowFrame=$frameStatus monitors=$(@($diagnostic.monitors).Count) startupLayouts=$($diagnostic.startupLayoutCount) files=$($files.Count) bytes=$bytes maximumExecutableBytes=$maximumExecutableBytes rootExe=$rootExecutablePath hookRegistered=false settingsChanged=false"
+Write-Output "VERIFY_OK tests=passed rootBuild=passed dpi=$dpiStatus windowFrame=$frameStatus monitors=$(@($diagnostic.monitors).Count) startupLayouts=$($diagnostic.startupLayoutCount) files=$($files.Count) bytes=$bytes maximumExecutableBytes=$maximumExecutableBytes rootExe=$rootExecutablePath rootHelper=$rootHelperPath hookRegistered=false settingsChanged=false"

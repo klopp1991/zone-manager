@@ -17,8 +17,9 @@ public interface IReleaseFeed
 /// Liest die neueste Veröffentlichung aus der Release-Ablage des Projekts.
 ///
 /// Die Abfrage geht ohne Anmeldung und ohne Kennung: es wird nichts gesendet ausser der Anfrage selbst,
-/// keine Version, keine Rechnerkennung, keine Zählung. Die Antwort wird auf die drei benötigten Angaben
-/// eingedampft — Tag, Adresse und Grösse der Programmdatei — und alles andere verworfen.
+/// keine Version, keine Rechnerkennung, keine Zählung. Die Antwort wird auf das Nötige eingedampft —
+/// Tag sowie Adresse und Grösse der Programmdatei, des Fensterhelfers und der beiden Prüfsummendateien —
+/// und alles andere verworfen.
 /// </summary>
 public sealed class GitHubReleaseFeed : IReleaseFeed
 {
@@ -27,6 +28,8 @@ public sealed class GitHubReleaseFeed : IReleaseFeed
 
     private const string AssetName = "ZoneManager.exe";
     private const string ChecksumAssetName = "ZoneManager.exe.sha256";
+    private const string HelperAssetName = "ZoneManager.Helper.exe";
+    private const string HelperChecksumAssetName = "ZoneManager.Helper.exe.sha256";
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(15);
     private readonly Func<HttpClient> clientFactory;
     private readonly string endpoint;
@@ -59,7 +62,10 @@ public sealed class GitHubReleaseFeed : IReleaseFeed
         return Parse(document.RootElement);
     }
 
-    /// <summary>Zieht die drei benötigten Angaben aus der Antwort. Fehlt eine, gibt es kein Ergebnis.</summary>
+    /// <summary>
+    /// Zieht die benötigten Angaben aus der Antwort. Fehlt die Programmdatei, gibt es kein Ergebnis;
+    /// fehlt der Fensterhelfer, bleibt der vorhandene liegen — ältere Veröffentlichungen tragen ihn nicht.
+    /// </summary>
     public static ReleaseDescription? Parse(JsonElement root)
     {
         if (root.ValueKind != JsonValueKind.Object ||
@@ -80,6 +86,9 @@ public sealed class GitHubReleaseFeed : IReleaseFeed
         string? downloadUrl = null;
         string? checksumUrl = null;
         long sizeInBytes = 0;
+        string? helperUrl = null;
+        string? helperChecksumUrl = null;
+        long helperSizeInBytes = 0;
         foreach (var asset in assets.EnumerateArray())
         {
             if (asset.ValueKind != JsonValueKind.Object ||
@@ -91,18 +100,33 @@ public sealed class GitHubReleaseFeed : IReleaseFeed
                 continue;
             }
 
-            if (string.Equals(name.GetString(), ChecksumAssetName, StringComparison.OrdinalIgnoreCase))
+            var assetName = name.GetString();
+            if (string.Equals(assetName, ChecksumAssetName, StringComparison.OrdinalIgnoreCase))
             {
                 checksumUrl = url.GetString();
                 continue;
             }
 
-            if (string.Equals(name.GetString(), AssetName, StringComparison.OrdinalIgnoreCase) &&
-                asset.TryGetProperty("size", out var size) &&
-                size.TryGetInt64(out var parsedSize))
+            if (string.Equals(assetName, HelperChecksumAssetName, StringComparison.OrdinalIgnoreCase))
+            {
+                helperChecksumUrl = url.GetString();
+                continue;
+            }
+
+            if (!asset.TryGetProperty("size", out var size) || !size.TryGetInt64(out var parsedSize))
+            {
+                continue;
+            }
+
+            if (string.Equals(assetName, AssetName, StringComparison.OrdinalIgnoreCase))
             {
                 downloadUrl = url.GetString();
                 sizeInBytes = parsedSize;
+            }
+            else if (string.Equals(assetName, HelperAssetName, StringComparison.OrdinalIgnoreCase))
+            {
+                helperUrl = url.GetString();
+                helperSizeInBytes = parsedSize;
             }
         }
 
@@ -119,6 +143,9 @@ public sealed class GitHubReleaseFeed : IReleaseFeed
             downloadUrl,
             sizeInBytes,
             notes,
-            checksumUrl);
+            checksumUrl,
+            helperUrl,
+            helperSizeInBytes,
+            helperChecksumUrl);
     }
 }

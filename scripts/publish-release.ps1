@@ -10,7 +10,11 @@
       2. scripts/set-version.ps1 schreibt die naechste Version des Tages.
       3. scripts/verify.ps1 baut, testet und erneuert die Root-EXE.
       4. Directory.Build.props wird committet, der Tag v<Version> gesetzt und beides gepusht.
-      5. Das Release wird mit ZoneManager.exe als Asset erstellt.
+      5. Das Release wird mit ZoneManager.exe, ZoneManager.Helper.exe und je einer Pruefsummendatei
+         als Anhaenge erstellt.
+
+    Der Fensterhelfer haengt mit am Release, weil das Programm ihn beim Update mit ersetzt; laege nur
+    die Programmdatei bei, liefe nach einem Update eine neue Anwendung gegen einen alten Helfer.
 
     Die EXE liegt bewusst nur am Release und nicht im Repository: sie ist ein Build-Artefakt von
     rund 66 MB, das sonst die Historie dauerhaft vergroessern wuerde.
@@ -40,6 +44,7 @@ Set-StrictMode -Version Latest
 $scriptDirectory = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repositoryRoot = [System.IO.Path]::GetFullPath($RepositoryPath)
 $executablePath = Join-Path $repositoryRoot 'ZoneManager.exe'
+$helperPath = Join-Path $repositoryRoot 'ZoneManager.Helper.exe'
 
 function Invoke-Git {
     param([Parameter(Mandatory = $true)][string[]]$Arguments)
@@ -86,6 +91,10 @@ if (-not (Test-Path -LiteralPath $executablePath -PathType Leaf)) {
     throw "ZoneManager.exe fehlt: $executablePath"
 }
 
+if (-not (Test-Path -LiteralPath $helperPath -PathType Leaf)) {
+    throw "ZoneManager.Helper.exe fehlt: $helperPath"
+}
+
 Invoke-Git @('add', '--', 'Directory.Build.props') | Out-Null
 if ((Invoke-Git @('status', '--porcelain', '--', 'Directory.Build.props')).Length -gt 0) {
     Invoke-Git @('commit', '-m', "chore: Version $($version.DisplayVersion)") | Out-Null
@@ -108,12 +117,31 @@ if ([string]::IsNullOrWhiteSpace($Notes)) {
     $Notes = if ([string]::IsNullOrWhiteSpace($log)) { "Zone Manager $($version.DisplayVersion)" } else { $log }
 }
 
+# Die Pruefsumme ist Pflicht: das Programm laedt eine Datei nur, wenn die Veroeffentlichung die
+# zugehoerige .sha256 traegt und deren Inhalt zur geladenen Datei passt. Beide Pruefsummen entstehen
+# vor der Anmeldepruefung, damit die Anleitung zum Nachholen auf vorhandene Dateien verweist.
+function Write-Checksum {
+    param([Parameter(Mandatory = $true)][string]$Path)
+
+    $checksumPath = "$Path.sha256"
+    $name = [System.IO.Path]::GetFileName($Path)
+    $hash = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    Set-Content -LiteralPath $checksumPath -Value "$hash *$name" -Encoding ascii
+    Write-Host "CHECKSUM sha256=$hash -> $checksumPath"
+    return $checksumPath
+}
+
+$checksumPath = Write-Checksum -Path $executablePath
+$helperChecksumPath = Write-Checksum -Path $helperPath
+$assets = @($executablePath, $checksumPath, $helperPath, $helperChecksumPath)
+$assetQuoted = ($assets | ForEach-Object { """$_""" }) -join ' '
+
 $ghCommand = Get-Command gh -ErrorAction SilentlyContinue
 if ($null -eq $ghCommand) {
     Write-Warning @"
 GitHub CLI (gh) ist nicht installiert. Commit und Tag sind gepusht; das Release fehlt noch.
-Nachholen: gh release create $($version.Tag) "$executablePath" "$executablePath.sha256" --title "Zone Manager $($version.DisplayVersion)"
-oder auf github.com unter Releases den Tag $($version.Tag) waehlen und ZoneManager.exe samt ZoneManager.exe.sha256 anhaengen.
+Nachholen: gh release create $($version.Tag) $assetQuoted --title "Zone Manager $($version.DisplayVersion)"
+oder auf github.com unter Releases den Tag $($version.Tag) waehlen und alle vier Dateien anhaengen.
 "@
     return
 }
@@ -124,22 +152,15 @@ if (-not $authenticated -and [string]::IsNullOrWhiteSpace($env:GH_TOKEN) -and [s
     Write-Warning @"
 GitHub CLI ist nicht angemeldet. Commit und Tag sind gepusht; das Release fehlt noch.
 Nachholen: gh auth login   danach
-gh release create $($version.Tag) "$executablePath" --title "Zone Manager $($version.DisplayVersion)"
+gh release create $($version.Tag) $assetQuoted --title "Zone Manager $($version.DisplayVersion)"
 "@
     return
 }
 
-# Die Pruefsumme ist Pflicht: das Programm laedt ein Update nur, wenn die Veroeffentlichung
-# ZoneManager.exe.sha256 traegt und der Inhalt zur geladenen Datei passt.
-$checksumPath = "$executablePath.sha256"
-$hash = (Get-FileHash -LiteralPath $executablePath -Algorithm SHA256).Hash.ToLowerInvariant()
-Set-Content -LiteralPath $checksumPath -Value "$hash *ZoneManager.exe" -Encoding ascii
-Write-Host "CHECKSUM sha256=$hash -> $checksumPath"
-
 $notesFile = New-TemporaryFile
 try {
     Set-Content -LiteralPath $notesFile -Value $Notes -Encoding utf8NoBOM
-    & gh release create $version.Tag $executablePath $checksumPath `
+    & gh release create $version.Tag @assets `
         --repo (Invoke-Git @('config', '--get', 'remote.origin.url')) `
         --title "Zone Manager $($version.DisplayVersion)" `
         --notes-file $notesFile
@@ -151,4 +172,4 @@ finally {
     Remove-Item -LiteralPath $notesFile -Force -ErrorAction SilentlyContinue
 }
 
-Write-Host "RELEASE_OK version=$($version.DisplayVersion) tag=$($version.Tag) asset=$([System.IO.Path]::GetFileName($executablePath))"
+Write-Host "RELEASE_OK version=$($version.DisplayVersion) tag=$($version.Tag) assets=$(($assets | ForEach-Object { [System.IO.Path]::GetFileName($_) }) -join ',')"

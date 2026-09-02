@@ -12,10 +12,13 @@ work/
 outputs/ZoneManager-prototype/
 outputs/zonemanager-diagnostics.json
 
-# Root-EXE und Fensterhelfer inklusive der atomaren Austauschdateien
+# Root-EXE und Fensterhelfer inklusive der atomaren Austauschdateien und der Pruefsummen, die
+# scripts/publish-release.ps1 fuer die Release-Anhaenge erzeugt
 /ZoneManager.exe
 /ZoneManager.exe.new
 /ZoneManager.exe.previous.*
+/ZoneManager.exe.sha256
 /ZoneManager.Helper.exe
 /ZoneManager.Helper.exe.new
 /ZoneManager.Helper.exe.previous.*
+/ZoneManager.Helper.exe.sha256

@@ -159,6 +159,76 @@ public sealed class UpdateCheckTests
     }
 
     [Fact]
+    public void A_helper_without_a_checksum_file_stops_the_whole_update()
+    {
+        // Der Helfer laeuft mit uiAccess. Lieber gar kein Update als eines, dessen zweite Datei
+        // niemand nachrechnet.
+        var release = Release("v2026.0901.01") with
+        {
+            HelperUrl = "https://github.com/klopp1991/zone-manager/releases/download/v1/ZoneManager.Helper.exe",
+            HelperSizeInBytes = 10_578_996,
+            HelperChecksumUrl = null,
+        };
+
+        Assert.False(UpdateCheck.IsAcceptableDownload(release, out var rejection));
+        Assert.Contains("ZoneManager.Helper.exe.sha256", rejection, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("https://beispiel.invalid/ZoneManager.Helper.exe")]
+    [InlineData("http://github.com/klopp1991/zone-manager/releases/download/v1/ZoneManager.Helper.exe")]
+    public void A_helper_from_anywhere_but_the_release_store_is_refused(string url)
+    {
+        var release = Release("v2026.0901.01") with
+        {
+            HelperUrl = url,
+            HelperSizeInBytes = 10_578_996,
+            HelperChecksumUrl = "https://github.com/klopp1991/zone-manager/releases/download/v1/ZoneManager.Helper.exe.sha256",
+        };
+
+        Assert.False(UpdateCheck.IsAcceptableDownload(release, out var rejection));
+        Assert.False(string.IsNullOrWhiteSpace(rejection));
+    }
+
+    [Fact]
+    public void An_older_release_without_a_helper_stays_acceptable()
+    {
+        // Veroeffentlichungen bis 2026.0902.01 tragen keinen Helfer; sie duerfen nicht daran scheitern.
+        var release = Release("v2026.0901.01");
+
+        Assert.False(UpdateCheck.HasHelper(release));
+        Assert.True(UpdateCheck.IsAcceptableDownload(release, out var rejection));
+        Assert.Equal(string.Empty, rejection);
+    }
+
+    [Fact]
+    public void The_release_feed_reads_the_helper_and_its_checksum()
+    {
+        var json = System.Text.Json.JsonDocument.Parse("""
+            {
+              "tag_name": "v2026.0902.02",
+              "assets": [
+                { "name": "ZoneManager.exe", "browser_download_url": "https://github.com/x/releases/download/v1/ZoneManager.exe", "size": 123 },
+                { "name": "ZoneManager.exe.sha256", "browser_download_url": "https://github.com/x/releases/download/v1/ZoneManager.exe.sha256", "size": 80 },
+                { "name": "ZoneManager.Helper.exe", "browser_download_url": "https://github.com/x/releases/download/v1/ZoneManager.Helper.exe", "size": 456 },
+                { "name": "ZoneManager.Helper.exe.sha256", "browser_download_url": "https://github.com/x/releases/download/v1/ZoneManager.Helper.exe.sha256", "size": 87 }
+              ]
+            }
+            """);
+
+        var release = GitHubReleaseFeed.Parse(json.RootElement);
+
+        Assert.NotNull(release);
+        // Die Namen unterscheiden sich nur um ein Wort; die Programmdatei darf nicht den Helfer erwischen.
+        Assert.Equal("https://github.com/x/releases/download/v1/ZoneManager.exe", release.DownloadUrl);
+        Assert.Equal(123, release.SizeInBytes);
+        Assert.Equal("https://github.com/x/releases/download/v1/ZoneManager.Helper.exe", release.HelperUrl);
+        Assert.Equal(456, release.HelperSizeInBytes);
+        Assert.Equal("https://github.com/x/releases/download/v1/ZoneManager.Helper.exe.sha256", release.HelperChecksumUrl);
+        Assert.True(UpdateCheck.HasHelper(release));
+    }
+
+    [Fact]
     public void The_release_feed_reads_the_checksum_asset_next_to_the_executable()
     {
         var json = System.Text.Json.JsonDocument.Parse("""

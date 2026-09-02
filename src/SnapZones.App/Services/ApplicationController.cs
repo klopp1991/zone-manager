@@ -236,7 +236,8 @@ public sealed class ApplicationController : IDisposable
         // Prozess, der sie belegte, geendet hat. Der naechste Start ist der erste Zeitpunkt dafuer.
         if (Environment.ProcessPath is { Length: > 0 } processPath)
         {
-            var removed = UpdateInstaller.RemoveSupersededFiles(processPath);
+            var removed = UpdateInstaller.RemoveSupersededFiles(processPath)
+                + UpdateInstaller.RemoveSupersededFiles(UpdateInstaller.BuildHelperPath(processPath));
             if (removed > 0)
             {
                 log.Write("INFO", $"{removed} Vorgaengerdatei(en) nach einem Update entfernt.");

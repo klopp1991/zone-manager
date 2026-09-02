@@ -31,7 +31,10 @@ $workRoot = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'work'))
 $sourcePath = [System.IO.Path]::GetFullPath($PublishedExecutablePath)
 $destinationPath = [System.IO.Path]::GetFullPath($RootExecutablePath)
 $destinationDirectory = [System.IO.Path]::GetDirectoryName($destinationPath)
-$defaultDestination = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'ZoneManager.exe'))
+# Das Skript taugt fuer die Programmdatei und fuer den Fensterhelfer; beide liegen nebeneinander und
+# werden nach demselben Muster ausgetauscht. Ein anderer Name deutet auf einen Aufruffehler hin.
+$allowedNames = @('ZoneManager.exe', 'ZoneManager.Helper.exe')
+$destinationName = [System.IO.Path]::GetFileName($destinationPath)
 $isTestDestination = $destinationPath.StartsWith(
     $workRoot + [System.IO.Path]::DirectorySeparatorChar,
     [System.StringComparison]::OrdinalIgnoreCase)
@@ -40,10 +43,11 @@ if (-not (Test-Path -LiteralPath $sourcePath -PathType Leaf)) {
     throw "Die veröffentlichte EXE fehlt: $sourcePath"
 }
 
-if ([System.IO.Path]::GetFileName($destinationPath) -ne 'ZoneManager.exe') {
+if ($allowedNames -notcontains $destinationName) {
     throw 'Der Name der Root-EXE ist unerwartet.'
 }
 
+$defaultDestination = [System.IO.Path]::GetFullPath((Join-Path $projectRoot $destinationName))
 if (-not $destinationPath.Equals($defaultDestination, [System.StringComparison]::OrdinalIgnoreCase) -and -not $isTestDestination) {
     throw 'Der Zielpfad liegt weder im Root- noch im Testverzeichnis.'
 }

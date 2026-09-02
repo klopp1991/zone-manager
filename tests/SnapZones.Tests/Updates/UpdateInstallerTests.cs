@@ -114,6 +114,88 @@ public sealed class UpdateInstallerTests
     }
 
     [Fact]
+    public void The_helper_is_replaced_together_with_the_application()
+    {
+        using var directory = new TemporaryDirectory();
+        var executable = Path.Combine(directory.Path, "ZoneManager.exe");
+        var helper = Path.Combine(directory.Path, "ZoneManager.Helper.exe");
+        File.WriteAllText(executable, "alt");
+        File.WriteAllText(helper, "alter helfer");
+        File.WriteAllText(executable + ".download", "neu");
+        File.WriteAllText(helper + ".download", "neuer helfer");
+
+        var result = UpdateInstaller.ReplaceAll(
+            executable,
+            executable + ".download",
+            helper,
+            helper + ".download",
+            Moment);
+
+        Assert.Equal(UpdateInstallStatus.Applied, result.Status);
+        Assert.Equal("neu", File.ReadAllText(executable));
+        Assert.Equal("neuer helfer", File.ReadAllText(helper));
+        Assert.Equal("alt", File.ReadAllText(UpdateInstaller.BuildSupersededPath(executable, Moment)));
+        Assert.Equal("alter helfer", File.ReadAllText(UpdateInstaller.BuildSupersededPath(helper, Moment)));
+    }
+
+    [Fact]
+    public void A_failed_application_swap_takes_the_helper_back()
+    {
+        // Sonst bliebe die schlechteste aller Paarungen zurueck: alte Anwendung, neuer Helfer.
+        using var directory = new TemporaryDirectory();
+        var executable = Path.Combine(directory.Path, "ZoneManager.exe");
+        var helper = Path.Combine(directory.Path, "ZoneManager.Helper.exe");
+        File.WriteAllText(executable, "alt");
+        File.WriteAllText(helper, "alter helfer");
+        File.WriteAllText(executable + ".download", "neu");
+        File.WriteAllText(helper + ".download", "neuer helfer");
+
+        // Eine geoeffnete Datei laesst sich nicht beiseiteschieben; das ist der Fehlerfall im Feld.
+        using (new FileStream(executable, FileMode.Open, FileAccess.Read, FileShare.None))
+        {
+            var result = UpdateInstaller.ReplaceAll(
+                executable,
+                executable + ".download",
+                helper,
+                helper + ".download",
+                Moment);
+
+            Assert.Equal(UpdateInstallStatus.ReplaceFailed, result.Status);
+        }
+
+        Assert.Equal("alt", File.ReadAllText(executable));
+        Assert.Equal("alter helfer", File.ReadAllText(helper));
+        Assert.False(File.Exists(UpdateInstaller.BuildSupersededPath(helper, Moment)));
+    }
+
+    [Fact]
+    public void Without_a_helper_only_the_application_is_replaced()
+    {
+        using var directory = new TemporaryDirectory();
+        var executable = Path.Combine(directory.Path, "ZoneManager.exe");
+        var helper = Path.Combine(directory.Path, "ZoneManager.Helper.exe");
+        File.WriteAllText(executable, "alt");
+        File.WriteAllText(helper, "unveraendert");
+        File.WriteAllText(executable + ".download", "neu");
+
+        var result = UpdateInstaller.ReplaceAll(executable, executable + ".download", null, null, Moment);
+
+        Assert.Equal(UpdateInstallStatus.Applied, result.Status);
+        Assert.Equal("neu", File.ReadAllText(executable));
+        Assert.Equal("unveraendert", File.ReadAllText(helper));
+    }
+
+    [Fact]
+    public void The_helper_is_looked_for_next_to_the_application()
+    {
+        var executable = Path.Combine("C:", "Programme", "ZoneManager", "ZoneManager.exe");
+
+        Assert.Equal(
+            Path.Combine("C:", "Programme", "ZoneManager", "ZoneManager.Helper.exe"),
+            UpdateInstaller.BuildHelperPath(executable));
+    }
+
+    [Fact]
     public void A_release_is_read_from_the_published_description()
     {
         using var document = JsonDocument.Parse("""
