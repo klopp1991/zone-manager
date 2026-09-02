@@ -92,6 +92,19 @@ else {
     & (Join-Path $scriptDirectory 'verify-dpi-awareness.ps1') -ExecutablePath $rootExecutablePath
 }
 
+# Der unsichtbare Fensterrand wird an bereits offenen Fenstern gemessen, nicht angenommen. Ueberschreitet
+# er die Obergrenze aus WindowFrameCompensation, bricht die Messung ab: dann waeren sowohl der Ausgleich
+# beim Einrasten als auch die Toleranz, mit der MainZoneFallback ein eingerastetes Fenster erkennt, falsch.
+$frameOutput = & (Join-Path $scriptDirectory 'measure-window-frame.ps1')
+$frameOutput | Write-Output
+$frameLine = @($frameOutput | Where-Object { $_ -is [string] -and $_ -match '^FRAME_(OK|SKIPPED)' })
+$frameStatus = if ($frameLine.Count -gt 0 -and $frameLine[-1] -match '^FRAME_OK.*largest=(\d+)') {
+    "measured-$($Matches[1])px"
+}
+else {
+    'skipped'
+}
+
 $files = Get-ChildItem -LiteralPath $outputPath -File -Recurse
 $bytes = ($files | Measure-Object -Property Length -Sum).Sum
-Write-Output "VERIFY_OK tests=passed rootBuild=passed dpi=$dpiStatus monitors=$(@($diagnostic.monitors).Count) startupLayouts=$($diagnostic.startupLayoutCount) files=$($files.Count) bytes=$bytes maximumExecutableBytes=$maximumExecutableBytes rootExe=$rootExecutablePath hookRegistered=false settingsChanged=false"
+Write-Output "VERIFY_OK tests=passed rootBuild=passed dpi=$dpiStatus windowFrame=$frameStatus monitors=$(@($diagnostic.monitors).Count) startupLayouts=$($diagnostic.startupLayoutCount) files=$($files.Count) bytes=$bytes maximumExecutableBytes=$maximumExecutableBytes rootExe=$rootExecutablePath hookRegistered=false settingsChanged=false"
