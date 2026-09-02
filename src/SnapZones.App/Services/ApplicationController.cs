@@ -45,6 +45,11 @@ public sealed class ApplicationController : IDisposable
     private readonly IWindowService windowService;
     private readonly OverlayManager overlays;
     private readonly OverlayManager previewOverlays = new();
+    private readonly WindowsPlacementWindowService placementWindowService;
+    private readonly DispatcherTimer overlayDelayTimer;
+    private ShowOverlaysAction? pendingOverlayShow;
+    private bool dragStartedInZone;
+    private bool placedDuringDrag;
     private readonly DispatcherTimer previewTimer;
     private readonly MonitorIdentificationOverlay monitorIdentification;
     private readonly TrayIconService tray;
@@ -111,9 +116,10 @@ public sealed class ApplicationController : IDisposable
             message => log.Write("DEBUG", message));
         appRuleHook = new WindowRuleHook(synchronizationContext);
         placementHook = new WindowLifecycleHook(synchronizationContext);
+        placementWindowService = new WindowsPlacementWindowService(message => log.Write("DEBUG", message));
         placementEngine = new WindowPlacementEngine(
             placementHook,
-            new WindowsPlacementWindowService(message => log.Write("DEBUG", message)),
+            placementWindowService,
             placementSaveCoordinator,
             initialPlacementCatalog,
             () => BuildPlacementEnvironment(configuration),
@@ -192,6 +198,17 @@ public sealed class ApplicationController : IDisposable
         {
             previewTimer.Stop();
             previewOverlays.HideAll();
+        };
+        overlayDelayTimer = new DispatcherTimer(DispatcherPriority.Normal, window.Dispatcher);
+        overlayDelayTimer.Tick += (_, _) =>
+        {
+            overlayDelayTimer.Stop();
+            if (pendingOverlayShow is { } pending && coordinator?.State == DragState.Tracking)
+            {
+                ShowOverlaysNow(pending);
+            }
+
+            pendingOverlayShow = null;
         };
 
         // Der Not-Aus ist ein Umschalter: einmal gedrueckt haelt er an, erneut gedrueckt laeuft es weiter.
@@ -903,6 +920,7 @@ public sealed class ApplicationController : IDisposable
         placementEngine.Stop();
         var targets = BuildTargets(newConfiguration);
         overlays.UpdateTargets(targets);
+        ApplyFineTuning(newConfiguration.Settings);
         var metrics = new LayoutMetrics(
             newConfiguration.Settings.EffectiveOuterMargins,
             newConfiguration.Settings.ZoneGap);
@@ -923,7 +941,10 @@ public sealed class ApplicationController : IDisposable
             : snappingEnabled ? SnappingState.Active : SnappingState.NoActiveLayout;
         tray.SetSnappingState(viewModel.SnappingStateLabel, paused: emergencyStopped);
         // Zonenkuerzel nur, solange das Einrasten laeuft; der Not-Aus bleibt auch im Stopp erreichbar.
-        var hotkeyResult = hotkeys.Configure(snappingEnabled || emergencyStopped, snappingEnabled);
+        var hotkeyResult = hotkeys.Configure(
+            snappingEnabled || emergencyStopped,
+            snappingEnabled && newConfiguration.Settings.ZoneHotkeysEnabled,
+            newConfiguration.Settings.ZoneHotkeyModifiers);
         if (hotkeyResult.Errors.Count > 0)
         {
             viewModel.StatusMessage = string.Join(" ", hotkeyResult.Errors);
@@ -1015,6 +1036,23 @@ public sealed class ApplicationController : IDisposable
         monitorIdentification.HideAll();
     }
 
+    /// <summary>
+    /// Reicht die Feinabstimmung an die Dienste weiter, die sie brauchen. Alles hier hat einen sicheren
+    /// Standard; die Werte kommen aus den erweiterten Einstellungen.
+    /// </summary>
+    private void ApplyFineTuning(AppSettings settings)
+    {
+        if (windowService is WindowsWindowService concrete)
+        {
+            concrete.ActivateAfterPlacement = settings.ActivateWindowAfterSnap;
+            concrete.FixedSizePlacement = settings.FixedSizeWindowPlacement;
+            concrete.TolerancePixels = settings.PlacementTolerancePixels;
+        }
+
+        placementWindowService.TolerancePixels = settings.PlacementTolerancePixels;
+        moveHook.SetEventLimit(settings.MoveHookEventLimit);
+    }
+
     private IReadOnlyList<PartMonitorTarget> BuildTargets(SnapConfiguration currentConfiguration)
     {
         var result = new List<PartMonitorTarget>();
@@ -1093,6 +1131,8 @@ public sealed class ApplicationController : IDisposable
             return;
         }
 
+        placedDuringDrag = false;
+        dragStartedInZone = configuration.Settings.RestoreSizeWhenLeavingZone && IsWindowInAnyZone(windowHandle);
         coordinator.Start(windowHandle, snapshot, cursor);
         log.Write("DEBUG", $"Koordinatorstatus nach Start: {coordinator.State}");
         if (coordinator.State == DragState.Tracking)
@@ -1111,6 +1151,9 @@ public sealed class ApplicationController : IDisposable
         cursorTimer.Stop();
         pendingShiftDrag = null;
         log.Write("DEBUG", $"Verschiebeende bei Koordinatorstatus {coordinator?.State}.");
+        overlayDelayTimer.Stop();
+        pendingOverlayShow = null;
+        var endedWindow = draggedWindow;
         if (windowService.TryGetCursorPosition(out var cursor))
         {
             coordinator?.End(cursor, windowService.IsControlPressed());
@@ -1120,15 +1163,64 @@ public sealed class ApplicationController : IDisposable
             coordinator?.End();
         }
 
+        if (dragStartedInZone && !placedDuringDrag && endedWindow != 0)
+        {
+            RestoreSizeAfterLeavingZone(endedWindow);
+        }
+
+        dragStartedInZone = false;
         draggedWindow = 0;
         draggedSnapshot = null;
+    }
+
+    /// <summary>Ob das Fenster gerade auf einer Zone des aktiven Layouts eingerastet liegt.</summary>
+    private bool IsWindowInAnyZone(nint windowHandle)
+    {
+        var current = windowService.Capture(windowHandle);
+        if (current is null)
+        {
+            return false;
+        }
+
+        var metrics = new LayoutMetrics(configuration.Settings.EffectiveOuterMargins, configuration.Settings.ZoneGap);
+        return BuildTargets(configuration).Any(target => target.PartMonitors.Any(zone =>
+            current.NormalPosition.IsWithinTolerance(
+                ZoneGeometry.ToPixels(zone.Bounds, target.Monitor.WorkArea, metrics),
+                configuration.Settings.SnappedTolerancePixels)));
+    }
+
+    /// <summary>
+    /// Ein Fenster, das aus einer Zone herausgezogen und nirgends abgelegt wurde, bekommt die Groesse
+    /// zurueck, die es vor dem Einrasten hatte; die neue Position bleibt. Nur auf Wunsch
+    /// (RestoreSizeWhenLeavingZone), weil manche Anwender die Zonengroesse bewusst mitnehmen.
+    /// </summary>
+    private void RestoreSizeAfterLeavingZone(nint windowHandle)
+    {
+        var current = windowService.Capture(windowHandle);
+        if (current is null || !placementHistory.TryPeek(current.Identity, out var previous))
+        {
+            return;
+        }
+
+        var size = previous.NormalPosition;
+        if (size.Width < 1 || size.Height < 1 ||
+            current.NormalPosition.IsWithinTolerance(previous.NormalPosition, 4))
+        {
+            return;
+        }
+
+        var target = new PixelRect(current.NormalPosition.X, current.NormalPosition.Y, size.Width, size.Height);
+        var outcome = windowService.Snap(windowHandle, target);
+        log.Write("DEBUG", $"Grösse nach Verlassen der Zone wiederhergestellt: {target}, Ergebnis {outcome.Succeeded}.");
+        if (outcome.Succeeded)
+        {
+            placementHistory.DiscardTop(current.Identity);
+        }
     }
 
     /// <summary>Wie lange die Maustaste losgelassen sein darf, bevor ein Ziehen als beendet gilt.</summary>
     private static readonly TimeSpan ButtonReleaseGrace = TimeSpan.FromMilliseconds(1000);
 
-    /// <summary>Laengstes denkbares Ziehen. Danach wird das Overlay eingezogen, was auch immer Windows meldet.</summary>
-    private static readonly TimeSpan MaximumDragDuration = TimeSpan.FromMinutes(2);
 
     private void CursorTimer_Tick(object? sender, EventArgs eventArgs)
     {
@@ -1201,9 +1293,10 @@ public sealed class ApplicationController : IDisposable
             return true;
         }
 
-        if (now - dragStartedAt > MaximumDragDuration)
+        var maximumDuration = TimeSpan.FromSeconds(Math.Clamp(configuration.Settings.DragWatchdogSeconds, 5, 600));
+        if (now - dragStartedAt > maximumDuration)
         {
-            log.Write("WARN", "Ziehvorgang abgebrochen: kein Endereignis innerhalb von zwei Minuten.");
+            log.Write("WARN", $"Ziehvorgang abgebrochen: kein Endereignis innerhalb von {maximumDuration.TotalSeconds:0} Sekunden.");
             return true;
         }
 
@@ -1233,12 +1326,19 @@ public sealed class ApplicationController : IDisposable
         switch (action)
         {
             case ShowOverlaysAction show:
-                overlays.Show(
-                    show.MonitorIds,
-                    new LayoutMetrics(configuration.Settings.EffectiveOuterMargins, configuration.Settings.ZoneGap),
-                    configuration.Settings.OverlayColor,
-                    configuration.Settings.OverlayOpacity,
-                    configuration.Settings.ShowZoneNames);
+                // Eine Anzeigeverzoegerung unterdrueckt das Aufblitzen der Zonen bei kurzen Zuegen.
+                var delayMilliseconds = configuration.Settings.OverlayShowDelayMilliseconds;
+                if (delayMilliseconds > 0 && pendingOverlayShow is null && !overlays.IsAnyVisible)
+                {
+                    pendingOverlayShow = show;
+                    overlayDelayTimer.Interval = TimeSpan.FromMilliseconds(delayMilliseconds);
+                    overlayDelayTimer.Start();
+                }
+                else
+                {
+                    ShowOverlaysNow(show);
+                }
+
                 break;
             case HighlightZoneAction highlight:
                 overlays.Highlight(highlight.MonitorId, highlight.ZoneId);
@@ -1254,6 +1354,8 @@ public sealed class ApplicationController : IDisposable
                 ReportPlacement(fillSpan.WindowHandle, spanResult, $"Fenster wurde über {fillSpan.PartMonitorIds.Count} Zonen gelegt.");
                 break;
             case HideOverlaysAction:
+                overlayDelayTimer.Stop();
+                pendingOverlayShow = null;
                 overlays.HideAll();
                 break;
             case FillPartMonitorAction fill:
@@ -1266,6 +1368,17 @@ public sealed class ApplicationController : IDisposable
         }
     }
 
+    private void ShowOverlaysNow(ShowOverlaysAction show)
+    {
+        overlays.Show(
+            show.MonitorIds,
+            new LayoutMetrics(configuration.Settings.EffectiveOuterMargins, configuration.Settings.ZoneGap),
+            configuration.Settings.OverlayColor,
+            configuration.Settings.OverlayOpacity,
+            configuration.Settings.ShowZoneNames,
+            OverlayStyle.From(configuration.Settings));
+    }
+
     /// <summary>
     /// Meldet das gemessene Ergebnis einer Platzierung. Ein Fenster, das sich gar nicht bewegen liess,
     /// kann einem hoeher berechtigten Programm gehoeren; ein Fenster, das sich nur nicht auf die
@@ -1275,6 +1388,7 @@ public sealed class ApplicationController : IDisposable
     {
         if (result?.Status == PartMonitorCommandStatus.Successful)
         {
+            placedDuringDrag = true;
             log.Write("DEBUG", successMessage);
             return;
         }
@@ -1366,7 +1480,8 @@ public sealed class ApplicationController : IDisposable
             new LayoutMetrics(configuration.Settings.EffectiveOuterMargins, configuration.Settings.ZoneGap),
             configuration.Settings.OverlayColor,
             configuration.Settings.OverlayOpacity,
-            configuration.Settings.ShowZoneNames);
+            configuration.Settings.ShowZoneNames,
+            OverlayStyle.From(configuration.Settings));
         previewTimer.Start();
         viewModel.StatusMessage = "Vorschau des Entwurfs wird drei Sekunden lang angezeigt.";
     }

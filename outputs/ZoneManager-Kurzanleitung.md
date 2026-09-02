@@ -73,6 +73,10 @@ nächsten Start als Sicherung daneben liegen.
 - `Ctrl + Alt + Shift + F12` pausiert das Einrasten und schaltet es beim nächsten Druck wieder ein; `Escape` bricht nur den laufenden Ziehvorgang ab.
 - Ein Schutzschalter stoppt die Snap-Funktion bei Callback-Fehlern oder ungewöhnlich vielen Hook-Ereignissen. Die Statuszeile unten im Fenster und das Infobereichsmenü zeigen den Zustand und bieten **Einrasten wieder aktivieren** an.
 
+## Erweiterte Einstellungen
+
+Unter **Verhalten → Erweiterte Einstellungen anzeigen** erscheinen die Karten Feinabstimmung Ziehen, Overlay-Stil, Feinabstimmung Platzieren sowie Schutz und Zeiten. Dort lassen sich Toleranzen, Verzögerungen, Rahmen, Farben, der Katalogumfang und die Zusatztasten der Kürzel einstellen; jeder Wert hat einen sicheren Standard. **Programm → Einstellungen zurücksetzen** stellt alles wieder her.
+
 ## Tastenkürzel
 
 - `Ctrl + Alt + Links / Rechts`: Vordergrundfenster eine Zone zurück oder weiter.

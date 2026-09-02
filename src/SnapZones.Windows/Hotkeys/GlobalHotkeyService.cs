@@ -1,4 +1,5 @@
 using System.Windows.Interop;
+using SnapZones.Core.Models;
 using SnapZones.Core.PartMonitors;
 using SnapZones.Windows.Native;
 
@@ -25,6 +26,7 @@ public sealed class GlobalHotkeyService : IGlobalHotkeyService
     private const uint Alt = 0x0001;
     private const uint Control = 0x0002;
     private const uint Shift = 0x0004;
+    private const uint Win = 0x0008;
     private const uint NoRepeat = 0x4000;
     private const uint VirtualKeyBackspace = 0x08;
     private const uint VirtualKeyLeft = 0x25;
@@ -38,7 +40,7 @@ public sealed class GlobalHotkeyService : IGlobalHotkeyService
 
     public event Action<ZoneHotkey>? ZoneHotkeyPressed;
 
-    public HotkeyRegistrationResult Configure(bool emergencyStopEnabled, bool zoneHotkeysEnabled)
+    public HotkeyRegistrationResult Configure(bool emergencyStopEnabled, bool zoneHotkeysEnabled, ZoneHotkeyModifiers modifiers)
     {
         EnsureSource();
         UnregisterAll();
@@ -51,17 +53,36 @@ public sealed class GlobalHotkeyService : IGlobalHotkeyService
 
         if (zoneHotkeysEnabled)
         {
-            Register(PreviousZoneId, Control | Alt, VirtualKeyLeft, "Ctrl + Alt + Links", errors);
-            Register(NextZoneId, Control | Alt, VirtualKeyRight, "Ctrl + Alt + Rechts", errors);
-            Register(RestoreId, Control | Alt, VirtualKeyBackspace, "Ctrl + Alt + Rücktaste", errors);
+            var flags = ModifierFlags(modifiers);
+            var label = ModifierLabel(modifiers);
+            Register(PreviousZoneId, flags, VirtualKeyLeft, $"{label} + Links", errors);
+            Register(NextZoneId, flags, VirtualKeyRight, $"{label} + Rechts", errors);
+            Register(RestoreId, flags, VirtualKeyBackspace, $"{label} + Rücktaste", errors);
             for (var number = 1; number <= 9; number++)
             {
-                Register(FirstZoneNumberId + number - 1, Control | Alt, VirtualKeyOne + (uint)number - 1, $"Ctrl + Alt + {number}", errors);
+                Register(FirstZoneNumberId + number - 1, flags, VirtualKeyOne + (uint)number - 1, $"{label} + {number}", errors);
             }
         }
 
         return new HotkeyRegistrationResult(errors);
     }
+
+    /// <summary>Die Win32-Modifikatorbits zu einer Auswahl. Oeffentlich, damit die Zuordnung pruefbar ist.</summary>
+    public static uint ModifierFlags(ZoneHotkeyModifiers modifiers) => modifiers switch
+    {
+        ZoneHotkeyModifiers.ControlShift => Control | Shift,
+        ZoneHotkeyModifiers.AltShift => Alt | Shift,
+        ZoneHotkeyModifiers.ControlWin => Control | Win,
+        _ => Control | Alt
+    };
+
+    public static string ModifierLabel(ZoneHotkeyModifiers modifiers) => modifiers switch
+    {
+        ZoneHotkeyModifiers.ControlShift => "Ctrl + Shift",
+        ZoneHotkeyModifiers.AltShift => "Alt + Shift",
+        ZoneHotkeyModifiers.ControlWin => "Ctrl + Win",
+        _ => "Ctrl + Alt"
+    };
 
     public void Dispose()
     {

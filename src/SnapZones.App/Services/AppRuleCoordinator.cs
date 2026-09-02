@@ -52,7 +52,6 @@ public sealed class WindowServiceAppRuleGateway(IWindowService windowService, in
 
 public sealed class AppRuleCoordinator : IDisposable
 {
-    private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(250);
     private readonly Func<SnapConfiguration> configurationProvider;
     private readonly Func<IReadOnlyList<LiveMonitor>> monitorsProvider;
     private readonly IAppRuleWindowGateway windowGateway;
@@ -240,7 +239,9 @@ public sealed class AppRuleCoordinator : IDisposable
                 return new AppRuleExecutionResult(AppRuleExecutionStatus.WindowsRejected, ruleId);
             }
 
-            await delay(RetryDelay, token);
+            await delay(
+                TimeSpan.FromMilliseconds(Math.Clamp(configuration.Settings.RuleRetryDelayMilliseconds, 50, 2000)),
+                token);
         }
     }
 

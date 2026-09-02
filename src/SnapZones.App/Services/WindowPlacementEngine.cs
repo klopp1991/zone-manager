@@ -21,6 +21,19 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
     private static readonly TimeSpan OwnPlacementSuppression = TimeSpan.FromMilliseconds(750);
     private const int MaximumCatalogEntries = 500;
 
+    /// <summary>Die Katalogobergrenze aus den Einstellungen; ohne Einstellung die Vorgabe.</summary>
+    private int CatalogLimit()
+    {
+        try
+        {
+            return Math.Clamp(environmentFactory().Configuration.Settings.RememberedWindowLimit, 50, 2000);
+        }
+        catch (Exception)
+        {
+            return MaximumCatalogEntries;
+        }
+    }
+
     private readonly IWindowLifecycleHook lifecycleHook;
     private readonly IPlacementWindowService windowService;
     private readonly WindowPlacementSaveCoordinator saveCoordinator;
@@ -515,6 +528,15 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         CancellationToken cancellationToken)
     {
         PlacementWindowSnapshot? snapshot = null;
+        // Ruhezeit nach dem Erscheinen: manche Programme bauen ihr Fenster erst nach einigen hundert
+        // Millisekunden fertig auf. Voreingestellt 0; erfahrene Anwender setzen sie je nach Programm.
+        var settleDelay = environmentFactory().Configuration.Settings.NewWindowSettleDelayMilliseconds;
+        if (settleDelay > 0)
+        {
+            await delay(TimeSpan.FromMilliseconds(settleDelay), cancellationToken).ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
         foreach (var inspectionDelay in InspectionDelays)
         {
             await delay(inspectionDelay, cancellationToken).ConfigureAwait(false);
@@ -583,8 +605,12 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             return;
         }
 
-        var targetBounds = PlacementGeometry.Resolve(entry, environment.Monitors, environment.Zones);
-        var maximize = entry.WasMaximized;
+        var targetBounds = PlacementGeometry.Resolve(
+            entry,
+            environment.Monitors,
+            environment.Zones,
+            environment.Configuration.Settings.PreferRememberedZone);
+        var maximize = entry.WasMaximized && environment.Configuration.Settings.RestoreMaximizedWindows;
 
         cancellationToken.ThrowIfCancellationRequested();
         TryPlaceIfCurrent(windowHandle, state, context, snapshot.Identity, targetBounds, maximize);
@@ -941,7 +967,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
                     .OrderByDescending(existing => existing.LastUpdatedUtc)
                     .GroupBy(existing => existing.Identity)
                     .Select(group => group.First())
-                    .Take(MaximumCatalogEntries)
+                    .Take(CatalogLimit())
                     .ToArray());
             Catalog = changedCatalog;
             publish = QueueCatalogPublicationLocked(changedCatalog, persist: true);

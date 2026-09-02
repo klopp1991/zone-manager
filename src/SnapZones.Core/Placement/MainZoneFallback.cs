@@ -34,8 +34,14 @@ public static class MainZoneFallback
 
         // Ein bereits eingerastetes Fenster wird nicht angefasst — auch dann nicht, wenn es in einer
         // anderen Zone liegt als der Hauptzone. Sonst würde die Hauptzone Fenster einsammeln, die der
-        // Benutzer bewusst irgendwo abgelegt hat.
-        return IsSnappedToAnyZone(windowBounds, zones) ? null : zone.Bounds;
+        // Benutzer bewusst irgendwo abgelegt hat. Ob der Auffang ueberhaupt gewollt ist, entscheidet die
+        // Einstellung; die Toleranz fuer «eingerastet» ebenfalls.
+        if (!configuration!.Settings.CatchNewWindowsInMainZone)
+        {
+            return null;
+        }
+
+        return IsSnappedToAnyZone(windowBounds, zones, configuration.Settings.SnappedTolerancePixels) ? null : zone.Bounds;
     }
 
     /// <summary>
@@ -45,14 +51,14 @@ public static class MainZoneFallback
     /// auf den Zonenrändern liegt. Ein bloss überlappendes Fenster gilt bewusst nicht als eingerastet —
     /// bei einem lückenlos gekachelten Monitor überlappt jedes Fenster irgendeine Zone.
     /// </summary>
-    public static bool IsSnappedToAnyZone(PixelRect windowBounds, IReadOnlyList<PlacementZoneTarget> zones)
+    public static bool IsSnappedToAnyZone(PixelRect windowBounds, IReadOnlyList<PlacementZoneTarget> zones) =>
+        IsSnappedToAnyZone(windowBounds, zones, WindowFrameCompensation.MaximumBorderPixels);
+
+    public static bool IsSnappedToAnyZone(PixelRect windowBounds, IReadOnlyList<PlacementZoneTarget> zones, int tolerancePixels)
     {
         ArgumentNullException.ThrowIfNull(zones);
         return windowBounds.Width > 0 &&
             windowBounds.Height > 0 &&
-            zones.Any(zone => IsSnappedTo(windowBounds, zone.Bounds));
+            zones.Any(zone => windowBounds.IsWithinTolerance(zone.Bounds, tolerancePixels));
     }
-
-    private static bool IsSnappedTo(PixelRect windowBounds, PixelRect zoneBounds) =>
-        windowBounds.IsWithinTolerance(zoneBounds, WindowFrameCompensation.MaximumBorderPixels);
 }

@@ -41,6 +41,7 @@ public static class MainZoneSweep
         ArgumentNullException.ThrowIfNull(resolveIdentity);
         if (configuration is null ||
             !SnapActivationPolicy.ShouldEnable(configuration) ||
+            !configuration.Settings.CatchNewWindowsInMainZone ||
             MainZone.Resolve(configuration) is null)
         {
             return [];

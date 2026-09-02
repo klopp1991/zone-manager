@@ -25,6 +25,9 @@ public sealed class HookCircuitBreaker
     public bool IsTripped { get; private set; }
     public string? Reason { get; private set; }
 
+    /// <summary>Die eingestellte Grenze, fuer Anzeige und Vergleich.</summary>
+    public int MaximumEvents => maximumEvents;
+
     public bool RecordEvent(DateTimeOffset timestamp)
     {
         if (IsTripped)

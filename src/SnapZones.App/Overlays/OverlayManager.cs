@@ -24,7 +24,15 @@ public sealed class OverlayManager : IDisposable
         LayoutMetrics metrics,
         string colour,
         double opacity,
-        bool showZoneNames)
+        bool showZoneNames) => Show(monitorIds, metrics, colour, opacity, showZoneNames, OverlayStyle.Default);
+
+    public void Show(
+        IReadOnlyList<string> monitorIds,
+        LayoutMetrics metrics,
+        string colour,
+        double opacity,
+        bool showZoneNames,
+        OverlayStyle style)
     {
         var visible = monitorIds.ToHashSet(StringComparer.OrdinalIgnoreCase);
         foreach (var monitorId in visible)
@@ -40,7 +48,7 @@ public sealed class OverlayManager : IDisposable
                 windows.Add(monitorId, window);
             }
 
-            window.ShowFor(target, metrics, colour, opacity, showZoneNames);
+            window.ShowFor(target, metrics, colour, opacity, showZoneNames, style);
         }
 
         foreach (var pair in windows.Where(pair => !visible.Contains(pair.Key)))
@@ -63,6 +71,9 @@ public sealed class OverlayManager : IDisposable
                     : []);
         }
     }
+
+    /// <summary>Ob gerade irgendein Overlay sichtbar ist; steuert die Anzeigeverzoegerung.</summary>
+    public bool IsAnyVisible => windows.Values.Any(window => window.IsVisible);
 
     public void HideAll()
     {

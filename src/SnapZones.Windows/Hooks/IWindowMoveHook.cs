@@ -9,4 +9,9 @@ public interface IWindowMoveHook : IDisposable
     bool IsEnabled { get; }
     void Enable();
     void Disable();
+
+    /// <summary>Wie viele Ereignisse in zehn Sekunden der Schutzschalter zulaesst. Vorgabe: keine Aenderung.</summary>
+    void SetEventLimit(int maximumEvents)
+    {
+    }
 }

@@ -550,6 +550,33 @@ public partial class MainWindow : Window
         viewModel?.AppRules.AddRule();
     }
 
+    private void ResetSettings_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        var answer = System.Windows.MessageBox.Show(
+            this,
+            "Abstände, Darstellung, Verhalten und alle Feinabstimmungen werden auf die Voreinstellung zurückgesetzt.\n\n"
+                + "Erhalten bleiben Erscheinungsbild, Autostart, Rechte, Updatesuche sowie Layouts, Regeln und Ausschlüsse.\n\nZurücksetzen?",
+            "Einstellungen zurücksetzen",
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Question,
+            MessageBoxResult.Cancel);
+        if (answer != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        viewModel.Settings.ResetToDefaults();
+        viewModel.StatusMessage = "Einstellungen auf die Voreinstellung zurückgesetzt";
+        RefreshEditor();
+    }
+
     private void ResumeSnapping_Click(object sender, RoutedEventArgs eventArgs)
     {
         _ = sender;

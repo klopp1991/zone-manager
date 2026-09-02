@@ -34,7 +34,8 @@ Der Lauf schliesst eine Per-Monitor-DPI-Prüfung ein, die die Oberfläche starte
 - Wahlweise ein signierter Fensterhelfer mit `uiAccess`: auch Fenster höher berechtigter Programme rasten ein, ohne dass das Programm selbst je Administratorrechte bekommt
 - Monitorerkennung über Displaypfad und EDID-Daten; umgesteckte Monitore werden an Modell und Seriennummer wiedererkannt, Monitorwechsel zur Laufzeit werden ohne Neustart übernommen, und je Monitorkombination bleibt die zuletzt aktive Layoutauswahl gemerkt
 - Update aus dem Programm heraus: Suche auf Anstoss oder beim Start, Download nur aus der Release-Ablage über HTTPS mit Prüfung der SHA-256-Prüfsumme (`ZoneManager.exe.sha256`), Austausch der laufenden Programmdatei mit Rückfall auf den alten Stand
-- Tastenkürzel für das Vordergrundfenster (`Ctrl + Alt + Links/Rechts`, `Ctrl + Alt + 1..9`, `Ctrl + Alt + Rücktaste`), Rückgängig und Wiederholen im Layouteditor, Zonennummern in Editor und Overlay, Vorschau des Entwurfs auf dem echten Monitor
+- Tastenkürzel für das Vordergrundfenster (`Ctrl + Alt + Links/Rechts`, `Ctrl + Alt + 1..9`, `Ctrl + Alt + Rücktaste`, Zusatztasten wählbar), Rückgängig und Wiederholen im Layouteditor, Zonennummern in Editor und Overlay, Vorschau des Entwurfs auf dem echten Monitor
+- Erweiterte Einstellungen für erfahrene Anwender: Toleranzen, Verzögerungen, Overlay-Stil, Schutzgrenzen und Katalogumfang, alle mit sicherem Standard und Zurücksetzen
 - Regeln nach Prozess, optionalem Fenstertitel und Fensterklasse mit Ereignis, Verzögerung, Wiederholungen und Zielzone; das Programm wird über den Dateidialog oder aus der Liste der laufenden Programme gewählt
 - Ausschlüsse nach denselben Merkmalen: ein ausgeschlossenes Fenster bekommt kein Overlay, rastet nicht ein, wird von keiner Regel bewegt und behält dauerhaft eigene Grösse und Position
 

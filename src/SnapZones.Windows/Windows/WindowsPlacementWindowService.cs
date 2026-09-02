@@ -24,6 +24,9 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
     private readonly IWindowStyleReader styleReader;
     private readonly Action<string>? trace;
 
+    /// <summary>Wie viele Pixel das Ergebnis vom Ziel abweichen darf, bevor ein zweiter Anlauf folgt.</summary>
+    public int TolerancePixels { get; set; } = SnapZones.Core.PartMonitors.PlacementOutcome.TolerancePixels;
+
     public WindowsPlacementWindowService(Action<string>? trace = null)
         : this(new User32WindowStyleReader(), trace)
     {
@@ -114,8 +117,9 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
                 return false;
             }
 
+            var tolerance = Math.Clamp(TolerancePixels, 0, 10);
             var actual = WindowEligibility.ToPixelRect(measured);
-            if (!actual.IsWithinTolerance(normalBounds, SnapZones.Core.PartMonitors.PlacementOutcome.TolerancePixels))
+            if (!actual.IsWithinTolerance(normalBounds, tolerance))
             {
                 // Zweiter Anlauf: beim Wechsel auf einen Monitor mit anderer Skalierung passt Windows
                 // das Fenster erst nach dem ersten Setzen an.
@@ -126,7 +130,7 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
                 }
             }
 
-            if (!actual.IsWithinTolerance(normalBounds, SnapZones.Core.PartMonitors.PlacementOutcome.TolerancePixels))
+            if (!actual.IsWithinTolerance(normalBounds, tolerance))
             {
                 trace?.Invoke($"Fenster 0x{windowHandle:X} sitzt nicht wie gemerkt: Ziel {normalBounds}, Ergebnis {actual}.");
             }

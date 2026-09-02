@@ -15,7 +15,7 @@ public sealed class WindowMoveHook : IWindowMoveHook
     // Jeder Ziehvorgang liefert zwei Ereignisse. 400 in zehn Sekunden erreicht kein Mensch von Hand;
     // die alte Grenze von 100 war mit zuegigem Fensterschieben erreichbar und schaltete das Einrasten
     // bis zum Neustart ab.
-    private readonly HookCircuitBreaker circuitBreaker = new(400, TimeSpan.FromSeconds(10));
+    private HookCircuitBreaker circuitBreaker = new(400, TimeSpan.FromSeconds(10));
     private readonly User32.WinEventProc callback;
     private nint hookHandle;
     private bool disposed;
@@ -32,6 +32,19 @@ public sealed class WindowMoveHook : IWindowMoveHook
     public event Action<string>? EmergencyStopped;
 
     public bool IsEnabled => hookHandle != 0;
+
+    /// <summary>
+    /// Ersetzt den Schutzschalter durch einen mit neuer Grenze. Wirkt beim naechsten Aktivieren; ein
+    /// laufender Hook behaelt seinen Zaehler, bis er neu konfiguriert wird.
+    /// </summary>
+    public void SetEventLimit(int maximumEvents)
+    {
+        var limit = Math.Clamp(maximumEvents, 100, 5000);
+        if (Volatile.Read(ref circuitBreaker).MaximumEvents != limit)
+        {
+            Volatile.Write(ref circuitBreaker, new HookCircuitBreaker(limit, TimeSpan.FromSeconds(10)));
+        }
+    }
 
     public void Enable()
     {

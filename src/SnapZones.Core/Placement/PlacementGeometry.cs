@@ -32,7 +32,17 @@ public static class PlacementGeometry
     public static PixelRect Resolve(
         WindowPlacementEntry entry,
         IReadOnlyList<PlacementMonitorTarget> monitors,
-        IReadOnlyList<PlacementZoneTarget> zones)
+        IReadOnlyList<PlacementZoneTarget> zones) => Resolve(entry, monitors, zones, preferZone: true);
+
+    /// <param name="preferZone">
+    /// Ob die gemerkte Zone vor der gemerkten Lage zaehlt. Wer Fenster lieber pixelgenau dort wiedersieht,
+    /// wo sie standen, schaltet das in den erweiterten Einstellungen ab.
+    /// </param>
+    public static PixelRect Resolve(
+        WindowPlacementEntry entry,
+        IReadOnlyList<PlacementMonitorTarget> monitors,
+        IReadOnlyList<PlacementZoneTarget> zones,
+        bool preferZone)
     {
         ArgumentNullException.ThrowIfNull(entry);
         ArgumentNullException.ThrowIfNull(monitors);
@@ -42,7 +52,7 @@ public static class PlacementGeometry
             throw new ArgumentException("Mindestens ein Monitor ist erforderlich.", nameof(monitors));
         }
 
-        var savedZone = entry.ZoneId is Guid zoneId
+        var savedZone = preferZone && entry.ZoneId is Guid zoneId
             ? zones.FirstOrDefault(zone => zone.ZoneId == zoneId)
             : null;
         if (savedZone is not null &&

@@ -193,6 +193,31 @@ Seit dem 02.09.2026 sind die Einstellungen auf zwei Seiten verteilt: **Verhalten
   Programm auf den bisherigen Registry-Eintrag `Run` aus und meldet das im Protokoll; dann erscheint die
   Abfrage bei jeder Anmeldung wieder. Eingetragen ist immer nur einer der beiden Wege.
 
+### Erweiterte Einstellungen
+
+Der Schalter **Erweiterte Einstellungen anzeigen** oben auf der Seite **Verhalten** blendet die Feinabstimmung für erfahrene Anwender ein. Jeder Wert hat einen sicheren Standard und einen begrenzten Bereich; ungültige Werte werden schon beim Eingeben auf den Bereich gestutzt und beim Laden der Datei abgewiesen. **Einstellungen zurücksetzen** auf der Seite **Programm** stellt Abstände, Darstellung, Verhalten und alle Feinabstimmungen wieder her; Erscheinungsbild, Autostart, Rechte, Updatesuche, Layouts, Regeln und Ausschlüsse bleiben.
+
+| Karte | Einstellung | Bereich (Standard) | Wirkung |
+|---|---|---|---|
+| Feinabstimmung Ziehen | Anzeigeverzögerung | 0–1000 ms (0) | Zonen erscheinen erst, wenn das Ziehen so lange dauert; kurze Züge bleiben ohne Aufblitzen. |
+| | Fenster nach dem Einrasten in den Vordergrund holen | aus | Ein per Regel, Hauptzone oder Kürzel gesetztes Fenster erhält den Fokus. |
+| | Grösse beim Herausziehen wiederherstellen | aus | Ein aus der Zone gezogenes, nirgends abgelegtes Fenster bekommt seine frühere Grösse zurück. |
+| Overlay-Stil | Beschriftung | Nummer und Name / nur Nummer / nur Name | Inhalt der Beschriftungsfläche. |
+| | Rahmenbreite, Eckenradius, Schriftgrösse | 1–6 px (1), 0–24 px (4), 10–24 pt (13) | Optik der Zonen im Overlay. |
+| | Farbe und Deckkraft der Hervorhebung | #RRGGBB oder leer, 10–90 % (36) | Die Zone unter dem Mauszeiger. |
+| Feinabstimmung Platzieren | Fenster mit fester Grösse | zentrieren / oben links / nicht anfassen | Dialoge, die keine Zone füllen können. |
+| | Toleranz beim Nachmessen | 0–10 px (2) | Ab welcher Abweichung ein zweiter Anlauf und eine Meldung folgen. |
+| | Toleranz für «eingerastet» | 8–80 px (40) | Wie nah ein Fenster an den Zonenkanten liegen muss, damit Hauptzone und Layoutwechsel es in Ruhe lassen. |
+| | Neue Fenster in der Hauptzone auffangen | ein | Aus: die Hauptzone dient nur dem Layoutwechsel. |
+| | Gemerkte Zone vor gemerkter Lage | ein | Aus: ein Fenster kehrt pixelgenau an seine letzte Lage zurück. |
+| | Maximierte Fenster maximiert wiederherstellen | ein | |
+| | Katalog gemerkter Positionen | 50–2000 (500) | Obergrenze des Positionsgedächtnisses. |
+| | Wartezeit vor dem Beurteilen neuer Fenster | 0–2000 ms (0) | Für Programme, die ihr Fenster spät fertig aufbauen. |
+| | Abstand zwischen Regelversuchen | 50–2000 ms (250) | |
+| Tastenkürzel | Zonenkürzel aktiv, Zusatztasten | ein; Ctrl + Alt / Ctrl + Shift / Alt + Shift / Ctrl + Win | Gilt für alle Zonenkürzel; der Not-Aus bleibt fest. |
+| Schutz und Zeiten | Schutzschalter des Verschiebe-Hooks | 100–5000 Ereignisse je 10 s (400) | Darüber hält das Programm das Einrasten an. |
+| | Wachhund für hängende Ziehvorgänge | 5–600 s (120) | Danach werden die Zonen eingezogen, was auch immer Windows meldet. |
+
 Jede Einstellung erklärt direkt in der Oberfläche Wirkung, Gültigkeitsbereich und Einschränkungen. Wie Titel, Beschriftungen und Hilfetexte dabei aufgebaut sind, steht verbindlich in [ui-richtlinien.md](ui-richtlinien.md).
 
 ## Installation

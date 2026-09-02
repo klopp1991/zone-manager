@@ -436,6 +436,41 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
             throw new InvalidDataException("Ein äusserer Abstand liegt ausserhalb des gültigen Bereichs.");
         }
 
+        if (!Enum.IsDefined(settings.FixedSizeWindowPlacement) ||
+            !Enum.IsDefined(settings.ZoneHotkeyModifiers) ||
+            !Enum.IsDefined(settings.OverlayLabelStyle))
+        {
+            throw new InvalidDataException("Die Konfiguration enthält einen unbekannten Einstellungswert.");
+        }
+
+        // Grenzen der Feinabstimmung. Sie sind grosszuegig, aber endlich: ein Wert jenseits davon ist ein
+        // Tippfehler oder eine beschaedigte Datei, keine Absicht.
+        if (settings.OverlayShowDelayMilliseconds is < 0 or > 1000 ||
+            settings.PlacementTolerancePixels is < 0 or > 10 ||
+            settings.SnappedTolerancePixels is < 8 or > 80 ||
+            settings.RememberedWindowLimit is < 50 or > 2000 ||
+            settings.NewWindowSettleDelayMilliseconds is < 0 or > 2000 ||
+            settings.RuleRetryDelayMilliseconds is < 50 or > 2000 ||
+            settings.OverlayBorderThickness is < 1 or > 6 ||
+            settings.OverlayCornerRadius is < 0 or > 24 ||
+            settings.OverlayLabelFontSize is < 10 or > 24 ||
+            !double.IsFinite(settings.HighlightOpacity) ||
+            settings.HighlightOpacity is < 0.10 or > 0.90 ||
+            settings.MoveHookEventLimit is < 100 or > 5000 ||
+            settings.DragWatchdogSeconds is < 5 or > 600)
+        {
+            throw new InvalidDataException("Eine Feinabstimmung liegt ausserhalb des gültigen Bereichs.");
+        }
+
+        if (settings.HighlightColor is not null &&
+            settings.HighlightColor.Length > 0 &&
+            (settings.HighlightColor.Length != 7 ||
+             settings.HighlightColor[0] != '#' ||
+             !settings.HighlightColor.AsSpan(1).ToString().All(Uri.IsHexDigit)))
+        {
+            throw new InvalidDataException("Die Hervorhebungsfarbe muss leer sein oder das Format #RRGGBB besitzen.");
+        }
+
         if (string.IsNullOrEmpty(settings.OverlayColor) ||
             settings.OverlayColor.Length != 7 ||
             settings.OverlayColor[0] != '#' ||

@@ -2,6 +2,7 @@ using SnapZones.Core.Drag;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Layouts;
 using SnapZones.Core.AppRules;
+using SnapZones.Core.Models;
 using SnapZones.Core.PartMonitors;
 using SnapZones.Windows.Native;
 using System.ComponentModel;
@@ -60,6 +61,15 @@ public sealed class WindowsWindowService : IWindowService
     /// </summary>
     public Func<nint, PixelRect, bool>? ElevatedPlacement { get; set; }
 
+    /// <summary>Ob ein gesetztes Fenster in den Vordergrund geholt wird. Vorgabe: nein, das Fenster behaelt seinen Rang.</summary>
+    public bool ActivateAfterPlacement { get; set; }
+
+    /// <summary>Was mit Fenstern ohne veraenderbare Groesse geschieht.</summary>
+    public FixedSizeWindowPlacement FixedSizePlacement { get; set; } = FixedSizeWindowPlacement.Center;
+
+    /// <summary>Wie viele Pixel das Ergebnis von der Zielflaeche abweichen darf, bevor es als Fehler gilt.</summary>
+    public int TolerancePixels { get; set; } = PlacementOutcome.TolerancePixels;
+
     public bool TrySnap(nint window, PixelRect bounds) => Snap(window, bounds).Succeeded;
 
     /// <summary>
@@ -81,7 +91,12 @@ public sealed class WindowsWindowService : IWindowService
         }
 
         var target = FitToWindowCapabilities(window, bounds);
-        var placement = CompensateInvisibleBorder(window, target);
+        if (target is null)
+        {
+            return PlacementOutcome.Rejected("Das Fenster hat eine feste Grösse und bleibt laut Einstellung unberührt.");
+        }
+
+        var placement = CompensateInvisibleBorder(window, target.Value);
 
         // Fenster hoeher berechtigter Programme gehen ueber den Helfer, alle uebrigen direkt. Der
         // Umweg kostet einen Prozesswechsel und lohnt sich nur dort, wo er noetig ist.
@@ -271,7 +286,7 @@ public sealed class WindowsWindowService : IWindowService
     /// Ein Fenster ohne veraenderbare Groesse (kein <c>WS_THICKFRAME</c>) kann eine Zone nicht fuellen.
     /// Es behaelt seine Groesse und wird in der Zone zentriert statt in deren Ecke gedrueckt.
     /// </summary>
-    private static PixelRect FitToWindowCapabilities(nint window, PixelRect bounds)
+    private PixelRect? FitToWindowCapabilities(nint window, PixelRect bounds)
     {
         var style = User32.GetWindowLongPtr(window, WindowEligibility.StyleIndex).ToInt64();
         if ((style & WindowEligibility.ThickFrameStyle) != 0 || !User32.GetWindowRect(window, out var current))
@@ -285,13 +300,19 @@ public sealed class WindowsWindowService : IWindowService
             return bounds;
         }
 
-        return new PixelRect(0, 0, Math.Min(size.Width, bounds.Width), Math.Min(size.Height, bounds.Height))
-            .CenteredIn(bounds);
+        var fitted = new PixelRect(0, 0, Math.Min(size.Width, bounds.Width), Math.Min(size.Height, bounds.Height));
+        return FixedSizePlacement switch
+        {
+            FixedSizeWindowPlacement.Leave => null,
+            FixedSizeWindowPlacement.TopLeft => fitted with { X = bounds.X, Y = bounds.Y },
+            _ => fitted.CenteredIn(bounds)
+        };
     }
 
-    private static bool SetPosition(nint window, PixelRect placement, out int error)
+    private bool SetPosition(nint window, PixelRect placement, out int error)
     {
         // Ohne SWP_ASYNCWINDOWPOS: nur ein synchroner Aufruf laesst sich unmittelbar danach nachmessen.
+        var flags = NoZOrder | NoOwnerZOrder | (ActivateAfterPlacement ? 0u : NoActivate);
         var ok = User32.SetWindowPos(
             window,
             0,
@@ -299,8 +320,13 @@ public sealed class WindowsWindowService : IWindowService
             placement.Y,
             placement.Width,
             placement.Height,
-            NoZOrder | NoActivate | NoOwnerZOrder);
+            flags);
         error = ok ? 0 : Marshal.GetLastWin32Error();
+        if (ok && ActivateAfterPlacement)
+        {
+            _ = User32.SetForegroundWindow(window);
+        }
+
         return ok;
     }
 
@@ -311,8 +337,9 @@ public sealed class WindowsWindowService : IWindowService
             return PlacementOutcome.Rejected("Das Fenster ist nach dem Setzen nicht mehr lesbar.");
         }
 
+        var tolerance = Math.Clamp(TolerancePixels, 0, 10);
         var actual = WindowEligibility.ToPixelRect(measured);
-        if (actual.IsWithinTolerance(expected, PlacementOutcome.TolerancePixels))
+        if (actual.IsWithinTolerance(expected, tolerance))
         {
             return PlacementOutcome.Success(actual);
         }
@@ -320,15 +347,15 @@ public sealed class WindowsWindowService : IWindowService
         if (attemptAgain is not null && attemptAgain() && User32.GetWindowRect(window, out measured))
         {
             actual = WindowEligibility.ToPixelRect(measured);
-            if (actual.IsWithinTolerance(expected, PlacementOutcome.TolerancePixels))
+            if (actual.IsWithinTolerance(expected, tolerance))
             {
                 trace?.Invoke($"Fenster 0x{window:X} sass erst im zweiten Anlauf in der Zone.");
                 return PlacementOutcome.Success(actual);
             }
         }
 
-        var reason = actual.Width > expected.Width + PlacementOutcome.TolerancePixels ||
-            actual.Height > expected.Height + PlacementOutcome.TolerancePixels
+        var reason = actual.Width > expected.Width + tolerance ||
+            actual.Height > expected.Height + tolerance
                 ? $"Das Fenster hält eine Mindestgrösse von {actual.Width} × {actual.Height} Pixeln ein und füllt die Zone nicht."
                 : $"Windows hat das Fenster anders gesetzt als angefordert ({actual.Width} × {actual.Height} statt {expected.Width} × {expected.Height}).";
         trace?.Invoke($"Fenster 0x{window:X}: {reason} Ziel {expected}, Ergebnis {actual}.");

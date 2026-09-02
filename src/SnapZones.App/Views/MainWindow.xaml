@@ -810,6 +810,12 @@
                             <TextBlock Text="Lege fest, wie Fenster beim Ziehen und beim Öffnen behandelt werden. Änderungen werden sofort gespeichert."
                                        Style="{StaticResource HelpText}" Margin="0,8,0,0" />
                         </StackPanel>
+                        <StackPanel Orientation="Horizontal" Margin="0,-8,0,20">
+                            <CheckBox x:Name="ShowAdvancedSettingsCheckBox" Content="Erweiterte Einstellungen anzeigen" IsChecked="{Binding Settings.ShowAdvancedSettings}"
+                                      AutomationProperties.Name="Erweiterte Einstellungen anzeigen" />
+                            <Button x:Name="AdvancedSettingsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu den erweiterten Einstellungen"
+                                    ToolTip="Blendet die Feinabstimmung ein: Toleranzen, Verzögerungen, Overlay-Stil, Schutzgrenzen und Zusatztasten. Jeder Wert hat einen sicheren Standard; wer nichts ändert, verliert nichts. «Einstellungen zurücksetzen» auf der Seite Programm stellt alle Werte wieder her." />
+                        </StackPanel>
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
@@ -840,6 +846,32 @@
                                             <Button Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Zonennamen"
                                                     ToolTip="Zeigt beim Verschieben den Namen jeder Zone auf einer kleinen dunklen Beschriftungsfläche. Kontur und Zielfläche bleiben auch ohne Namen sichtbar." />
                                         </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <Border x:Name="DragTuningCard" Style="{StaticResource SectionCard}" Visibility="{Binding Settings.ShowAdvancedSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <StackPanel>
+                                        <TextBlock Text="Feinabstimmung Ziehen" Style="{StaticResource SectionTitle}" />
+                                        <TextBlock Text="Für erfahrene Anwender: wann die Zonen erscheinen und was mit dem Fenster nach dem Loslassen geschieht." Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Anzeigeverzögerung" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        <Button x:Name="OverlayDelayInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Anzeigeverzögerung"
+                                                ToolTip="Wer ein Fenster nur kurz verschiebt, will keine Zonen aufblitzen sehen. Mit einer Verzögerung erscheinen sie erst, wenn das Ziehen so lange dauert; wird vorher losgelassen, bleibt der Bildschirm ruhig. Zulässig sind 0 bis 1000 Millisekunden." />
+                                        </StackPanel>
+                                        <TextBox Text="{Binding Settings.OverlayShowDelayMilliseconds}" TextAlignment="Right" VerticalContentAlignment="Center" MaxWidth="180" HorizontalAlignment="Left" Width="180"
+                                                 AutomationProperties.Name="Anzeigeverzögerung der Zonen in Millisekunden" />
+                                        <TextBlock Text="Millisekunden nach dem Anfassen, bis die Zonen erscheinen. 0 bis 1000; 0 zeigt sie sofort." Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                            <CheckBox Content="Fenster nach dem Einrasten in den Vordergrund holen" IsChecked="{Binding Settings.ActivateWindowAfterSnap}" AutomationProperties.Name="Fenster nach dem Einrasten aktivieren" />
+                                        <Button x:Name="ActivateAfterSnapInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Fenster nach dem Einrasten in den Vordergrund holen"
+                                                ToolTip="Ein per Regel, Hauptzone oder Tastenkürzel gesetztes Fenster wird sonst nicht aktiviert, damit dir nichts den Fokus wegnimmt. Eingeschaltet erhält es nach jedem Setzen den Fokus." />
+                                        </StackPanel>
+                                        <TextBlock Text="Aus: das Fenster behält seinen Rang in der Fensterreihenfolge." Style="{StaticResource HelpText}" Margin="0,4,0,0" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                            <CheckBox Content="Grösse beim Herausziehen aus einer Zone wiederherstellen" IsChecked="{Binding Settings.RestoreSizeWhenLeavingZone}" AutomationProperties.Name="Fenstergrösse beim Verlassen einer Zone wiederherstellen" />
+                                        <Button x:Name="RestoreSizeInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Grösse beim Herausziehen aus einer Zone wiederherstellen"
+                                                ToolTip="Wird ein eingerastetes Fenster aus seiner Zone gezogen und nirgends abgelegt, bekommt es die Grösse zurück, die es vor dem Einrasten hatte. Die neue Position bleibt. Gilt nur für Fenster, die dieses Programm selbst eingerastet hat." />
+                                        </StackPanel>
+                                        <TextBlock Text="Aus: ein herausgezogenes Fenster behält die Zonengrösse." Style="{StaticResource HelpText}" Margin="0,4,0,0" />
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource SectionCard}">
@@ -880,6 +912,65 @@
                                                      VerticalContentAlignment="Center"
                                                      Text="{Binding Settings.OverlayOpacityPercent, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:0}}"
                                                      AutomationProperties.Name="Deckkraft in Prozent" />
+                                            <TextBlock Grid.Column="2" Text="%" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                                <Border x:Name="OverlayStyleCard" Style="{StaticResource SectionCard}" Visibility="{Binding Settings.ShowAdvancedSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <StackPanel>
+                                        <TextBlock Text="Overlay-Stil" Style="{StaticResource SectionTitle}" />
+                                        <TextBlock Text="Rahmen, Ecken, Beschriftung und Hervorhebung der Zonen beim Ziehen." Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Beschriftung" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        <Button x:Name="OverlayLabelStyleInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Beschriftung"
+                                                ToolTip="Nummer und Name zeigt «1 · Links»; die Nummer ist zugleich die Taste des Tastenkürzels. Nur Nummer hält das Overlay knapp, nur Name lässt die Nummer weg. Ohne «Zonennamen anzeigen» erscheint gar keine Beschriftung." />
+                                        </StackPanel>
+                                        <ComboBox ItemsSource="{Binding Settings.OverlayLabelStyles}" SelectedItem="{Binding Settings.OverlayLabelStyle}" ItemTemplate="{StaticResource EnumItemTemplate}" AutomationProperties.Name="Beschriftung der Zonen im Overlay" />
+                                        <TextBlock Text="Was auf der Beschriftungsfläche jeder Zone steht." Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Rahmenbreite" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        <Button x:Name="OverlayBorderInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Rahmenbreite"
+                                                ToolTip="Die Konturlinie jeder Zone im Overlay. Auf hochauflösenden Monitoren mit 100 Prozent Skalierung ist ein Pixel schnell zu dünn; dann helfen zwei oder drei. Zulässig sind 1 bis 6 Pixel." />
+                                        </StackPanel>
+                                        <TextBox Text="{Binding Settings.OverlayBorderThickness}" TextAlignment="Right" VerticalContentAlignment="Center" MaxWidth="180" HorizontalAlignment="Left" Width="180"
+                                                 AutomationProperties.Name="Rahmenbreite der Zonen in Pixel" />
+                                        <TextBlock Text="Pixel, 1 bis 6. Die hervorgehobene Zone ist immer einen Pixel dicker." Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Eckenradius" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        <Button x:Name="OverlayRadiusInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Eckenradius"
+                                                ToolTip="Wie stark die Ecken der Zonenflächen abgerundet sind. 0 zeichnet rechteckige Zonen, grössere Werte weichere Kacheln. Zulässig sind 0 bis 24 Pixel." />
+                                        </StackPanel>
+                                        <TextBox Text="{Binding Settings.OverlayCornerRadius}" TextAlignment="Right" VerticalContentAlignment="Center" MaxWidth="180" HorizontalAlignment="Left" Width="180"
+                                                 AutomationProperties.Name="Eckenradius der Zonen in Pixel" />
+                                        <TextBlock Text="Pixel, 0 bis 24. 0 ergibt scharfe Ecken." Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Schriftgrösse der Beschriftung" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        <Button x:Name="OverlayFontInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Schriftgrösse der Beschriftung"
+                                                ToolTip="Die Schriftgrösse der Beschriftungsfläche in Punkt. Auf grossen oder weit entfernten Monitoren darf sie deutlich grösser sein als die Voreinstellung 13. Zulässig sind 10 bis 24." />
+                                        </StackPanel>
+                                        <TextBox Text="{Binding Settings.OverlayLabelFontSize}" TextAlignment="Right" VerticalContentAlignment="Center" MaxWidth="180" HorizontalAlignment="Left" Width="180"
+                                                 AutomationProperties.Name="Schriftgrösse der Zonenbeschriftung" />
+                                        <TextBlock Text="Punkt, 10 bis 24." Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Farbe der Hervorhebung" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        <Button x:Name="HighlightColourInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Farbe der Hervorhebung"
+                                                ToolTip="Die Zone unter dem Mauszeiger kann eine eigene Farbe bekommen, etwa ein kräftiges Blau, während die übrigen Zonen grau bleiben. Format #RRGGBB; leer bedeutet dieselbe Farbe wie die übrigen Zonen." />
+                                        </StackPanel>
+                                        <TextBox Text="{Binding Settings.HighlightColor}" FontFamily="Cascadia Mono" VerticalContentAlignment="Center" MaxWidth="180" HorizontalAlignment="Left" Width="180"
+                                                 AutomationProperties.Name="Hexwert der Hervorhebungsfarbe" />
+                                        <TextBlock Text="Leer = wie die Zonenfarbe. Beispiel: #2F6FED." Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Deckkraft der Hervorhebung" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        <Button x:Name="HighlightOpacityInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Deckkraft der Hervorhebung"
+                                                ToolTip="Wie kräftig die Zone unter dem Mauszeiger gefüllt wird. Die Voreinstellung 36 Prozent liegt etwas über der Deckkraft der übrigen Zonen. Zulässig sind 10 bis 90 Prozent in ganzen Schritten." />
+                                        </StackPanel>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="96" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                            <Slider x:Name="HighlightOpacitySlider" Minimum="10" Maximum="90" Value="{Binding Settings.HighlightOpacityPercent}"
+                                                    TickFrequency="1" SmallChange="1" LargeChange="10" IsSnapToTickEnabled="True" AutomationProperties.Name="Deckkraft der Hervorhebung" />
+                                            <TextBox Grid.Column="1" Margin="12,0,8,0" TextAlignment="Right" VerticalContentAlignment="Center"
+                                                     Text="{Binding Settings.HighlightOpacityPercent, UpdateSourceTrigger=PropertyChanged, StringFormat={}{0:0}}"
+                                                     AutomationProperties.Name="Deckkraft der Hervorhebung in Prozent" />
                                             <TextBlock Grid.Column="2" Text="%" VerticalAlignment="Center" Foreground="{DynamicResource MutedBrush}" />
                                         </Grid>
                                     </StackPanel>
@@ -985,6 +1076,77 @@
                                                 ToolTip="Löscht sämtliche gemerkten Positionen. Danach erscheint jedes Fenster wieder dort, wo Windows selbst es platziert." />
                                     </StackPanel>
                                 </Border>
+                                <Border x:Name="PlacementTuningCard" Style="{StaticResource SectionCard}" Visibility="{Binding Settings.ShowAdvancedSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <StackPanel>
+                                        <TextBlock Text="Feinabstimmung Platzieren" Style="{StaticResource SectionTitle}" />
+                                        <TextBlock Text="Wie genau gesetzt wird, was als eingerastet gilt und wie neue Fenster behandelt werden." Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Fenster mit fester Grösse" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        <Button x:Name="FixedSizeInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Fenster mit fester Grösse"
+                                                ToolTip="Ein Fenster, dessen Grösse sich nicht ändern lässt, kann eine Zone nicht füllen. Zentrieren legt es mittig in die Zone, oben links richtet es an der Ecke aus, nicht anfassen lässt es liegen und meldet das in der Statuszeile." />
+                                        </StackPanel>
+                                        <ComboBox ItemsSource="{Binding Settings.FixedSizeWindowPlacements}" SelectedItem="{Binding Settings.FixedSizeWindowPlacement}" ItemTemplate="{StaticResource EnumItemTemplate}" AutomationProperties.Name="Behandlung von Fenstern mit fester Grösse" />
+                                        <TextBlock Text="Dialoge und Werkzeugfenster ohne Grössenänderung füllen keine Zone." Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Toleranz beim Nachmessen" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        <Button x:Name="PlacementToleranceInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Toleranz beim Nachmessen"
+                                                ToolTip="Nach jedem Setzen wird das Fenster nachgemessen. Weicht es um mehr als diese Pixel von der Zielfläche ab, folgt ein zweiter Anlauf und danach eine Meldung. Manche Programme runden auf ganze Zeichen oder Rasterzellen; dann hilft ein grösserer Wert. Zulässig sind 0 bis 10 Pixel." />
+                                        </StackPanel>
+                                        <TextBox Text="{Binding Settings.PlacementTolerancePixels}" TextAlignment="Right" VerticalContentAlignment="Center" MaxWidth="180" HorizontalAlignment="Left" Width="180"
+                                                 AutomationProperties.Name="Toleranz beim Nachmessen in Pixel" />
+                                        <TextBlock Text="Pixel, 0 bis 10. Voreinstellung 2." Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Toleranz für «eingerastet»" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        <Button x:Name="SnappedToleranceInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Toleranz für «eingerastet»"
+                                                ToolTip="So nah müssen alle vier Kanten eines Fensters an den Zonenkanten liegen, damit es als eingerastet gilt und von Hauptzone und Layoutwechsel in Ruhe gelassen wird. Der unsichtbare Fensterrand von Windows macht bis zu 16 Pixel aus; 40 lässt Spielraum. Zulässig sind 8 bis 80 Pixel." />
+                                        </StackPanel>
+                                        <TextBox Text="{Binding Settings.SnappedTolerancePixels}" TextAlignment="Right" VerticalContentAlignment="Center" MaxWidth="180" HorizontalAlignment="Left" Width="180"
+                                                 AutomationProperties.Name="Toleranz für eingerastete Fenster in Pixel" />
+                                        <TextBlock Text="Pixel, 8 bis 80. Voreinstellung 40." Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                            <CheckBox Content="Neue Fenster in der Hauptzone auffangen" IsChecked="{Binding Settings.CatchNewWindowsInMainZone}" AutomationProperties.Name="Neue Fenster in der Hauptzone auffangen" />
+                                        <Button x:Name="CatchNewWindowsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Neue Fenster in der Hauptzone auffangen"
+                                                ToolTip="Ein neu erscheinendes Fenster ohne Regel und ohne gemerkte Position landet in der Hauptzone, sofern eine festgelegt ist. Ausgeschaltet bleibt es dort, wo Windows es hinsetzt; die Hauptzone dient dann nur noch dem Einsammeln beim Layoutwechsel." />
+                                        </StackPanel>
+                                        <TextBlock Text="Aus: die Hauptzone wird nur beim Layoutwechsel benutzt." Style="{StaticResource HelpText}" Margin="0,4,0,0" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                            <CheckBox Content="Gemerkte Zone vor gemerkter Lage" IsChecked="{Binding Settings.PreferRememberedZone}" AutomationProperties.Name="Gemerkte Zone bevorzugen" />
+                                        <Button x:Name="PreferZoneInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Gemerkte Zone vor gemerkter Lage"
+                                                ToolTip="Eingeschaltet kehrt ein gemerktes Fenster in seine Zone zurück, auch wenn sich deren Fläche inzwischen geändert hat. Ausgeschaltet zählt die gemerkte Lage in Pixeln; die Zone dient nur noch zur Monitorsuche." />
+                                        </StackPanel>
+                                        <TextBlock Text="Aus: ein Fenster kehrt pixelgenau an seine letzte Lage zurück." Style="{StaticResource HelpText}" Margin="0,4,0,0" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                            <CheckBox Content="Maximierte Fenster maximiert wiederherstellen" IsChecked="{Binding Settings.RestoreMaximizedWindows}" AutomationProperties.Name="Maximierte Fenster wiederherstellen" />
+                                        <Button x:Name="RestoreMaximizedInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Maximierte Fenster maximiert wiederherstellen"
+                                                ToolTip="War ein Fenster beim Merken maximiert, wird es beim nächsten Öffnen wieder maximiert, sofern es gerade im Vordergrund ist. Ausgeschaltet bekommt es nur seine Normalposition." />
+                                        </StackPanel>
+                                        <TextBlock Text="Aus: gemerkt maximierte Fenster erscheinen in Normalgrösse." Style="{StaticResource HelpText}" Margin="0,4,0,0" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Katalog gemerkter Positionen" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        <Button x:Name="CatalogLimitInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Katalog gemerkter Positionen"
+                                                ToolTip="So viele Fensterpositionen hält das Programm höchstens. Wer sehr viele verschiedene Programme benutzt, erhöht den Wert; die Datei bleibt auch bei 2000 Einträgen klein. Zulässig sind 50 bis 2000." />
+                                        </StackPanel>
+                                        <TextBox Text="{Binding Settings.RememberedWindowLimit}" TextAlignment="Right" VerticalContentAlignment="Center" MaxWidth="180" HorizontalAlignment="Left" Width="180"
+                                                 AutomationProperties.Name="Höchstzahl gemerkter Fensterpositionen" />
+                                        <TextBlock Text="Einträge, 50 bis 2000. Voreinstellung 500; die ältesten fallen zuerst weg." Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Wartezeit vor dem Beurteilen neuer Fenster" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        <Button x:Name="SettleDelayInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Wartezeit vor dem Beurteilen neuer Fenster"
+                                                ToolTip="Manche Programme bauen ihr Fenster erst einige hundert Millisekunden nach dem Erscheinen fertig auf und ändern dabei Grösse und Titel. Eine Wartezeit lässt das Programm erst danach entscheiden, ob es das Fenster zurücklegt oder auffängt. Zulässig sind 0 bis 2000 Millisekunden." />
+                                        </StackPanel>
+                                        <TextBox Text="{Binding Settings.NewWindowSettleDelayMilliseconds}" TextAlignment="Right" VerticalContentAlignment="Center" MaxWidth="180" HorizontalAlignment="Left" Width="180"
+                                                 AutomationProperties.Name="Wartezeit vor dem Beurteilen neuer Fenster in Millisekunden" />
+                                        <TextBlock Text="Millisekunden, 0 bis 2000. Voreinstellung 0." Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Abstand zwischen Regelversuchen" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        <Button x:Name="RuleRetryInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Abstand zwischen Regelversuchen"
+                                                ToolTip="Lehnt Windows das Setzen ab, wiederholt eine Regel den Versuch so oft, wie in der Regel eingestellt, und wartet dazwischen diese Zeit. Programme, die ihr Fenster spät freigeben, brauchen längere Abstände. Zulässig sind 50 bis 2000 Millisekunden." />
+                                        </StackPanel>
+                                        <TextBox Text="{Binding Settings.RuleRetryDelayMilliseconds}" TextAlignment="Right" VerticalContentAlignment="Center" MaxWidth="180" HorizontalAlignment="Left" Width="180"
+                                                 AutomationProperties.Name="Abstand zwischen Regelversuchen in Millisekunden" />
+                                        <TextBlock Text="Millisekunden, 50 bis 2000. Voreinstellung 250." Style="{StaticResource HelpText}" />
+                                    </StackPanel>
+                                </Border>
                                 <Border Style="{StaticResource SectionCard}">
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal">
@@ -992,22 +1154,57 @@
                                             <Button x:Name="ShortcutsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Tastenkürzeln"
                                                     ToolTip="Die Kürzel wirken auf das Fenster, das gerade im Vordergrund ist, und gelten nur, solange das Einrasten aktiv ist. Die Nummer einer Zone steht im Layouteditor und im Overlay vor ihrem Namen. Belegt ein anderes Programm ein Kürzel bereits, meldet die Statuszeile das beim Start." />
                                         </StackPanel>
-                                        <TextBlock Text="Feste Kürzel für das Fenster im Vordergrund. Änderbar sind sie nicht."
+                                        <TextBlock Text="Kürzel für das Fenster im Vordergrund. Die Zusatztasten sind wählbar, die Tasten selbst fest."
                                                    Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                                            <CheckBox Content="Zonenkürzel aktiv" IsChecked="{Binding Settings.ZoneHotkeysEnabled}" AutomationProperties.Name="Zonenkürzel aktivieren" />
+                                        <Button x:Name="ZoneHotkeysEnabledInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Zonenkürzel aktiv"
+                                                ToolTip="Schaltet die Kürzel für Zone weiter, zurück, nach Nummer und vorherige Position gemeinsam ein oder aus. Sinnvoll, wenn ein anderes Programm dieselben Kombinationen braucht." />
+                                        </StackPanel>
+                                        <TextBlock Text="Aus: nur der Not-Aus bleibt registriert." Style="{StaticResource HelpText}" Margin="0,4,0,0" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Zusatztasten" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        <Button x:Name="ZoneHotkeyModifiersInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Zusatztasten"
+                                                ToolTip="Windows belegt viele Kombinationen mit der Win-Taste und Pfeiltasten selbst; Ctrl + Alt ist deshalb die Voreinstellung. Belegt ein anderes Programm ein Kürzel, meldet die Statuszeile das beim Start, und hier lässt sich ausweichen." />
+                                        </StackPanel>
+                                        <ComboBox ItemsSource="{Binding Settings.ZoneHotkeyModifierChoices}" SelectedItem="{Binding Settings.ZoneHotkeyModifiers}" ItemTemplate="{StaticResource EnumItemTemplate}" AutomationProperties.Name="Zusatztasten der Zonenkürzel" />
+                                        <TextBlock Text="Gilt für alle Zonenkürzel; der Not-Aus bleibt bei Ctrl + Alt + Shift + F12." Style="{StaticResource HelpText}" />
                                         <Grid Margin="0,14,0,0">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="18" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                             <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
-                                            <TextBlock Grid.Row="0" Text="Ctrl + Alt + Links / Rechts" Style="{StaticResource FieldLabel}" Margin="0,0,0,6" />
+                                            <TextBlock Grid.Row="0" Text="{Binding Settings.ZoneHotkeyModifierLabel, StringFormat={}{0} + Links / Rechts}" Style="{StaticResource FieldLabel}" Margin="0,0,0,6" />
                                             <TextBlock Grid.Row="0" Grid.Column="2" Text="Fenster eine Zone zurück oder weiter, über Monitorgrenzen hinweg." TextWrapping="Wrap" />
-                                            <TextBlock Grid.Row="1" Text="Ctrl + Alt + 1 bis 9" Style="{StaticResource FieldLabel}" Margin="0,0,0,6" />
+                                            <TextBlock Grid.Row="1" Text="{Binding Settings.ZoneHotkeyModifierLabel, StringFormat={}{0} + 1 bis 9}" Style="{StaticResource FieldLabel}" Margin="0,0,0,6" />
                                             <TextBlock Grid.Row="1" Grid.Column="2" Text="Fenster in die Zone mit dieser Nummer auf seinem Monitor." TextWrapping="Wrap" />
-                                            <TextBlock Grid.Row="2" Text="Ctrl + Alt + Rücktaste" Style="{StaticResource FieldLabel}" Margin="0,0,0,6" />
+                                            <TextBlock Grid.Row="2" Text="{Binding Settings.ZoneHotkeyModifierLabel, StringFormat={}{0} + Rücktaste}" Style="{StaticResource FieldLabel}" Margin="0,0,0,6" />
                                             <TextBlock Grid.Row="2" Grid.Column="2" Text="Fenster zurück an die Stelle vor dem letzten Einrasten." TextWrapping="Wrap" />
                                             <TextBlock Grid.Row="3" Text="Ctrl + Alt + Shift + F12" Style="{StaticResource FieldLabel}" Margin="0,0,0,6" />
                                             <TextBlock Grid.Row="3" Grid.Column="2" Text="Einrasten anhalten und wieder starten (Not-Aus)." TextWrapping="Wrap" />
                                             <TextBlock Grid.Row="4" Text="Strg + Z / Strg + Y" Style="{StaticResource FieldLabel}" Margin="0,0,0,6" />
                                             <TextBlock Grid.Row="4" Grid.Column="2" Text="Im Layouteditor: Änderung zurücknehmen oder wiederherstellen." TextWrapping="Wrap" />
                                         </Grid>
+                                    </StackPanel>
+                                </Border>
+                                <Border x:Name="ProtectionCard" Style="{StaticResource SectionCard}" Visibility="{Binding Settings.ShowAdvancedSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                    <StackPanel>
+                                        <TextBlock Text="Schutz und Zeiten" Style="{StaticResource SectionTitle}" />
+                                        <TextBlock Text="Grenzen, die das Programm vor Endlosschleifen und hängenden Anzeigen schützen." Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Schutzschalter des Verschiebe-Hooks" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        <Button x:Name="MoveHookLimitInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Schutzschalter des Verschiebe-Hooks"
+                                                ToolTip="Meldet Windows innerhalb von zehn Sekunden mehr Verschiebe-Ereignisse als hier erlaubt, hält das Programm das Einrasten an und zeigt das in der Statuszeile. Jeder Ziehvorgang liefert zwei Ereignisse; 400 erreicht niemand von Hand. Wer Fenster per Skript bewegt, setzt die Grenze höher. Zulässig sind 100 bis 5000." />
+                                        </StackPanel>
+                                        <TextBox Text="{Binding Settings.MoveHookEventLimit}" TextAlignment="Right" VerticalContentAlignment="Center" MaxWidth="180" HorizontalAlignment="Left" Width="180"
+                                                 AutomationProperties.Name="Ereignisgrenze des Schutzschalters in zehn Sekunden" />
+                                        <TextBlock Text="Ereignisse in zehn Sekunden, 100 bis 5000. Voreinstellung 400." Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Wachhund für hängende Ziehvorgänge" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        <Button x:Name="WatchdogInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Wachhund für hängende Ziehvorgänge"
+                                                ToolTip="Bleibt das Endereignis eines Ziehvorgangs aus, zieht das Programm die Zonen nach dieser Zeit ein, was auch immer Windows meldet. Wer Fenster sehr lange gedrückt hält, erhöht den Wert. Zulässig sind 5 bis 600 Sekunden." />
+                                        </StackPanel>
+                                        <TextBox Text="{Binding Settings.DragWatchdogSeconds}" TextAlignment="Right" VerticalContentAlignment="Center" MaxWidth="180" HorizontalAlignment="Left" Width="180"
+                                                 AutomationProperties.Name="Wachhund für Ziehvorgänge in Sekunden" />
+                                        <TextBlock Text="Sekunden, 5 bis 600. Voreinstellung 120." Style="{StaticResource HelpText}" />
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -1047,6 +1244,10 @@
                                         </StackPanel>
                                         <TextBlock Text="Startet das Programm nach der Windows-Anmeldung automatisch, ohne UAC-Abfrage."
                                                    Style="{StaticResource HelpText}" Margin="0,4,0,0" />
+                                        <Button x:Name="ResetSettingsButton" Content="Einstellungen zurücksetzen" Click="ResetSettings_Click"
+                                                HorizontalAlignment="Left" Margin="0,18,0,0"
+                                                ToolTip="Stellt Abstände, Darstellung, Verhalten und alle Feinabstimmungen auf die Voreinstellung zurück. Erscheinungsbild, Autostart, Rechte und die Updatesuche bleiben, ebenso Layouts, Regeln und Ausschlüsse. Es wird vorher nachgefragt."
+                                                AutomationProperties.Name="Einstellungen auf Voreinstellung zurücksetzen" />
                                     </StackPanel>
                                 </Border>
                                 <Border Style="{StaticResource SectionCard}">

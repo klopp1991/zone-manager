@@ -1,3 +1,4 @@
+using SnapZones.Core.Models;
 using SnapZones.Core.PartMonitors;
 
 namespace SnapZones.Windows.Hotkeys;
@@ -14,7 +15,11 @@ public interface IGlobalHotkeyService : IDisposable
 
     /// <param name="emergencyStopEnabled">Ob der Not-Aus registriert wird.</param>
     /// <param name="zoneHotkeysEnabled">Ob die Zonenkuerzel registriert werden; nur solange das Einrasten laeuft.</param>
-    HotkeyRegistrationResult Configure(bool emergencyStopEnabled, bool zoneHotkeysEnabled);
+    HotkeyRegistrationResult Configure(bool emergencyStopEnabled, bool zoneHotkeysEnabled) =>
+        Configure(emergencyStopEnabled, zoneHotkeysEnabled, ZoneHotkeyModifiers.ControlAlt);
+
+    /// <param name="modifiers">Die Zusatztasten der Zonenkuerzel; der Not-Aus bleibt bei Ctrl + Alt + Shift + F12.</param>
+    HotkeyRegistrationResult Configure(bool emergencyStopEnabled, bool zoneHotkeysEnabled, ZoneHotkeyModifiers modifiers);
 }
 
 public sealed record HotkeyRegistrationResult(IReadOnlyList<string> Errors);

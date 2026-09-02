@@ -17,6 +17,7 @@ public partial class MonitorOverlayWindow : Window
     private string accent = "#2F6FED";
     private double overlayOpacity = 0.24;
     private bool showZoneNames = true;
+    private OverlayStyle style = OverlayStyle.Default;
     private IReadOnlyList<Guid> highlightedZoneIds = [];
 
     public MonitorOverlayWindow()
@@ -30,13 +31,22 @@ public partial class MonitorOverlayWindow : Window
         LayoutMetrics newMetrics,
         string colour,
         double opacity,
-        bool displayZoneNames)
+        bool displayZoneNames) => ShowFor(newTarget, newMetrics, colour, opacity, displayZoneNames, OverlayStyle.Default);
+
+    public void ShowFor(
+        PartMonitorTarget newTarget,
+        LayoutMetrics newMetrics,
+        string colour,
+        double opacity,
+        bool displayZoneNames,
+        OverlayStyle newStyle)
     {
         target = newTarget;
         metrics = newMetrics;
         accent = colour;
         overlayOpacity = opacity;
         showZoneNames = displayZoneNames;
+        style = newStyle ?? OverlayStyle.Default;
         highlightedZoneIds = [];
 
         if (!IsVisible)
@@ -73,6 +83,23 @@ public partial class MonitorOverlayWindow : Window
         RenderZones();
     }
 
+    private static System.Windows.Media.Color? TryParseColour(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        try
+        {
+            return (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(value);
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+
     private void RenderZones()
     {
         ZonesCanvas.Children.Clear();
@@ -84,6 +111,7 @@ public partial class MonitorOverlayWindow : Window
         var scaleX = 96d / target.Monitor.DpiX;
         var scaleY = 96d / target.Monitor.DpiY;
         var colour = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(accent);
+        var highlight = TryParseColour(style.HighlightColor) ?? colour;
         var number = 0;
         foreach (var zone in target.PartMonitors)
         {
@@ -98,13 +126,13 @@ public partial class MonitorOverlayWindow : Window
             {
                 Width = Math.Max(1, rawWidth - insetX * 2),
                 Height = Math.Max(1, rawHeight - insetY * 2),
-                Background = new SolidColorBrush(colour)
+                Background = new SolidColorBrush(active ? highlight : colour)
                 {
-                    Opacity = active ? Math.Min(0.55, overlayOpacity + 0.12) : overlayOpacity
+                    Opacity = active ? style.HighlightOpacity : overlayOpacity
                 },
-                BorderBrush = new SolidColorBrush(colour) { Opacity = active ? 0.95 : 0.62 },
-                BorderThickness = new Thickness(active ? 2 : 1),
-                CornerRadius = new CornerRadius(4),
+                BorderBrush = new SolidColorBrush(active ? highlight : colour) { Opacity = active ? 0.95 : 0.62 },
+                BorderThickness = new Thickness(active ? style.BorderThickness + 1 : style.BorderThickness),
+                CornerRadius = new CornerRadius(style.CornerRadius),
                 Child = showZoneNames ? new Border
                 {
                     HorizontalAlignment = System.Windows.HorizontalAlignment.Left,
@@ -116,10 +144,10 @@ public partial class MonitorOverlayWindow : Window
                     Child = new TextBlock
                     {
                         // Nummer wie im Editor; sie ist zugleich die Taste in Ctrl + Alt + Nummer.
-                        Text = $"{number} · {zone.Name}",
+                        Text = style.Label(number, zone.Name),
                         Foreground = System.Windows.Media.Brushes.White,
                         FontFamily = new System.Windows.Media.FontFamily("Segoe UI Variable Text"),
-                        FontSize = 13,
+                        FontSize = style.LabelFontSize,
                         FontWeight = FontWeights.Medium
                     }
                 } : null
