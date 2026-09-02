@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using SnapZones.Core.Geometry;
+using SnapZones.Core.Layouts;
 using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
 using SnapZones.Core.AppRules;
@@ -214,6 +215,7 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
         {
             return configuration with
             {
+                Layouts = MainZone.Normalize(configuration.Layouts ?? []),
                 MonitorOrder = configuration.MonitorOrder ?? [],
                 AppRules = configuration.AppRules ?? [],
                 AppExclusions = configuration.AppExclusions ?? []
@@ -357,6 +359,16 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
             {
                 throw new InvalidDataException($"Das Layout «{layout.Name}» enthält ungültige Zonen.");
             }
+
+            if (layout.MainZoneId is Guid mainZoneId && layout.Zones.All(zone => zone.Id != mainZoneId))
+            {
+                throw new InvalidDataException($"Die Hauptzone des Layouts «{layout.Name}» gibt es nicht.");
+            }
+        }
+
+        if (configuration.Layouts.Count(layout => layout.MainZoneId is not null) > 1)
+        {
+            throw new InvalidDataException("Es darf höchstens eine Hauptzone geben.");
         }
     }
 

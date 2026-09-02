@@ -23,6 +23,24 @@ public sealed class LayoutEditorViewModel : ViewModelBase
 
     public IReadOnlyList<ZoneDefinition> Zones => session.Zones;
     public ZoneDefinition? SelectedZone => Zones.FirstOrDefault(zone => zone.Id == selectedZoneId);
+
+    /// <summary>Die als Hauptzone markierte Zone dieses Layouts, falls es eine gibt.</summary>
+    public Guid? MainZoneId => session.MainZoneId;
+
+    /// <summary>Ob die gerade ausgewählte Zone die Hauptzone ist.</summary>
+    public bool IsSelectedZoneMainZone => SelectedZone is { } zone && session.MainZoneId == zone.Id;
+
+    /// <summary>Beschriftung der einen Schaltfläche; sie führt in beide Richtungen.</summary>
+    public string MainZoneActionLabel => IsSelectedZoneMainZone
+        ? "Hauptzone aufheben"
+        : "Als Hauptzone festlegen";
+
+    /// <summary>Was gerade gilt, im Klartext und ohne Farbe.</summary>
+    public string MainZoneStateText => session.MainZoneId is null
+        ? "Keine Zone dieses Layouts ist Hauptzone."
+        : IsSelectedZoneMainZone
+            ? "Diese Zone ist die Hauptzone."
+            : $"Hauptzone dieses Layouts ist «{Zones.First(zone => zone.Id == session.MainZoneId).Name}».";
     public bool IsDirty => session.IsDirty;
     public bool IsValid => session.Validation.IsValid;
     public bool CanSave => IsDirty && session.Validation.IsValid;
@@ -174,6 +192,22 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         NotifyConfigurationChanged();
     }
 
+    /// <summary>
+    /// Macht die ausgewählte Zone zur Hauptzone, oder hebt die Markierung wieder auf, wenn sie es schon
+    /// ist. Mehr als eine Hauptzone kann es nicht geben; die vorherige verliert die Markierung.
+    /// </summary>
+    public void ToggleSelectedZoneAsMainZone()
+    {
+        if (selectedZoneId is null)
+        {
+            return;
+        }
+
+        session.SetMainZone(IsSelectedZoneMainZone ? null : selectedZoneId);
+        NotifyStateChanged();
+        NotifyConfigurationChanged();
+    }
+
     public void RenameSelectedZone(string name)
     {
         if (selectedZoneId is null || SelectedZone is not { } selectedZone)
@@ -200,6 +234,10 @@ public sealed class LayoutEditorViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(Zones));
         OnPropertyChanged(nameof(SelectedZone));
+        OnPropertyChanged(nameof(MainZoneId));
+        OnPropertyChanged(nameof(IsSelectedZoneMainZone));
+        OnPropertyChanged(nameof(MainZoneActionLabel));
+        OnPropertyChanged(nameof(MainZoneStateText));
         OnPropertyChanged(nameof(IsDirty));
         OnPropertyChanged(nameof(IsValid));
         OnPropertyChanged(nameof(CanSave));

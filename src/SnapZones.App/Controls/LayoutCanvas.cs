@@ -21,6 +21,12 @@ public sealed class LayoutCanvas : FrameworkElement
         typeof(LayoutCanvas),
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
+    public static readonly DependencyProperty MainZoneIdProperty = DependencyProperty.Register(
+        nameof(MainZoneId),
+        typeof(Guid?),
+        typeof(LayoutCanvas),
+        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
+
     public static readonly DependencyProperty MonitorAspectRatioProperty = DependencyProperty.Register(
         nameof(MonitorAspectRatio),
         typeof(double),
@@ -66,6 +72,13 @@ public sealed class LayoutCanvas : FrameworkElement
     {
         get => (Guid?)GetValue(SelectedZoneIdProperty);
         set => SetValue(SelectedZoneIdProperty, value);
+    }
+
+    /// <summary>Die als Hauptzone markierte Zone; sie erhält im Editor eine eigene Kennzeichnung.</summary>
+    public Guid? MainZoneId
+    {
+        get => (Guid?)GetValue(MainZoneIdProperty);
+        set => SetValue(MainZoneIdProperty, value);
     }
 
     public double MonitorAspectRatio
@@ -241,6 +254,36 @@ public sealed class LayoutCanvas : FrameworkElement
         }
     }
 
+    /// <summary>
+    /// Kennzeichnet die Hauptzone mit einem beschrifteten Feld neben dem Zonennamen. Bewusst mit Text und
+    /// nicht nur mit Farbe: die Kennzeichnung muss auch ohne Farbwahrnehmung erkennbar sein.
+    /// </summary>
+    private void DrawMainZoneBadge(DrawingContext context, Rect rectangle, double nameWidth)
+    {
+        var badge = new FormattedText(
+            "Hauptzone",
+            System.Globalization.CultureInfo.CurrentUICulture,
+            System.Windows.FlowDirection.LeftToRight,
+            new Typeface("Segoe UI Variable Text"),
+            11,
+            System.Windows.Media.Brushes.White,
+            VisualTreeHelper.GetDpi(this).PixelsPerDip);
+        var left = rectangle.X + 10 + Math.Min(nameWidth, Math.Max(0, rectangle.Width - 20)) + 8;
+        var area = new Rect(left, rectangle.Y + 10, badge.Width + 12, badge.Height + 4);
+        if (area.Right > rectangle.Right - 6 || area.Bottom > rectangle.Bottom - 6)
+        {
+            return;
+        }
+
+        context.DrawRoundedRectangle(
+            ResourceBrush("AccentBrush", System.Windows.Media.Color.FromRgb(47, 111, 237)),
+            null,
+            area,
+            4,
+            4);
+        context.DrawText(badge, new System.Windows.Point(area.X + 6, area.Y + 2));
+    }
+
     private void DrawZone(DrawingContext context, Rect screen, ZoneDefinition zone, bool invalid)
     {
         var rectangle = LayoutCanvasInteraction.ToCanvasRect(zone.Bounds, screen);
@@ -270,6 +313,11 @@ public sealed class LayoutCanvas : FrameworkElement
             Trimming = TextTrimming.CharacterEllipsis
         };
         context.DrawText(text, new System.Windows.Point(rectangle.X + 10, rectangle.Y + 9));
+
+        if (zone.Id == MainZoneId)
+        {
+            DrawMainZoneBadge(context, rectangle, text.Width);
+        }
 
         if (selected)
         {

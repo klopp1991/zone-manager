@@ -16,12 +16,26 @@ Fenster mit gedrückter **Strg**-Taste über mehrere Zonen ziehen: die überstri
 hervorgehoben, beim Loslassen belegt das Fenster ihre gemeinsame Fläche. Eine Auswahl bleibt auf einen Monitor
 beschränkt.
 
+## Hauptzone
+
+Die Hauptzone ist deine Arbeitszone: dort landen neue Fenster, die sonst nirgends hingehören. Du legst sie
+im Layouteditor in der Karte **Ausgewählte Zone** unter **Hauptzone** fest; die markierte Zone trägt in der
+Vorschau das Feld «Hauptzone».
+
+Es gibt genau eine Hauptzone. Sie gehört zu einem Layout: wechselst du dieses Layout, gilt sie
+vorübergehend nicht mehr, und legst du in einem anderen Layout eine fest, verliert das bisherige seine.
+
+Ein Fenster kommt nur dann hinein, wenn weder eine Regel noch eine gemerkte Position dafür da ist und es
+nicht ohnehin schon auf einer Zone eingerastet liegt. Maximierte Fenster und Ausschlüsse bleiben unberührt.
+Wechselst du das aktive Layout, werden ausserdem die Fenster dieses Monitors eingesammelt, die im neuen
+Layout auf keiner Zone mehr liegen.
+
 ## Gemerkte Fensterpositionen
 
 Das Programm merkt sich, wo ein eingerastetes Fenster zuletzt stand, und legt es beim nächsten Öffnen wieder
 dorthin. Erkannt wird ein Fenster an Programm, Fensterklasse und Fensterart, nicht am Titel; mehrere Fenster
 desselben Programms teilen sich deshalb einen Eintrag. Unter **Einstellungen** lässt sich das abschalten und
-über **Gemerkte Positionen verwerfen** zurücksetzen.
+über **Gemerkte Positionen verwerfen** zurücksetzen. Fehlt eine gemerkte Position, greift die Hauptzone.
 
 ## Regeln
 

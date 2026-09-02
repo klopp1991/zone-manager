@@ -535,12 +535,6 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             return;
         }
 
-        if (!environment.Configuration.Settings.RememberWindowPositions)
-        {
-            MarkProcessed(context, snapshot.Identity);
-            return;
-        }
-
         // Zurueckgelegt wird nur ein neu erschienenes Fenster. Ein Fokuswechsel darf ein Fenster nicht
         // verschieben, das der Benutzer gerade selbst irgendwohin gestellt hat.
         if (trigger != WindowPlacementTrigger.WindowCreated)
@@ -548,10 +542,27 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             return;
         }
 
-        var entry = FindCatalogEntry(snapshot.Identity);
+        var entry = environment.Configuration.Settings.RememberWindowPositions
+            ? FindCatalogEntry(snapshot.Identity)
+            : null;
         if (entry is null)
         {
+            // Letzte Stufe der Zuordnungskette: was weder eine Regel noch eine gemerkte Position hat und
+            // in keiner Zone liegt, wird in der Hauptzone aufgefangen. Ein maximiertes oder minimiertes
+            // Fenster bleibt in Ruhe — es hat seine Groesse nicht von einer Zone.
             MarkProcessed(context, snapshot.Identity);
+            if (snapshot.IsMaximized ||
+                snapshot.IsMinimized ||
+                MainZoneFallback.Resolve(
+                    environment.Configuration,
+                    environment.Zones,
+                    snapshot.CurrentBounds) is not { } mainZoneBounds)
+            {
+                return;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            TryPlaceIfCurrent(windowHandle, state, context, snapshot.Identity, mainZoneBounds, maximize: false);
             return;
         }
 

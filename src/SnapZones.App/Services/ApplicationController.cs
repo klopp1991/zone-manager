@@ -259,6 +259,7 @@ public sealed class ApplicationController : IDisposable
         Reconfigure(configuration);
         foreach (var layoutId in activatedLayoutIds)
         {
+            CollectStrayWindowsIntoMainZone(layoutId);
             _ = ApplyLayoutRulesAsync(layoutId);
         }
         try
@@ -313,6 +314,76 @@ public sealed class ApplicationController : IDisposable
         {
             log.Write("WARN", "Fenster konnten nach einer Layoutänderung nicht vollständig angepasst werden.", exception);
         }
+    }
+
+    /// <summary>
+    /// Sammelt nach einem Layoutwechsel die Fenster des betroffenen Monitors ein, die im neuen Layout in
+    /// keiner Zone mehr liegen, und legt sie in die Hauptzone. Bewusst nur beim tatsaechlichen Wechsel des
+    /// aktiven Layouts: waehrend des Bearbeitens speichert die Oberflaeche nach jedem Zug, und ein Auffang
+    /// bei jedem Speichern wuerde dem Benutzer die Fenster unter den Haenden wegziehen.
+    /// </summary>
+    private void CollectStrayWindowsIntoMainZone(Guid activatedLayoutId)
+    {
+        var mainZone = MainZone.Resolve(configuration);
+        if (mainZone is null || !configuration.Settings.SnappingEnabled)
+        {
+            return;
+        }
+
+        var activatedLayout = configuration.Layouts.FirstOrDefault(layout => layout.Id == activatedLayoutId);
+        var activatedMonitor = activatedLayout is null
+            ? null
+            : monitors.FirstOrDefault(monitor => LayoutService.BelongsToMonitor(monitor.Identity, activatedLayout.Monitor));
+        if (activatedMonitor is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var zones = BuildPlacementEnvironment(configuration).Zones;
+            foreach (var window in windowService.GetMovableTopLevelWindows(Environment.ProcessId))
+            {
+                if (!IsCentredOn(window.Bounds, activatedMonitor.WorkArea))
+                {
+                    continue;
+                }
+
+                if (MainZoneFallback.Resolve(configuration, zones, window.Bounds) is not { } bounds)
+                {
+                    continue;
+                }
+
+                var candidate = windowService.InspectRuleCandidate(window.WindowHandle, Environment.ProcessId);
+                if (candidate is null ||
+                    AppExclusionMatcher.IsExcluded(configuration.AppExclusions, candidate.Identity) ||
+                    configuration.AppRules.Any(rule =>
+                        rule.IsEnabled && AppRuleMatcher.Matches(rule, candidate.Identity)))
+                {
+                    continue;
+                }
+
+                if (windowService.TrySnap(window.WindowHandle, bounds))
+                {
+                    log.Write("DEBUG", $"Fenster 0x{window.WindowHandle:X} in der Hauptzone aufgefangen: {bounds}.");
+                }
+            }
+        }
+        catch (Exception exception)
+        {
+            log.Write("WARN", "Fenster konnten nach dem Layoutwechsel nicht in der Hauptzone aufgefangen werden.", exception);
+        }
+    }
+
+    /// <summary>Ob der Mittelpunkt des Fensters auf dieser Arbeitsflaeche liegt.</summary>
+    private static bool IsCentredOn(PixelRect bounds, MonitorWorkArea workArea)
+    {
+        var centreX = bounds.X + (bounds.Width / 2);
+        var centreY = bounds.Y + (bounds.Height / 2);
+        return centreX >= workArea.X &&
+            centreX < workArea.X + workArea.Width &&
+            centreY >= workArea.Y &&
+            centreY < workArea.Y + workArea.Height;
     }
 
     public async Task FlushAsync(CancellationToken cancellationToken)

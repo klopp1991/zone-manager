@@ -25,6 +25,7 @@ Der Lauf schliesst eine Per-Monitor-DPI-Prüfung ein, die die Oberfläche starte
 - Zonen per Maus, acht Griffen oder exakten Abständen bearbeiten
 - Magnetismus an Monitor- und Zonenkanten; `Alt` deaktiviert ihn temporär
 - Mehrere Zonen verbinden: mit gedrückter `Strg`-Taste über sie ziehen, das Fenster belegt ihre gemeinsame Fläche
+- Hauptzone: eine Zone als Arbeitszone markieren, in der neue Fenster ohne eigene Regel und ohne gemerkte Position landen
 - Overlay auf allen Monitoren, nur auf dem Monitor des Ziehbeginns, oder mitwandernd auf dem Monitor unter dem Mauszeiger
 - Sofortige Layoutspeicherung, fünf automatische Backups sowie JSON-Export und -Import
 - System-, helles und dunkles Theme, Autostart ohne UAC-Abfrage über eine Anmeldeaufgabe und Not-Aus über `Ctrl + Alt + Shift + F12`

@@ -1,4 +1,4 @@
-﻿<Window x:Class="SnapZones.App.Views.MainWindow"
+<Window x:Class="SnapZones.App.Views.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:SnapZones.App.Controls"
@@ -275,6 +275,21 @@
                                         </StackPanel>
                                     </Border>
                                     <TextBlock x:Name="ZoneInputErrorText" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="0,10,0,0" />
+
+                                    <Border x:Name="MainZoneGroupBorder" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1"
+                                            CornerRadius="6" Padding="12" Margin="0,12,0,0">
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                                <TextBlock Text="Hauptzone" Style="{StaticResource GroupTitle}" Margin="0" VerticalAlignment="Center" />
+                                                <Button x:Name="MainZoneInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Hauptzone"
+                                                        ToolTip="In der Hauptzone landen neu erscheinende Fenster, für die es weder eine Regel noch eine gemerkte Position gibt und die in keiner Zone des aktiven Layouts liegen. Es gibt genau eine Hauptzone; legst du sie in einem anderen Layout fest, verliert dieses hier seine. Ist das Layout mit der Hauptzone gerade nicht aktiv, bleiben neue Fenster unangetastet." />
+                                            </StackPanel>
+                                            <TextBlock x:Name="MainZoneStateText" Foreground="{DynamicResource SubtleInkBrush}" TextWrapping="Wrap" Margin="0,0,0,10" />
+                                            <Button x:Name="MainZoneToggleButton" Click="MainZoneToggle_Click" HorizontalAlignment="Left" Margin="0"
+                                                    AutomationProperties.Name="Ausgewählte Zone als Hauptzone festlegen oder Markierung aufheben" />
+                                        </StackPanel>
+                                    </Border>
+
                                     <Button Content="Entwurf zurücksetzen" Click="ResetLayout_Click" Margin="0,14,0,0" HorizontalAlignment="Left" />
                                     <TextBlock x:Name="ValidationText" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="0,10,0,0" />
                                 </StackPanel>

@@ -68,7 +68,42 @@ Ausschlüsse zum selben Ergebnis führen.
 - Die Karte **Ausgewählte Zone** schaltet die **Masseinheit** an einer einzigen Stelle um; die Umschaltung gilt gemeinsam für alle acht Zahlenfelder. **Prozent** bleibt bei Auflösungsänderungen proportional; **Pixel** bezieht sich auf die aktuelle Windows-Arbeitsfläche des Monitors.
 - **Position und Grösse** bearbeitet X, Y, Breite und Höhe; **Abstände zum Rand** beschreibt dieselbe Zone von den vier Rändern aus.
 - Überlappende, zu kleine oder ausserhalb liegende Zonen werden markiert und können nicht gespeichert werden.
+- Die Gruppe **Hauptzone** in derselben Karte macht die ausgewählte Zone zur Arbeitszone und hebt die Markierung wieder auf. Siehe [Hauptzone](#hauptzone).
 - Beim Einrasten wird der unsichtbare Fensterrand ausgeglichen. Windows gibt Fenstern mit veränderbarer Grösse einen Griffbereich zum Ziehen, der zum Fensterrechteck zählt, aber nicht gezeichnet wird – typischerweise sieben Pixel links, rechts und unten. Ohne Ausgleich stünden zwei Fenster in lückenlos aneinandergrenzenden Zonen sichtbar auseinander. Das Programm vergrössert das Fensterrechteck deshalb um genau diesen Rand, sodass der sichtbare Rahmen exakt in der Zone liegt.
+
+## Hauptzone
+
+Die Hauptzone ist die Arbeitszone: dort landen neu erscheinende Fenster, die sonst nirgends hingehören.
+Festgelegt wird sie im Layouteditor an der Zone selbst, in der Karte **Ausgewählte Zone** unter
+**Hauptzone**. Die markierte Zone trägt in der Zeichenfläche das Feld «Hauptzone».
+
+Es gibt in der gesamten Konfiguration genau eine Hauptzone. Sie gehört zu einem Layout und wandert damit
+beim Layoutwechsel mit; wird in einem anderen Layout eine Hauptzone festgelegt, verliert das bisherige
+seine. Ist das Layout mit der Hauptzone gerade nicht aktiv, gibt es vorübergehend keine Hauptzone, und
+neue Fenster bleiben unangetastet. Ohne festgelegte Hauptzone verhält sich alles wie zuvor.
+
+Ein Fenster kommt in die Hauptzone, wenn nacheinander nichts anderes zutrifft:
+
+1. Eine passende Regel platziert das Fenster — sie gewinnt immer.
+2. Eine gemerkte Position liegt vor — sie gewinnt vor der Hauptzone.
+3. Das Fenster liegt bereits auf einer Zone des aktiven Layouts eingerastet — es bleibt, wo es ist.
+4. Sonst: Hauptzone.
+
+Eingerastet heisst, dass die vier Fensterränder auf höchstens 40 Pixel genau mit den Zonenrändern
+zusammenfallen; genau so viel kann der unsichtbare Fensterrand ausmachen. Ein Fenster, das eine Zone bloss
+überlappt, gilt nicht als eingerastet — bei einem lückenlos gekachelten Monitor überlappt sonst jedes
+Fenster irgendeine Zone.
+
+Aufgefangen wird in zwei Fällen:
+
+- **Beim Erscheinen eines Fensters.** Maximierte und minimierte Fenster bleiben in Ruhe; ihre Grösse kommt
+  nicht von einer Zone.
+- **Beim Wechsel des aktiven Layouts.** Fenster des betroffenen Monitors, die im neuen Layout auf keiner
+  Zone mehr liegen, werden eingesammelt. Bewusst nur beim tatsächlichen Wechsel: während des Bearbeitens
+  speichert die Oberfläche nach jedem Zug, und ein Auffang bei jedem Speichern zöge die Fenster unter den
+  Händen weg.
+
+Ausgeschlossene Fenster fasst die Hauptzone nie an, und die Snap-Funktion muss eingeschaltet sein.
 
 ## Gemerkte Fensterpositionen
 
@@ -76,6 +111,8 @@ Sobald die Snap-Funktion aktiv ist, merkt sich die Anwendung für jedes platzier
 Zone und das Fensterrechteck und stellt diesen Stand beim nächsten Öffnen desselben Fensters wieder her.
 Ändert sich die Auflösung, wird die gemerkte Lage anteilig umgerechnet. Der Katalog fasst höchstens 500
 Einträge und liegt neben den Einstellungen.
+
+Fehlt eine gemerkte Position, greift die [Hauptzone](#hauptzone), sofern eine festgelegt ist.
 
 Zurückgelegt wird ein Fenster nur beim Erscheinen; ein blosser Fokuswechsel verschiebt nie ein Fenster,
 das gerade von Hand irgendwohin gestellt wurde. Erkannt wird ein Fenster an Programm, Fensterklasse und

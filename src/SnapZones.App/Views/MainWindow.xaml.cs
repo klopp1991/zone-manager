@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+using System.Globalization;
 using System.Diagnostics;
 using System.Windows;
 using System.Windows.Automation;
@@ -245,6 +245,28 @@ public partial class MainWindow : Window
         RefreshEditor();
     }
 
+    private void MainZoneToggle_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        var editor = viewModel?.Editor;
+        if (editor?.SelectedZone is null)
+        {
+            return;
+        }
+
+        var wasMainZone = editor.IsSelectedZoneMainZone;
+        editor.ToggleSelectedZoneAsMainZone();
+        if (viewModel is not null)
+        {
+            viewModel.StatusMessage = wasMainZone
+                ? "Hauptzone aufgehoben"
+                : $"«{editor.SelectedZone.Name}» ist jetzt die Hauptzone";
+        }
+
+        RefreshEditor();
+    }
+
     private void ResetLayout_Click(object sender, RoutedEventArgs eventArgs)
     {
         viewModel?.Editor?.Reset();
@@ -294,6 +316,7 @@ public partial class MainWindow : Window
         }
 
         EditorCanvas.Zones = editor.Zones;
+        MainZoneStateText.Text = editor.MainZoneStateText;
         ValidationText.Text = editor.ValidationMessage;
         EditorCanvas.InvalidateVisual();
     }
@@ -973,8 +996,12 @@ public partial class MainWindow : Window
         }
         EditorCanvas.Zones = editor?.Zones ?? [];
         EditorCanvas.SelectedZoneId = editor?.SelectedZone?.Id;
+        EditorCanvas.MainZoneId = editor?.MainZoneId;
         AddZoneButton.IsEnabled = editor is not null;
         DeleteZoneButton.IsEnabled = editor?.SelectedZone is not null && editor.Zones.Count > 1;
+        MainZoneToggleButton.IsEnabled = editor?.SelectedZone is not null;
+        MainZoneToggleButton.Content = editor?.MainZoneActionLabel ?? "Als Hauptzone festlegen";
+        MainZoneStateText.Text = editor?.MainZoneStateText ?? string.Empty;
         var monitor = viewModel?.SelectedMonitor?.Live;
         if (monitor is not null)
         {

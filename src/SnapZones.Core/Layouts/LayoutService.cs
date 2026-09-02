@@ -55,6 +55,8 @@ public sealed class LayoutService
             Id = Guid.NewGuid(),
             Name = trimmedName,
             IsActive = true,
+            // Die Kopie erbt die Hauptzone nicht: es gibt genau eine, und die bleibt beim Original.
+            MainZoneId = null,
             Zones = source.Zones.Select(zone => zone with { Id = Guid.NewGuid() }).ToArray()
         };
         var layouts = Configuration.Layouts
@@ -172,7 +174,32 @@ public sealed class LayoutService
         ArgumentNullException.ThrowIfNull(layout);
         _ = Find(layout.Id);
         Replace(layout);
+        if (layout.MainZoneId is not null)
+        {
+            // Eine Hauptzone gibt es nur einmal. Traegt das gespeicherte Layout eine, verlieren alle
+            // anderen ihre — sonst haette der Editor die Eindeutigkeit stillschweigend aufgehoben.
+            Configuration = Configuration with
+            {
+                Layouts = MainZone.Assign(Configuration.Layouts, layout.Id, layout.MainZoneId)
+            };
+        }
     }
+
+    /// <summary>
+    /// Legt die Hauptzone fest oder hebt sie auf. Sie gilt fuer die gesamte Konfiguration nur einmal:
+    /// jedes andere Layout verliert dabei seine Markierung. Siehe <see cref="MainZone"/>.
+    /// </summary>
+    public void SetMainZone(Guid layoutId, Guid? zoneId)
+    {
+        _ = Find(layoutId);
+        Configuration = Configuration with
+        {
+            Layouts = MainZone.Assign(Configuration.Layouts, layoutId, zoneId)
+        };
+    }
+
+    /// <summary>Die gerade gueltige Hauptzone, oder <c>null</c>. Siehe <see cref="MainZone.Resolve"/>.</summary>
+    public MainZoneTarget? ResolveMainZone() => MainZone.Resolve(Configuration);
 
     public void UpdateSettings(AppSettings settings)
     {
