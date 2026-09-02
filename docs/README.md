@@ -69,6 +69,8 @@ Ausschlüsse zum selben Ergebnis führen.
 - **Position und Grösse** bearbeitet X, Y, Breite und Höhe; **Abstände zum Rand** beschreibt dieselbe Zone von den vier Rändern aus.
 - Überlappende, zu kleine oder ausserhalb liegende Zonen werden markiert und können nicht gespeichert werden.
 - Die Gruppe **Hauptzone** in derselben Karte macht die ausgewählte Zone zur Arbeitszone und hebt die Markierung wieder auf. Siehe [Hauptzone](#hauptzone).
+- Nach jedem Setzen misst das Programm nach. Sitzt das Fenster nicht innerhalb von zwei Pixeln auf der Zielfläche, wird es einmal erneut gesetzt (ein Wechsel zwischen Monitoren mit unterschiedlicher Skalierung braucht häufig zwei Anläufe). Bleibt eine Abweichung, nennt die Statuszeile den Grund, etwa eine Mindestgrösse des Fensters; nach Administratorrechten wird nur gefragt, wenn sich das Fenster gar nicht bewegen liess. Fenster ohne veränderbare Grösse werden in der Zone zentriert statt gestreckt.
+- Beginnt das Ziehen über der Taskleiste, gilt der nächstgelegene Monitor; bleibt das Endereignis von Windows aus (Fenster geschlossen, Maustaste losgelassen), zieht ein Wachhund die Overlays nach spätestens einer Sekunde ein.
 - Beim Einrasten wird der unsichtbare Fensterrand ausgeglichen. Windows gibt Fenstern mit veränderbarer Grösse einen Griffbereich zum Ziehen, der zum Fensterrechteck zählt, aber nicht gezeichnet wird – typischerweise sieben Pixel links, rechts und unten. Ohne Ausgleich stünden zwei Fenster in lückenlos aneinandergrenzenden Zonen sichtbar auseinander. Das Programm vergrössert das Fensterrechteck deshalb um genau diesen Rand, sodass der sichtbare Rahmen exakt in der Zone liegt.
 
 ## Hauptzone
@@ -128,6 +130,10 @@ Zone und das Fensterrechteck und stellt diesen Stand beim nächsten Öffnen dess
 Ändert sich die Auflösung, wird die gemerkte Lage anteilig umgerechnet. Der Katalog fasst höchstens 500
 Einträge und liegt neben den Einstellungen.
 
+Ist die gemerkte Zone im aktiven Layout noch vorhanden, kehrt das Fenster in diese Zone zurück, auch wenn
+sich deren Fläche inzwischen geändert hat; erst ohne Zone zählt die gemerkte Lage. Ein kleines Fenster bleibt
+beim Wiederherstellen klein.
+
 Fehlt eine gemerkte Position, greift die [Hauptzone](#hauptzone), sofern eine festgelegt ist.
 
 Zurückgelegt wird ein Fenster nur beim Erscheinen; ein blosser Fokuswechsel verschiebt nie ein Fenster,
@@ -164,8 +170,9 @@ Die Seite **Skalierung** liest die erkannten Werte des gewählten Monitors aus �
     dem der Zeiger gerade steht, und verschwinden auf allen übrigen. Liegt der Zeiger kurz auf keinem
     Bildschirm — über der Taskleiste oder in der Lücke zwischen zwei unterschiedlich hohen Monitoren —,
     bleibt die bisherige Anzeige stehen, statt zu flackern.
-- Sofortige Aktivierung oder Aktivierung mit Umschalttaste.
-- **Overlay-Abstände**: Aussenabstände links, oben, rechts und unten in Pixel, Zonenabstand und Magnetdistanz in ganzen Prozent. Diese Werte betreffen ausschliesslich die Vorschau beim Ziehen; wo ein Fenster tatsächlich landet, legt das Layout unter **Abstände zum Rand** fest. Neben jedem Prozentregler steht der abgeleitete Pixelwert als `≙ n px`.
+- Sofortige Aktivierung oder Aktivierung mit Umschalttaste. Die Umschalttaste darf auch erst während des
+  Ziehens gedrückt werden; wird sie losgelassen, verschwinden die Zonen wieder, bis sie erneut gedrückt wird.
+- **Abstände**: Aussenabstände links, oben, rechts und unten in Pixel, Zonenabstand und Magnetdistanz in ganzen Prozent. Seit dem 02.09.2026 gelten Aussen- und Zonenabstand für Vorschau **und** Fenster: ein Fenster landet genau auf der Fläche, die das Overlay zeigt, auch über Regeln, Hauptzone und Layoutwechsel. (Bis dahin betrafen die Werte nur die Vorschau; das Fenster wurde auf die volle Zone gesetzt.) Neben jedem Prozentregler steht der abgeleitete Pixelwert als `≙ n px`.
 - Overlayfarbe, Deckkraft und ein-/ausblendbare Zonennamen.
 - **Fensterpositionen merken** schaltet den Positionskatalog ein und aus; daneben stehen die Anzahl der
   Einträge und die Schaltfläche zum Verwerfen. Siehe [Gemerkte Fensterpositionen](#gemerkte-fensterpositionen).

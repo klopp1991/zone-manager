@@ -24,4 +24,19 @@ public interface IWindowService : IPartMonitorWindowGateway
     /// berechtigten Programm gehoert.
     /// </summary>
     bool RequiresElevation(nint window);
+
+    /// <summary>
+    /// Wie <see cref="TrySnap"/>, aber mit gemessenem Ergebnis und Begruendung. Die Vorgabe reicht das
+    /// Ja/Nein durch, damit Fakes in Tests ohne Aenderung weiterlaufen.
+    /// </summary>
+    PlacementOutcome Snap(nint window, PixelRect bounds) =>
+        TrySnap(window, bounds)
+            ? PlacementOutcome.Success()
+            : PlacementOutcome.Rejected("Windows hat die Platzierung abgelehnt.");
+
+    /// <summary>Ob die linke Maustaste gedrueckt ist; Wachhund fuer einen Ziehvorgang ohne Endereignis.</summary>
+    bool IsLeftButtonPressed() => true;
+
+    /// <summary>Ob das Fenster noch existiert; Wachhund fuer ein waehrend des Ziehens zerstoertes Fenster.</summary>
+    bool IsWindowAlive(nint window) => true;
 }

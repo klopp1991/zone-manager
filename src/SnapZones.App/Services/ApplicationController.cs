@@ -53,8 +53,16 @@ public sealed class ApplicationController : IDisposable
     private readonly ExitRequestGate exitRequestGate = new();
     private PartMonitorCommandService? partMonitorCommands;
     private WindowDragCoordinator? coordinator;
-    private SnapConfiguration configuration;
+    // volatile: der Platzierungs-Thread liest das Feld ueber BuildPlacementEnvironment, der UI-Thread
+    // schreibt es. Ohne Sichtbarkeitsgarantie rechnete die Engine kurzzeitig mit dem alten Zonenbild.
+    private volatile SnapConfiguration configuration;
     private bool emergencyStopped;
+    private (nint Handle, WindowSnapshot Snapshot)? pendingShiftDrag;
+    private nint draggedWindow;
+    private WindowSnapshot? draggedSnapshot;
+    private DateTimeOffset dragStartedAt;
+    private DateTimeOffset? buttonReleasedAt;
+    private bool dragStartedWithButton;
     private bool allowClose;
     private bool shuttingDown;
     private readonly UpdateCoordinator updates;
@@ -88,7 +96,7 @@ public sealed class ApplicationController : IDisposable
         configuration = viewModel.Configuration;
         overlays = new OverlayManager();
         monitorIdentification = new MonitorIdentificationOverlay();
-        windowService = new WindowsWindowService();
+        windowService = new WindowsWindowService(message => log.Write("DEBUG", message));
         var synchronizationContext = SynchronizationContext.Current
             ?? new DispatcherSynchronizationContext(window.Dispatcher);
         moveHook = new WindowMoveHook(
@@ -98,7 +106,7 @@ public sealed class ApplicationController : IDisposable
         placementHook = new WindowLifecycleHook(synchronizationContext);
         placementEngine = new WindowPlacementEngine(
             placementHook,
-            new WindowsPlacementWindowService(),
+            new WindowsPlacementWindowService(message => log.Write("DEBUG", message)),
             placementSaveCoordinator,
             initialPlacementCatalog,
             () => BuildPlacementEnvironment(configuration),
@@ -333,16 +341,20 @@ public sealed class ApplicationController : IDisposable
                     continue;
                 }
 
+                var metrics = new LayoutMetrics(
+                    newConfiguration.Settings.EffectiveOuterMargins,
+                    newConfiguration.Settings.ZoneGap);
                 foreach (var target in LayoutWindowReflow.Plan(
-                    oldLayout, newLayout, monitor.WorkArea, windows))
+                    oldLayout, newLayout, monitor.WorkArea, metrics, windows))
                 {
-                    if (windowService.TrySnap(target.WindowHandle, target.Bounds))
+                    var outcome = windowService.Snap(target.WindowHandle, target.Bounds);
+                    if (outcome.Succeeded)
                     {
                         log.Write("DEBUG", $"Fenster 0x{target.WindowHandle:X} an geänderte Zone angepasst: {target.Bounds}.");
                     }
                     else
                     {
-                        log.Write("WARN", $"Fenster 0x{target.WindowHandle:X} konnte nicht an die geänderte Zone angepasst werden.");
+                        log.Write("WARN", $"Fenster 0x{target.WindowHandle:X} konnte nicht an die geänderte Zone angepasst werden: {outcome.Rejection}");
                     }
                 }
             }
@@ -382,13 +394,14 @@ public sealed class ApplicationController : IDisposable
 
             foreach (var target in planned)
             {
-                if (windowService.TrySnap(target.WindowHandle, target.Bounds))
+                var outcome = windowService.Snap(target.WindowHandle, target.Bounds);
+                if (outcome.Succeeded)
                 {
                     log.Write("DEBUG", $"Fenster 0x{target.WindowHandle:X} in der Hauptzone aufgefangen: {target.Bounds}.");
                 }
                 else
                 {
-                    log.Write("WARN", $"Fenster 0x{target.WindowHandle:X} konnte nicht in der Hauptzone aufgefangen werden.");
+                    log.Write("WARN", $"Fenster 0x{target.WindowHandle:X} konnte nicht in der Hauptzone aufgefangen werden: {outcome.Rejection}");
                 }
             }
         }
@@ -603,28 +616,70 @@ public sealed class ApplicationController : IDisposable
         var status = certificates.Read();
         viewModel.IsCertificateInstalled = status.State == CertificateState.Trusted;
         viewModel.CertificateStatus = status.Message;
-        viewModel.HelperStatus = helper is null
-            ? "Der Fensterhelfer ist nicht vorhanden. Er entsteht bei der Installation nach «Programme»."
-            : helper.Status.State == HelperState.Idle && status.State != CertificateState.Trusted
-                ? "Der Fensterhelfer wartet auf ein eingerichtetes Zertifikat."
-                : helper.Probe().Message;
+        if (helper is null)
+        {
+            viewModel.HelperStatus = "Der Fensterhelfer ist nicht vorhanden. Er entsteht bei der Installation nach «Programme».";
+            return;
+        }
+
+        if (helper.Status.State == HelperState.Idle && status.State != CertificateState.Trusted)
+        {
+            viewModel.HelperStatus = "Der Fensterhelfer wartet auf ein eingerichtetes Zertifikat.";
+            return;
+        }
+
+        // Der Probelauf startet einen Prozess und wartet auf seine Antwort; das gehoert nicht auf den
+        // UI-Thread. Frueher fror das Fenster beim Oeffnen der Einstellungen bis zu 15 Sekunden ein.
+        viewModel.HelperStatus = "Der Fensterhelfer wird geprüft …";
+        var probe = helper;
+        _ = Task.Run(() => probe.Probe().Message).ContinueWith(
+            completed => window.Dispatcher.InvokeAsync(() =>
+                viewModel.HelperStatus = completed.IsCompletedSuccessfully
+                    ? completed.Result
+                    : "Der Fensterhelfer konnte nicht geprüft werden."),
+            TaskScheduler.Default);
     }
 
     private void InstallSigningCertificate()
     {
         var helperPath = HelperChannel.ResolvePath(Environment.ProcessPath ?? string.Empty);
-        var result = certificates.Install(helperPath, TimeProvider.System.GetUtcNow());
-        viewModel.StatusMessage = result.Message;
-        log.Write(result.Successful ? "INFO" : "ERROR", result.Message);
-        PublishCertificateStatus();
+        _ = RunCertificateActionAsync(
+            "Zertifikat wird eingerichtet …",
+            () => certificates.Install(helperPath, TimeProvider.System.GetUtcNow()));
     }
 
-    private void RemoveSigningCertificate()
+    private void RemoveSigningCertificate() =>
+        _ = RunCertificateActionAsync("Zertifikat wird entfernt …", certificates.Remove);
+
+    /// <summary>
+    /// Fuehrt eine Zertifikatsaktion im Hintergrund aus. Beide rufen PowerShell auf und warten bis zu
+    /// zwei Minuten; die Oberflaeche bleibt bedienbar, nur die Schaltflaeche ist gesperrt.
+    /// </summary>
+    private async Task RunCertificateActionAsync(string pendingMessage, Func<CertificateActionResult> action)
     {
-        var result = certificates.Remove();
-        viewModel.StatusMessage = result.Message;
-        log.Write(result.Successful ? "INFO" : "ERROR", result.Message);
-        PublishCertificateStatus();
+        if (viewModel.IsCertificateBusy)
+        {
+            return;
+        }
+
+        viewModel.IsCertificateBusy = true;
+        viewModel.StatusMessage = pendingMessage;
+        try
+        {
+            var result = await Task.Run(action);
+            viewModel.StatusMessage = result.Message;
+            log.Write(result.Successful ? "INFO" : "ERROR", result.Message);
+        }
+        catch (Exception exception)
+        {
+            log.Write("ERROR", "Die Zertifikatsaktion ist fehlgeschlagen.", exception);
+            viewModel.StatusMessage = $"Zertifikatsaktion fehlgeschlagen: {exception.Message}";
+        }
+        finally
+        {
+            viewModel.IsCertificateBusy = false;
+            PublishCertificateStatus();
+        }
     }
 
     private void PublishInstallationStatus()
@@ -837,13 +892,17 @@ public sealed class ApplicationController : IDisposable
 
     private PlacementEnvironment BuildPlacementEnvironment(SnapConfiguration currentConfiguration)
     {
+        var metrics = new LayoutMetrics(
+            currentConfiguration.Settings.EffectiveOuterMargins,
+            currentConfiguration.Settings.ZoneGap);
         var placementMonitors = monitors
             .Select(monitor => new PlacementMonitorTarget(
                 string.IsNullOrWhiteSpace(monitor.Identity.StableId)
                     ? monitor.Identity.DeviceName
                     : monitor.Identity.StableId,
                 monitor.WorkArea,
-                monitor.IsPrimary))
+                monitor.IsPrimary,
+                monitor.MonitorBounds))
             .ToArray();
         var placementZones = currentConfiguration.Layouts
             .Where(layout => layout.IsActive)
@@ -855,7 +914,7 @@ public sealed class ApplicationController : IDisposable
                     string.IsNullOrWhiteSpace(monitor.Identity.StableId)
                         ? monitor.Identity.DeviceName
                         : monitor.Identity.StableId,
-                    ZoneGeometry.ToPixels(zone.Bounds, monitor.WorkArea)))))
+                    ZoneGeometry.ToPixels(zone.Bounds, monitor.WorkArea, metrics)))))
             .ToArray();
         return new PlacementEnvironment(currentConfiguration, placementMonitors, placementZones);
     }
@@ -868,11 +927,6 @@ public sealed class ApplicationController : IDisposable
             return;
         }
 
-        if (configuration.Settings.TriggerMode == TriggerMode.ShiftKey && !windowService.IsShiftPressed())
-        {
-            return;
-        }
-
         var snapshot = windowService.Inspect(windowHandle, cursor, Environment.ProcessId);
         if (snapshot is null)
         {
@@ -881,10 +935,34 @@ public sealed class ApplicationController : IDisposable
         }
 
         log.Write("DEBUG", $"Verschiebestart hwnd=0x{windowHandle:X} cursor={cursor.X},{cursor.Y} status={snapshot}");
+        if (configuration.Settings.TriggerMode == TriggerMode.ShiftKey && !windowService.IsShiftPressed())
+        {
+            // Umschalt darf auch erst waehrend des Ziehens gedrueckt werden: der Zeitgeber wartet darauf.
+            // Frueher musste die Taste schon beim Anfassen des Fensters unten sein.
+            pendingShiftDrag = (windowHandle, snapshot);
+            cursorTimer.Start();
+            return;
+        }
+
+        StartTracking(windowHandle, snapshot, cursor);
+    }
+
+    private void StartTracking(nint windowHandle, WindowSnapshot snapshot, PointInt cursor)
+    {
+        if (coordinator is null)
+        {
+            return;
+        }
+
         coordinator.Start(windowHandle, snapshot, cursor);
         log.Write("DEBUG", $"Koordinatorstatus nach Start: {coordinator.State}");
         if (coordinator.State == DragState.Tracking)
         {
+            draggedWindow = windowHandle;
+            draggedSnapshot = snapshot;
+            dragStartedAt = DateTimeOffset.UtcNow;
+            dragStartedWithButton = windowService.IsLeftButtonPressed();
+            buttonReleasedAt = null;
             cursorTimer.Start();
         }
     }
@@ -892,6 +970,7 @@ public sealed class ApplicationController : IDisposable
     private void MoveEnded()
     {
         cursorTimer.Stop();
+        pendingShiftDrag = null;
         log.Write("DEBUG", $"Verschiebeende bei Koordinatorstatus {coordinator?.State}.");
         if (windowService.TryGetCursorPosition(out var cursor))
         {
@@ -901,21 +980,113 @@ public sealed class ApplicationController : IDisposable
         {
             coordinator?.End();
         }
+
+        draggedWindow = 0;
+        draggedSnapshot = null;
     }
+
+    /// <summary>Wie lange die Maustaste losgelassen sein darf, bevor ein Ziehen als beendet gilt.</summary>
+    private static readonly TimeSpan ButtonReleaseGrace = TimeSpan.FromMilliseconds(1000);
+
+    /// <summary>Laengstes denkbares Ziehen. Danach wird das Overlay eingezogen, was auch immer Windows meldet.</summary>
+    private static readonly TimeSpan MaximumDragDuration = TimeSpan.FromMinutes(2);
 
     private void CursorTimer_Tick(object? sender, EventArgs eventArgs)
     {
         _ = sender;
         _ = eventArgs;
+        if (pendingShiftDrag is { } pending)
+        {
+            if (windowService.IsShiftPressed() && windowService.TryGetCursorPosition(out var startCursor))
+            {
+                pendingShiftDrag = null;
+                StartTracking(pending.Handle, pending.Snapshot, startCursor);
+            }
+            else if (!windowService.IsWindowAlive(pending.Handle))
+            {
+                pendingShiftDrag = null;
+                cursorTimer.Stop();
+            }
+
+            return;
+        }
+
+        if (coordinator is null || coordinator.State != DragState.Tracking)
+        {
+            cursorTimer.Stop();
+            return;
+        }
+
         if (windowService.IsEscapePressed())
         {
             cursorTimer.Stop();
-            coordinator?.Cancel();
+            coordinator.Cancel();
+            return;
         }
-        else if (windowService.TryGetCursorPosition(out var cursor))
+
+        if (configuration.Settings.TriggerMode == TriggerMode.ShiftKey && !windowService.IsShiftPressed())
         {
-            coordinator?.Update(cursor, windowService.IsControlPressed());
+            // Umschalt losgelassen: Zonen weg, aber weiter darauf warten, dass sie wieder gedrueckt wird.
+            coordinator.Cancel();
+            if (draggedSnapshot is { } snapshot)
+            {
+                pendingShiftDrag = (draggedWindow, snapshot);
+            }
+
+            return;
         }
+
+        if (IsDragOrphaned())
+        {
+            cursorTimer.Stop();
+            coordinator.Cancel();
+            return;
+        }
+
+        if (windowService.TryGetCursorPosition(out var cursor))
+        {
+            coordinator.Update(cursor, windowService.IsControlPressed());
+        }
+    }
+
+    /// <summary>
+    /// Wachhund fuer ein Ziehen, dessen Endereignis nie ankommt: Fenster zerstoert, Sitzung gewechselt,
+    /// Hook gedrosselt. Ohne ihn blieben die Overlays dauerhaft ueber allem stehen.
+    /// </summary>
+    private bool IsDragOrphaned()
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (!windowService.IsWindowAlive(draggedWindow))
+        {
+            log.Write("WARN", "Ziehvorgang abgebrochen: das Fenster ist verschwunden.");
+            return true;
+        }
+
+        if (now - dragStartedAt > MaximumDragDuration)
+        {
+            log.Write("WARN", "Ziehvorgang abgebrochen: kein Endereignis innerhalb von zwei Minuten.");
+            return true;
+        }
+
+        if (!dragStartedWithButton)
+        {
+            return false;
+        }
+
+        if (windowService.IsLeftButtonPressed())
+        {
+            buttonReleasedAt = null;
+            return false;
+        }
+
+        buttonReleasedAt ??= now;
+        if (now - buttonReleasedAt.Value <= ButtonReleaseGrace)
+        {
+            return false;
+        }
+
+        log.Write("WARN", "Ziehvorgang abgebrochen: Maustaste losgelassen, aber kein Endereignis von Windows.");
+        return true;
     }
 
     private void HandleDragAction(SnapZones.Core.Drag.DragAction action)
@@ -941,19 +1112,7 @@ public sealed class ApplicationController : IDisposable
                     fillSpan.WindowHandle,
                     fillSpan.MonitorId,
                     fillSpan.PartMonitorIds));
-                if (spanResult?.Status == PartMonitorCommandStatus.Successful)
-                {
-                    log.Write("DEBUG", $"Fenster wurde über {fillSpan.PartMonitorIds.Count} Zonen gelegt.");
-                }
-                else
-                {
-                    log.Write(
-                        "WARN",
-                        "Zonenübergreifende Platzierung abgelehnt: " +
-                        (spanResult?.Status.ToString() ?? "Komponente nicht bereit"));
-                    OfferElevationIfWindowIsOutOfReach(fillSpan.WindowHandle);
-                }
-
+                ReportPlacement(fillSpan.WindowHandle, spanResult, $"Fenster wurde über {fillSpan.PartMonitorIds.Count} Zonen gelegt.");
                 break;
             case HideOverlaysAction:
                 overlays.HideAll();
@@ -963,19 +1122,36 @@ public sealed class ApplicationController : IDisposable
                     fill.WindowHandle,
                     fill.MonitorId,
                     fill.PartMonitorId));
-                if (result?.Status == PartMonitorCommandStatus.Successful)
-                {
-                    log.Write("DEBUG", "Fenster wurde in einen Teilmonitor eingerastet.");
-                }
-                else
-                {
-                    log.Write(
-                        "WARN",
-                        "Teilmonitor-Platzierung abgelehnt: " +
-                        (result?.Status.ToString() ?? "Komponente nicht bereit"));
-                    OfferElevationIfWindowIsOutOfReach(fill.WindowHandle);
-                }
+                ReportPlacement(fill.WindowHandle, result, "Fenster wurde in einen Teilmonitor eingerastet.");
                 break;
+        }
+    }
+
+    /// <summary>
+    /// Meldet das gemessene Ergebnis einer Platzierung. Ein Fenster, das sich gar nicht bewegen liess,
+    /// kann einem hoeher berechtigten Programm gehoeren; ein Fenster, das sich nur nicht auf die
+    /// Zonengroesse bringen liess, nicht. Nur im ersten Fall wird nach Administratorrechten gefragt.
+    /// </summary>
+    private void ReportPlacement(nint windowHandle, PartMonitorCommandResult? result, string successMessage)
+    {
+        if (result?.Status == PartMonitorCommandStatus.Successful)
+        {
+            log.Write("DEBUG", successMessage);
+            return;
+        }
+
+        var reason = result?.Reason ?? result?.Status switch
+        {
+            PartMonitorCommandStatus.TargetMissing => "Die Zielzone gibt es nicht mehr.",
+            PartMonitorCommandStatus.NotEligible => "Das Fenster lässt sich nicht lesen oder wurde geschlossen.",
+            null => "Die Snap-Funktion ist nicht bereit.",
+            _ => "Windows hat die Platzierung abgelehnt."
+        };
+        log.Write("WARN", $"Platzierung nicht gelungen: {reason}");
+        viewModel.StatusMessage = $"Fenster nicht in die Zone gesetzt: {reason}";
+        if (result?.Outcome?.WindowMoved != true)
+        {
+            OfferElevationIfWindowIsOutOfReach(windowHandle);
         }
     }
 
@@ -1029,6 +1205,32 @@ public sealed class ApplicationController : IDisposable
     }
 
     private async Task ExitApplicationAsync()
+    {
+        try
+        {
+            await ExitApplicationCoreAsync();
+        }
+        catch (Exception exception)
+        {
+            // Ohne diesen Fang blieb das Beenden-Tor nach einem Fehler dauerhaft geschlossen, und
+            // «Beenden» im Infobereich reagierte nie wieder.
+            log.Write("ERROR", "Das Beenden ist fehlgeschlagen; das Programm läuft weiter.", exception);
+            shuttingDown = false;
+            window.IsEnabled = true;
+            exitRequestGate.Reset();
+            viewModel.StatusMessage = $"Beenden fehlgeschlagen: {exception.Message}";
+            try
+            {
+                Reconfigure(configuration);
+            }
+            catch (Exception reconfigureException)
+            {
+                log.Write("ERROR", "Die Snap-Funktion konnte nach dem gescheiterten Beenden nicht wieder aktiviert werden.", reconfigureException);
+            }
+        }
+    }
+
+    private async Task ExitApplicationCoreAsync()
     {
         shuttingDown = true;
         window.IsEnabled = false;

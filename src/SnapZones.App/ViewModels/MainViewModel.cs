@@ -23,6 +23,7 @@ public sealed class MainViewModel : ViewModelBase
     private string certificateStatus = string.Empty;
     private string helperStatus = string.Empty;
     private bool isCertificateInstalled;
+    private bool isCertificateBusy;
     private bool suppressPersistence;
     private SnappingState snappingState = SnappingState.NoActiveLayout;
     private string? pauseReason;
@@ -228,6 +229,24 @@ public sealed class MainViewModel : ViewModelBase
             }
         }
     }
+
+    /// <summary>
+    /// Ob gerade eingerichtet oder entfernt wird. Beides ruft PowerShell auf und dauert Sekunden; die
+    /// Schaltflaeche ist solange gesperrt, damit kein zweiter Lauf parallel startet.
+    /// </summary>
+    public bool IsCertificateBusy
+    {
+        get => isCertificateBusy;
+        set
+        {
+            if (SetProperty(ref isCertificateBusy, value))
+            {
+                OnPropertyChanged(nameof(CanToggleCertificate));
+            }
+        }
+    }
+
+    public bool CanToggleCertificate => !isCertificateBusy;
 
     /// <summary>Der Zustand in zwei Worten, unabhängig von jeder Farbe.</summary>
     public string CertificateStateLabel => isCertificateInstalled

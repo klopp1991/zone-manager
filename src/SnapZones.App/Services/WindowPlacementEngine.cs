@@ -196,7 +196,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
 
         foreach (var cancellation in cancellations)
         {
-            cancellation.Cancel();
+            Cancel(cancellation);
         }
 
         if (removeSubscriptions)
@@ -611,13 +611,25 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
 
         Cancel(previousCapture);
 
+        // Der Token wird einmal gelesen: die Quelle kann von einem Nachfolger verworfen werden, waehrend
+        // dieser Vorgang noch laeuft, und eine verworfene Quelle gibt ihren Token nicht mehr heraus.
+        CancellationToken captureToken;
+        try
+        {
+            captureToken = captureCancellation.Token;
+        }
+        catch (ObjectDisposedException)
+        {
+            return;
+        }
+
         _ = RunOperation(async () =>
         {
             var disposeCapture = false;
             try
             {
-                await delay(CaptureDelay, captureCancellation.Token).ConfigureAwait(false);
-                await CaptureWindowAsync(windowHandle, state, context, allowCachedSnapshot: false, captureCancellation.Token).ConfigureAwait(false);
+                await delay(CaptureDelay, captureToken).ConfigureAwait(false);
+                await CaptureWindowAsync(windowHandle, state, context, allowCachedSnapshot: false, captureToken).ConfigureAwait(false);
             }
             finally
             {
@@ -880,10 +892,13 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         long bestOverlap = 0;
         foreach (var monitor in monitors)
         {
-            var right = Math.Min((long)bounds.X + bounds.Width, (long)monitor.WorkArea.X + monitor.WorkArea.Width);
-            var bottom = Math.Min((long)bounds.Y + bounds.Height, (long)monitor.WorkArea.Y + monitor.WorkArea.Height);
-            var left = Math.Max(bounds.X, monitor.WorkArea.X);
-            var top = Math.Max(bounds.Y, monitor.WorkArea.Y);
+            // Ueberlappung gegen die volle Monitorflaeche: ein Fenster unter der Taskleiste oder im
+            // Vollbild ueberlappt die Arbeitsflaeche nicht und fiel frueher auf den Primaermonitor zurueck.
+            var area = monitor.MonitorBounds;
+            var right = Math.Min((long)bounds.X + bounds.Width, (long)area.X + area.Width);
+            var bottom = Math.Min((long)bounds.Y + bounds.Height, (long)area.Y + area.Height);
+            var left = Math.Max(bounds.X, area.X);
+            var top = Math.Max(bounds.Y, area.Y);
             var overlap = Math.Max(0, right - left) * Math.Max(0, bottom - top);
             if (overlap > bestOverlap)
             {
@@ -1228,9 +1243,29 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         }
     }
 
+    /// <summary>
+    /// Bricht ab und gibt die Quelle frei. Frueher blieb jede verworfene Quelle registriert an der
+    /// Lebenszeitquelle ihres Fensters haengen; bei den vielen Ortsaenderungen einer Fensteranimation
+    /// wuchs der Speicher mit der Laufzeit. Eine bereits freigegebene Quelle wird still uebergangen.
+    /// </summary>
     private static void Cancel(CancellationTokenSource? cancellation)
     {
-        cancellation?.Cancel();
+        if (cancellation is null)
+        {
+            return;
+        }
+
+        try
+        {
+            cancellation.Cancel();
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+        finally
+        {
+            cancellation.Dispose();
+        }
     }
 
     private Task RunOperation(Func<Task> operation, bool propagateExceptions)

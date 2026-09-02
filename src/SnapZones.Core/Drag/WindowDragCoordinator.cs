@@ -40,7 +40,9 @@ public sealed class WindowDragCoordinator
             return;
         }
 
-        var activeTarget = resolver.FindPhysicalMonitor(cursor);
+        // Der Ziehstart liegt oft ueber der Taskleiste, also ausserhalb jeder Arbeitsflaeche. Dann gilt
+        // der naechstgelegene Monitor; frueher erschien in diesem Fall gar kein Overlay.
+        var activeTarget = resolver.FindNearestMonitor(cursor);
         if (activeTarget is null)
         {
             return;

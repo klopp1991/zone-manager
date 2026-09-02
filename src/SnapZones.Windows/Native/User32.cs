@@ -87,6 +87,14 @@ internal static class User32
     internal static extern bool IsWindowVisible(nint window);
 
     [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool IsIconic(nint window);
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static extern bool IsZoomed(nint window);
+
+    [DllImport("user32.dll")]
     internal static extern nint GetAncestor(nint window, uint flags);
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW", SetLastError = true)]
@@ -129,7 +137,7 @@ internal static class User32
         uint timeout,
         out nint result);
 
-    [DllImport("user32.dll")]
+    [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool ShowWindow(nint window, int command);
 
@@ -154,7 +162,7 @@ internal static class User32
         uint threadId,
         uint flags);
 
-    [DllImport("user32.dll")]
+    [DllImport("user32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     internal static extern bool UnhookWinEvent(nint hook);
 

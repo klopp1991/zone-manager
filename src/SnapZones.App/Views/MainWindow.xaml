@@ -1046,6 +1046,7 @@
 
                                         <Button x:Name="CertificateActionButton" Content="{Binding CertificateActionLabel}"
                                                 Click="CertificateAction_Click" HorizontalAlignment="Left" Margin="0,14,0,0"
+                                                IsEnabled="{Binding CanToggleCertificate}"
                                                 ToolTip="{Binding CertificateActionHint}"
                                                 AutomationProperties.Name="{Binding CertificateActionLabel}" />
                                     </StackPanel>
@@ -1053,11 +1054,11 @@
                                 <Border Style="{StaticResource SectionCard}">
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="Overlay-Abstände" Style="{StaticResource SectionTitle}" />
+                                            <TextBlock Text="Abstände" Style="{StaticResource SectionTitle}" />
                                             <Button x:Name="OuterMarginsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu äusseren Abständen"
-                                                    ToolTip="Diese Werte bestimmen ausschliesslich die zusätzlichen Aussenabstände des Overlays, also der Vorschau beim Ziehen. Fenster und Layoutdefinition bleiben unverändert; das Overlay behält auch bei 0 einen kleinen visuellen Mindestabstand. Zulässig sind 0 bis 400 Pixel." />
+                                                    ToolTip="Der Abstand zum Bildschirmrand und der Abstand zwischen Zonen gelten für die Vorschau beim Ziehen und für das Fenster, das dort landet: beides zeigt dieselbe Fläche. Die Zonen selbst bleiben in Prozent des Monitors definiert; die Abstände werden davon abgezogen. Zulässig sind 0 bis 400 Pixel für den Rand und 0 bis 10 Prozent für den Zwischenraum." />
                                         </StackPanel>
-                                        <TextBlock Text="Diese Werte betreffen nur die Vorschau beim Ziehen. Wo ein Fenster wirklich landet, legst du im Layout unter «Abstände zum Rand» fest – hier ändert sich daran nichts."
+                                        <TextBlock Text="Diese Abstände wirken auf Vorschau und Fenster gleichermassen: ein Fenster landet genau auf der Fläche, die das Overlay beim Ziehen zeigt."
                                                    Style="{StaticResource HelpText}" />
                                         <TextBlock Text="Abstand zum Bildschirmrand" Style="{StaticResource FieldLabel}" Margin="0,16,0,2" />
                                         <TextBlock Text="Angabe in Pixel, jeweils 0 bis 400." Style="{StaticResource HelpText}" Margin="0,0,0,8" />

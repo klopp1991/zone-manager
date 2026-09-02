@@ -54,6 +54,7 @@ public sealed class SnappingStateTests
             var window = new MainWindow();
             var viewModel = new MainViewModel(ConfigurationSamples.TwoLayouts(), []);
             window.AttachViewModel(viewModel);
+            window.Show();
             var stateText = Assert.IsType<TextBlock>(window.FindName("SnappingStateText"));
             var messageText = Assert.IsType<TextBlock>(window.FindName("StatusMessageText"));
             var resumeButton = Assert.IsType<System.Windows.Controls.Button>(window.FindName("ResumeSnappingButton"));

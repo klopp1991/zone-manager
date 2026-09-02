@@ -26,14 +26,45 @@ public sealed class PartMonitorResolverTests
     }
 
     [Fact]
-    public void Resolve_returns_exact_layout_bounds_even_when_overlay_has_margins_and_gap()
+    public void Resolve_applies_margins_and_gap_exactly_like_the_overlay()
     {
-        var resolver = CreateResolver(new LayoutMetrics(8, 8));
+        // Seit dem 02.09.2026 landet das Fenster auf der Flaeche, die das Overlay zeigt. Frueher
+        // zeigte die Vorschau Abstaende, gesetzt wurde aber die volle Zone.
+        var metrics = new LayoutMetrics(8, 8);
+        var resolver = CreateResolver(metrics);
 
         var placement = resolver.Resolve("LEFT-MONITOR", LeftId);
 
         Assert.NotNull(placement);
-        Assert.Equal(new PixelRect(-1920, 0, 960, 1040), placement.Bounds);
+        Assert.Equal(
+            ZoneGeometry.ToPixels(new NormalizedRect(0, 0, 0.5, 1), new MonitorWorkArea(-1920, 0, 1920, 1040), metrics),
+            placement.Bounds);
+        Assert.Equal(new PixelRect(-1912, 8, 948, 1024), placement.Bounds);
+    }
+
+    [Fact]
+    public void FindAt_hits_a_zone_even_inside_the_gap_between_two_zones()
+    {
+        var resolver = CreateResolver(new LayoutMetrics(0, 20));
+
+        // Ein Pixel rechts der Mitte liegt im Zwischenraum, gehoert aber zur rechten Zone.
+        var placement = resolver.FindAt(new PointInt(-959, 400));
+
+        Assert.NotNull(placement);
+        Assert.Equal(RightId, placement.PartMonitorId);
+    }
+
+    [Fact]
+    public void FindNearestMonitor_falls_back_to_the_closest_screen_when_the_cursor_is_on_the_taskbar()
+    {
+        var resolver = CreateResolver();
+
+        // Unterhalb der Arbeitsflaeche des rechten Monitors: dort liegt die Taskleiste.
+        var target = resolver.FindNearestMonitor(new PointInt(500, 1060));
+
+        Assert.NotNull(target);
+        Assert.Equal("RIGHT-MONITOR", target.Monitor.Identity.StableId);
+        Assert.Null(resolver.FindPhysicalMonitor(new PointInt(500, 1060)));
     }
 
     [Fact]
@@ -55,13 +86,15 @@ public sealed class PartMonitorResolverTests
             new MonitorWorkArea(-1920, 0, 1920, 1040),
             96,
             96,
-            false);
+            false,
+            Bounds: new PixelRect(-1920, 0, 1920, 1080));
         var right = new LiveMonitor(
             new MonitorIdentity("RIGHT-MONITOR", "DISPLAY2", "Rechts"),
             new MonitorWorkArea(0, 0, 1920, 1040),
             96,
             96,
-            true);
+            true,
+            Bounds: new PixelRect(0, 0, 1920, 1080));
 
         return new PartMonitorResolver(
         [

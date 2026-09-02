@@ -3,6 +3,7 @@ using SnapZones.Core.Geometry;
 using SnapZones.Core.Layouts;
 using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
+using SnapZones.Core.PartMonitors;
 using SnapZones.Windows.Windows;
 
 namespace SnapZones.App.Services;
@@ -25,6 +26,12 @@ public interface IAppRuleWindowGateway
     WindowRuleCandidate? Inspect(nint windowHandle);
     IReadOnlyList<WindowRuleCandidate> GetCandidates();
     bool TrySnap(nint windowHandle, PixelRect bounds);
+
+    /// <summary>Wie <see cref="TrySnap"/>, mit gemessenem Ergebnis und Begruendung.</summary>
+    PlacementOutcome Snap(nint windowHandle, PixelRect bounds) =>
+        TrySnap(windowHandle, bounds)
+            ? PlacementOutcome.Success()
+            : PlacementOutcome.Rejected("Windows hat die Platzierung abgelehnt.");
 }
 
 public sealed class WindowServiceAppRuleGateway(IWindowService windowService, int ownProcessId)
@@ -38,6 +45,9 @@ public sealed class WindowServiceAppRuleGateway(IWindowService windowService, in
 
     public bool TrySnap(nint windowHandle, PixelRect bounds) =>
         windowService.TrySnap(windowHandle, bounds);
+
+    public PlacementOutcome Snap(nint windowHandle, PixelRect bounds) =>
+        windowService.Snap(windowHandle, bounds);
 }
 
 public sealed class AppRuleCoordinator : IDisposable
@@ -203,15 +213,19 @@ public sealed class AppRuleCoordinator : IDisposable
                 return new AppRuleExecutionResult(AppRuleExecutionStatus.TargetMissing, ruleId);
             }
 
-            if (windowGateway.TrySnap(currentCandidate.WindowHandle, bounds))
+            var outcome = windowGateway.Snap(currentCandidate.WindowHandle, bounds);
+            if (outcome.Succeeded)
             {
                 reportStatus?.Invoke($"App-Regel angewendet: {rule.DisplayName} → {targetName}");
                 return new AppRuleExecutionResult(AppRuleExecutionStatus.Applied, ruleId);
             }
 
-            if (attempt >= rule.RetryCount)
+            // Ein bewegtes Fenster mit Mindestgroesse wird durch Wiederholen nicht kleiner.
+            if (attempt >= rule.RetryCount || outcome.WindowMoved)
             {
-                reportStatus?.Invoke($"App-Regel konnte {rule.DisplayName} nicht positionieren.");
+                reportStatus?.Invoke(
+                    $"App-Regel konnte {rule.DisplayName} nicht positionieren: "
+                        + (outcome.Rejection ?? "Windows hat die Platzierung abgelehnt."));
                 return new AppRuleExecutionResult(AppRuleExecutionStatus.WindowsRejected, ruleId);
             }
 
@@ -264,7 +278,11 @@ public sealed class AppRuleCoordinator : IDisposable
             return false;
         }
 
-        bounds = ZoneGeometry.ToPixels(zone.Bounds, monitor.WorkArea);
+        // Dieselbe Geometrie wie Overlay und Ziehpfad: Aussen- und Zonenabstand gelten auch hier.
+        bounds = ZoneGeometry.ToPixels(
+            zone.Bounds,
+            monitor.WorkArea,
+            new LayoutMetrics(configuration.Settings.EffectiveOuterMargins, configuration.Settings.ZoneGap));
         targetName = $"{layout.Name} / {zone.Name}";
         return true;
     }

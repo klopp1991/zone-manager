@@ -1,6 +1,7 @@
 using SnapZones.App.Services;
 using SnapZones.Core.AppRules;
 using SnapZones.Core.Geometry;
+using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
 using SnapZones.Tests.Support;
 using SnapZones.Windows.Windows;
@@ -24,7 +25,15 @@ public sealed class AppRuleCoordinatorTests
         Assert.Equal(AppRuleExecutionStatus.Applied, result.Status);
         Assert.Equal([TimeSpan.FromMilliseconds(350)], delays);
         Assert.Equal(2, gateway.InspectionCount);
-        Assert.Equal(new PixelRect(0, 0, 1720, 1440), Assert.Single(gateway.SnappedBounds));
+        // Dieselbe Geometrie wie Overlay und Ziehpfad: die Aussenabstaende der Einstellungen gelten auch
+        // fuer Regeln (Voreinstellung 8 px, kein Zonenabstand).
+        var metrics = new LayoutMetrics(configuration.Settings.EffectiveOuterMargins, configuration.Settings.ZoneGap);
+        var expected = ZoneGeometry.ToPixels(
+            configuration.Layouts[0].Zones[0].Bounds,
+            new MonitorWorkArea(0, 0, 3440, 1440),
+            metrics);
+        Assert.Equal(new PixelRect(8, 8, 1712, 1424), expected);
+        Assert.Equal(expected, Assert.Single(gateway.SnappedBounds));
     }
 
     [Fact]

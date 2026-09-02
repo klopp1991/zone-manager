@@ -3,6 +3,11 @@ using SnapZones.Core.Models;
 
 namespace SnapZones.Core.PartMonitors;
 
+/// <summary>
+/// Loest Zonen zu Bildschirmrechtecken auf. Seit dem 02.09.2026 gilt ueberall dieselbe Geometrie wie im
+/// Overlay: Aussenabstand und Zonenabstand aus <see cref="LayoutMetrics"/> wirken auch auf das Fenster.
+/// Frueher zeigte die Vorschau Abstaende, das Fenster wurde aber auf die volle Zone gesetzt.
+/// </summary>
 public sealed class PartMonitorResolver
 {
     private readonly IReadOnlyList<PartMonitorTarget> targets;
@@ -14,8 +19,35 @@ public sealed class PartMonitorResolver
         this.metrics = metrics;
     }
 
+    /// <summary>Der Monitor, auf dessen Arbeitsflaeche der Punkt liegt; null ueber Taskleiste oder Luecke.</summary>
     public PartMonitorTarget? FindPhysicalMonitor(PointInt point) =>
         targets.FirstOrDefault(target => target.Monitor.WorkArea.Contains(point));
+
+    /// <summary>
+    /// Der Monitor, dem der Punkt am naechsten liegt. Ein Ziehvorgang beginnt oft ueber der Taskleiste,
+    /// also ausserhalb jeder Arbeitsflaeche; ohne diesen Rueckfall erschien dann gar kein Overlay.
+    /// </summary>
+    public PartMonitorTarget? FindNearestMonitor(PointInt point)
+    {
+        if (FindPhysicalMonitor(point) is { } exact)
+        {
+            return exact;
+        }
+
+        PartMonitorTarget? nearest = null;
+        var nearestDistance = long.MaxValue;
+        foreach (var target in targets)
+        {
+            var distance = target.Monitor.MonitorBounds.DistanceSquaredTo(point);
+            if (distance < nearestDistance)
+            {
+                nearest = target;
+                nearestDistance = distance;
+            }
+        }
+
+        return nearest;
+    }
 
     public PartMonitorPlacement? FindAt(PointInt point)
     {
@@ -25,10 +57,11 @@ public sealed class PartMonitorResolver
             return null;
         }
 
+        // Getroffen wird ueber die ungepolsterte Zone: im schmalen Zwischenraum zweier Zonen soll das
+        // Loslassen nicht ins Leere gehen. Gesetzt wird das Fenster dann mit den Abstaenden.
         var partMonitor = ZoneGeometry.HitTest(
             target.PartMonitors,
             target.Monitor.WorkArea,
-            metrics,
             point);
         return partMonitor is null ? null : ToPlacement(target, partMonitor.Id);
     }
@@ -104,6 +137,6 @@ public sealed class PartMonitorResolver
             : new PartMonitorPlacement(
                 target.Monitor.Identity.StableId,
                 partMonitor.Id,
-                ZoneGeometry.ToPixels(partMonitor.Bounds, target.Monitor.WorkArea));
+                ZoneGeometry.ToPixels(partMonitor.Bounds, target.Monitor.WorkArea, metrics));
     }
 }

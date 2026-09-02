@@ -53,12 +53,6 @@ public static class MainZoneFallback
             zones.Any(zone => IsSnappedTo(windowBounds, zone.Bounds));
     }
 
-    private static bool IsSnappedTo(PixelRect windowBounds, PixelRect zoneBounds)
-    {
-        const int tolerance = WindowFrameCompensation.MaximumBorderPixels;
-        return Math.Abs(windowBounds.X - zoneBounds.X) <= tolerance &&
-            Math.Abs(windowBounds.Y - zoneBounds.Y) <= tolerance &&
-            Math.Abs(windowBounds.Right - zoneBounds.Right) <= tolerance &&
-            Math.Abs(windowBounds.Bottom - zoneBounds.Bottom) <= tolerance;
-    }
+    private static bool IsSnappedTo(PixelRect windowBounds, PixelRect zoneBounds) =>
+        windowBounds.IsWithinTolerance(zoneBounds, WindowFrameCompensation.MaximumBorderPixels);
 }

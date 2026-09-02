@@ -47,15 +47,21 @@ public sealed class PartMonitorCommandService
             return new PartMonitorCommandResult(PartMonitorCommandStatus.NotEligible);
         }
 
-        if (!gateway.TryApplyNormal(previous.Identity, placement.Bounds))
+        var outcome = gateway.ApplyNormal(previous.Identity, placement.Bounds);
+        if (!outcome.Succeeded)
         {
-            return new PartMonitorCommandResult(
-                PartMonitorCommandStatus.WindowsRejected,
-                placement);
+            // Ein bewegtes, aber nicht passendes Fenster (Mindestgroesse) bleibt trotzdem im Verlauf,
+            // damit «zurueck zur vorherigen Position» weiterhin funktioniert.
+            if (outcome.WindowMoved)
+            {
+                history.Remember(previous);
+            }
+
+            return new PartMonitorCommandResult(PartMonitorCommandStatus.WindowsRejected, placement, outcome);
         }
 
         history.Remember(previous);
-        return new PartMonitorCommandResult(PartMonitorCommandStatus.Successful, placement);
+        return new PartMonitorCommandResult(PartMonitorCommandStatus.Successful, placement, outcome);
     }
 
     private PartMonitorCommandResult Restore(nint windowHandle)

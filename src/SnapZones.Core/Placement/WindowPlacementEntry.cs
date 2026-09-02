@@ -19,6 +19,10 @@ public sealed record WindowPlacementCatalog(int SchemaVersion, IReadOnlyList<Win
     public static WindowPlacementCatalog Empty { get; } = new(CurrentSchemaVersion, []);
 }
 
-public sealed record PlacementMonitorTarget(string StableId, MonitorWorkArea WorkArea, bool IsPrimary);
+public sealed record PlacementMonitorTarget(string StableId, MonitorWorkArea WorkArea, bool IsPrimary, PixelRect? Bounds = null)
+{
+    /// <summary>Die volle Monitorflaeche; faellt auf die Arbeitsflaeche zurueck, wenn keine bekannt ist.</summary>
+    public PixelRect MonitorBounds => Bounds ?? new PixelRect(WorkArea.X, WorkArea.Y, WorkArea.Width, WorkArea.Height);
+}
 
 public sealed record PlacementZoneTarget(Guid ProfileId, Guid ZoneId, string MonitorStableId, PixelRect Bounds);

@@ -1,8 +1,7 @@
-using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Text;
 using SnapZones.Core.Geometry;
+
 using SnapZones.Core.Placement;
 using SnapZones.Windows.Native;
 
@@ -10,13 +9,7 @@ namespace SnapZones.Windows.Windows;
 
 public sealed class WindowsPlacementWindowService : IPlacementWindowService
 {
-    private const int StyleIndex = -16;
-    private const int ExtendedStyleIndex = -20;
-    private const long ChildStyle = 0x40000000L;
-    private const long ToolWindowStyle = 0x00000080L;
-    private const uint RootAncestor = 2;
     private const uint OwnerWindow = 4;
-    private const int CloakedAttribute = 14;
     private const uint DefaultToNearestMonitor = 2;
     private const uint ShowMinimized = 2;
     private const uint ShowMaximized = 3;
@@ -28,35 +21,25 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
     private const uint NoActivate = 0x0010;
     private const uint NoOwnerZOrder = 0x0200;
 
-    private static readonly HashSet<string> ShellWindowClasses = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "Progman",
-        "WorkerW",
-        "Shell_TrayWnd"
-    };
-
     private readonly IWindowStyleReader styleReader;
+    private readonly Action<string>? trace;
 
-    public WindowsPlacementWindowService()
-        : this(new User32WindowStyleReader())
+    public WindowsPlacementWindowService(Action<string>? trace = null)
+        : this(new User32WindowStyleReader(), trace)
     {
     }
 
-    internal WindowsPlacementWindowService(IWindowStyleReader styleReader)
+    internal WindowsPlacementWindowService(IWindowStyleReader styleReader, Action<string>? trace = null)
     {
         this.styleReader = styleReader ?? throw new ArgumentNullException(nameof(styleReader));
+        this.trace = trace;
     }
 
     public PlacementWindowSnapshot? Inspect(nint windowHandle, int excludedProcessId)
     {
         try
         {
-            if (!TryReadEligibleWindow(windowHandle, excludedProcessId, out var processId, out var windowClass))
-            {
-                return null;
-            }
-
-            if (!User32.GetWindowRect(windowHandle, out var currentRectangle))
+            if (!TryReadEligibleWindow(windowHandle, excludedProcessId, out var classification))
             {
                 return null;
             }
@@ -68,99 +51,122 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
                 return null;
             }
 
-            var processPath = ReadCanonicalProcessPath(processId);
+            var processPath = WindowEligibility.ReadProcessPath(classification.ProcessId);
             var applicationKey = Shell32.TryReadAppUserModelId(windowHandle) ?? processPath;
+            if (string.IsNullOrWhiteSpace(applicationKey))
+            {
+                // Ohne Programmpfad und ohne App-Kennung liesse sich das Fenster beim naechsten Oeffnen
+                // nicht wiedererkennen; alle solchen Fenster teilten sich sonst einen Eintrag.
+                trace?.Invoke($"Fenster 0x{windowHandle:X} ({classification.WindowClass}): weder Programmpfad noch App-Kennung lesbar.");
+                return null;
+            }
+
             var kind = User32.GetWindow(windowHandle, OwnerWindow) != 0 ||
-                string.Equals(windowClass, "#32770", StringComparison.Ordinal)
+                string.Equals(classification.WindowClass, "#32770", StringComparison.Ordinal)
                 ? WindowKind.Dialog
                 : WindowKind.MainWindow;
-            var identity = new WindowIdentity(applicationKey, windowClass, kind);
+            var identity = new WindowIdentity(applicationKey, classification.WindowClass, kind);
             var normalWorkspaceBounds = ToPixelRect(placement.NormalPosition);
 
             return new PlacementWindowSnapshot(
                 windowHandle,
                 identity,
-                ReadWindowTitle(windowHandle),
-                ToPixelRect(currentRectangle),
+                WindowEligibility.ReadWindowTitle(windowHandle),
+                classification.Bounds,
                 WorkspaceToScreen(normalWorkspaceBounds, monitorInfo.Monitor, monitorInfo.Work),
                 placement.ShowCommand == ShowMaximized,
                 IsMinimized(placement.ShowCommand),
-                processPath);
+                processPath is null ? null : Path.GetFullPath(processPath));
         }
-        catch (Exception)
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or OverflowException or IOException)
         {
+            trace?.Invoke($"Fenster 0x{windowHandle:X} konnte nicht gelesen werden: {exception.Message}");
             return null;
         }
     }
 
+    /// <summary>
+    /// Setzt die Normalposition und misst nach. Ein Maximieren wird nur ausgefuehrt, wenn das Fenster
+    /// gerade im Vordergrund ist, weil Windows dafuer die Aktivierung verlangt; die Normalposition ist
+    /// dann trotzdem gesetzt, sodass ein spaeteres Wiederherstellen richtig landet. Frueher scheiterte
+    /// in diesem Fall die gesamte Platzierung.
+    /// </summary>
     public bool TryPlace(nint windowHandle, PixelRect normalBounds, bool maximize)
     {
         try
         {
             if (normalBounds.Width < 1 ||
                 normalBounds.Height < 1 ||
-                !TryReadEligibleWindow(windowHandle, excludedProcessId: -1, out _, out _))
-            {
-                return false;
-            }
-
-            if (maximize && User32.GetForegroundWindow() != windowHandle)
+                !TryReadEligibleWindow(windowHandle, excludedProcessId: -1, out _))
             {
                 return false;
             }
 
             _ = User32.ShowWindow(windowHandle, ShowWithoutActivation);
-            if (!User32.SetWindowPos(
-                    windowHandle,
-                    0,
-                    normalBounds.X,
-                    normalBounds.Y,
-                    normalBounds.Width,
-                    normalBounds.Height,
-                    NoActivate | NoZOrder | NoOwnerZOrder))
+            if (!SetPosition(windowHandle, normalBounds))
+            {
+                trace?.Invoke($"Fenster 0x{windowHandle:X}: Windows hat die Platzierung abgelehnt ({Marshal.GetLastWin32Error()}).");
+                return false;
+            }
+
+            if (!User32.GetWindowRect(windowHandle, out var measured))
             {
                 return false;
             }
 
+            var actual = WindowEligibility.ToPixelRect(measured);
+            if (!actual.IsWithinTolerance(normalBounds, SnapZones.Core.PartMonitors.PlacementOutcome.TolerancePixels))
+            {
+                // Zweiter Anlauf: beim Wechsel auf einen Monitor mit anderer Skalierung passt Windows
+                // das Fenster erst nach dem ersten Setzen an.
+                _ = SetPosition(windowHandle, normalBounds);
+                if (User32.GetWindowRect(windowHandle, out measured))
+                {
+                    actual = WindowEligibility.ToPixelRect(measured);
+                }
+            }
+
+            if (!actual.IsWithinTolerance(normalBounds, SnapZones.Core.PartMonitors.PlacementOutcome.TolerancePixels))
+            {
+                trace?.Invoke($"Fenster 0x{windowHandle:X} sitzt nicht wie gemerkt: Ziel {normalBounds}, Ergebnis {actual}.");
+            }
+
             if (maximize)
             {
-                if (User32.GetForegroundWindow() != windowHandle)
+                if (User32.GetForegroundWindow() == windowHandle)
                 {
-                    return false;
+                    _ = User32.ShowWindow(windowHandle, (int)ShowMaximized);
                 }
-
-                _ = User32.ShowWindow(windowHandle, (int)ShowMaximized);
+                else
+                {
+                    trace?.Invoke($"Fenster 0x{windowHandle:X} wurde nicht maximiert, weil es nicht im Vordergrund ist.");
+                }
             }
 
             return true;
         }
-        catch (Exception)
+        catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or OverflowException)
         {
+            trace?.Invoke($"Fenster 0x{windowHandle:X} konnte nicht platziert werden: {exception.Message}");
             return false;
         }
     }
 
     public IReadOnlyList<nint> EnumerateEligibleWindows(int excludedProcessId)
     {
-        try
+        var windows = new List<nint>();
+        User32.WindowEnumProc callback = (window, data) =>
         {
-            var windows = new List<nint>();
-            User32.WindowEnumProc callback = (window, _) =>
+            // Billige Vorpruefung ueber Stil und Klasse; die teure Identitaet liest erst Inspect.
+            if (TryReadEligibleWindow(window, excludedProcessId, out _))
             {
-                if (Inspect(window, excludedProcessId) is not null)
-                {
-                    windows.Add(window);
-                }
+                windows.Add(window);
+            }
 
-                return true;
-            };
+            return true;
+        };
 
-            return User32.EnumWindows(callback, 0) ? windows : [];
-        }
-        catch (Exception)
-        {
-            return [];
-        }
+        return User32.EnumWindows(callback, 0) ? windows : [];
     }
 
     public nint GetForegroundWindow() => User32.GetForegroundWindow();
@@ -181,85 +187,27 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
             bounds.Width,
             bounds.Height);
 
-    private bool TryReadEligibleWindow(
-        nint window,
-        int excludedProcessId,
-        out uint processId,
-        out string windowClass)
+    private bool TryReadEligibleWindow(nint window, int excludedProcessId, out WindowClassification classification)
     {
-        processId = 0;
-        windowClass = string.Empty;
-        if (window == 0 || !User32.IsWindow(window) || !User32.IsWindowVisible(window))
+        if (!WindowEligibility.TryClassify(window, excludedProcessId, styleReader, out classification, out var reason) ||
+            reason != WindowRejectionReason.None ||
+            classification.CloakStateUnknown)
         {
             return false;
         }
 
-        var root = User32.GetAncestor(window, RootAncestor);
-        if (!styleReader.TryRead(window, StyleIndex, out var style) ||
-            !styleReader.TryRead(window, ExtendedStyleIndex, out var extendedStyle))
-        {
-            return false;
-        }
-
-        if ((root != 0 && root != window) ||
-            (style & ChildStyle) != 0 ||
-            (extendedStyle & ToolWindowStyle) != 0)
-        {
-            return false;
-        }
-
-        var cloaked = 0;
-        if (DwmApi.DwmGetWindowAttribute(window, CloakedAttribute, out cloaked, sizeof(int)) != 0 || cloaked != 0)
-        {
-            return false;
-        }
-
-        if (User32.GetWindowThreadProcessId(window, out processId) == 0 ||
-            processId == 0 ||
-            processId == excludedProcessId ||
-            !WindowsIntegrityLevelReader.CanControl(processId))
-        {
-            return false;
-        }
-
-        windowClass = ReadWindowClass(window);
-        return !ShellWindowClasses.Contains(windowClass);
+        return WindowsIntegrityLevelReader.CanControl(classification.ProcessId);
     }
 
-    private static string ReadWindowClass(nint window)
-    {
-        var buffer = new StringBuilder(256);
-        if (User32.GetClassName(window, buffer, buffer.Capacity) == 0)
-        {
-            throw new InvalidOperationException("Die Fensterklasse konnte nicht gelesen werden.");
-        }
-
-        return buffer.ToString();
-    }
-
-    private static string ReadWindowTitle(nint window)
-    {
-        var buffer = new StringBuilder(1024);
-        _ = User32.GetWindowText(window, buffer, buffer.Capacity);
-        return buffer.ToString();
-    }
-
-    private static string ReadCanonicalProcessPath(uint processId)
-    {
-        if (processId > int.MaxValue)
-        {
-            throw new InvalidOperationException("Die Prozess-ID liegt ausserhalb des unterstützten Bereichs.");
-        }
-
-        using var process = Process.GetProcessById((int)processId);
-        var processPath = process.MainModule?.FileName;
-        if (string.IsNullOrWhiteSpace(processPath))
-        {
-            throw new InvalidOperationException("Der Prozesspfad konnte nicht gelesen werden.");
-        }
-
-        return Path.GetFullPath(processPath);
-    }
+    private static bool SetPosition(nint window, PixelRect bounds) =>
+        User32.SetWindowPos(
+            window,
+            0,
+            bounds.X,
+            bounds.Y,
+            bounds.Width,
+            bounds.Height,
+            NoActivate | NoZOrder | NoOwnerZOrder);
 
     private static bool TryReadMonitorInfo(nint monitor, out MonitorInfoEx monitorInfo)
     {
@@ -282,14 +230,6 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
             rectangle.Top,
             checked(rectangle.Right - rectangle.Left),
             checked(rectangle.Bottom - rectangle.Top));
-
-    private static RectNative ToNativeRect(PixelRect rectangle) => new()
-    {
-        Left = rectangle.X,
-        Top = rectangle.Y,
-        Right = checked(rectangle.X + rectangle.Width),
-        Bottom = checked(rectangle.Y + rectangle.Height)
-    };
 
     private static bool IsMinimized(uint showCommand) => showCommand is
         ShowMinimized or Minimize or ShowMinimizedWithoutActivation or ForceMinimize;

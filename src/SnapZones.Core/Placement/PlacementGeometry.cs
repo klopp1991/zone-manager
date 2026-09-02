@@ -5,6 +5,10 @@ namespace SnapZones.Core.Placement;
 
 public static class PlacementGeometry
 {
+    /// <summary>Untergrenze fuer eine wiederhergestellte Groesse, wenn die gemerkte unbrauchbar ist.</summary>
+    private const int FallbackWidth = 160;
+    private const int FallbackHeight = 120;
+
     public static NormalizedRect Normalize(PixelRect bounds, MonitorWorkArea workArea)
     {
         if (workArea.Width <= 0 || workArea.Height <= 0)
@@ -19,6 +23,12 @@ public static class PlacementGeometry
             (double)bounds.Height / workArea.Height);
     }
 
+    /// <summary>
+    /// Das Zielrechteck fuer ein gemerktes Fenster. Ist die gemerkte Zone im aktiven Satz noch vorhanden,
+    /// gilt deren heutige Flaeche: das Fenster kehrt in seine Zone zurueck, nicht an die alten Pixel.
+    /// Erst ohne Zone zaehlt die gemerkte Lage, anteilig umgerechnet, wenn sich die Arbeitsflaeche
+    /// geaendert hat. Bis zum 02.09.2026 diente die Zone nur zur Monitorsuche.
+    /// </summary>
     public static PixelRect Resolve(
         WindowPlacementEntry entry,
         IReadOnlyList<PlacementMonitorTarget> monitors,
@@ -32,24 +42,27 @@ public static class PlacementGeometry
             throw new ArgumentException("Mindestens ein Monitor ist erforderlich.", nameof(monitors));
         }
 
-        var monitor = monitors.FirstOrDefault(candidate => candidate.StableId == entry.MonitorStableId);
-        if (monitor is null && entry.ZoneId is Guid zoneId)
+        var savedZone = entry.ZoneId is Guid zoneId
+            ? zones.FirstOrDefault(zone => zone.ZoneId == zoneId)
+            : null;
+        if (savedZone is not null &&
+            monitors.Any(candidate => candidate.StableId == savedZone.MonitorStableId))
         {
-            var savedZone = zones.FirstOrDefault(zone => zone.ZoneId == zoneId);
-            if (savedZone is not null)
-            {
-                monitor = monitors.FirstOrDefault(candidate => candidate.StableId == savedZone.MonitorStableId);
-            }
+            return savedZone.Bounds;
         }
 
-        monitor ??= monitors.FirstOrDefault(candidate => candidate.IsPrimary) ?? monitors[0];
+        var monitor = monitors.FirstOrDefault(candidate => candidate.StableId == entry.MonitorStableId)
+            ?? monitors.FirstOrDefault(candidate => candidate.IsPrimary)
+            ?? monitors[0];
         var workArea = monitor.WorkArea;
         var bounds = entry.SourceWorkArea == workArea
             ? entry.NormalBoundsPixels
             : Map(entry.NormalBoundsNormalized, workArea);
 
-        var width = Math.Clamp(bounds.Width, 160, workArea.Width);
-        var height = Math.Clamp(bounds.Height, 120, workArea.Height);
+        // Eine kleine gemerkte Groesse bleibt klein: Taschenrechner und Hilfsfenster wurden frueher beim
+        // Wiederherstellen auf 160×120 aufgeblasen. Nur eine unbrauchbare Groesse wird ersetzt.
+        var width = Math.Clamp(bounds.Width > 0 ? bounds.Width : FallbackWidth, 1, Math.Max(1, workArea.Width));
+        var height = Math.Clamp(bounds.Height > 0 ? bounds.Height : FallbackHeight, 1, Math.Max(1, workArea.Height));
         var x = Math.Clamp(bounds.X, workArea.X, workArea.X + workArea.Width - width);
         var y = Math.Clamp(bounds.Y, workArea.Y, workArea.Y + workArea.Height - height);
         return new PixelRect(x, y, width, height);

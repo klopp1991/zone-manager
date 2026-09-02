@@ -40,11 +40,20 @@ public sealed class HelperChannel : IDisposable
 {
     public const string ExecutableName = "ZoneManager.Helper.exe";
 
-    private static readonly TimeSpan StartTimeout = TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan ReplyTimeout = TimeSpan.FromSeconds(5);
+    // Kurze Fristen: der Aufruf blockiert den Ziehvorgang. Ein signierter Helfer meldet sich in
+    // Bruchteilen einer Sekunde; wer laenger braucht, ist nicht der Helfer.
+    private static readonly TimeSpan StartTimeout = TimeSpan.FromSeconds(4);
+    private static readonly TimeSpan ReplyTimeout = TimeSpan.FromSeconds(2);
+
+    /// <summary>
+    /// Wartezeit nach einem gescheiterten Start. Frueher wurde bei jedem weiteren Fenster erneut ein
+    /// Prozess gestartet und bis zu 15 Sekunden gewartet; die Oberflaeche fror dabei jedes Mal ein.
+    /// </summary>
+    private static readonly TimeSpan RetryBackoff = TimeSpan.FromSeconds(60);
     private readonly string helperPath;
     private readonly Action<string, string, Exception?> log;
     private readonly object gate = new();
+    private DateTimeOffset retryAfterUtc = DateTimeOffset.MinValue;
     private Process? process;
     private NamedPipeClientStream? pipe;
     private StreamReader? reader;
@@ -72,7 +81,7 @@ public sealed class HelperChannel : IDisposable
     {
         lock (gate)
         {
-            if (disposed || !EnsureConnectedLocked())
+            if (disposed || !EnsureConnectedLocked(force: false))
             {
                 return false;
             }
@@ -105,7 +114,9 @@ public sealed class HelperChannel : IDisposable
                 return new HelperStatus(HelperState.Missing, "Das Programm wird beendet.");
             }
 
-            _ = EnsureConnectedLocked();
+            // Die Anzeige in den Einstellungen darf die Wartezeit uebergehen: wer dort nachsieht, will
+            // den aktuellen Stand, nicht den von vor einer Minute.
+            _ = EnsureConnectedLocked(force: true);
             return Status;
         }
     }
@@ -124,13 +135,25 @@ public sealed class HelperChannel : IDisposable
         }
     }
 
-    private bool EnsureConnectedLocked()
+    private bool EnsureConnectedLocked(bool force)
     {
         if (pipe is { IsConnected: true } && process is { HasExited: false })
         {
             return true;
         }
 
+        if (!force && DateTimeOffset.UtcNow < retryAfterUtc)
+        {
+            return false;
+        }
+
+        var connected = TryConnectLocked();
+        retryAfterUtc = connected ? DateTimeOffset.MinValue : DateTimeOffset.UtcNow + RetryBackoff;
+        return connected;
+    }
+
+    private bool TryConnectLocked()
+    {
         DisconnectLocked();
 
         if (!File.Exists(helperPath))
