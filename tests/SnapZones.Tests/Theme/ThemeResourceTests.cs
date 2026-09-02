@@ -361,7 +361,7 @@ public sealed class ThemeResourceTests
             Assert.Contains(
                 LogicalDescendants<TextBlock>(window),
                 textBlock => ReferenceEquals(textBlock.Style, helpStyle) &&
-                    textBlock.Text == "Passe das Programm und die Anzeige beim Ziehen von Fenstern an. Änderungen werden sofort gespeichert.");
+                    textBlock.Text == "Lege fest, wie Fenster beim Ziehen und beim Öffnen behandelt werden. Änderungen werden sofort gespeichert.");
             Assert.Null(window.FindName("OverlayVisualMarginInfoButton"));
         });
     }
@@ -551,7 +551,7 @@ public sealed class ThemeResourceTests
             var window = new MainWindow();
             var root = Assert.IsType<Grid>(window.Content);
             var tabs = Assert.Single(root.Children.OfType<TabControl>());
-            tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Einstellungen"));
+            tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Programm"));
             var size = new Size(1480, 900);
 
             root.Measure(size);
@@ -572,12 +572,22 @@ public sealed class ThemeResourceTests
             var window = new MainWindow();
             var root = Assert.IsType<Grid>(window.Content);
             var tabs = Assert.Single(root.Children.OfType<TabControl>());
-            var settingsPage = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Einstellungen"));
-            var text = string.Join("\n", LogicalDescendants<TextBlock>(settingsPage)
+            // Seit dem 02.09.2026 sind die Einstellungen auf zwei Seiten verteilt: Verhalten und Programm.
+            var behaviourPage = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Verhalten"));
+            var programPage = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Programm"));
+            var behaviourText = string.Join("\n", LogicalDescendants<TextBlock>(behaviourPage)
+                .Select(textBlock => textBlock.Text)
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
+            var text = string.Join("\n", LogicalDescendants<TextBlock>(programPage)
                 .Select(textBlock => textBlock.Text)
                 .Where(value => !string.IsNullOrWhiteSpace(value)));
 
-            foreach (var heading in new[] { "Programm", "Beim Ziehen", "Darstellung", "Abstände" })
+            foreach (var heading in new[] { "Beim Ziehen", "Darstellung", "Abstände", "Tastenkürzel", "Fenster merken" })
+            {
+                Assert.Contains(heading, behaviourText);
+            }
+
+            foreach (var heading in new[] { "Programm", "Updates", "Rechte", "Installation", "Sicherung" })
             {
                 Assert.Contains(heading, text);
             }

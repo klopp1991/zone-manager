@@ -63,15 +63,66 @@ public sealed class UpdateInstaller
         var actualSize = new FileInfo(downloadPath).Length;
         if (actualSize != release.SizeInBytes)
         {
-            // Eine abgebrochene Uebertragung sieht wie eine vollstaendige Datei aus. Die angekuendigte
-            // Groesse ist der einzige Pruefwert, den die Release-Ablage ohne Signatur mitliefert.
+            // Eine abgebrochene Uebertragung sieht wie eine vollstaendige Datei aus.
             TryDelete(downloadPath);
             return new UpdateInstallResult(
                 UpdateInstallStatus.DownloadFailed,
                 $"Die geladene Datei ist {actualSize} statt {release.SizeInBytes} Bytes gross und wird verworfen.");
         }
 
+        // Die Pruefsumme kommt aus einer zweiten Datei derselben Veroeffentlichung. Wer die Programmdatei
+        // unterschieben will, muesste auch sie ersetzen; die Groesse allein hielt niemanden auf.
+        string expectedChecksum;
+        try
+        {
+            var checksumContent = await DownloadTextAsync(release.ChecksumUrl!, cancellationToken).ConfigureAwait(false);
+            if (!UpdateCheck.TryParseChecksum(checksumContent, out expectedChecksum))
+            {
+                TryDelete(downloadPath);
+                return new UpdateInstallResult(
+                    UpdateInstallStatus.DownloadFailed,
+                    "Die Prüfsummendatei der Veröffentlichung ist nicht lesbar; die Datei wird verworfen.");
+            }
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            TryDelete(downloadPath);
+            return new UpdateInstallResult(
+                UpdateInstallStatus.DownloadFailed,
+                $"Die Prüfsumme liess sich nicht laden: {exception.Message}");
+        }
+
+        var actualChecksum = await ComputeChecksumAsync(downloadPath, cancellationToken).ConfigureAwait(false);
+        if (!string.Equals(actualChecksum, expectedChecksum, StringComparison.OrdinalIgnoreCase))
+        {
+            TryDelete(downloadPath);
+            return new UpdateInstallResult(
+                UpdateInstallStatus.DownloadFailed,
+                "Die Prüfsumme der geladenen Datei stimmt nicht mit der Veröffentlichung überein; die Datei wird verworfen.");
+        }
+
         return Replace(executablePath, downloadPath, TimeProvider.System.GetUtcNow());
+    }
+
+    /// <summary>SHA-256 einer Datei als Hexadezimalzeichen in Kleinbuchstaben.</summary>
+    public static async Task<string> ComputeChecksumAsync(string path, CancellationToken cancellationToken)
+    {
+        await using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 81920, FileOptions.Asynchronous);
+        var hash = await System.Security.Cryptography.SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false);
+        return Convert.ToHexString(hash).ToLowerInvariant();
+    }
+
+    private async Task<string> DownloadTextAsync(string url, CancellationToken cancellationToken)
+    {
+        using var client = clientFactory();
+        using var response = await client.GetAsync(url, cancellationToken).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
+        if (response.Content.Headers.ContentLength is > 4096)
+        {
+            throw new InvalidDataException("Die Prüfsummendatei ist unplausibel gross.");
+        }
+
+        return await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>

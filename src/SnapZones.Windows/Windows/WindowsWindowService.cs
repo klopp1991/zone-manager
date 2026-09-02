@@ -243,6 +243,19 @@ public sealed class WindowsWindowService : IWindowService
 
     public bool IsWindowAlive(nint window) => window != 0 && User32.IsWindow(window);
 
+    public (nint Handle, PixelRect Bounds)? GetForegroundWindow()
+    {
+        var window = User32.GetForegroundWindow();
+        if (!WindowEligibility.TryClassify(window, Environment.ProcessId, null, out var classification, out var reason) ||
+            reason != WindowRejectionReason.None ||
+            classification.IsMinimized)
+        {
+            return null;
+        }
+
+        return (window, classification.Bounds);
+    }
+
     public bool RequiresElevation(nint window)
     {
         if (window == 0 || !User32.IsWindow(window))

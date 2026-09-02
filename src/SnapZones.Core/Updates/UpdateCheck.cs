@@ -13,11 +13,16 @@ public enum UpdateAvailability
 }
 
 /// <summary>Eine Veröffentlichung, wie sie die Release-Seite beschreibt.</summary>
+/// <param name="ChecksumUrl">
+/// Die Adresse der Prüfsummendatei <c>ZoneManager.exe.sha256</c>. Ohne sie wird nichts geladen: die
+/// Grösse allein ist kein Echtheitsmerkmal.
+/// </param>
 public sealed record ReleaseDescription(
     string TagName,
     string DownloadUrl,
     long SizeInBytes,
-    string? Notes);
+    string? Notes,
+    string? ChecksumUrl = null);
 
 public sealed record UpdateCheckResult(
     UpdateAvailability Availability,
@@ -111,8 +116,40 @@ public static class UpdateCheck
             return false;
         }
 
+        if (!Uri.TryCreate(release.ChecksumUrl, UriKind.Absolute, out var checksumUri) ||
+            checksumUri.Scheme != Uri.UriSchemeHttps ||
+            !IsTrustedHost(checksumUri.Host))
+        {
+            rejection = "Die Veröffentlichung trägt keine Prüfsumme (ZoneManager.exe.sha256) und wird nicht geladen.";
+            return false;
+        }
+
         rejection = string.Empty;
         return true;
+    }
+
+    /// <summary>
+    /// Liest die SHA-256-Prüfsumme aus dem Inhalt einer <c>.sha256</c>-Datei: das erste Feld mit 64
+    /// Hexadezimalzeichen, wie es <c>sha256sum</c> und <c>Get-FileHash</c> schreiben.
+    /// </summary>
+    public static bool TryParseChecksum(string? content, out string checksum)
+    {
+        checksum = string.Empty;
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return false;
+        }
+
+        foreach (var token in content.Split((char[])[' ', '\t', '\r', '\n', '*'], StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (token.Length == 64 && token.All(Uri.IsHexDigit))
+            {
+                checksum = token.ToLowerInvariant();
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool IsTrustedHost(string host) =>

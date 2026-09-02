@@ -108,6 +108,12 @@ public sealed class LayoutCanvas : FrameworkElement
     public event EventHandler<ZoneSelectedEventArgs>? ZoneSelected;
     public event EventHandler<ZoneChangedEventArgs>? ZoneChanged;
 
+    /// <summary>Ein Ziehen mit der Maus beginnt; alle Aenderungen bis <see cref="DragEnded"/> gehoeren zusammen.</summary>
+    public event EventHandler? DragStarted;
+
+    /// <summary>Das Ziehen ist zu Ende, auch wenn die Maus den Fokus verloren hat.</summary>
+    public event EventHandler? DragEnded;
+
     protected override void OnRender(DrawingContext drawingContext)
     {
         base.OnRender(drawingContext);
@@ -164,6 +170,7 @@ public sealed class LayoutCanvas : FrameworkElement
             };
             dragStart = point;
             activeSnapEdges = ZoneEdges.None;
+            DragStarted?.Invoke(this, EventArgs.Empty);
             CaptureMouse();
             ZoneSelected?.Invoke(this, new ZoneSelectedEventArgs(selectedZoneId));
             InvalidateVisual();
@@ -188,6 +195,7 @@ public sealed class LayoutCanvas : FrameworkElement
             LayoutCanvasInteraction.ToCanvasRect(zone.Bounds, screen),
             point);
         activeSnapEdges = ZoneEdges.None;
+        DragStarted?.Invoke(this, EventArgs.Empty);
         CaptureMouse();
         ZoneSelected?.Invoke(this, new ZoneSelectedEventArgs(zone.Id));
         InvalidateVisual();
@@ -231,6 +239,7 @@ public sealed class LayoutCanvas : FrameworkElement
         if (IsMouseCaptured)
         {
             ReleaseMouseCapture();
+            DragEnded?.Invoke(this, EventArgs.Empty);
         }
 
         draggedZoneId = null;
@@ -284,6 +293,20 @@ public sealed class LayoutCanvas : FrameworkElement
         context.DrawText(badge, new System.Windows.Point(area.X + 6, area.Y + 2));
     }
 
+    /// <summary>Die Nummer einer Zone: ihre Position in der Zonenliste, ab eins gezaehlt.</summary>
+    private int ZoneNumber(ZoneDefinition zone)
+    {
+        for (var index = 0; index < Zones.Count; index++)
+        {
+            if (Zones[index].Id == zone.Id)
+            {
+                return index + 1;
+            }
+        }
+
+        return 0;
+    }
+
     private void DrawZone(DrawingContext context, Rect screen, ZoneDefinition zone, bool invalid)
     {
         var rectangle = LayoutCanvasInteraction.ToCanvasRect(zone.Bounds, screen);
@@ -300,8 +323,9 @@ public sealed class LayoutCanvas : FrameworkElement
             rectangle,
             6,
             6);
+        // Die Nummer vor dem Namen ist dieselbe wie im Overlay und im Tastenkuerzel Ctrl + Alt + Nummer.
         var text = new FormattedText(
-            zone.Name,
+            $"{ZoneNumber(zone)} · {zone.Name}",
             System.Globalization.CultureInfo.CurrentUICulture,
             System.Windows.FlowDirection.LeftToRight,
             new Typeface("Segoe UI Variable Text"),

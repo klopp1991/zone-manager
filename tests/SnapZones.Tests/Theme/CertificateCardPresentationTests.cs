@@ -123,7 +123,7 @@ public sealed class CertificateCardPresentationTests
             window.SettingsPageOpened += () => refreshes++;
 
             var tabs = Assert.IsType<TabControl>(Assert.IsType<Grid>(window.Content).Children[1]);
-            tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Einstellungen"));
+            tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Programm"));
 
             Assert.Equal(1, refreshes);
 

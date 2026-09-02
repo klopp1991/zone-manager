@@ -73,6 +73,13 @@ nächsten Start als Sicherung daneben liegen.
 - `Ctrl + Alt + Shift + F12` pausiert das Einrasten und schaltet es beim nächsten Druck wieder ein; `Escape` bricht nur den laufenden Ziehvorgang ab.
 - Ein Schutzschalter stoppt die Snap-Funktion bei Callback-Fehlern oder ungewöhnlich vielen Hook-Ereignissen. Die Statuszeile unten im Fenster und das Infobereichsmenü zeigen den Zustand und bieten **Einrasten wieder aktivieren** an.
 
+## Tastenkürzel
+
+- `Ctrl + Alt + Links / Rechts`: Vordergrundfenster eine Zone zurück oder weiter.
+- `Ctrl + Alt + 1` bis `9`: Vordergrundfenster in die Zone mit dieser Nummer (die Nummer steht im Editor und im Overlay vor dem Zonennamen).
+- `Ctrl + Alt + Rücktaste`: zurück an die Stelle vor dem letzten Einrasten.
+- `Strg + Z` / `Strg + Y` im Layouteditor: Änderung zurücknehmen oder wiederherstellen.
+
 ## Ablage
 
 Gültige Änderungen werden automatisch gespeichert. Die aktive Konfiguration liegt unter `%APPDATA%\SnapZones\settings.json`, die fünf vorherigen Stände daneben als `settings.backup-1.json` bis `settings.backup-5.json`; **Export** und **Import** übertragen sämtliche Einstellungen, Monitorlayouts, Zonen und IDs in einem vollständigen JSON-Backup. Protokolle liegen unter `%LOCALAPPDATA%\SnapZones\logs\snapzones.log` (fünf Generationen; ausführliche DEBUG-Zeilen nur mit Startparameter `--verbose`).

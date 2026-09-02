@@ -132,5 +132,49 @@ public sealed class UpdateCheckTests
         tag,
         $"https://github.com/klopp1991/zone-manager/releases/download/{tag}/ZoneManager.exe",
         66_149_043,
-        "Fehlerbehebungen");
+        "Fehlerbehebungen",
+        $"https://github.com/klopp1991/zone-manager/releases/download/{tag}/ZoneManager.exe.sha256");
+
+    [Fact]
+    public void A_release_without_a_checksum_file_is_never_downloaded()
+    {
+        // Die Groesse allein ist kein Echtheitsmerkmal; ohne ZoneManager.exe.sha256 bleibt die Datei liegen.
+        var release = Release("v2026.0901.01") with { ChecksumUrl = null };
+
+        Assert.False(UpdateCheck.IsAcceptableDownload(release, out var rejection));
+        Assert.Contains("Prüfsumme", rejection, StringComparison.Ordinal);
+        Assert.Equal(UpdateAvailability.Unknown, UpdateCheck.Evaluate("2026.0831.01", release).Availability);
+    }
+
+    [Fact]
+    public void The_checksum_file_is_parsed_in_sha256sum_and_get_filehash_notation()
+    {
+        var hash = new string('a', 64);
+        Assert.True(UpdateCheck.TryParseChecksum($"{hash} *ZoneManager.exe" + Environment.NewLine, out var first));
+        Assert.Equal(hash, first);
+        Assert.True(UpdateCheck.TryParseChecksum($"SHA256  {hash.ToUpperInvariant()}", out var second));
+        Assert.Equal(hash, second);
+        Assert.False(UpdateCheck.TryParseChecksum("kaputt", out _));
+        Assert.False(UpdateCheck.TryParseChecksum(null, out _));
+    }
+
+    [Fact]
+    public void The_release_feed_reads_the_checksum_asset_next_to_the_executable()
+    {
+        var json = System.Text.Json.JsonDocument.Parse("""
+            {
+              "tag_name": "v2026.0901.01",
+              "assets": [
+                { "name": "ZoneManager.exe", "browser_download_url": "https://github.com/x/releases/download/v1/ZoneManager.exe", "size": 123 },
+                { "name": "ZoneManager.exe.sha256", "browser_download_url": "https://github.com/x/releases/download/v1/ZoneManager.exe.sha256", "size": 80 }
+              ]
+            }
+            """);
+
+        var release = GitHubReleaseFeed.Parse(json.RootElement);
+
+        Assert.NotNull(release);
+        Assert.Equal("https://github.com/x/releases/download/v1/ZoneManager.exe.sha256", release.ChecksumUrl);
+        Assert.Equal(123, release.SizeInBytes);
+    }
 }

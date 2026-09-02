@@ -60,7 +60,7 @@ public partial class MainWindow : Window
     private void NavigationTabs_SelectionChanged(object sender, SelectionChangedEventArgs eventArgs)
     {
         _ = sender;
-        if (eventArgs.AddedItems.Count > 0 && ReferenceEquals(eventArgs.AddedItems[0], SettingsTab))
+        if (eventArgs.AddedItems.Count > 0 && ReferenceEquals(eventArgs.AddedItems[0], ProgramTab))
         {
             SettingsPageOpened?.Invoke();
         }
@@ -75,9 +75,10 @@ public partial class MainWindow : Window
         // Ausschluesse stehen direkt hinter den Regeln: beide beschreiben Fenster nach denselben drei
         // Merkmalen, die eine Seite ordnet sie an, die andere laesst sie in Ruhe.
         NavigationTabs.Items.Add(ExclusionsTab);
-        NavigationTabs.Items.Add(ScalingTab);
-        NavigationTabs.Items.Add(SettingsTab);
-        NavigationTabs.Items.Add(TransferTab);
+        // Sechs Seiten seit dem 02.09.2026: Skalierung steht bei den Monitoren, Import und Export beim
+        // Programm, und die frueheren Einstellungen sind nach Verhalten und Programm getrennt.
+        NavigationTabs.Items.Add(BehaviourTab);
+        NavigationTabs.Items.Add(ProgramTab);
         NavigationTabs.SelectedItem = LayoutsTab;
         NavigationTabs.SelectionChanged += NavigationTabs_SelectionChanged;
     }
@@ -216,10 +217,95 @@ public partial class MainWindow : Window
             return;
         }
 
+        // Eine Vorlage ersetzt alle Zonen. Bei einem handgebauten Layout wird nachgefragt; der Weg
+        // zurueck bleibt ueber «Rueckgaengig» trotzdem offen.
+        var zoneCount = viewModel.Editor.Zones.Count;
+        if (zoneCount > 1 && System.Windows.MessageBox.Show(
+                this,
+                $"Die Vorlage «{suggestion.Name}» ersetzt die {zoneCount} Zonen dieses Layouts.\n\nVorlage übernehmen? Rückgängig ist mit Strg + Z möglich.",
+                "Vorlage übernehmen",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Question,
+                MessageBoxResult.OK) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
         viewModel.Editor.ApplyTemplate(suggestion.Template);
-        viewModel.StatusMessage = "Vorlage als Entwurf angewendet";
+        viewModel.StatusMessage = "Vorlage als Entwurf angewendet – Rückgängig mit Strg + Z";
         RefreshEditor();
     }
+
+    private void UndoZoneChange_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        UndoZoneChange();
+    }
+
+    private void RedoZoneChange_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        RedoZoneChange();
+    }
+
+    private void UndoZoneChange()
+    {
+        if (viewModel?.Editor is { } editor && editor.Undo())
+        {
+            viewModel.StatusMessage = "Letzte Änderung am Layout zurückgenommen";
+            RefreshEditor();
+        }
+    }
+
+    private void RedoZoneChange()
+    {
+        if (viewModel?.Editor is { } editor && editor.Redo())
+        {
+            viewModel.StatusMessage = "Änderung am Layout wiederhergestellt";
+            RefreshEditor();
+        }
+    }
+
+    private void EditorCanvas_DragStarted(object sender, EventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.Editor?.BeginInteractiveChange();
+    }
+
+    private void EditorCanvas_DragEnded(object sender, EventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.Editor?.EndInteractiveChange();
+    }
+
+    /// <summary>
+    /// Zeigt den Entwurf drei Sekunden lang auf dem echten Monitor, so wie das Overlay ihn beim Ziehen
+    /// zeigen wird. Der Controller uebernimmt die Anzeige, weil er die Overlays besitzt.
+    /// </summary>
+    private void PreviewLayout_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel?.Editor is null || viewModel.SelectedMonitor is null)
+        {
+            return;
+        }
+
+        if (!viewModel.Editor.IsValid)
+        {
+            viewModel.StatusMessage = "Der Entwurf ist ungültig und kann nicht angezeigt werden.";
+            return;
+        }
+
+        PreviewLayoutRequested?.Invoke(viewModel.SelectedMonitor.Live, viewModel.Editor.Zones);
+    }
+
+    /// <summary>Bittet darum, die Zonen des Entwurfs kurz auf dem Monitor zu zeigen.</summary>
+    public event Action<SnapZones.Core.Monitors.LiveMonitor, IReadOnlyList<ZoneDefinition>>? PreviewLayoutRequested;
 
     private void AddZone_Click(object sender, RoutedEventArgs eventArgs)
     {
@@ -472,7 +558,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Wechselt auf die Einstellungsseite; wird vom Infobereich aufgerufen.</summary>
-    public void ShowSettingsPage() => NavigationTabs.SelectedItem = SettingsTab;
+    public void ShowSettingsPage() => NavigationTabs.SelectedItem = ProgramTab;
 
     private void AppRuleDelete_Click(object sender, RoutedEventArgs eventArgs)
     {
@@ -680,14 +766,33 @@ public partial class MainWindow : Window
     private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs eventArgs)
     {
         _ = sender;
+        if (Keyboard.Modifiers == ModifierKeys.Control &&
+            eventArgs.Key is Key.Z or Key.Y &&
+            ReferenceEquals(NavigationTabs.SelectedItem, LayoutsTab) &&
+            Keyboard.FocusedElement is not System.Windows.Controls.TextBox)
+        {
+            if (eventArgs.Key == Key.Z)
+            {
+                UndoZoneChange();
+            }
+            else
+            {
+                RedoZoneChange();
+            }
+
+            eventArgs.Handled = true;
+            return;
+        }
+
         if (eventArgs.Key is not (Key.Left or Key.Right))
         {
             return;
         }
 
+        // Nur der fokussierte Regler reagiert auf Pfeiltasten. Frueher gewann der Regler unter dem
+        // Mauszeiger und verstellte sich, waehrend im Textfeld daneben der Cursor bewegt werden sollte.
         var sliders = new[] { OverlayOpacitySlider, ZoneGapSlider, MagnetThresholdSlider };
-        var target = sliders.FirstOrDefault(slider => slider.IsMouseOver)
-            ?? Keyboard.FocusedElement as Slider;
+        var target = Keyboard.FocusedElement as Slider;
         if (target is null || !sliders.Contains(target))
         {
             return;

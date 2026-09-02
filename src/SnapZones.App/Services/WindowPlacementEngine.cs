@@ -382,6 +382,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
 
     private void OnLifecycleEvent(WindowLifecycleEvent lifecycleEvent)
     {
+        log($"Lebenszyklus {lifecycleEvent.Kind} hwnd=0x{lifecycleEvent.WindowHandle:X}");
         switch (lifecycleEvent.Kind)
         {
             case WindowLifecycleEventKind.Shown:
@@ -1084,6 +1085,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
                 }
             }
 
+            log($"Zurücklegen hwnd=0x{windowHandle:X} Ziel={targetBounds} maximieren={maximize}");
             if (!windowService.TryPlace(windowHandle, targetBounds, maximize))
             {
                 return;

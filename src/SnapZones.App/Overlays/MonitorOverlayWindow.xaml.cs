@@ -84,8 +84,10 @@ public partial class MonitorOverlayWindow : Window
         var scaleX = 96d / target.Monitor.DpiX;
         var scaleY = 96d / target.Monitor.DpiY;
         var colour = (System.Windows.Media.Color)System.Windows.Media.ColorConverter.ConvertFromString(accent);
+        var number = 0;
         foreach (var zone in target.PartMonitors)
         {
+            number++;
             var pixels = ZoneGeometry.ToPixels(zone.Bounds, target.Monitor.WorkArea, metrics);
             var active = highlightedZoneIds.Contains(zone.Id);
             var rawWidth = pixels.Width * scaleX;
@@ -113,7 +115,8 @@ public partial class MonitorOverlayWindow : Window
                     CornerRadius = new CornerRadius(3),
                     Child = new TextBlock
                     {
-                        Text = zone.Name,
+                        // Nummer wie im Editor; sie ist zugleich die Taste in Ctrl + Alt + Nummer.
+                        Text = $"{number} · {zone.Name}",
                         Foreground = System.Windows.Media.Brushes.White,
                         FontFamily = new System.Windows.Media.FontFamily("Segoe UI Variable Text"),
                         FontSize = 13,

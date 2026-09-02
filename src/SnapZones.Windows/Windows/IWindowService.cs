@@ -39,4 +39,7 @@ public interface IWindowService : IPartMonitorWindowGateway
 
     /// <summary>Ob das Fenster noch existiert; Wachhund fuer ein waehrend des Ziehens zerstoertes Fenster.</summary>
     bool IsWindowAlive(nint window) => true;
+
+    /// <summary>Das Fenster im Vordergrund samt Rechteck, fuer Tastenkuerzel; null ohne geeignetes Fenster.</summary>
+    (nint Handle, PixelRect Bounds)? GetForegroundWindow() => null;
 }

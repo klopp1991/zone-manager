@@ -44,6 +44,8 @@ public sealed class ApplicationController : IDisposable
     private readonly IGlobalHotkeyService hotkeys;
     private readonly IWindowService windowService;
     private readonly OverlayManager overlays;
+    private readonly OverlayManager previewOverlays = new();
+    private readonly DispatcherTimer previewTimer;
     private readonly MonitorIdentificationOverlay monitorIdentification;
     private readonly TrayIconService tray;
     private readonly LayoutChangedToast toast = new();
@@ -180,6 +182,18 @@ public sealed class ApplicationController : IDisposable
         appRuleHook.RuleEvent += AppRuleHook_RuleEvent;
         appRuleHook.EmergencyStopped += reason => EmergencyStop($"App-Regel-Hook gestoppt: {reason}");
         placementHook.EmergencyStopped += reason => EmergencyStop($"Fensterplatzierungs-Hook gestoppt: {reason}");
+        hotkeys.ZoneHotkeyPressed += HandleZoneHotkey;
+        window.PreviewLayoutRequested += PreviewLayout;
+        previewTimer = new DispatcherTimer(DispatcherPriority.Normal, window.Dispatcher)
+        {
+            Interval = TimeSpan.FromSeconds(3)
+        };
+        previewTimer.Tick += (_, _) =>
+        {
+            previewTimer.Stop();
+            previewOverlays.HideAll();
+        };
+
         // Der Not-Aus ist ein Umschalter: einmal gedrueckt haelt er an, erneut gedrueckt laeuft es weiter.
         hotkeys.EmergencyStopRequested += () =>
         {
@@ -288,6 +302,9 @@ public sealed class ApplicationController : IDisposable
         placementEngine.Stop();
         placementHook.Dispose();
         overlays.Dispose();
+        previewTimer.Stop();
+        previewOverlays.Dispose();
+        window.PreviewLayoutRequested -= PreviewLayout;
         monitorIdentification.Dispose();
         toast.Close();
         saveCoordinator.SaveFinished -= SaveFinished;
@@ -905,10 +922,12 @@ public sealed class ApplicationController : IDisposable
             ? SnappingState.Paused
             : snappingEnabled ? SnappingState.Active : SnappingState.NoActiveLayout;
         tray.SetSnappingState(viewModel.SnappingStateLabel, paused: emergencyStopped);
-        var hotkeyResult = hotkeys.Configure(snappingEnabled || emergencyStopped);
+        // Zonenkuerzel nur, solange das Einrasten laeuft; der Not-Aus bleibt auch im Stopp erreichbar.
+        var hotkeyResult = hotkeys.Configure(snappingEnabled || emergencyStopped, snappingEnabled);
         if (hotkeyResult.Errors.Count > 0)
         {
             viewModel.StatusMessage = string.Join(" ", hotkeyResult.Errors);
+            log.Write("WARN", string.Join(" ", hotkeyResult.Errors));
         }
 
         if (snappingEnabled)
@@ -1273,6 +1292,83 @@ public sealed class ApplicationController : IDisposable
         {
             OfferElevationIfWindowIsOutOfReach(windowHandle);
         }
+    }
+
+    /// <summary>
+    /// Fuehrt ein Zonenkuerzel fuer das Vordergrundfenster aus. Die Zielrechnung liegt in
+    /// <see cref="ZoneHotkeyNavigator"/>, das Setzen im selben Befehlsdienst wie beim Ziehen.
+    /// </summary>
+    private void HandleZoneHotkey(ZoneHotkey hotkey)
+    {
+        log.Write("DEBUG", $"Tastenkürzel {hotkey.Action} {hotkey.ZoneNumber}");
+        if (coordinator is null || partMonitorCommands is null || emergencyStopped)
+        {
+            return;
+        }
+
+        if (windowService.GetForegroundWindow() is not { } foreground)
+        {
+            log.Write("DEBUG", "Tastenkürzel ohne geeignetes Vordergrundfenster.");
+            viewModel.StatusMessage = "Kein geeignetes Fenster im Vordergrund.";
+            return;
+        }
+
+        log.Write("DEBUG", $"Tastenkürzel für Vordergrundfenster 0x{foreground.Handle:X} bei {foreground.Bounds}");
+
+        var metrics = new LayoutMetrics(configuration.Settings.EffectiveOuterMargins, configuration.Settings.ZoneGap);
+        var command = ZoneHotkeyNavigator.Plan(hotkey, foreground.Handle, foreground.Bounds, BuildTargets(configuration), metrics);
+        if (command is null)
+        {
+            viewModel.StatusMessage = hotkey.Action == ZoneHotkeyAction.ZoneByNumber
+                ? $"Auf diesem Monitor gibt es keine Zone {hotkey.ZoneNumber}."
+                : "Für dieses Fenster gibt es kein Ziel.";
+            return;
+        }
+
+        var result = partMonitorCommands.Execute(command);
+        log.Write("DEBUG", $"Tastenkürzel-Befehl {command.GetType().Name} für 0x{foreground.Handle:X} bei {foreground.Bounds}: {result.Status}, Ziel {result.Placement?.Bounds}, gemessen {result.Outcome?.ActualBounds}");
+        if (result.Status == PartMonitorCommandStatus.NoPreviousPlacement)
+        {
+            viewModel.StatusMessage = "Für dieses Fenster ist keine vorherige Position bekannt.";
+            return;
+        }
+
+        ReportPlacement(foreground.Handle, result, $"Tastenkürzel: Fenster in Zone gesetzt ({hotkey.Action}).");
+        if (result.Status == PartMonitorCommandStatus.Successful && result.Placement is { } placement)
+        {
+            viewModel.StatusMessage = $"Fenster in Zone {ZoneNumberOf(placement)} gesetzt.";
+        }
+    }
+
+    private string ZoneNumberOf(PartMonitorPlacement placement)
+    {
+        var target = BuildTargets(configuration).FirstOrDefault(candidate =>
+            string.Equals(candidate.Monitor.Identity.StableId, placement.MonitorId, StringComparison.OrdinalIgnoreCase));
+        var index = target?.PartMonitors.ToList().FindIndex(zone => zone.Id == placement.PartMonitorId) ?? -1;
+        var name = target?.PartMonitors.ElementAtOrDefault(index)?.Name;
+        return index < 0 ? "?" : name is null ? $"{index + 1}" : $"{index + 1} · {name}";
+    }
+
+    /// <summary>Zeigt den Entwurf aus dem Editor drei Sekunden lang auf dem echten Monitor.</summary>
+    private void PreviewLayout(LiveMonitor monitor, IReadOnlyList<ZoneDefinition> zones)
+    {
+        if (!monitors.Any(candidate => LayoutService.BelongsToMonitor(candidate.Identity, monitor.Identity)))
+        {
+            viewModel.StatusMessage = "Dieser Monitor ist nicht verbunden; eine Vorschau ist nicht möglich.";
+            return;
+        }
+
+        previewTimer.Stop();
+        var target = new PartMonitorTarget(monitor, zones);
+        previewOverlays.UpdateTargets([target]);
+        previewOverlays.Show(
+            [monitor.Identity.StableId],
+            new LayoutMetrics(configuration.Settings.EffectiveOuterMargins, configuration.Settings.ZoneGap),
+            configuration.Settings.OverlayColor,
+            configuration.Settings.OverlayOpacity,
+            configuration.Settings.ShowZoneNames);
+        previewTimer.Start();
+        viewModel.StatusMessage = "Vorschau des Entwurfs wird drei Sekunden lang angezeigt.";
     }
 
     private void ActivateLayout(Guid layoutId)

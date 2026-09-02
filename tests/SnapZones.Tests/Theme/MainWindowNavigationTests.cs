@@ -22,7 +22,7 @@ public sealed class MainWindowNavigationTests
             var tabs = Assert.Single(root.Children.OfType<TabControl>());
 
             Assert.Equal(
-                ["Monitore", "Layouts", "Regeln", "Ausschlüsse", "Skalierung", "Einstellungen", "Import & Export"],
+                ["Monitore", "Layouts", "Regeln", "Ausschlüsse", "Verhalten", "Programm"],
                 tabs.Items.OfType<TabItem>().Select(item => item.Header?.ToString() ?? string.Empty).ToArray());
             Assert.Equal("Layouts", Assert.IsType<TabItem>(tabs.SelectedItem).Header);
         });

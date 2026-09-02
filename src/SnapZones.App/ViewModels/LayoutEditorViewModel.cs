@@ -43,6 +43,8 @@ public sealed class LayoutEditorViewModel : ViewModelBase
             : $"Hauptzone dieses Layouts ist «{Zones.First(zone => zone.Id == session.MainZoneId).Name}».";
     public bool IsDirty => session.IsDirty;
     public bool IsValid => session.Validation.IsValid;
+    public bool CanUndo => session.CanUndo;
+    public bool CanRedo => session.CanRedo;
     public bool CanSave => IsDirty && session.Validation.IsValid;
     public string ValidationMessage => session.Validation.IsValid
         ? string.Empty
@@ -228,6 +230,37 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         NotifyConfigurationChanged();
     }
 
+    /// <summary>Klammert die Aenderungen eines Mausziehens zu einem Verlaufseintrag.</summary>
+    public void BeginInteractiveChange() => session.BeginInteraction();
+
+    public void EndInteractiveChange()
+    {
+        session.EndInteraction();
+        NotifyStateChanged();
+    }
+
+    /// <summary>Nimmt die letzte Aenderung zurueck; die Auswahl bleibt, wenn es die Zone noch gibt.</summary>
+    public bool Undo() => Travel(session.Undo);
+
+    public bool Redo() => Travel(session.Redo);
+
+    private bool Travel(Func<bool> step)
+    {
+        if (!step())
+        {
+            return false;
+        }
+
+        if (selectedZoneId is null || Zones.All(zone => zone.Id != selectedZoneId))
+        {
+            selectedZoneId = Zones.FirstOrDefault()?.Id;
+        }
+
+        NotifyStateChanged();
+        NotifyConfigurationChanged();
+        return true;
+    }
+
     public MonitorLayout CreateSnapshot() => session.CreateSnapshot();
 
     private void NotifyStateChanged()
@@ -240,6 +273,8 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         OnPropertyChanged(nameof(MainZoneStateText));
         OnPropertyChanged(nameof(IsDirty));
         OnPropertyChanged(nameof(IsValid));
+        OnPropertyChanged(nameof(CanUndo));
+        OnPropertyChanged(nameof(CanRedo));
         OnPropertyChanged(nameof(CanSave));
         OnPropertyChanged(nameof(ValidationMessage));
     }

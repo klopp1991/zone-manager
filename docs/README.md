@@ -64,6 +64,9 @@ Ausschlüsse zum selben Ergebnis führen.
 ## Layouteditor
 
 - **+ Zone** belegt die grösste freie achsenparallele Fläche; ohne ausreichenden freien Bereich wird nichts verändert.
+- **Rückgängig** und **Wiederholen** (auch `Strg + Z` / `Strg + Y`) nehmen jede Änderung am Entwurf zurück; ein Mausziehen zählt als eine Änderung. Eine Vorlage fragt nach, bevor sie ein Layout mit mehreren Zonen ersetzt.
+- **Auf dem Monitor zeigen** blendet den Entwurf drei Sekunden lang auf dem echten Monitor ein, genau so, wie das Overlay ihn beim Ziehen zeigen wird.
+- Jede Zone trägt vor ihrem Namen eine Nummer (`1 · Links`); dieselbe Nummer steht im Overlay und ist die Taste in `Ctrl + Alt + Nummer`.
 - Zonen docken innerhalb der eingestellten Magnetdistanz an Monitor- und Zonenkanten an; `Alt` deaktiviert den Magnetismus während des Ziehens.
 - Die Karte **Ausgewählte Zone** schaltet die **Masseinheit** an einer einzigen Stelle um; die Umschaltung gilt gemeinsam für alle acht Zahlenfelder. **Prozent** bleibt bei Auflösungsänderungen proportional; **Pixel** bezieht sich auf die aktuelle Windows-Arbeitsfläche des Monitors.
 - **Position und Grösse** bearbeitet X, Y, Breite und Höhe; **Abstände zum Rand** beschreibt dieselbe Zone von den vier Rändern aus.
@@ -166,6 +169,8 @@ Die Seite **Skalierung** liest die erkannten Werte des gewählten Monitors aus �
 Ändern lassen sich diese Werte nur in Windows selbst. Windows 11 stellt normalen Desktopanwendungen keine unterstützte Schnittstelle bereit, um Anzeigeskalierung, Textskalierung oder monitorweise Taskleisten- und Icongrössen zu setzen. Benutzerdefinierte Windows-Skalierung von 100 bis 500 % und Textskalierung von 100 bis 225 % sind zudem globale Windows-Einstellungen. Sascha’s Zone Manager verwendet dafür bewusst keine Explorer-Injektion, keine privaten DPI-Pakete und keine undokumentierten Registry-Werte; die Seite bleibt deshalb lesend.
 
 ## Einstellungen
+
+Seit dem 02.09.2026 sind die Einstellungen auf zwei Seiten verteilt: **Verhalten** (Beim Ziehen, Darstellung, Abstände, Fenster merken, Tastenkürzel) und **Programm** (Erscheinungsbild, Autostart, Updates, Rechte, Installation, Fensterhelfer, Sicherung). Die Skalierungswerte stehen auf der Seite **Monitore**, Export und Import unter **Programm → Sicherung**. Die Navigation hat damit sechs Seiten.
 
 - System-, helles oder dunkles Theme; Systemänderungen werden ohne Neustart übernommen.
 - **Zonen anzeigen auf** bestimmt, wo die Zonen beim Ziehen erscheinen:
@@ -304,6 +309,21 @@ der lokalen Maschine schreiben. Gearbeitet wird über die Windows-eigene PowerSh
 **Entfernen** nimmt das Zertifikat aus allen drei Speichern. Der Helfer startet danach nicht mehr, und das
 Programm fragt bei Bedarf wieder nach eigenen Administratorrechten.
 
+## Tastenkürzel
+
+Die Kürzel sind fest und wirken auf das Fenster im Vordergrund; sie gelten nur, solange das Einrasten aktiv ist.
+Belegt ein anderes Programm ein Kürzel bereits, meldet die Statuszeile das beim Start.
+
+| Kürzel | Wirkung |
+|---|---|
+| `Ctrl + Alt + Links` / `Rechts` | Fenster eine Zone zurück oder weiter, über Monitorgrenzen hinweg. Liegt es in keiner Zone, beginnt es bei der ersten beziehungsweise letzten Zone seines Monitors. |
+| `Ctrl + Alt + 1` bis `9` | Fenster in die Zone mit dieser Nummer auf seinem Monitor. |
+| `Ctrl + Alt + Rücktaste` | Fenster zurück an die Stelle vor dem letzten Einrasten. |
+| `Ctrl + Alt + Shift + F12` | Einrasten anhalten und wieder starten (Not-Aus). |
+| `Strg + Z` / `Strg + Y` | Im Layouteditor: Änderung zurücknehmen oder wiederherstellen. |
+
+Die Seite **Verhalten** listet dieselben Kürzel.
+
 ## Not-Aus und Schutzschalter
 
 `Ctrl + Alt + Shift + F12` schaltet das Einrasten um: einmal gedrückt legt es Hook und Overlays still, erneut
@@ -349,7 +369,7 @@ Die Diagnose liest Konfigurationsstatus, Monitore, DPI und Autostartstatus. Sie 
 - Nicht rechteckige oder überlappende Zonen und virtuelle Desktops sind noch nicht enthalten.
 - Zwei baugleiche Monitore ohne Seriennummer in der EDID werden nach einem Umstecken nicht wiedererkannt; ihre Layouts bleiben als «nicht verbunden» stehen.
 - Updates werden nur auf Anstoss oder beim Start gesucht, nie im Hintergrund während des Betriebs.
-- Die geladene Programmdatei wird an Herkunft und Grösse geprüft, nicht an einer digitalen Signatur.
+- Die geladene Programmdatei wird an Herkunft, Grösse und der SHA-256-Prüfsumme aus `ZoneManager.exe.sha256` derselben Veröffentlichung geprüft, nicht an einer digitalen Signatur. Eine Veröffentlichung ohne Prüfsummendatei wird nicht geladen.
 - Die gemerkten Fensterpositionen lassen sich nur gesamthaft verwerfen, nicht einzeln ansehen oder löschen.
 - Eigene Layouts können nicht über eine dokumentierte API in das native Windows-Snap-Popup eingefügt werden; die Anwendung verwendet ein eigenes Overlay.
 - Der Prototyp ist nicht digital signiert und kann beim ersten Start eine Windows-Sicherheitswarnung auslösen.

@@ -33,7 +33,8 @@ Der Lauf schliesst eine Per-Monitor-DPI-Prüfung ein, die die Oberfläche starte
 - Administratorrechte nur auf Bedarf: Start ohne Abfrage, Nachfrage höchstens einmal je Sitzung und nur, wenn ein Fenster sie wirklich verlangt
 - Wahlweise ein signierter Fensterhelfer mit `uiAccess`: auch Fenster höher berechtigter Programme rasten ein, ohne dass das Programm selbst je Administratorrechte bekommt
 - Monitorerkennung über Displaypfad und EDID-Daten; umgesteckte Monitore werden an Modell und Seriennummer wiedererkannt, Monitorwechsel zur Laufzeit werden ohne Neustart übernommen, und je Monitorkombination bleibt die zuletzt aktive Layoutauswahl gemerkt
-- Update aus dem Programm heraus: Suche auf Anstoss oder beim Start, Download nur aus der Release-Ablage über HTTPS, Austausch der laufenden Programmdatei mit Rückfall auf den alten Stand
+- Update aus dem Programm heraus: Suche auf Anstoss oder beim Start, Download nur aus der Release-Ablage über HTTPS mit Prüfung der SHA-256-Prüfsumme (`ZoneManager.exe.sha256`), Austausch der laufenden Programmdatei mit Rückfall auf den alten Stand
+- Tastenkürzel für das Vordergrundfenster (`Ctrl + Alt + Links/Rechts`, `Ctrl + Alt + 1..9`, `Ctrl + Alt + Rücktaste`), Rückgängig und Wiederholen im Layouteditor, Zonennummern in Editor und Overlay, Vorschau des Entwurfs auf dem echten Monitor
 - Regeln nach Prozess, optionalem Fenstertitel und Fensterklasse mit Ereignis, Verzögerung, Wiederholungen und Zielzone; das Programm wird über den Dateidialog oder aus der Liste der laufenden Programme gewählt
 - Ausschlüsse nach denselben Merkmalen: ein ausgeschlossenes Fenster bekommt kein Overlay, rastet nicht ein, wird von keiner Regel bewegt und behält dauerhaft eigene Grösse und Position
 
@@ -66,13 +67,13 @@ Ein Release entsteht auf `main` mit sauberem Arbeitsbaum:
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\publish-release.ps1
 ```
 
-Das Skript schreibt die nächste Version des Tages nach `Directory.Build.props`, führt `scripts\verify.ps1` aus (`-SkipDpiCheck` reicht den Schalter durch, wenn keine interaktive Sitzung für die UAC-Abfrage der DPI-Prüfung bereitsteht), committet die Versionsdatei, setzt den Tag `v<Version>`, pusht beides und erstellt das GitHub-Release mit `ZoneManager.exe` als Anhang. Dafür braucht es ein angemeldetes [GitHub CLI](https://cli.github.com/) (`gh auth login`) oder ein Token in `GH_TOKEN`; fehlt beides, bleiben Commit und Tag bestehen und das Skript nennt den Befehl zum Nachholen.
+Das Skript schreibt die nächste Version des Tages nach `Directory.Build.props`, führt `scripts\verify.ps1` aus (`-SkipDpiCheck` reicht den Schalter durch, wenn keine interaktive Sitzung für die UAC-Abfrage der DPI-Prüfung bereitsteht), committet die Versionsdatei, setzt den Tag `v<Version>`, pusht beides und erstellt das GitHub-Release mit `ZoneManager.exe` und der Prüfsummendatei `ZoneManager.exe.sha256` als Anhänge; ohne die Prüfsummendatei lädt das Programm kein Update. Dafür braucht es ein angemeldetes [GitHub CLI](https://cli.github.com/) (`gh auth login`) oder ein Token in `GH_TOKEN`; fehlt beides, bleiben Commit und Tag bestehen und das Skript nennt den Befehl zum Nachholen.
 
 Nur die Version setzen, ohne zu veröffentlichen: `scripts\set-version.ps1` (mit `-WhatIfOnly` als reine Vorschau). Die erzeugte `Directory.Build.props` wird nicht von Hand bearbeitet. Assemblys können keine führenden Nullen speichern; `AssemblyVersion` und `FileVersion` tragen deshalb `2026.831.1`, während die angezeigte Version `2026.0831.01` lautet.
 
 ## Sicherheit und Einschränkungen
 
-Die Anwendung verwendet keinen Treiber, keinen Windows-Dienst und keine Code-Injektion. Sie unterstützt nur Windows 11 x64, ist nicht digital signiert und kann deshalb beim ersten Start eine Sicherheitswarnung auslösen. Aus demselben Grund prüft die Updatefunktion die geladene Datei nur an Herkunft und Grösse. Das native Windows-Snap-Popup kann nicht über eine dokumentierte API um eigene Zonen erweitert werden; Sascha’s Zone Manager verwendet dafür ein eigenes Overlay.
+Die Anwendung verwendet keinen Treiber, keinen Windows-Dienst und keine Code-Injektion. Sie unterstützt nur Windows 11 x64, ist nicht digital signiert und kann deshalb beim ersten Start eine Sicherheitswarnung auslösen. Die Updatefunktion prüft die geladene Datei an Herkunft, Grösse und der SHA-256-Prüfsumme der Veröffentlichung; eine Veröffentlichung ohne `ZoneManager.exe.sha256` wird nicht geladen. Das native Windows-Snap-Popup kann nicht über eine dokumentierte API um eigene Zonen erweitert werden; Sascha’s Zone Manager verwendet dafür ein eigenes Overlay.
 
 Weitere Bedienungs- und Architekturdetails stehen in [docs/README.md](docs/README.md), der [Kurzanleitung](outputs/ZoneManager-Kurzanleitung.md) und dem [Prüfbericht](outputs/ZoneManager-Pruefbericht.md). Für Änderungen an der Oberfläche gelten verbindlich die [UI-Richtlinien](docs/ui-richtlinien.md).
 

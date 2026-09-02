@@ -26,6 +26,7 @@ public sealed class GitHubReleaseFeed : IReleaseFeed
         "https://api.github.com/repos/klopp1991/zone-manager/releases/latest";
 
     private const string AssetName = "ZoneManager.exe";
+    private const string ChecksumAssetName = "ZoneManager.exe.sha256";
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(15);
     private readonly Func<HttpClient> clientFactory;
     private readonly string endpoint;
@@ -76,30 +77,48 @@ public sealed class GitHubReleaseFeed : IReleaseFeed
             return null;
         }
 
+        string? downloadUrl = null;
+        string? checksumUrl = null;
+        long sizeInBytes = 0;
         foreach (var asset in assets.EnumerateArray())
         {
             if (asset.ValueKind != JsonValueKind.Object ||
                 !asset.TryGetProperty("name", out var name) ||
                 name.ValueKind != JsonValueKind.String ||
-                !string.Equals(name.GetString(), AssetName, StringComparison.OrdinalIgnoreCase) ||
                 !asset.TryGetProperty("browser_download_url", out var url) ||
-                url.ValueKind != JsonValueKind.String ||
-                !asset.TryGetProperty("size", out var size) ||
-                !size.TryGetInt64(out var sizeInBytes))
+                url.ValueKind != JsonValueKind.String)
             {
                 continue;
             }
 
-            var notes = root.TryGetProperty("body", out var body) && body.ValueKind == JsonValueKind.String
-                ? body.GetString()
-                : null;
-            return new ReleaseDescription(
-                tag.GetString() ?? string.Empty,
-                url.GetString() ?? string.Empty,
-                sizeInBytes,
-                notes);
+            if (string.Equals(name.GetString(), ChecksumAssetName, StringComparison.OrdinalIgnoreCase))
+            {
+                checksumUrl = url.GetString();
+                continue;
+            }
+
+            if (string.Equals(name.GetString(), AssetName, StringComparison.OrdinalIgnoreCase) &&
+                asset.TryGetProperty("size", out var size) &&
+                size.TryGetInt64(out var parsedSize))
+            {
+                downloadUrl = url.GetString();
+                sizeInBytes = parsedSize;
+            }
         }
 
-        return null;
+        if (downloadUrl is null)
+        {
+            return null;
+        }
+
+        var notes = root.TryGetProperty("body", out var body) && body.ValueKind == JsonValueKind.String
+            ? body.GetString()
+            : null;
+        return new ReleaseDescription(
+            tag.GetString() ?? string.Empty,
+            downloadUrl,
+            sizeInBytes,
+            notes,
+            checksumUrl);
     }
 }

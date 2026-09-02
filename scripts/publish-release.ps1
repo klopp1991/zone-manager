@@ -112,8 +112,8 @@ $ghCommand = Get-Command gh -ErrorAction SilentlyContinue
 if ($null -eq $ghCommand) {
     Write-Warning @"
 GitHub CLI (gh) ist nicht installiert. Commit und Tag sind gepusht; das Release fehlt noch.
-Nachholen: gh release create $($version.Tag) "$executablePath" --title "Zone Manager $($version.DisplayVersion)"
-oder auf github.com unter Releases den Tag $($version.Tag) waehlen und ZoneManager.exe anhaengen.
+Nachholen: gh release create $($version.Tag) "$executablePath" "$executablePath.sha256" --title "Zone Manager $($version.DisplayVersion)"
+oder auf github.com unter Releases den Tag $($version.Tag) waehlen und ZoneManager.exe samt ZoneManager.exe.sha256 anhaengen.
 "@
     return
 }
@@ -129,10 +129,17 @@ gh release create $($version.Tag) "$executablePath" --title "Zone Manager $($ver
     return
 }
 
+# Die Pruefsumme ist Pflicht: das Programm laedt ein Update nur, wenn die Veroeffentlichung
+# ZoneManager.exe.sha256 traegt und der Inhalt zur geladenen Datei passt.
+$checksumPath = "$executablePath.sha256"
+$hash = (Get-FileHash -LiteralPath $executablePath -Algorithm SHA256).Hash.ToLowerInvariant()
+Set-Content -LiteralPath $checksumPath -Value "$hash *ZoneManager.exe" -Encoding ascii
+Write-Host "CHECKSUM sha256=$hash -> $checksumPath"
+
 $notesFile = New-TemporaryFile
 try {
     Set-Content -LiteralPath $notesFile -Value $Notes -Encoding utf8NoBOM
-    & gh release create $version.Tag $executablePath `
+    & gh release create $version.Tag $executablePath $checksumPath `
         --repo (Invoke-Git @('config', '--get', 'remote.origin.url')) `
         --title "Zone Manager $($version.DisplayVersion)" `
         --notes-file $notesFile

@@ -142,28 +142,37 @@
                             <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="8">
                                 <Grid>
                                     <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-                                    <Grid x:Name="LayoutEditorToolbar" MinHeight="62" Margin="18,0">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="8" />
-                                            <ColumnDefinition Width="Auto" /><ColumnDefinition Width="8" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="{Binding SelectedLayout.Name, StringFormat=Layout: {0}}" Style="{StaticResource SectionTitle}"
-                                                   VerticalAlignment="Center" Margin="0" />
-                                        <Button Grid.Column="1" x:Name="AddZoneButton" Content="+ Zone" Click="AddZone_Click"
-                                                Style="{StaticResource PrimaryButton}" Margin="0" VerticalAlignment="Center"
-                                                AutomationProperties.Name="Neue Zone hinzufügen"
-                                                ToolTip="Fügt in der grössten freien Fläche eine neue Zone hinzu." />
-                                        <Button Grid.Column="3" x:Name="DeleteZoneButton" Content="Auswahl löschen" Click="DeleteZone_Click"
-                                                Margin="0" VerticalAlignment="Center" AutomationProperties.Name="Ausgewählte Zone löschen"
-                                                ToolTip="Löscht die aktuell ausgewählte Zone." />
-                                        <Button Grid.Column="5" Style="{StaticResource InfoButton}" Margin="0" VerticalAlignment="Center"
-                                                AutomationProperties.Name="Hilfe zur Layoutbearbeitung"
-                                                ToolTip="Ziehe eine Zone oder ihre Ränder und Ecken. Gemeinsame Kanten verschieben beide Zonen gleichzeitig. Blaue Hilfslinien zeigen das Andocken; mit Alt pausierst du es." />
-                                    </Grid>
+                                    <DockPanel x:Name="LayoutEditorToolbar" MinHeight="62" Margin="18,8,18,0" LastChildFill="True">
+                                        <TextBlock DockPanel.Dock="Left" Text="{Binding SelectedLayout.Name, StringFormat=Layout: {0}}" Style="{StaticResource SectionTitle}"
+                                                   VerticalAlignment="Center" Margin="0,0,16,6" MaxWidth="320" TextTrimming="CharacterEllipsis" />
+                                        <WrapPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                            <Button x:Name="AddZoneButton" Content="+ Zone" Click="AddZone_Click"
+                                                    Style="{StaticResource PrimaryButton}" Margin="0,0,8,6" VerticalAlignment="Center"
+                                                    AutomationProperties.Name="Neue Zone hinzufügen"
+                                                    ToolTip="Fügt in der grössten freien Fläche eine neue Zone hinzu." />
+                                            <Button x:Name="DeleteZoneButton" Content="Auswahl löschen" Click="DeleteZone_Click"
+                                                    Margin="0,0,8,6" VerticalAlignment="Center" AutomationProperties.Name="Ausgewählte Zone löschen"
+                                                    ToolTip="Löscht die aktuell ausgewählte Zone." />
+                                            <Button x:Name="UndoZoneChangeButton" Content="Rückgängig" Click="UndoZoneChange_Click"
+                                                    Margin="0,0,8,6" VerticalAlignment="Center" IsEnabled="{Binding Editor.CanUndo}"
+                                                    AutomationProperties.Name="Letzte Änderung am Layout zurücknehmen"
+                                                    ToolTip="Nimmt die letzte Änderung am Entwurf zurück (Strg + Z)." />
+                                            <Button x:Name="RedoZoneChangeButton" Content="Wiederholen" Click="RedoZoneChange_Click"
+                                                    Margin="0,0,8,6" VerticalAlignment="Center" IsEnabled="{Binding Editor.CanRedo}"
+                                                    AutomationProperties.Name="Zurückgenommene Änderung wiederherstellen"
+                                                    ToolTip="Stellt eine zurückgenommene Änderung wieder her (Strg + Y)." />
+                                            <Button x:Name="PreviewLayoutButton" Content="Auf dem Monitor zeigen" Click="PreviewLayout_Click"
+                                                    Margin="0,0,8,6" VerticalAlignment="Center"
+                                                    AutomationProperties.Name="Entwurf drei Sekunden lang auf dem Monitor zeigen"
+                                                    ToolTip="Zeigt die Zonen des Entwurfs drei Sekunden lang auf dem echten Monitor, genau so, wie das Overlay sie beim Ziehen zeigen wird." />
+                                            <Button Style="{StaticResource InfoButton}" Margin="0,0,8,6" VerticalAlignment="Center"
+                                                    AutomationProperties.Name="Hilfe zur Layoutbearbeitung"
+                                                    ToolTip="Ziehe eine Zone oder ihre Ränder und Ecken. Gemeinsame Kanten verschieben beide Zonen gleichzeitig. Blaue Hilfslinien zeigen das Andocken; mit Alt pausierst du es." />
+                                        </WrapPanel>
+                                    </DockPanel>
                                     <controls:LayoutCanvas Grid.Row="1" x:Name="EditorCanvas" MinHeight="390" ZoneSelected="EditorCanvas_ZoneSelected"
-                                                           ZoneChanged="EditorCanvas_ZoneChanged" AutomationProperties.Name="Layout-Editor" />
+                                                           ZoneChanged="EditorCanvas_ZoneChanged" DragStarted="EditorCanvas_DragStarted"
+                                                           DragEnded="EditorCanvas_DragEnded" AutomationProperties.Name="Layout-Editor" />
                                 </Grid>
                             </Border>
                         </Grid>
@@ -716,24 +725,9 @@
                                 </StackPanel>
                             </Border>
                         </Grid>
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
-
-            <TabItem x:Name="ScalingTab" Header="Skalierung">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="38,30" MaxWidth="1060" HorizontalAlignment="Left">
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                            <TextBlock Text="Skalierung" Style="{StaticResource PageTitle}" />
-                            <Button Style="{StaticResource InfoButton}" VerticalAlignment="Center" AutomationProperties.Name="Hilfe zur Skalierung"
-                                    ToolTip="Diese Seite liest die tatsächlich erkannten Monitorwerte aus und öffnet die zuständige Windows-Seite. Windows stellt für Anzeigeskalierung, Textgrösse und Taskleiste keine unterstützte Schnittstelle bereit, mit der ein fremdes Programm diese Werte selbst setzen dürfte; nicht unterstützte Registry- und Explorer-Eingriffe werden bewusst nicht verwendet." />
-                        </StackPanel>
+                        <TextBlock Text="Skalierung und Anzeige" Style="{StaticResource SectionTitle}" Margin="0,28,0,6" />
                         <TextBlock Text="Sascha’s Zone Manager liest hier die erkannten Werte des gewählten Monitors und führt dich direkt zur passenden Windows-Einstellung. Ändern lassen sich die Werte nur in Windows selbst – dafür gibt es keine unterstützte Programmierschnittstelle."
-                                   Style="{StaticResource HelpText}" Margin="0,0,0,22" />
-                        <StackPanel Orientation="Horizontal" Margin="0,0,0,18">
-                            <TextBlock Text="Monitor" Style="{StaticResource FieldLabel}" Margin="0,0,12,0" VerticalAlignment="Center" />
-                            <ComboBox ItemsSource="{Binding Monitors}" SelectedItem="{Binding SelectedMonitor}" ItemTemplate="{StaticResource MonitorItemTemplate}" Width="360" />
-                        </StackPanel>
+                                   Style="{StaticResource HelpText}" Margin="0,0,0,14" />
                         <Border Style="{StaticResource SectionCard}">
                             <StackPanel>
                                 <TextBlock Text="Erkannte Werte" Style="{StaticResource SectionTitle}" />
@@ -806,127 +800,19 @@
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem x:Name="SettingsTab" Header="Einstellungen">
-                <ScrollViewer x:Name="SettingsScroller" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
-                              HorizontalContentAlignment="Stretch">
-                    <StackPanel x:Name="SettingsContent" Margin="38,30" HorizontalAlignment="Stretch">
+            <TabItem x:Name="BehaviourTab" Header="Verhalten">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch">
+                    <StackPanel x:Name="BehaviourContent" Margin="38,30" HorizontalAlignment="Stretch">
                         <StackPanel Margin="0,0,0,24">
                             <StackPanel Orientation="Horizontal">
-                                <TextBlock Text="Einstellungen" Style="{StaticResource PageTitle}" />
-                                <Button Style="{StaticResource InfoButton}" VerticalAlignment="Center" AutomationProperties.Name="Hilfe zu den Einstellungen"
-                                        ToolTip="Änderungen werden automatisch gespeichert und sofort übernommen." />
+                                <TextBlock Text="Verhalten" Style="{StaticResource PageTitle}" />
                             </StackPanel>
-                            <TextBlock Text="Passe das Programm und die Anzeige beim Ziehen von Fenstern an. Änderungen werden sofort gespeichert."
+                            <TextBlock Text="Lege fest, wie Fenster beim Ziehen und beim Öffnen behandelt werden. Änderungen werden sofort gespeichert."
                                        Style="{StaticResource HelpText}" Margin="0,8,0,0" />
                         </StackPanel>
                         <Grid>
                             <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0">
-                                <Border Style="{StaticResource SectionCard}">
-                                    <StackPanel>
-                                        <TextBlock Text="Programm" Style="{StaticResource SectionTitle}" />
-                                        <TextBlock Text="Lege fest, wie das Programm aussieht und wann es startet."
-                                                   Style="{StaticResource HelpText}" />
-                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
-                                            <TextBlock Text="Erscheinungsbild" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
-                                            <Button x:Name="ThemeInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Theme"
-                                                    ToolTip="Windows-System folgt automatisch dem App-Modus von Windows. Hell oder Dunkel überschreibt diese Auswahl nur für Sascha’s Zone Manager." />
-                                        </StackPanel>
-                                        <ComboBox ItemsSource="{Binding Settings.ThemeModes}" SelectedItem="{Binding Settings.ThemeMode}" ItemTemplate="{StaticResource EnumItemTemplate}" SelectionChanged="Theme_SelectionChanged" />
-                                        <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
-                                            <CheckBox Content="Mit Windows starten" IsChecked="{Binding Settings.StartWithWindows}" />
-                                            <Button x:Name="StartWithWindowsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Autostart"
-                                                    ToolTip="Legt eine Anmeldeaufgabe der Windows-Aufgabenplanung nur für den aktuellen Benutzer an. Sie startet das Programm bereits erhöht, sodass bei der Anmeldung keine UAC-Abfrage erscheint. Ein Windows-Dienst und ein Treiber werden dafür nicht gebraucht. Lässt sich die Aufgabe nicht anlegen, weicht das Programm auf den bisherigen Registry-Eintrag aus; dann erscheint die Abfrage bei jeder Anmeldung wieder." />
-                                        </StackPanel>
-                                        <TextBlock Text="Startet das Programm nach der Windows-Anmeldung automatisch, ohne UAC-Abfrage."
-                                                   Style="{StaticResource HelpText}" Margin="0,4,0,0" />
-                                        <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
-                                            <CheckBox x:Name="RememberWindowPositionsCheckBox" Content="Fensterpositionen merken"
-                                                      IsChecked="{Binding Settings.RememberWindowPositions}"
-                                                      AutomationProperties.Name="Fensterpositionen merken" />
-                                            <Button x:Name="RememberWindowPositionsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Merken von Fensterpositionen"
-                                                    ToolTip="Merkt sich für jedes eingerastete Fenster den Monitor, die Zone und das Fensterrechteck und legt es beim nächsten Öffnen wieder dorthin. Ändert sich die Auflösung, wird die Lage anteilig umgerechnet. Erkannt wird ein Fenster an Programm, Fensterklasse und Fensterart, nicht am Titel; mehrere Fenster desselben Programms teilen sich deshalb einen Eintrag. Ausgeschlossene Fenster werden nie gemerkt." />
-                                        </StackPanel>
-                                        <TextBlock Text="{Binding RememberedWindowSummary}"
-                                                   Style="{StaticResource HelpText}" Margin="0,4,0,0"
-                                                   AutomationProperties.Name="Anzahl gemerkter Fensterpositionen" />
-                                        <Button x:Name="ForgetWindowPositionsButton" Content="Gemerkte Positionen verwerfen"
-                                                Click="ForgetWindowPositions_Click" HorizontalAlignment="Left" Margin="0,10,0,0"
-                                                IsEnabled="{Binding HasRememberedWindows}"
-                                                AutomationProperties.Name="Gemerkte Fensterpositionen verwerfen"
-                                                ToolTip="Löscht sämtliche gemerkten Positionen. Danach erscheint jedes Fenster wieder dort, wo Windows selbst es platziert." />
-                                    </StackPanel>
-                                </Border>
-                                <Border Style="{StaticResource SectionCard}">
-                                    <StackPanel>
-                                        <TextBlock Text="Updates" Style="{StaticResource SectionTitle}" />
-                                        <TextBlock Margin="0,14,0,0" Style="{StaticResource HelpText}">
-                                            <Run Text="Installierte Version:" />
-                                            <Run Text="{Binding ProductVersion, Mode=OneWay}" FontWeight="SemiBold" />
-                                        </TextBlock>
-                                        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
-                                            <CheckBox x:Name="CheckForUpdatesOnStartCheckBox" Content="Beim Start nach Updates suchen"
-                                                      IsChecked="{Binding Settings.CheckForUpdatesOnStart}"
-                                                      AutomationProperties.Name="Beim Start nach Updates suchen" />
-                                            <Button x:Name="UpdateInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Updates"
-                                                    ToolTip="Die Suche fragt die Veröffentlichungen des Projekts ab und sendet dabei nichts ausser der Anfrage selbst – keine Version, keine Rechnerkennung, keine Zählung. Sie ist deshalb voreingestellt aus und läuft sonst nur, wenn du sie selbst anstösst. Heruntergeladen wird ausschliesslich aus der Release-Ablage des Projekts über HTTPS; ein Verweis auf eine andere Adresse wird abgelehnt." />
-                                        </StackPanel>
-                                        <TextBlock x:Name="UpdateStatusText" Text="{Binding UpdateStatus}" Style="{StaticResource HelpText}" Margin="0,10,0,0"
-                                                   TextWrapping="Wrap" AutomationProperties.Name="Ergebnis der Updatesuche" />
-                                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
-                                            <Button x:Name="CheckForUpdatesButton" Content="Nach Updates suchen"
-                                                    Click="CheckForUpdates_Click" Margin="0,0,8,0"
-                                                    IsEnabled="{Binding CanCheckForUpdates}"
-                                                    AutomationProperties.Name="Nach Updates suchen" />
-                                            <Button x:Name="InstallUpdateButton" Content="Update installieren und neu starten"
-                                                    Style="{StaticResource PrimaryButton}" Click="InstallUpdate_Click" Margin="0"
-                                                    IsEnabled="{Binding CanInstallUpdate}"
-                                                    AutomationProperties.Name="Update installieren und neu starten"
-                                                    ToolTip="Lädt die neue Programmdatei, legt sie an die Stelle der laufenden und startet das Programm neu. Die bisherige Datei bleibt bis zum nächsten Start als Sicherung daneben liegen." />
-                                        </StackPanel>
-                                    </StackPanel>
-                                </Border>
-                                <Border Style="{StaticResource SectionCard}">
-                                    <StackPanel>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="Rechte" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" />
-                                            <Button x:Name="ElevationInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu den Rechten"
-                                                    ToolTip="Windows teilt laufende Programme in Vertrauensstufen ein. Ein Programm darf nur Fenster verschieben, die derselben oder einer niedrigeren Stufe angehören. Alltägliche Fenster wie Browser, Editor oder Explorer gehören zur gewöhnlichen Stufe; der Taskmanager, der Registrierungs-Editor und alles «als Administrator» Gestartete stehen darüber. Nur für diese zweite Gruppe braucht Sascha's Zone Manager selbst Administratorrechte." />
-                                        </StackPanel>
-                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,14,0,0" TextWrapping="Wrap"
-                                                   Text="Fast alle Fenster lassen sich ohne besondere Rechte einrasten. Nur Fenster von Programmen, die mit Administratorrechten laufen, brauchen sie ebenfalls – das betrifft im Alltag wenige Fenster." />
-                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
-                                            <TextBlock Text="Administratorrechte anfordern" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
-                                        </StackPanel>
-                                        <ComboBox x:Name="ElevationModeSelector" ItemsSource="{Binding Settings.ElevationModes}"
-                                                  SelectedItem="{Binding Settings.ElevationMode}"
-                                                  ItemTemplate="{StaticResource EnumItemTemplate}"
-                                                  AutomationProperties.Name="Wann Administratorrechte angefordert werden" />
-                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,6,0,0" TextWrapping="Wrap"
-                                                   Text="Nur wenn nötig: Das Programm startet ohne Abfrage. Trifft es später auf ein Fenster, das es nicht bewegen darf, fragt es einmal je Sitzung nach. Das ist die sichere Wahl, weil ein Fehler im Programm sich nicht zu Administratorrechten ausweiten kann." />
-                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,6,0,0" TextWrapping="Wrap"
-                                                   Text="Immer beim Start: Bei jedem Start erscheint die Windows-Abfrage, dafür nie wieder im Betrieb. Sinnvoll, wenn du täglich Fenster von Programmen mit Administratorrechten einrastest." />
-                                        <TextBlock x:Name="ElevationHintText" Style="{StaticResource HelpText}" Margin="0,10,0,0" TextWrapping="Wrap"
-                                                   Text="Die Umstellung wirkt beim nächsten Start: ein laufendes Programm kann seine Rechte weder ablegen noch nachträglich erweitern. Ist der Autostart eingeschaltet, wird die Anmeldeaufgabe mit umgestellt."
-                                                   AutomationProperties.Name="Hinweis zur Wirksamkeit" />
-                                    </StackPanel>
-                                </Border>
-                                <Border Style="{StaticResource SectionCard}">
-                                    <StackPanel>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="Installation" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" />
-                                            <Button x:Name="InstallInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Installation"
-                                                    ToolTip="Kopiert die Programmdatei nach «Programme», legt eine Verknüpfung im Startmenue an und traegt das Programm in «Apps und Features» ein. Von dort lässt es sich wie jedes andere Programm entfernen; die Einstellungen unter %APPDATA%\SnapZones bleiben dabei erhalten. Ohne Installation läuft das Programm aus dem Verzeichnis, in dem die Datei liegt – das genügt, ist aber im Downloadordner unaufgeraeumt." />
-                                        </StackPanel>
-                                        <TextBlock x:Name="InstallationStatusText" Text="{Binding InstallationStatus}"
-                                                   Style="{StaticResource HelpText}" Margin="0,14,0,0" TextWrapping="Wrap"
-                                                   AutomationProperties.Name="Installationsstatus" />
-                                        <Button x:Name="InstallButton" Content="Nach «Programme» installieren"
-                                                Click="Install_Click" HorizontalAlignment="Left" Margin="0,12,0,0"
-                                                IsEnabled="{Binding CanInstall}"
-                                                AutomationProperties.Name="Nach Programme installieren" />
-                                    </StackPanel>
-                                </Border>
                                 <Border Style="{StaticResource SectionCard}">
                                     <StackPanel>
                                         <TextBlock Text="Beim Ziehen" Style="{StaticResource SectionTitle}" />
@@ -1000,57 +886,6 @@
                                 </Border>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
-                                <Border Style="{StaticResource SectionCard}">
-                                    <StackPanel>
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBlock Text="Fensterhelfer ohne Administratorrechte" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" TextWrapping="Wrap" />
-                                            <Button x:Name="CertificateInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Fensterhelfer"
-                                                    ToolTip="Windows kennt eine Ausnahme namens uiAccess: ein Programm darf höher berechtigte Fenster bewegen, ohne selbst Administratorrechte zu besitzen. Es verlangt dafür zwingend eine gültige digitale Signatur und einen geschützten Installationsort. Ein öffentlich anerkanntes Zertifikat kostet mehrere hundert Euro im Jahr und verlangt einen Hardware-Token. Für den eigenen Rechner genügt ein selbst ausgestelltes Zertifikat, dem dieser Rechner vertraut – genau das richtet diese Seite ein." />
-                                        </StackPanel>
-
-                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,14,0,0" TextWrapping="Wrap"
-                                                   Text="Diese Einrichtung ist freiwillig. Ohne sie funktioniert alles wie beschrieben; nur für Fenster von Programmen mit Administratorrechten fragt Sascha's Zone Manager dann nach eigenen Administratorrechten." />
-
-                                        <TextBlock Text="Was hier eingerichtet wird" Style="{StaticResource GroupTitle}" Margin="0,18,0,0" />
-                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
-                                                   Text="Erstens ein eigenes Zertifikat, also ein digitaler Ausweis, den dein Rechner selbst ausstellt. Zweitens wird damit ein kleines Zusatzprogramm unterschrieben – der Fensterhelfer. Er liegt neben dem Hauptprogramm, ist rund zehnmal kleiner und kann genau eine Sache: ein Fenster an eine bestimmte Stelle setzen. Er liest keine Dateien, startet nichts und nimmt nur vom Hauptprogramm Befehle entgegen." />
-
-                                        <TextBlock Text="Was du damit gewinnst" Style="{StaticResource GroupTitle}" Margin="0,18,0,0" />
-                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
-                                                   Text="Auch Fenster von Programmen mit Administratorrechten – Taskmanager, Registrierungs-Editor, alles «als Administrator» Gestartete – rasten dann ein, und zwar ohne dass Sascha's Zone Manager selbst jemals Administratorrechte bekommt. Es erscheint keine UAC-Abfrage mehr." />
-
-                                        <TextBlock Text="Was du dafür in Kauf nimmst" Style="{StaticResource GroupTitle}" Margin="0,18,0,0" />
-                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
-                                                   Text="Dein Rechner vertraut anschliessend allem, was mit diesem Zertifikat unterschrieben wurde. Der zugehörige geheime Schlüssel liegt auf dieser Maschine. Wer ihn stiehlt, könnte Schadsoftware so unterschreiben, dass Windows sie für vertrauenswürdig hält. Zwei Dinge halten das klein: das Zertifikat ist selbst keine Ausgabestelle und kann keine weiteren Zertifikate erzeugen, und sein Schlüssel lässt sich nicht exportieren. Ein Restrisiko bleibt – deshalb steht das hier und nicht im Kleingedruckten." />
-                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,6,0,0" TextWrapping="Wrap"
-                                                   Text="Das Zertifikat gilt nur auf diesem Rechner. Gibst du das Programm weiter, müsste der Empfänger dein Zertifikat installieren – dazu solltest du niemanden auffordern." />
-
-                                        <TextBlock Text="Voraussetzungen" Style="{StaticResource GroupTitle}" Margin="0,18,0,0" />
-                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
-                                                   Text="Das Programm muss nach «Programme» installiert sein – Windows akzeptiert uiAccess nur aus einem geschützten Verzeichnis. Das Einrichten selbst braucht einmalig Administratorrechte, weil es in den Zertifikatspeicher des Rechners schreibt." />
-
-                                        <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
-                                            <TextBlock Text="Zertifikat" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
-                                            <TextBlock x:Name="CertificateStateText" Text="{Binding CertificateStateLabel}"
-                                                       Style="{StaticResource FieldLabel}" Margin="8,0,0,0" VerticalAlignment="Center"
-                                                       Foreground="{DynamicResource MutedBrush}"
-                                                       AutomationProperties.Name="Zustand des Zertifikats in zwei Worten" />
-                                        </StackPanel>
-                                        <TextBlock x:Name="CertificateStatusText" Text="{Binding CertificateStatus}"
-                                                   Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
-                                                   AutomationProperties.Name="Zustand des Zertifikats" />
-                                        <TextBlock Text="Fensterhelfer" Style="{StaticResource FieldLabel}" Margin="0,12,0,0" />
-                                        <TextBlock x:Name="HelperStatusText" Text="{Binding HelperStatus}"
-                                                   Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
-                                                   AutomationProperties.Name="Zustand des Fensterhelfers" />
-
-                                        <Button x:Name="CertificateActionButton" Content="{Binding CertificateActionLabel}"
-                                                Click="CertificateAction_Click" HorizontalAlignment="Left" Margin="0,14,0,0"
-                                                IsEnabled="{Binding CanToggleCertificate}"
-                                                ToolTip="{Binding CertificateActionHint}"
-                                                AutomationProperties.Name="{Binding CertificateActionLabel}" />
-                                    </StackPanel>
-                                </Border>
                                 <Border Style="{StaticResource SectionCard}">
                                     <StackPanel>
                                         <StackPanel Orientation="Horizontal">
@@ -1128,22 +963,224 @@
                                         </Grid>
                                     </StackPanel>
                                 </Border>
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <TextBlock Text="Fenster merken" Style="{StaticResource SectionTitle}" />
+                                        <TextBlock Text="Ein einmal platziertes Fenster kehrt beim nächsten Öffnen in seine Zone zurück."
+                                                   Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                                            <CheckBox x:Name="RememberWindowPositionsCheckBox" Content="Fensterpositionen merken"
+                                                      IsChecked="{Binding Settings.RememberWindowPositions}"
+                                                      AutomationProperties.Name="Fensterpositionen merken" />
+                                            <Button x:Name="RememberWindowPositionsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Merken von Fensterpositionen"
+                                                    ToolTip="Merkt sich für jedes eingerastete Fenster den Monitor, die Zone und das Fensterrechteck und legt es beim nächsten Öffnen wieder dorthin. Ändert sich die Auflösung, wird die Lage anteilig umgerechnet. Erkannt wird ein Fenster an Programm, Fensterklasse und Fensterart, nicht am Titel; mehrere Fenster desselben Programms teilen sich deshalb einen Eintrag. Ausgeschlossene Fenster werden nie gemerkt." />
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding RememberedWindowSummary}"
+                                                   Style="{StaticResource HelpText}" Margin="0,4,0,0"
+                                                   AutomationProperties.Name="Anzahl gemerkter Fensterpositionen" />
+                                        <Button x:Name="ForgetWindowPositionsButton" Content="Gemerkte Positionen verwerfen"
+                                                Click="ForgetWindowPositions_Click" HorizontalAlignment="Left" Margin="0,10,0,0"
+                                                IsEnabled="{Binding HasRememberedWindows}"
+                                                AutomationProperties.Name="Gemerkte Fensterpositionen verwerfen"
+                                                ToolTip="Löscht sämtliche gemerkten Positionen. Danach erscheint jedes Fenster wieder dort, wo Windows selbst es platziert." />
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Tastenkürzel" Style="{StaticResource SectionTitle}" />
+                                            <Button x:Name="ShortcutsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Tastenkürzeln"
+                                                    ToolTip="Die Kürzel wirken auf das Fenster, das gerade im Vordergrund ist, und gelten nur, solange das Einrasten aktiv ist. Die Nummer einer Zone steht im Layouteditor und im Overlay vor ihrem Namen. Belegt ein anderes Programm ein Kürzel bereits, meldet die Statuszeile das beim Start." />
+                                        </StackPanel>
+                                        <TextBlock Text="Feste Kürzel für das Fenster im Vordergrund. Änderbar sind sie nicht."
+                                                   Style="{StaticResource HelpText}" />
+                                        <Grid Margin="0,14,0,0">
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="18" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                            <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>
+                                            <TextBlock Grid.Row="0" Text="Ctrl + Alt + Links / Rechts" Style="{StaticResource FieldLabel}" Margin="0,0,0,6" />
+                                            <TextBlock Grid.Row="0" Grid.Column="2" Text="Fenster eine Zone zurück oder weiter, über Monitorgrenzen hinweg." TextWrapping="Wrap" />
+                                            <TextBlock Grid.Row="1" Text="Ctrl + Alt + 1 bis 9" Style="{StaticResource FieldLabel}" Margin="0,0,0,6" />
+                                            <TextBlock Grid.Row="1" Grid.Column="2" Text="Fenster in die Zone mit dieser Nummer auf seinem Monitor." TextWrapping="Wrap" />
+                                            <TextBlock Grid.Row="2" Text="Ctrl + Alt + Rücktaste" Style="{StaticResource FieldLabel}" Margin="0,0,0,6" />
+                                            <TextBlock Grid.Row="2" Grid.Column="2" Text="Fenster zurück an die Stelle vor dem letzten Einrasten." TextWrapping="Wrap" />
+                                            <TextBlock Grid.Row="3" Text="Ctrl + Alt + Shift + F12" Style="{StaticResource FieldLabel}" Margin="0,0,0,6" />
+                                            <TextBlock Grid.Row="3" Grid.Column="2" Text="Einrasten anhalten und wieder starten (Not-Aus)." TextWrapping="Wrap" />
+                                            <TextBlock Grid.Row="4" Text="Strg + Z / Strg + Y" Style="{StaticResource FieldLabel}" Margin="0,0,0,6" />
+                                            <TextBlock Grid.Row="4" Grid.Column="2" Text="Im Layouteditor: Änderung zurücknehmen oder wiederherstellen." TextWrapping="Wrap" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
                             </StackPanel>
                         </Grid>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
 
-            <TabItem x:Name="TransferTab" Header="Import &amp; Export">
-                <ScrollViewer VerticalScrollBarVisibility="Auto">
-                    <StackPanel Margin="38,30" MaxWidth="940" HorizontalAlignment="Left">
-                        <TextBlock Text="Import &amp; Export" Style="{StaticResource PageTitle}" Margin="0,0,0,8" />
-                        <TextBlock Text="Sichere die vollständige Konfiguration in einer Datei oder ersetze sie durch eine zuvor exportierte Konfiguration."
-                                   Style="{StaticResource HelpText}" Margin="0,0,0,22" />
-                        <UniformGrid Columns="2">
-                            <Border Style="{StaticResource SectionCard}" Margin="0,0,10,0">
+            <TabItem x:Name="ProgramTab" Header="Programm">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalContentAlignment="Stretch">
+                    <StackPanel x:Name="SettingsContent" Margin="38,30" HorizontalAlignment="Stretch">
+                        <StackPanel Margin="0,0,0,24">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Programm" Style="{StaticResource PageTitle}" />
+                            </StackPanel>
+                            <TextBlock Text="Erscheinungsbild, Autostart, Rechte, Updates und Installation des Programms. Änderungen werden sofort gespeichert."
+                                       Style="{StaticResource HelpText}" Margin="0,8,0,0" />
+                        </StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="12" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                            <StackPanel Grid.Column="0">
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <TextBlock Text="Programm" Style="{StaticResource SectionTitle}" />
+                                        <TextBlock Text="Lege fest, wie das Programm aussieht und wann es startet."
+                                                   Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Erscheinungsbild" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                            <Button x:Name="ThemeInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Theme"
+                                                    ToolTip="Windows-System folgt automatisch dem App-Modus von Windows. Hell oder Dunkel überschreibt diese Auswahl nur für Sascha’s Zone Manager." />
+                                        </StackPanel>
+                                        <ComboBox ItemsSource="{Binding Settings.ThemeModes}" SelectedItem="{Binding Settings.ThemeMode}" ItemTemplate="{StaticResource EnumItemTemplate}" SelectionChanged="Theme_SelectionChanged" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                                            <CheckBox Content="Mit Windows starten" IsChecked="{Binding Settings.StartWithWindows}" />
+                                            <Button x:Name="StartWithWindowsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Autostart"
+                                                    ToolTip="Legt eine Anmeldeaufgabe der Windows-Aufgabenplanung nur für den aktuellen Benutzer an. Sie startet das Programm bereits erhöht, sodass bei der Anmeldung keine UAC-Abfrage erscheint. Ein Windows-Dienst und ein Treiber werden dafür nicht gebraucht. Lässt sich die Aufgabe nicht anlegen, weicht das Programm auf den bisherigen Registry-Eintrag aus; dann erscheint die Abfrage bei jeder Anmeldung wieder." />
+                                        </StackPanel>
+                                        <TextBlock Text="Startet das Programm nach der Windows-Anmeldung automatisch, ohne UAC-Abfrage."
+                                                   Style="{StaticResource HelpText}" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <TextBlock Text="Updates" Style="{StaticResource SectionTitle}" />
+                                        <TextBlock Margin="0,14,0,0" Style="{StaticResource HelpText}">
+                                            <Run Text="Installierte Version:" />
+                                            <Run Text="{Binding ProductVersion, Mode=OneWay}" FontWeight="SemiBold" />
+                                        </TextBlock>
+                                        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+                                            <CheckBox x:Name="CheckForUpdatesOnStartCheckBox" Content="Beim Start nach Updates suchen"
+                                                      IsChecked="{Binding Settings.CheckForUpdatesOnStart}"
+                                                      AutomationProperties.Name="Beim Start nach Updates suchen" />
+                                            <Button x:Name="UpdateInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Updates"
+                                                    ToolTip="Die Suche fragt die Veröffentlichungen des Projekts ab und sendet dabei nichts ausser der Anfrage selbst – keine Version, keine Rechnerkennung, keine Zählung. Sie ist deshalb voreingestellt aus und läuft sonst nur, wenn du sie selbst anstösst. Heruntergeladen wird ausschliesslich aus der Release-Ablage des Projekts über HTTPS; ein Verweis auf eine andere Adresse wird abgelehnt." />
+                                        </StackPanel>
+                                        <TextBlock x:Name="UpdateStatusText" Text="{Binding UpdateStatus}" Style="{StaticResource HelpText}" Margin="0,10,0,0"
+                                                   TextWrapping="Wrap" AutomationProperties.Name="Ergebnis der Updatesuche" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                                            <Button x:Name="CheckForUpdatesButton" Content="Nach Updates suchen"
+                                                    Click="CheckForUpdates_Click" Margin="0,0,8,0"
+                                                    IsEnabled="{Binding CanCheckForUpdates}"
+                                                    AutomationProperties.Name="Nach Updates suchen" />
+                                            <Button x:Name="InstallUpdateButton" Content="Update installieren und neu starten"
+                                                    Style="{StaticResource PrimaryButton}" Click="InstallUpdate_Click" Margin="0"
+                                                    IsEnabled="{Binding CanInstallUpdate}"
+                                                    AutomationProperties.Name="Update installieren und neu starten"
+                                                    ToolTip="Lädt die neue Programmdatei, legt sie an die Stelle der laufenden und startet das Programm neu. Die bisherige Datei bleibt bis zum nächsten Start als Sicherung daneben liegen." />
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Rechte" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" />
+                                            <Button x:Name="ElevationInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu den Rechten"
+                                                    ToolTip="Windows teilt laufende Programme in Vertrauensstufen ein. Ein Programm darf nur Fenster verschieben, die derselben oder einer niedrigeren Stufe angehören. Alltägliche Fenster wie Browser, Editor oder Explorer gehören zur gewöhnlichen Stufe; der Taskmanager, der Registrierungs-Editor und alles «als Administrator» Gestartete stehen darüber. Nur für diese zweite Gruppe braucht Sascha's Zone Manager selbst Administratorrechte." />
+                                        </StackPanel>
+                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,14,0,0" TextWrapping="Wrap"
+                                                   Text="Fast alle Fenster lassen sich ohne besondere Rechte einrasten. Nur Fenster von Programmen, die mit Administratorrechten laufen, brauchen sie ebenfalls – das betrifft im Alltag wenige Fenster." />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Administratorrechte anfordern" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <ComboBox x:Name="ElevationModeSelector" ItemsSource="{Binding Settings.ElevationModes}"
+                                                  SelectedItem="{Binding Settings.ElevationMode}"
+                                                  ItemTemplate="{StaticResource EnumItemTemplate}"
+                                                  AutomationProperties.Name="Wann Administratorrechte angefordert werden" />
+                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                                   Text="Nur wenn nötig: Das Programm startet ohne Abfrage. Trifft es später auf ein Fenster, das es nicht bewegen darf, fragt es einmal je Sitzung nach. Das ist die sichere Wahl, weil ein Fehler im Programm sich nicht zu Administratorrechten ausweiten kann." />
+                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                                   Text="Immer beim Start: Bei jedem Start erscheint die Windows-Abfrage, dafür nie wieder im Betrieb. Sinnvoll, wenn du täglich Fenster von Programmen mit Administratorrechten einrastest." />
+                                        <TextBlock x:Name="ElevationHintText" Style="{StaticResource HelpText}" Margin="0,10,0,0" TextWrapping="Wrap"
+                                                   Text="Die Umstellung wirkt beim nächsten Start: ein laufendes Programm kann seine Rechte weder ablegen noch nachträglich erweitern. Ist der Autostart eingeschaltet, wird die Anmeldeaufgabe mit umgestellt."
+                                                   AutomationProperties.Name="Hinweis zur Wirksamkeit" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Installation" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" />
+                                            <Button x:Name="InstallInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Installation"
+                                                    ToolTip="Kopiert die Programmdatei nach «Programme», legt eine Verknüpfung im Startmenue an und traegt das Programm in «Apps und Features» ein. Von dort lässt es sich wie jedes andere Programm entfernen; die Einstellungen unter %APPDATA%\SnapZones bleiben dabei erhalten. Ohne Installation läuft das Programm aus dem Verzeichnis, in dem die Datei liegt – das genügt, ist aber im Downloadordner unaufgeraeumt." />
+                                        </StackPanel>
+                                        <TextBlock x:Name="InstallationStatusText" Text="{Binding InstallationStatus}"
+                                                   Style="{StaticResource HelpText}" Margin="0,14,0,0" TextWrapping="Wrap"
+                                                   AutomationProperties.Name="Installationsstatus" />
+                                        <Button x:Name="InstallButton" Content="Nach «Programme» installieren"
+                                                Click="Install_Click" HorizontalAlignment="Left" Margin="0,12,0,0"
+                                                IsEnabled="{Binding CanInstall}"
+                                                AutomationProperties.Name="Nach Programme installieren" />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="Fensterhelfer ohne Administratorrechte" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" TextWrapping="Wrap" />
+                                            <Button x:Name="CertificateInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Fensterhelfer"
+                                                    ToolTip="Windows kennt eine Ausnahme namens uiAccess: ein Programm darf höher berechtigte Fenster bewegen, ohne selbst Administratorrechte zu besitzen. Es verlangt dafür zwingend eine gültige digitale Signatur und einen geschützten Installationsort. Ein öffentlich anerkanntes Zertifikat kostet mehrere hundert Euro im Jahr und verlangt einen Hardware-Token. Für den eigenen Rechner genügt ein selbst ausgestelltes Zertifikat, dem dieser Rechner vertraut – genau das richtet diese Seite ein." />
+                                        </StackPanel>
+
+                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,14,0,0" TextWrapping="Wrap"
+                                                   Text="Diese Einrichtung ist freiwillig. Ohne sie funktioniert alles wie beschrieben; nur für Fenster von Programmen mit Administratorrechten fragt Sascha's Zone Manager dann nach eigenen Administratorrechten." />
+
+                                        <TextBlock Text="Was hier eingerichtet wird" Style="{StaticResource GroupTitle}" Margin="0,18,0,0" />
+                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                                   Text="Erstens ein eigenes Zertifikat, also ein digitaler Ausweis, den dein Rechner selbst ausstellt. Zweitens wird damit ein kleines Zusatzprogramm unterschrieben – der Fensterhelfer. Er liegt neben dem Hauptprogramm, ist rund zehnmal kleiner und kann genau eine Sache: ein Fenster an eine bestimmte Stelle setzen. Er liest keine Dateien, startet nichts und nimmt nur vom Hauptprogramm Befehle entgegen." />
+
+                                        <TextBlock Text="Was du damit gewinnst" Style="{StaticResource GroupTitle}" Margin="0,18,0,0" />
+                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                                   Text="Auch Fenster von Programmen mit Administratorrechten – Taskmanager, Registrierungs-Editor, alles «als Administrator» Gestartete – rasten dann ein, und zwar ohne dass Sascha's Zone Manager selbst jemals Administratorrechte bekommt. Es erscheint keine UAC-Abfrage mehr." />
+
+                                        <TextBlock Text="Was du dafür in Kauf nimmst" Style="{StaticResource GroupTitle}" Margin="0,18,0,0" />
+                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                                   Text="Dein Rechner vertraut anschliessend allem, was mit diesem Zertifikat unterschrieben wurde. Der zugehörige geheime Schlüssel liegt auf dieser Maschine. Wer ihn stiehlt, könnte Schadsoftware so unterschreiben, dass Windows sie für vertrauenswürdig hält. Zwei Dinge halten das klein: das Zertifikat ist selbst keine Ausgabestelle und kann keine weiteren Zertifikate erzeugen, und sein Schlüssel lässt sich nicht exportieren. Ein Restrisiko bleibt – deshalb steht das hier und nicht im Kleingedruckten." />
+                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,6,0,0" TextWrapping="Wrap"
+                                                   Text="Das Zertifikat gilt nur auf diesem Rechner. Gibst du das Programm weiter, müsste der Empfänger dein Zertifikat installieren – dazu solltest du niemanden auffordern." />
+
+                                        <TextBlock Text="Voraussetzungen" Style="{StaticResource GroupTitle}" Margin="0,18,0,0" />
+                                        <TextBlock Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                                   Text="Das Programm muss nach «Programme» installiert sein – Windows akzeptiert uiAccess nur aus einem geschützten Verzeichnis. Das Einrichten selbst braucht einmalig Administratorrechte, weil es in den Zertifikatspeicher des Rechners schreibt." />
+
+                                        <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                                            <TextBlock Text="Zertifikat" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                            <TextBlock x:Name="CertificateStateText" Text="{Binding CertificateStateLabel}"
+                                                       Style="{StaticResource FieldLabel}" Margin="8,0,0,0" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource MutedBrush}"
+                                                       AutomationProperties.Name="Zustand des Zertifikats in zwei Worten" />
+                                        </StackPanel>
+                                        <TextBlock x:Name="CertificateStatusText" Text="{Binding CertificateStatus}"
+                                                   Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                                   AutomationProperties.Name="Zustand des Zertifikats" />
+                                        <TextBlock Text="Fensterhelfer" Style="{StaticResource FieldLabel}" Margin="0,12,0,0" />
+                                        <TextBlock x:Name="HelperStatusText" Text="{Binding HelperStatus}"
+                                                   Style="{StaticResource HelpText}" Margin="0,4,0,0" TextWrapping="Wrap"
+                                                   AutomationProperties.Name="Zustand des Fensterhelfers" />
+
+                                        <Button x:Name="CertificateActionButton" Content="{Binding CertificateActionLabel}"
+                                                Click="CertificateAction_Click" HorizontalAlignment="Left" Margin="0,14,0,0"
+                                                IsEnabled="{Binding CanToggleCertificate}"
+                                                ToolTip="{Binding CertificateActionHint}"
+                                                AutomationProperties.Name="{Binding CertificateActionLabel}" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <TextBlock Text="Sicherung" Style="{StaticResource SectionTitle}" />
+                                        <TextBlock Text="Sichere die vollständige Konfiguration in einer Datei oder ersetze sie durch eine zuvor exportierte Konfiguration. Beide Wege sind gleichrangig."
+                                                   Style="{StaticResource HelpText}" Margin="0,0,0,12" />
+                        <StackPanel>
+                            <Border Style="{StaticResource FieldGroup}" Margin="0,0,0,10">
                                 <StackPanel>
-                                    <TextBlock Text="Konfiguration exportieren" Style="{StaticResource SectionTitle}" />
+                                    <TextBlock Text="Konfiguration exportieren" Style="{StaticResource GroupTitle}" />
                                     <TextBlock Text="Erstellt ein vollständiges Backup mit Einstellungen, Monitorlayouts und Zonen."
                                                Style="{StaticResource HelpText}" Margin="0,8,0,18" />
                                     <Button x:Name="ExportConfigurationButton" Content="Vollständig exportieren"
@@ -1151,9 +1188,9 @@
                                             Margin="0" HorizontalAlignment="Left" AutomationProperties.Name="Vollständig exportieren" />
                                 </StackPanel>
                             </Border>
-                            <Border Style="{StaticResource SectionCard}" Margin="10,0,0,0">
+                            <Border Style="{StaticResource FieldGroup}" Margin="0">
                                 <StackPanel>
-                                    <TextBlock Text="Konfiguration importieren" Style="{StaticResource SectionTitle}" />
+                                    <TextBlock Text="Konfiguration importieren" Style="{StaticResource GroupTitle}" />
                                     <TextBlock Text="Prüft ein vollständiges Backup und ersetzt die aktuelle Konfiguration erst nach Bestätigung."
                                                Style="{StaticResource HelpText}" Margin="0,8,0,18" />
                                     <Button x:Name="ImportConfigurationButton" Content="Vollständig importieren"
@@ -1162,7 +1199,11 @@
                                             AutomationProperties.Name="Vollständig importieren" />
                                 </StackPanel>
                             </Border>
-                        </UniformGrid>
+                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Grid>
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

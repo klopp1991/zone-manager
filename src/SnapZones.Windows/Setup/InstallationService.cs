@@ -151,14 +151,35 @@ public sealed class InstallationService
     /// </summary>
     private static void CopyOverwritingRunningFile(string sourcePath, string targetPath)
     {
+        string? supersededPath = null;
         if (File.Exists(targetPath))
         {
-            var supersededPath =
-                $"{targetPath}.previous.{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
+            supersededPath = $"{targetPath}.previous.{DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()}";
             File.Move(targetPath, supersededPath);
         }
 
-        File.Copy(sourcePath, targetPath, overwrite: false);
+        try
+        {
+            File.Copy(sourcePath, targetPath, overwrite: false);
+        }
+        catch
+        {
+            // Scheitert das Kopieren (Platte voll, Virenscanner), kehrt die alte Datei an ihren Platz
+            // zurueck. Frueher blieb die Installation ohne Programmdatei zurueck, und der naechste Start
+            // raeumte die beiseitegeschobene Kopie endgueltig weg.
+            if (supersededPath is not null && !File.Exists(targetPath))
+            {
+                try
+                {
+                    File.Move(supersededPath, targetPath);
+                }
+                catch (Exception restoreException) when (restoreException is IOException or UnauthorizedAccessException)
+                {
+                }
+            }
+
+            throw;
+        }
     }
 
     private static void RegisterUninstall(InstallationPlan plan, string version)
