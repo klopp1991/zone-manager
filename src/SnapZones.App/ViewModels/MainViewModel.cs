@@ -24,6 +24,8 @@ public sealed class MainViewModel : ViewModelBase
     private string helperStatus = string.Empty;
     private bool isCertificateInstalled;
     private bool suppressPersistence;
+    private SnappingState snappingState = SnappingState.NoActiveLayout;
+    private string? pauseReason;
 
     public MainViewModel(SnapConfiguration configuration, IReadOnlyList<LiveMonitor> monitors)
     {
@@ -61,6 +63,45 @@ public sealed class MainViewModel : ViewModelBase
 
     /// <summary>Bittet darum, das eigene Zertifikat wieder zu entfernen.</summary>
     public event Action? CertificateRemoveRequested;
+
+    /// <summary>Bittet darum, das Einrasten nach einem Not-Aus oder Sicherheitsstopp wieder einzuschalten.</summary>
+    public event Action? ResumeSnappingRequested;
+
+    /// <summary>
+    /// Zustand der Snap-Funktion, wie ihn Statuszeile und Infobereich zeigen. Wird vom Controller
+    /// nachgefuehrt; frueher gab es keinerlei sichtbaren Hinweis darauf, dass ein Not-Aus das Einrasten
+    /// bis zum Neustart abgeschaltet hatte.
+    /// </summary>
+    public SnappingState SnappingState
+    {
+        get => snappingState;
+        set
+        {
+            if (SetProperty(ref snappingState, value))
+            {
+                OnPropertyChanged(nameof(SnappingStateLabel));
+                OnPropertyChanged(nameof(IsSnappingPaused));
+            }
+        }
+    }
+
+    /// <summary>Warum das Einrasten pausiert ist, im Klartext; leer, solange es laeuft.</summary>
+    public string? PauseReason
+    {
+        get => pauseReason;
+        set => SetProperty(ref pauseReason, value);
+    }
+
+    public bool IsSnappingPaused => snappingState == SnappingState.Paused;
+
+    public string SnappingStateLabel => snappingState switch
+    {
+        SnappingState.Active => "Einrasten aktiv",
+        SnappingState.Paused => "Einrasten pausiert",
+        _ => "Kein aktives Layout"
+    };
+
+    public void ResumeSnapping() => ResumeSnappingRequested?.Invoke();
 
     public ObservableCollection<MonitorChoice> Monitors { get; }
     public ObservableCollection<MonitorLayout> Layouts { get; }

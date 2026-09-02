@@ -80,6 +80,11 @@ public sealed class WindowsMonitorService : IMonitorService
             friendlyName,
             displayPaths);
         displayPaths.TryGetValue(info.DeviceName, out var displayPath);
+        var bounds = new PixelRect(
+            info.Monitor.Left,
+            info.Monitor.Top,
+            info.Monitor.Right - info.Monitor.Left,
+            info.Monitor.Bottom - info.Monitor.Top);
         return new LiveMonitor(
             identity,
             workArea,
@@ -87,6 +92,7 @@ public sealed class WindowsMonitorService : IMonitorService
             dpiY,
             (info.Flags & User32.MonitorInfoPrimary) != 0,
             displayPath?.PhysicalWidthCentimeters,
-            displayPath?.PhysicalHeightCentimeters);
+            displayPath?.PhysicalHeightCentimeters,
+            bounds);
     }
 }

@@ -214,7 +214,6 @@ public sealed class SettingsViewModel : ViewModelBase
 
     public AppSettings CreateSettings() => new(
         ActiveProfileId: Guid.Empty,
-        SnappingEnabled: false,
         StartWithWindows: StartWithWindows,
         OverlayScope: OverlayScope,
         TriggerMode: TriggerMode,

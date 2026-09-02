@@ -153,7 +153,7 @@ public sealed class LazyElevationTests
             Assert.Equal(
                 "Settings.ElevationMode",
                 selector.GetBindingExpression(Selector.SelectedItemProperty)!.ParentBinding.Path.Path);
-            Assert.Contains("naechsten Start", hint.Text, StringComparison.Ordinal);
+            Assert.Contains("nächsten Start", hint.Text, StringComparison.Ordinal);
 
             var tooltip = Assert.IsType<string>(help.ToolTip);
             Assert.True(tooltip.Length >= 120);

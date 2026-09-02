@@ -464,6 +464,16 @@ public partial class MainWindow : Window
         viewModel?.AppRules.AddRule();
     }
 
+    private void ResumeSnapping_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.ResumeSnapping();
+    }
+
+    /// <summary>Wechselt auf die Einstellungsseite; wird vom Infobereich aufgerufen.</summary>
+    public void ShowSettingsPage() => NavigationTabs.SelectedItem = SettingsTab;
+
     private void AppRuleDelete_Click(object sender, RoutedEventArgs eventArgs)
     {
         _ = sender;
@@ -783,7 +793,7 @@ public partial class MainWindow : Window
 
         var scalePercent = Math.Round(monitor.DpiX / 96d * 100);
         ScalingFactorText.Text = $"{scalePercent:0} %";
-        ScalingResolutionText.Text = $"{monitor.WorkArea.Width} × {monitor.WorkArea.Height}";
+        ScalingResolutionText.Text = $"{monitor.MonitorBounds.Width} × {monitor.MonitorBounds.Height}";
         ScalingWorkAreaText.Text = $"{monitor.WorkArea.Width} × {monitor.WorkArea.Height} px";
         ScalingPhysicalSizeText.Text = PhysicalSizeText(monitor);
         WindowsScaleText.Text =

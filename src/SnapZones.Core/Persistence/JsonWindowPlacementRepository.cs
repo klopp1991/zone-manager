@@ -21,6 +21,7 @@ public sealed class JsonWindowPlacementRepository : IWindowPlacementRepository
 
     public async Task<WindowPlacementLoadResult> LoadAsync(CancellationToken cancellationToken)
     {
+        StaleTemporaryFiles.Remove(directoryPath, "placements.*.tmp");
         var primaryPath = Path.Combine(directoryPath, PrimaryFileName);
         if (!File.Exists(primaryPath))
         {

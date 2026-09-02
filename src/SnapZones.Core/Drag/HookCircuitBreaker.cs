@@ -46,6 +46,17 @@ public sealed class HookCircuitBreaker
         return IsTripped;
     }
 
+    /// <summary>
+    /// Macht den Schutzschalter wieder scharf. Wird beim erneuten Aktivieren eines Hooks aufgerufen,
+    /// damit ein einmal ausgeloester Stopp nicht bis zum Programmneustart bestehen bleibt.
+    /// </summary>
+    public void Reset()
+    {
+        IsTripped = false;
+        Reason = null;
+        events.Clear();
+    }
+
     public void Trip(Exception? exception)
     {
         IsTripped = true;

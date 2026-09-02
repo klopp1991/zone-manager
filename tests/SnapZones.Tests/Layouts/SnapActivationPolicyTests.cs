@@ -7,25 +7,15 @@ namespace SnapZones.Tests.Layouts;
 public sealed class SnapActivationPolicyTests
 {
     [Fact]
-    public void Active_layout_enables_snapping_independently_of_the_legacy_setting()
+    public void Active_layout_enables_snapping()
     {
-        var configuration = ConfigurationWithLayout(isActive: true) with
-        {
-            Settings = AppSettings.Default(Guid.Empty) with { SnappingEnabled = false }
-        };
-
-        Assert.True(SnapActivationPolicy.ShouldEnable(configuration));
+        Assert.True(SnapActivationPolicy.ShouldEnable(ConfigurationWithLayout(isActive: true)));
     }
 
     [Fact]
-    public void Missing_active_layout_keeps_snapping_disabled_independently_of_the_legacy_setting()
+    public void Missing_active_layout_keeps_snapping_disabled()
     {
-        var configuration = ConfigurationWithLayout(isActive: false) with
-        {
-            Settings = AppSettings.Default(Guid.Empty) with { SnappingEnabled = true }
-        };
-
-        Assert.False(SnapActivationPolicy.ShouldEnable(configuration));
+        Assert.False(SnapActivationPolicy.ShouldEnable(ConfigurationWithLayout(isActive: false)));
     }
 
     private static SnapConfiguration ConfigurationWithLayout(bool isActive)

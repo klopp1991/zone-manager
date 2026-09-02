@@ -18,7 +18,7 @@ public sealed class ConfigurationTransferServiceTests
         {
             Settings = original.Settings with
             {
-                SnappingEnabled = true,
+
                 StartWithWindows = true,
                 OverlayScope = OverlayScope.ActiveMonitor,
                 TriggerMode = TriggerMode.ShiftKey,

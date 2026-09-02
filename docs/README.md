@@ -117,7 +117,9 @@ Aufgefangen wird in zwei Fällen:
   speichert die Oberfläche nach jedem Zug, und ein Auffang bei jedem Speichern zöge die Fenster unter den
   Händen weg.
 
-Ausgeschlossene Fenster fasst die Hauptzone nie an, und die Snap-Funktion muss eingeschaltet sein.
+Ausgeschlossene Fenster fasst die Hauptzone nie an. Wie das Einrasten selbst läuft der Auffang genau dann, wenn
+mindestens ein Layout aktiv ist; einen eigenen Schalter dafür gibt es nicht. (Bis zum 02.09.2026 hing der Auffang
+an einer nie gesetzten internen Einstellung und lief im Betrieb nie.)
 
 ## Gemerkte Fensterpositionen
 
@@ -291,10 +293,17 @@ Programm fragt bei Bedarf wieder nach eigenen Administratorrechten.
 
 ## Not-Aus und Schutzschalter
 
-`Ctrl + Alt + Shift + F12` deaktiviert Hook und Overlays bis zum nächsten Programmstart. `Escape` beendet nur
-den aktuellen Ziehvorgang. Die Anwendung enthält keinen Treiber, keinen Windows-Dienst und keine
-Code-Injektion; ein Schutzschalter stoppt die Snap-Funktion bei Callback-Fehlern oder ungewöhnlich vielen
-Hook-Ereignissen. Der Diagnosemodus läuft bewusst ohne Elevation.
+`Ctrl + Alt + Shift + F12` schaltet das Einrasten um: einmal gedrückt legt es Hook und Overlays still, erneut
+gedrückt läuft es weiter. `Escape` beendet nur den aktuellen Ziehvorgang. Die Anwendung enthält keinen Treiber,
+keinen Windows-Dienst und keine Code-Injektion; ein Schutzschalter stoppt die Snap-Funktion bei Callback-Fehlern
+oder ungewöhnlich vielen Hook-Ereignissen (400 Verschiebe-Ereignisse in zehn Sekunden). Der Diagnosemodus läuft
+bewusst ohne Elevation.
+
+Der Zustand ist immer sichtbar: die Statuszeile am unteren Fensterrand zeigt «Einrasten aktiv», «Kein aktives
+Layout» oder «Einrasten pausiert», daneben die letzte Meldung des Programms (Speicherfehler, Namenskonflikte,
+pausierte Regeln). Das Infobereichsmenü nennt denselben Zustand. Ist das Einrasten pausiert, schalten die
+Schaltfläche **Einrasten wieder aktivieren** in der Statuszeile, der gleichnamige Menüpunkt im Infobereich oder
+der Hotkey es wieder ein; ein Neustart ist dafür nicht mehr nötig.
 
 ## Beenden
 
@@ -307,6 +316,14 @@ Beim Beenden werden zuerst Hooks, Zeitgeber und die Platzierungs-Engine stillgel
 ```powershell
 ZoneManager.exe --diagnostics
 ```
+
+Das Protokoll liegt unter `%LOCALAPPDATA%\SnapZones\logs\snapzones.log` und rotiert bei einem Megabyte in fünf
+Generationen (`snapzones.log.1` bis `.5`). Geschrieben werden INFO, WARN, ERROR und FATAL, bei Ausnahmen mit
+Aufrufstapel und innerer Ausnahme. Die ausführlichen DEBUG-Zeilen zu jedem Fensterereignis und Ziehvorgang
+erscheinen nur, wenn das Programm mit `--verbose` gestartet wird; sonst verdrängen sie innerhalb eines Tages
+jeden Fehler aus dem Protokoll. Ein unbehandelter Fehler wird einmal protokolliert, die Einstellungen werden
+gesichert, und ein Hinweisfenster nennt Ursache und Protokollpfad; Folgefehler während der Sicherung werden nur
+gezählt statt erneut behandelt.
 
 Die Diagnose liest Konfigurationsstatus, Monitore, DPI und Autostartstatus. Sie registriert keinen Fenster-Hook und verändert weder Einstellungen noch Registry.
 

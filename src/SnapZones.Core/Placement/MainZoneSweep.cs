@@ -40,7 +40,7 @@ public static class MainZoneSweep
         ArgumentNullException.ThrowIfNull(windows);
         ArgumentNullException.ThrowIfNull(resolveIdentity);
         if (configuration is null ||
-            !configuration.Settings.SnappingEnabled ||
+            !SnapActivationPolicy.ShouldEnable(configuration) ||
             MainZone.Resolve(configuration) is null)
         {
             return [];

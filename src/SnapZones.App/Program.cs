@@ -33,7 +33,7 @@ internal static class Program
             if (elevationResult.Status == ElevationStartupStatus.Cancelled)
             {
                 System.Windows.MessageBox.Show(
-                    $"{ProductInfo.Name} ist auf «immer mit Administratorrechten starten» eingestellt und wurde deshalb nicht gestartet. Diese Einstellung laesst sich im Programm wieder abschalten.",
+                    $"{ProductInfo.Name} ist auf «immer mit Administratorrechten starten» eingestellt und wurde deshalb nicht gestartet. Diese Einstellung lässt sich im Programm wieder abschalten.",
                     "Administratorrechte erforderlich",
                     System.Windows.MessageBoxButton.OK,
                     System.Windows.MessageBoxImage.Warning);

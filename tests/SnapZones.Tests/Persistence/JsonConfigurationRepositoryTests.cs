@@ -145,7 +145,7 @@ public sealed class JsonConfigurationRepositoryTests
         var result = await repository.LoadAsync(CancellationToken.None);
 
         Assert.True(result.RecoveredFromError);
-        Assert.False(result.Configuration.Settings.SnappingEnabled);
+
         Assert.Single(Directory.GetFiles(directory.Path, "settings.invalid-*.json"));
     }
 

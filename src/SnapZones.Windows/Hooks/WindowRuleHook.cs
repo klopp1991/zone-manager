@@ -37,6 +37,7 @@ public sealed class WindowRuleHook : IWindowRuleHook
             return;
         }
 
+        circuitBreaker.Reset();
         foregroundHook = User32.SetWinEventHook(
             SystemForeground,
             SystemForeground,

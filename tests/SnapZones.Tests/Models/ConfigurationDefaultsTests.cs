@@ -13,7 +13,7 @@ public sealed class ConfigurationDefaultsTests
         Assert.Equal(SnapConfiguration.CurrentSchemaVersion, configuration.SchemaVersion);
         Assert.Empty(configuration.Layouts);
         Assert.Empty(configuration.MonitorOrder);
-        Assert.False(configuration.Settings.SnappingEnabled);
+
         Assert.False(configuration.Settings.StartWithWindows);
         Assert.Equal(ThemeMode.System, configuration.Settings.ThemeMode);
         Assert.Equal(20, configuration.Settings.MagnetThresholdPixels);

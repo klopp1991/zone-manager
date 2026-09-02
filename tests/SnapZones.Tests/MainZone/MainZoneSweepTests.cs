@@ -56,12 +56,14 @@ public sealed class MainZoneSweepTests
     }
 
     [Fact]
-    public void With_snapping_switched_off_nothing_is_collected()
+    public void Without_an_active_layout_nothing_is_collected()
     {
+        // Die Snap-Funktion ist genau dann aktiv, wenn ein Layout aktiv ist; einen eigenen Schalter
+        // in den Einstellungen gibt es nicht mehr.
         var configuration = Configuration();
         configuration = configuration with
         {
-            Settings = configuration.Settings with { SnappingEnabled = false }
+            Layouts = configuration.Layouts.Select(layout => layout with { IsActive = false }).ToArray()
         };
 
         Assert.Empty(Plan(configuration, new MainZoneSweepWindow(17, new PixelRect(300, 200, 500, 400))));
@@ -166,7 +168,6 @@ public sealed class MainZoneSweepTests
         var configuration = ConfigurationSamples.TwoLayouts();
         return configuration with
         {
-            Settings = configuration.Settings with { SnappingEnabled = true },
             Layouts = configuration.Layouts
                 .Select(layout => layout.Id == WorkLayoutId ? layout with { MainZoneId = RightZoneId } : layout)
                 .ToArray()

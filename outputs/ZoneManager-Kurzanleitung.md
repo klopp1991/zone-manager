@@ -70,11 +70,11 @@ nächsten Start als Sicherung daneben liegen.
 - Autostart läuft über eine Anmeldeaufgabe der Windows-Aufgabenplanung und startet ohne UAC-Abfrage. Nur wenn sich die Aufgabe nicht anlegen lässt, wird ersatzweise der Registry-Eintrag `Run` gesetzt.
 - Das Programm startet ohne Administratorrechte und fragt erst nach, wenn ein Fenster sie wirklich verlangt – höchstens einmal je Sitzung.
 - Wer das vermeiden will, richtet unter **Einstellungen → Fensterhelfer ohne Administratorrechte** ein eigenes Zertifikat ein. Danach rasten auch Fenster höher berechtigter Programme ein, ohne dass das Programm je Administratorrechte bekommt. Der Rechner vertraut dafür einem selbst ausgestellten Zertifikat – die Oberfläche erklärt Nutzen und Risiko im Klartext.
-- `Ctrl + Alt + Shift + F12` deaktiviert Hook und Overlays sofort; `Escape` bricht nur den laufenden Ziehvorgang ab.
-- Ein Schutzschalter stoppt die Snap-Funktion bei Callback-Fehlern oder ungewöhnlich vielen Hook-Ereignissen.
+- `Ctrl + Alt + Shift + F12` pausiert das Einrasten und schaltet es beim nächsten Druck wieder ein; `Escape` bricht nur den laufenden Ziehvorgang ab.
+- Ein Schutzschalter stoppt die Snap-Funktion bei Callback-Fehlern oder ungewöhnlich vielen Hook-Ereignissen. Die Statuszeile unten im Fenster und das Infobereichsmenü zeigen den Zustand und bieten **Einrasten wieder aktivieren** an.
 
 ## Ablage
 
-Gültige Änderungen werden automatisch gespeichert. Die aktive Konfiguration liegt unter `%APPDATA%\SnapZones\settings.json`, die fünf vorherigen Stände daneben als `settings.backup-1.json` bis `settings.backup-5.json`; **Export** und **Import** übertragen sämtliche Einstellungen, Monitorlayouts, Zonen und IDs in einem vollständigen JSON-Backup. Protokolle liegen unter `%LOCALAPPDATA%\SnapZones\logs\snapzones.log`.
+Gültige Änderungen werden automatisch gespeichert. Die aktive Konfiguration liegt unter `%APPDATA%\SnapZones\settings.json`, die fünf vorherigen Stände daneben als `settings.backup-1.json` bis `settings.backup-5.json`; **Export** und **Import** übertragen sämtliche Einstellungen, Monitorlayouts, Zonen und IDs in einem vollständigen JSON-Backup. Protokolle liegen unter `%LOCALAPPDATA%\SnapZones\logs\snapzones.log` (fünf Generationen; ausführliche DEBUG-Zeilen nur mit Startparameter `--verbose`).
 
 Die Pfade behalten den historischen Ordnernamen `SnapZones`, damit bestehende Installationen ohne Migration weiterlaufen.

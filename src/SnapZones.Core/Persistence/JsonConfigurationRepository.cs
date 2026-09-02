@@ -24,6 +24,7 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
 
     public async Task<ConfigurationLoadResult> LoadAsync(CancellationToken cancellationToken)
     {
+        StaleTemporaryFiles.Remove(directoryPath, "settings.*.tmp");
         var settingsPath = Path.Combine(directoryPath, SettingsFileName);
         if (!File.Exists(settingsPath))
         {

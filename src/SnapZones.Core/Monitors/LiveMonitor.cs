@@ -10,4 +10,12 @@ public sealed record LiveMonitor(
     uint DpiY,
     bool IsPrimary,
     double? PhysicalWidthCentimeters = null,
-    double? PhysicalHeightCentimeters = null);
+    double? PhysicalHeightCentimeters = null,
+    PixelRect? Bounds = null)
+{
+    /// <summary>
+    /// Die volle Monitorflaeche einschliesslich Taskleiste. Faellt auf die Arbeitsflaeche zurueck, wenn
+    /// die Quelle keine Monitorflaeche kennt (Tests, nicht verbundene Monitore).
+    /// </summary>
+    public PixelRect MonitorBounds => Bounds ?? new PixelRect(WorkArea.X, WorkArea.Y, WorkArea.Width, WorkArea.Height);
+}

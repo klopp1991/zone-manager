@@ -10,6 +10,7 @@ public interface IWindowPlacementEngine
     void Start();
     void Stop();
     void EmergencyStop();
+    void ResetEmergencyStop();
     void ReplaceCatalog(WindowPlacementCatalog catalog);
     Task ApplyNowAsync(WindowIdentity identity, CancellationToken cancellationToken);
     void Forget(WindowIdentity identity);

@@ -29,7 +29,7 @@ public sealed class MainWindowNavigationTests
     }
 
     [Fact]
-    public void Main_window_does_not_render_the_sidebar_label_or_statusbar()
+    public void Main_window_does_not_render_the_sidebar_label_but_has_a_status_bar()
     {
         WpfThemeHost.Invoke(() =>
         {
@@ -39,7 +39,13 @@ public sealed class MainWindowNavigationTests
             Assert.DoesNotContain(
                 LogicalDescendants<TextBlock>(window),
                 textBlock => string.Equals(textBlock.Text, "BEREICHE", StringComparison.OrdinalIgnoreCase));
-            Assert.DoesNotContain(root.Children.OfType<Border>(), border => Grid.GetRow(border) == 2);
+
+            // Die Statuszeile ist seit dem 02.09.2026 bewusst da: sie ist die einzige Stelle, an der
+            // StatusMessage (Speicherfehler, Namenskonflikte, Not-Aus) ueberhaupt sichtbar wird.
+            var statusBar = Assert.Single(root.Children.OfType<Border>(), border => Grid.GetRow(border) == 2);
+            var message = Assert.IsType<TextBlock>(window.FindName("StatusMessageText"));
+            Assert.Equal("StatusMessage", message.GetBindingExpression(TextBlock.TextProperty)!.ParentBinding.Path.Path);
+            Assert.True(statusBar.IsDescendantOf(root) || ReferenceEquals(statusBar.Parent, root));
         });
     }
 

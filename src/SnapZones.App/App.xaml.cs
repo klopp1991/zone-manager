@@ -65,9 +65,31 @@ public partial class App : System.Windows.Application
     {
         base.OnStartup(eventArgs);
         ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        RegisterGlobalExceptionHandlers();
+        try
+        {
+            await StartAsync(eventArgs);
+        }
+        catch (Exception exception)
+        {
+            log?.Write("FATAL", $"{ProductInfo.Name} konnte nicht gestartet werden.", exception);
+            System.Windows.MessageBox.Show(
+                $"{exception.Message}\n\nEinzelheiten stehen im Protokoll:\n{log?.FilePath ?? "(kein Protokoll)"}",
+                $"{ProductInfo.Name} konnte nicht gestartet werden",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            Shutdown(5);
+        }
+    }
+
+    private async Task StartAsync(StartupEventArgs eventArgs)
+    {
         var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "SnapZones");
         var localData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SnapZones", "logs");
-        log = new FileLog(localData);
+        // DEBUG-Zeilen (jedes Fensterereignis, jeder Ziehvorgang) nur auf ausdruecklichen Wunsch: sonst
+        // verdraengen sie innerhalb eines Tages jeden Fehler aus dem Protokoll.
+        var verbose = eventArgs.Args.Contains("--verbose", StringComparer.OrdinalIgnoreCase);
+        log = new FileLog(localData, verbose ? "DEBUG" : "INFO");
         var startupService = new StartupRegistration(
             Environment.ProcessPath ?? throw new InvalidOperationException("Der Programmpfad fehlt."),
             message => log.Write("WARN", message),
@@ -109,85 +131,146 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        var repository = new JsonConfigurationRepository(appData);
+        var loadResult = await repository.LoadAsync(CancellationToken.None);
+        var placementRepository = new JsonWindowPlacementRepository(appData);
+        var placementLoadResult = await WindowPlacementStartupLoad.Start(
+            placementRepository,
+            CancellationToken.None);
+        themeService = new ThemeService();
+        themeService.Apply(loadResult.Configuration.Settings.ThemeMode);
+        var monitors = new WindowsMonitorService().GetMonitors();
+        var viewModel = new MainViewModel(loadResult.Configuration, monitors)
+        {
+            ProductVersion = ProductInfo.Version
+        };
+        if (loadResult.RecoveredFromError)
+        {
+            viewModel.StatusMessage = loadResult.ErrorMessage ?? "Die Konfiguration wurde zurückgesetzt.";
+        }
+        if (placementLoadResult.RecoveredFromError)
+        {
+            viewModel.StatusMessage = placementLoadResult.ErrorMessage
+                ?? "Die Fensterplatzierungen wurden aus der Sicherung wiederhergestellt.";
+        }
+
+        var mainWindow = new MainWindow();
+        themeService.Track(mainWindow);
+        mainWindow.AttachViewModel(viewModel);
+        controller = new ApplicationController(
+            mainWindow,
+            viewModel,
+            repository,
+            placementRepository,
+            placementLoadResult.Catalog,
+            monitors,
+            startupService,
+            log);
+        singleInstance.ActivationRequested += () =>
+        {
+            mainWindow.Show();
+            if (mainWindow.WindowState == WindowState.Minimized)
+            {
+                mainWindow.WindowState = WindowState.Normal;
+            }
+
+            mainWindow.Activate();
+        };
+        singleInstance.StartListening();
+
+        MainWindow = mainWindow;
+        if (startupDisposition == StartupDisposition.StartVisible)
+        {
+            mainWindow.Show();
+        }
+    }
+
+    /// <summary>
+    /// Faengt alle drei Fehlerkanaele ab: Dispatcher, fremde Threads und unbeobachtete Tasks. Frueher war
+    /// nur der Dispatcher angeschlossen, und dessen Handler lief bei jedem Folgefehler erneut an: am
+    /// 02.09.2026 fuenftausendmal in 42 Sekunden, ohne dass eine Ursache im Protokoll stand.
+    /// </summary>
+    private void RegisterGlobalExceptionHandlers()
+    {
+        DispatcherUnhandledException += (_, exceptionArgs) =>
+        {
+            exceptionArgs.Handled = true;
+            if (Interlocked.Exchange(ref fatalHandling, 1) != 0)
+            {
+                // Folgefehler waehrend der Notfallsicherung: nur zaehlen, nicht erneut behandeln.
+                Interlocked.Increment(ref suppressedFatalErrors);
+                return;
+            }
+
+            log?.Write("FATAL", "Unbehandelter UI-Fehler.", exceptionArgs.Exception);
+            _ = ShutdownAfterFatalErrorAsync(exceptionArgs.Exception);
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, unhandledArgs) =>
+        {
+            log?.Write(
+                "FATAL",
+                "Unbehandelter Fehler ausserhalb der Oberfläche; das Programm wird beendet.",
+                unhandledArgs.ExceptionObject as Exception);
+            TryEmergencyFlush();
+        };
+        TaskScheduler.UnobservedTaskException += (_, taskArgs) =>
+        {
+            log?.Write("ERROR", "Unbeobachteter Fehler in einer Hintergrundaufgabe.", taskArgs.Exception);
+            taskArgs.SetObserved();
+        };
+    }
+
+    private int fatalHandling;
+    private int suppressedFatalErrors;
+
+    private async Task ShutdownAfterFatalErrorAsync(Exception exception)
+    {
         try
         {
-            var repository = new JsonConfigurationRepository(appData);
-            var loadResult = await repository.LoadAsync(CancellationToken.None);
-            var placementRepository = new JsonWindowPlacementRepository(appData);
-            var placementLoadResult = await WindowPlacementStartupLoad.Start(
-                placementRepository,
-                CancellationToken.None);
-            themeService = new ThemeService();
-            themeService.Apply(loadResult.Configuration.Settings.ThemeMode);
-            var monitors = new WindowsMonitorService().GetMonitors();
-            var viewModel = new MainViewModel(loadResult.Configuration, monitors)
+            controller?.EmergencyStop("Sicherheitsstopp nach einem UI-Fehler");
+            if (controller is not null)
             {
-                ProductVersion = ProductInfo.Version
-            };
-            if (loadResult.RecoveredFromError)
-            {
-                viewModel.StatusMessage = loadResult.ErrorMessage ?? "Die Konfiguration wurde zurückgesetzt.";
-            }
-            if (placementLoadResult.RecoveredFromError)
-            {
-                viewModel.StatusMessage = placementLoadResult.ErrorMessage
-                    ?? "Die Fensterplatzierungen wurden aus der Sicherung wiederhergestellt.";
-            }
-
-            var mainWindow = new MainWindow();
-            themeService.Track(mainWindow);
-            mainWindow.AttachViewModel(viewModel);
-            controller = new ApplicationController(
-                mainWindow,
-                viewModel,
-                repository,
-                placementRepository,
-                placementLoadResult.Catalog,
-                monitors,
-                startupService,
-                log);
-            singleInstance.ActivationRequested += () =>
-            {
-                mainWindow.Show();
-                if (mainWindow.WindowState == WindowState.Minimized)
+                using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                try
                 {
-                    mainWindow.WindowState = WindowState.Normal;
+                    await controller.FlushAsync(timeout.Token);
                 }
-
-                mainWindow.Activate();
-            };
-            singleInstance.StartListening();
-            DispatcherUnhandledException += async (_, exceptionArgs) =>
-            {
-                log.Write("FATAL", "Unbehandelter UI-Fehler.", exceptionArgs.Exception);
-                exceptionArgs.Handled = true;
-                if (controller is not null)
+                catch (Exception saveException)
                 {
-                    controller.EmergencyStop("Sicherheitsstopp nach einem UI-Fehler");
-                    try
-                    {
-                        await controller.FlushAsync(CancellationToken.None);
-                    }
-                    catch (Exception saveException)
-                    {
-                        log.Write("ERROR", "Die Notfallsicherung ist fehlgeschlagen.", saveException);
-                    }
+                    log?.Write("ERROR", "Die Notfallsicherung ist fehlgeschlagen.", saveException);
                 }
-
-                Shutdown(4);
-            };
-
-            MainWindow = mainWindow;
-            if (startupDisposition == StartupDisposition.StartVisible)
-            {
-                mainWindow.Show();
             }
+
+            var suppressed = Volatile.Read(ref suppressedFatalErrors);
+            if (suppressed > 0)
+            {
+                log?.Write("WARN", $"{suppressed} Folgefehler während der Notfallsicherung unterdrückt.");
+            }
+
+            System.Windows.MessageBox.Show(
+                $"Ein interner Fehler hat {ProductInfo.Name} gestoppt:\n{exception.Message}\n\n"
+                    + $"Die Einstellungen wurden gesichert. Einzelheiten stehen im Protokoll:\n{log?.FilePath}",
+                $"{ProductInfo.Name} wurde beendet",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
         }
-        catch (Exception exception)
+        finally
         {
-            log.Write("FATAL", $"{ProductInfo.Name} konnte nicht gestartet werden.", exception);
-            System.Windows.MessageBox.Show(exception.Message, $"{ProductInfo.Name} konnte nicht gestartet werden", MessageBoxButton.OK, MessageBoxImage.Error);
-            Shutdown(5);
+            Shutdown(4);
+        }
+    }
+
+    private void TryEmergencyFlush()
+    {
+        try
+        {
+            controller?.EmergencyStop("Sicherheitsstopp nach einem Fehler ausserhalb der Oberfläche");
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            controller?.FlushAsync(timeout.Token).GetAwaiter().GetResult();
+        }
+        catch (Exception saveException)
+        {
+            log?.Write("ERROR", "Die Notfallsicherung ist fehlgeschlagen.", saveException);
         }
     }
 

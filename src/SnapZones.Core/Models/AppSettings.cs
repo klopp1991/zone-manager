@@ -37,7 +37,6 @@ public enum ThemeMode
 public sealed record AppSettings(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     Guid ActiveProfileId,
-    bool SnappingEnabled,
     bool StartWithWindows,
     OverlayScope OverlayScope,
     TriggerMode TriggerMode,
@@ -58,7 +57,6 @@ public sealed record AppSettings(
 
     public static AppSettings Default(Guid activeProfileId) => new(
         activeProfileId,
-        SnappingEnabled: false,
         StartWithWindows: false,
         OverlayScope.AllMonitors,
         TriggerMode.Immediate,

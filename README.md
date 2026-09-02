@@ -28,7 +28,8 @@ Der Lauf schliesst eine Per-Monitor-DPI-Prüfung ein, die die Oberfläche starte
 - Hauptzone: eine Zone als Arbeitszone markieren, in der neue Fenster ohne eigene Regel und ohne gemerkte Position landen
 - Overlay auf allen Monitoren, nur auf dem Monitor des Ziehbeginns, oder mitwandernd auf dem Monitor unter dem Mauszeiger
 - Sofortige Layoutspeicherung, fünf automatische Backups sowie JSON-Export und -Import
-- System-, helles und dunkles Theme, Autostart ohne UAC-Abfrage über eine Anmeldeaufgabe und Not-Aus über `Ctrl + Alt + Shift + F12`
+- System-, helles und dunkles Theme, Autostart ohne UAC-Abfrage über eine Anmeldeaufgabe und Not-Aus über `Ctrl + Alt + Shift + F12`, der das Einrasten auch wieder einschaltet
+- Statuszeile mit dem Zustand der Snap-Funktion und der letzten Meldung; pausiertes Einrasten lässt sich dort und im Infobereich wieder aktivieren
 - Administratorrechte nur auf Bedarf: Start ohne Abfrage, Nachfrage höchstens einmal je Sitzung und nur, wenn ein Fenster sie wirklich verlangt
 - Wahlweise ein signierter Fensterhelfer mit `uiAccess`: auch Fenster höher berechtigter Programme rasten ein, ohne dass das Programm selbst je Administratorrechte bekommt
 - Monitorerkennung über Displaypfad und EDID-Daten

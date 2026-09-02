@@ -31,6 +31,7 @@ public sealed class AppRuleEditorViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(rules);
         ArgumentNullException.ThrowIfNull(layouts);
         Rules = new ObservableCollection<AppRule>(rules);
+        Rules.CollectionChanged += (_, _) => RebuildRuleItems();
         RefreshTargetCollection(layouts);
         if (Rules.Count > 0)
         {
@@ -45,6 +46,26 @@ public sealed class AppRuleEditorViewModel : ViewModelBase
     public event Action<IReadOnlyList<AppRule>>? RulesChanged;
 
     public ObservableCollection<AppRule> Rules { get; }
+
+    /// <summary>
+    /// Die Regeln, wie die Liste sie zeigt: jede mit dem Hinweis, warum sie gerade nicht greift. Frueher
+    /// stand eine Regel mit geloeschtem Ziellayout unauffaellig in der Liste und war still pausiert.
+    /// </summary>
+    public ObservableCollection<AppRuleListItem> RuleItems { get; } = [];
+
+    public AppRuleListItem? SelectedRuleItem
+    {
+        get => RuleItems.FirstOrDefault(item => item.Rule.Id == selectedRule?.Id);
+        set
+        {
+            // Ein Neuaufbau der Liste meldet kurz null; die Auswahl bleibt dann beim bisherigen Eintrag.
+            if (value is not null)
+            {
+                SelectedRule = value.Rule;
+            }
+        }
+    }
+
     public IReadOnlyList<AppRuleEvent> Events { get; } = Enum.GetValues<AppRuleEvent>();
     public ObservableCollection<ZoneDefinition> TargetZones { get; } = [];
     public IReadOnlyList<MonitorLayout> TargetLayouts => targetLayouts;
@@ -60,6 +81,7 @@ public sealed class AppRuleEditorViewModel : ViewModelBase
             }
 
             OnPropertyChanged(nameof(CanDelete));
+            OnPropertyChanged(nameof(SelectedRuleItem));
             if (value is not null)
             {
                 Load(value);
@@ -235,6 +257,7 @@ public sealed class AppRuleEditorViewModel : ViewModelBase
         {
             selectedRule = null;
             OnPropertyChanged(nameof(SelectedRule));
+            OnPropertyChanged(nameof(SelectedRuleItem));
             OnPropertyChanged(nameof(CanDelete));
             editedRuleId = Guid.NewGuid();
             processPath = string.Empty;
@@ -346,6 +369,46 @@ public sealed class AppRuleEditorViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(TargetLayouts));
+        RebuildRuleItems();
+    }
+
+    private void RebuildRuleItems()
+    {
+        RuleItems.Clear();
+        foreach (var rule in Rules)
+        {
+            RuleItems.Add(new AppRuleListItem(rule, DescribeProblem(rule)));
+        }
+
+        OnPropertyChanged(nameof(SelectedRuleItem));
+    }
+
+    /// <summary>Warum eine Regel gerade nichts bewirkt, oder null, wenn sie greift.</summary>
+    public string? DescribeProblem(AppRule rule)
+    {
+        ArgumentNullException.ThrowIfNull(rule);
+        if (!rule.IsEnabled)
+        {
+            return "Abgeschaltet";
+        }
+
+        if (!rule.HasCriteria)
+        {
+            return "Kein Merkmal – Regel wirkungslos";
+        }
+
+        var layout = targetLayouts.FirstOrDefault(candidate => candidate.Id == rule.TargetLayoutId);
+        if (layout is null)
+        {
+            return "Ziellayout fehlt – Regel pausiert";
+        }
+
+        if (layout.Zones.All(zone => zone.Id != rule.TargetZoneId))
+        {
+            return "Zielzone fehlt – Regel pausiert";
+        }
+
+        return null;
     }
 
     private void ResolveTargetSelection()
@@ -449,6 +512,7 @@ public sealed class AppRuleEditorViewModel : ViewModelBase
 
         selectedRule = rule;
         OnPropertyChanged(nameof(SelectedRule));
+        OnPropertyChanged(nameof(SelectedRuleItem));
         OnPropertyChanged(nameof(CanDelete));
         OnPropertyChanged(nameof(CriteriaStatus));
         RulesChanged?.Invoke(Rules.ToArray());

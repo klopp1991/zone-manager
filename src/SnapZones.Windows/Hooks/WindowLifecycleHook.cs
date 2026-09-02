@@ -72,6 +72,7 @@ public sealed class WindowLifecycleHook : IWindowLifecycleHook
                 return;
             }
 
+            circuitBreaker.Reset();
             if (hookHandles.Count != 0)
             {
                 UnhookAllUnderLock();

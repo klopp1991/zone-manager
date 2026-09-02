@@ -12,7 +12,10 @@ public sealed class WindowMoveHook : IWindowMoveHook
     private const uint OutOfContext = 0x0000;
     private readonly SynchronizationContext synchronizationContext;
     private readonly Action<string>? trace;
-    private readonly HookCircuitBreaker circuitBreaker = new(100, TimeSpan.FromSeconds(10));
+    // Jeder Ziehvorgang liefert zwei Ereignisse. 400 in zehn Sekunden erreicht kein Mensch von Hand;
+    // die alte Grenze von 100 war mit zuegigem Fensterschieben erreichbar und schaltete das Einrasten
+    // bis zum Neustart ab.
+    private readonly HookCircuitBreaker circuitBreaker = new(400, TimeSpan.FromSeconds(10));
     private readonly User32.WinEventProc callback;
     private nint hookHandle;
     private bool disposed;
@@ -38,6 +41,7 @@ public sealed class WindowMoveHook : IWindowMoveHook
             return;
         }
 
+        circuitBreaker.Reset();
         hookHandle = User32.SetWinEventHook(
             MoveSizeStart,
             MoveSizeEnd,

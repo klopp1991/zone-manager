@@ -153,12 +153,12 @@ public sealed class WindowPlacementEngineTests
     }
 
     [Fact]
-    public async Task With_snapping_switched_off_nothing_happens_at_all()
+    public async Task Without_an_active_layout_nothing_happens_at_all()
     {
         using var harness = Harness(mainZoneId: RightZoneId);
         harness.Configuration = harness.Configuration with
         {
-            Settings = harness.Configuration.Settings with { SnappingEnabled = false }
+            Layouts = harness.Configuration.Layouts.Select(layout => layout with { IsActive = false }).ToArray()
         };
         harness.WindowService.Add(Window(17, Stray));
         harness.Engine.Start();
@@ -259,7 +259,7 @@ public sealed class WindowPlacementEngineTests
         var monitor = new MonitorIdentity("DISPLAY-A", @"\\.\DISPLAY1", "Hauptmonitor");
         var configuration = new SnapConfiguration(
             SnapConfiguration.CurrentSchemaVersion,
-            AppSettings.Default(Guid.Empty) with { SnappingEnabled = true },
+            AppSettings.Default(Guid.Empty),
             [
                 new MonitorLayout(monitor, 1920, 1080, zones)
                 {

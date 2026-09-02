@@ -120,7 +120,7 @@ public sealed class ApplicationController : IDisposable
             Interval = TimeSpan.FromSeconds(3)
         };
         identificationTimer.Tick += IdentificationTimer_Tick;
-        tray = new TrayIconService(window, ActivateLayout, RequestExit);
+        tray = new TrayIconService(window, ActivateLayout, RequestExit, ResumeSnapping);
 
         elevation = new ElevationEscalation(question => System.Windows.MessageBox.Show(
             question,
@@ -138,6 +138,7 @@ public sealed class ApplicationController : IDisposable
         viewModel.InstallRequested += InstallToProgramFiles;
         viewModel.CertificateInstallRequested += InstallSigningCertificate;
         viewModel.CertificateRemoveRequested += RemoveSigningCertificate;
+        viewModel.ResumeSnappingRequested += ResumeSnapping;
 
         // Der Helfer wird nur angelegt, wenn seine Datei ueberhaupt neben dem Programm liegt. Gestartet
         // wird er erst beim ersten Fenster, das ihn braucht.
@@ -166,7 +167,18 @@ public sealed class ApplicationController : IDisposable
         appRuleHook.RuleEvent += AppRuleHook_RuleEvent;
         appRuleHook.EmergencyStopped += reason => EmergencyStop($"App-Regel-Hook gestoppt: {reason}");
         placementHook.EmergencyStopped += reason => EmergencyStop($"Fensterplatzierungs-Hook gestoppt: {reason}");
-        hotkeys.EmergencyStopRequested += () => EmergencyStop("Not-Aus ausgelöst: Snap-Funktion deaktiviert");
+        // Der Not-Aus ist ein Umschalter: einmal gedrueckt haelt er an, erneut gedrueckt laeuft es weiter.
+        hotkeys.EmergencyStopRequested += () =>
+        {
+            if (emergencyStopped)
+            {
+                ResumeSnapping();
+            }
+            else
+            {
+                EmergencyStop("Not-Aus ausgelöst: Einrasten pausiert. Ctrl + Alt + Shift + F12 schaltet es wieder ein.");
+            }
+        };
         window.Closing += Window_Closing;
 
         Reconfigure(configuration);
@@ -201,10 +213,35 @@ public sealed class ApplicationController : IDisposable
         appRuleHook.Disable();
         placementEngine.EmergencyStop();
         viewModel.StatusMessage = reason;
+        viewModel.PauseReason = reason;
+        viewModel.SnappingState = SnappingState.Paused;
         configuration = viewModel.Configuration;
-        _ = hotkeys.Configure(emergencyStopEnabled: false);
+        // Der Hotkey bleibt registriert, damit er das Einrasten auch wieder einschalten kann.
+        _ = hotkeys.Configure(emergencyStopEnabled: true);
+        tray.SetSnappingState(viewModel.SnappingStateLabel, paused: true);
         tray.Update(configuration);
         log.Write("WARN", reason);
+    }
+
+    /// <summary>
+    /// Hebt Not-Aus und Sicherheitsstopp auf. Frueher gab es diesen Weg nicht: nach einem Stopp blieb
+    /// das Einrasten bis zum Programmneustart abgeschaltet, ohne sichtbaren Hinweis.
+    /// </summary>
+    public void ResumeSnapping()
+    {
+        if (!emergencyStopped || shuttingDown)
+        {
+            return;
+        }
+
+        emergencyStopped = false;
+        placementEngine.ResetEmergencyStop();
+        viewModel.PauseReason = null;
+        Reconfigure(configuration);
+        viewModel.StatusMessage = SnapActivationPolicy.ShouldEnable(configuration)
+            ? "Einrasten wieder aktiv"
+            : "Einrasten bereit – sobald ein Layout aktiv ist";
+        log.Write("INFO", "Einrasten nach Not-Aus oder Sicherheitsstopp wieder aktiviert.");
     }
 
     public void Dispose()
@@ -517,7 +554,7 @@ public sealed class ApplicationController : IDisposable
         }
 
         viewModel.StatusMessage =
-            "Die neue Version liegt bereit, liess sich aber nicht starten. Beim naechsten Start wird sie verwendet.";
+            "Die neue Version liegt bereit, liess sich aber nicht starten. Beim nächsten Start wird sie verwendet.";
     }
 
     /// <summary>
@@ -545,8 +582,8 @@ public sealed class ApplicationController : IDisposable
                 break;
             case ElevationEscalationStatus.Declined:
                 viewModel.StatusMessage =
-                    "Fenster hoeher berechtigter Programme bleiben unberuehrt. "
-                        + "Unter Einstellungen laesst sich das aendern.";
+                    "Fenster höher berechtigter Programme bleiben unberührt. "
+                        + "Unter Einstellungen lässt sich das ändern.";
                 break;
             case ElevationEscalationStatus.Failed:
                 viewModel.StatusMessage = result.Message ?? "Der erhoehte Neustart ist fehlgeschlagen.";
@@ -689,7 +726,11 @@ public sealed class ApplicationController : IDisposable
         coordinator.ActionRequested += HandleDragAction;
 
         var snappingEnabled = SnapActivationPolicy.ShouldEnable(newConfiguration) && !emergencyStopped;
-        var hotkeyResult = hotkeys.Configure(snappingEnabled);
+        viewModel.SnappingState = emergencyStopped
+            ? SnappingState.Paused
+            : snappingEnabled ? SnappingState.Active : SnappingState.NoActiveLayout;
+        tray.SetSnappingState(viewModel.SnappingStateLabel, paused: emergencyStopped);
+        var hotkeyResult = hotkeys.Configure(snappingEnabled || emergencyStopped);
         if (hotkeyResult.Errors.Count > 0)
         {
             viewModel.StatusMessage = string.Join(" ", hotkeyResult.Errors);

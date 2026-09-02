@@ -1,5 +1,6 @@
 using SnapZones.Core.Geometry;
 using SnapZones.Core.AppRules;
+using SnapZones.Core.Layouts;
 using SnapZones.Core.Models;
 using SnapZones.Core.Placement;
 using SnapZones.Windows.Hooks;
@@ -139,6 +140,18 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         lock (lifecycleSynchronization)
         {
             StopCoreLocked(emergencyStop: true);
+        }
+    }
+
+    /// <summary>
+    /// Hebt einen Not-Aus wieder auf, damit ein folgendes <see cref="Start"/> greift. Ohne diesen Schritt
+    /// blieb das Modul nach einem Sicherheitsstopp bis zum Programmneustart still.
+    /// </summary>
+    public void ResetEmergencyStop()
+    {
+        lock (lifecycleSynchronization)
+        {
+            ExecuteInvalidation(() => emergencyStopped = false);
         }
     }
 
@@ -519,7 +532,10 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
 
         SetCachedSnapshot(windowHandle, state, snapshot);
         var environment = environmentFactory();
-        if (!environment.Configuration.Settings.SnappingEnabled)
+        // Dieselbe Ableitung wie beim Einrasten per Maus: aktiv ist die Snap-Funktion genau dann, wenn
+        // mindestens ein Layout aktiv ist. Frueher hing dieser Pfad an einem eigenen, nie gesetzten
+        // Schalter in den Einstellungen, sodass Hauptzone und Positionsgedaechtnis im Betrieb nie liefen.
+        if (!SnapActivationPolicy.ShouldEnable(environment.Configuration))
         {
             return;
         }
@@ -754,7 +770,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
     {
         cancellationToken.ThrowIfCancellationRequested();
         var environment = environmentFactory();
-        if (!environment.Configuration.Settings.SnappingEnabled)
+        if (!SnapActivationPolicy.ShouldEnable(environment.Configuration))
         {
             return Task.CompletedTask;
         }
