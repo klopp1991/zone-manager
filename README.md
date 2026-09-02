@@ -32,7 +32,7 @@ Der Lauf schliesst eine Per-Monitor-DPI-Prüfung ein, die die Oberfläche starte
 - Statuszeile mit dem Zustand der Snap-Funktion und der letzten Meldung; pausiertes Einrasten lässt sich dort und im Infobereich wieder aktivieren
 - Administratorrechte nur auf Bedarf: Start ohne Abfrage, Nachfrage höchstens einmal je Sitzung und nur, wenn ein Fenster sie wirklich verlangt
 - Wahlweise ein signierter Fensterhelfer mit `uiAccess`: auch Fenster höher berechtigter Programme rasten ein, ohne dass das Programm selbst je Administratorrechte bekommt
-- Monitorerkennung über Displaypfad und EDID-Daten
+- Monitorerkennung über Displaypfad und EDID-Daten; umgesteckte Monitore werden an Modell und Seriennummer wiedererkannt, Monitorwechsel zur Laufzeit werden ohne Neustart übernommen, und je Monitorkombination bleibt die zuletzt aktive Layoutauswahl gemerkt
 - Update aus dem Programm heraus: Suche auf Anstoss oder beim Start, Download nur aus der Release-Ablage über HTTPS, Austausch der laufenden Programmdatei mit Rückfall auf den alten Stand
 - Regeln nach Prozess, optionalem Fenstertitel und Fensterklasse mit Ereignis, Verzögerung, Wiederholungen und Zielzone; das Programm wird über den Dateidialog oder aus der Liste der laufenden Programme gewählt
 - Ausschlüsse nach denselben Merkmalen: ein ausgeschlossenes Fenster bekommt kein Overlay, rastet nicht ein, wird von keiner Regel bewegt und behält dauerhaft eigene Grösse und Position

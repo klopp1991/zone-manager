@@ -151,6 +151,12 @@ gezielt löschen.
 
 Auf der Seite **Monitore** wählt die Liste links den Monitor, der im ganzen Programm als aktiver Monitor gilt. **Nach oben** und **Nach unten** ändern die Reihenfolge, **Monitore identifizieren** blendet den verwendeten Namen drei Sekunden lang auf jedem Bildschirm ein. Rechts wird der Monitor umbenannt; ein leerer Name stellt die automatische Bezeichnung wieder her. Monitornamen werden bevorzugt aus dem aktiven Displaypfad und den EDID-Daten gelesen.
 
+Monitore werden zur Laufzeit beobachtet. Anstecken, Abstecken, eine geänderte Auflösung, Skalierung oder Drehung und eine verschobene Taskleiste werden nach einer kurzen Ruhepause übernommen: Zonen, Overlays und Zielflächen werden neu aufgebaut, die Statuszeile meldet den neuen Stand, und Fenster, die im neuen Bild auf keiner Zone mehr liegen, werden in die Hauptzone geholt. Ein Neustart ist nicht nötig. (Bis zum 02.09.2026 wurden die Monitore genau einmal beim Start gelesen.)
+
+Wiedererkannt wird ein Monitor an seiner Hardware: Hersteller, Modell und, sofern der Monitor eine liefert, Seriennummer aus der EDID. Hängt derselbe Monitor an einem anderen Anschluss oder hinter einem anderen Treiber, ändert sich der Anzeigepfad von Windows; die Layouts, der eigene Name und die Position in der Reihenfolge werden dann übernommen, und die Statuszeile nennt das. Zwei baugleiche Monitore ohne Seriennummer bleiben getrennt, weil eine Verwechslung schlimmer wäre als ein neues Standardlayout. Verwaiste Namen und Reihenfolgeeinträge, die zu keinem Monitor und keinem Layout mehr gehören, werden beim Abgleich entfernt.
+
+Je Monitorkombination merkt sich das Programm, welche Layouts zuletzt aktiv waren: am Dock mit zwei Monitoren ein anderes als unterwegs mit dem Laptopdisplay allein. Kehrt eine Kombination zurück, werden ihre Layouts wieder aktiviert, ohne dass jemand umschalten muss. Ein Wechsel des aktiven Layouts gilt immer für die gerade verbundene Kombination.
+
 Die Liste enthält auch Monitore, die gerade **nicht verbunden** sind, solange für sie noch mindestens ein Layout gespeichert ist. Sie sind als solche gekennzeichnet und stehen am Ende der Liste. Der Grund: solche Layouts erscheinen weiterhin als Regelziel, wären ohne diesen Eintrag aber nirgends erreichbar und liessen sich nicht mehr löschen. Bei einem nicht verbundenen Monitor darf deshalb auch sein letztes Layout gelöscht werden — danach verschwindet der Monitor aus der Liste. Bei einem verbundenen Monitor bleibt das letzte Layout weiterhin geschützt.
 
 ## Skalierung
@@ -341,6 +347,7 @@ Die Diagnose liest Konfigurationsstatus, Monitore, DPI und Autostartstatus. Sie 
 - Fenster höher berechtigter Programme lassen sich nur einrasten, wenn das Programm selbst erhöht läuft oder der signierte Fensterhelfer eingerichtet ist.
 - Der Fensterhelfer ist mit einem selbst ausgestellten Zertifikat signiert und funktioniert deshalb nur auf dem Rechner, auf dem es eingerichtet wurde.
 - Nicht rechteckige oder überlappende Zonen und virtuelle Desktops sind noch nicht enthalten.
+- Zwei baugleiche Monitore ohne Seriennummer in der EDID werden nach einem Umstecken nicht wiedererkannt; ihre Layouts bleiben als «nicht verbunden» stehen.
 - Updates werden nur auf Anstoss oder beim Start gesucht, nie im Hintergrund während des Betriebs.
 - Die geladene Programmdatei wird an Herkunft und Grösse geprüft, nicht an einer digitalen Signatur.
 - Die gemerkten Fensterpositionen lassen sich nur gesamthaft verwerfen, nicht einzeln ansehen oder löschen.

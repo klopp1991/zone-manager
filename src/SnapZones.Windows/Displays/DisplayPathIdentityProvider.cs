@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using SnapZones.Core.Monitors;
 using SnapZones.Windows.Native;
 
 namespace SnapZones.Windows.Displays;
@@ -80,13 +81,17 @@ internal static class DisplayPathIdentityProvider
                 continue;
             }
 
-            var physicalSize = EdidPhysicalSizeReader.Read(target.MonitorDevicePath);
+            var edid = EdidReader.Read(target.MonitorDevicePath);
+            var physicalSize = edid?.PhysicalSize;
             result[source.ViewGdiDeviceName] = new DisplayPathIdentity(
                 source.ViewGdiDeviceName,
                 target.MonitorDevicePath,
                 target.MonitorFriendlyDeviceName,
                 physicalSize?.PhysicalWidthCentimeters,
-                physicalSize?.PhysicalHeightCentimeters);
+                physicalSize?.PhysicalHeightCentimeters,
+                MonitorHardwareId.Compose(
+                    edid?.ProductCode ?? MonitorHardwareId.FromDevicePath(target.MonitorDevicePath),
+                    edid?.SerialNumber));
         }
 
         return result;

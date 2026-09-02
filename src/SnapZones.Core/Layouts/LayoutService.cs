@@ -102,6 +102,18 @@ public sealed class LayoutService
     public string? CustomMonitorNameFor(MonitorIdentity monitor) =>
         MonitorNaming.CustomNameFor(Configuration, monitor);
 
+    /// <summary>Haelt die aktiven Layouts der verbundenen Monitore fuer ihre Kombination fest. Siehe <see cref="MonitorSets"/>.</summary>
+    public void RecordMonitorSet(IReadOnlyList<LiveMonitor> monitors)
+    {
+        ArgumentNullException.ThrowIfNull(monitors);
+        if (monitors.Count == 0)
+        {
+            return;
+        }
+
+        Configuration = MonitorSets.Record(Configuration, MonitorSets.KeyFor(monitors), monitors);
+    }
+
     public void UpdateMonitorOrder(IEnumerable<MonitorIdentity> monitors)
     {
         ArgumentNullException.ThrowIfNull(monitors);

@@ -1,4 +1,5 @@
 using SnapZones.Core.Models;
+using SnapZones.Core.Monitors;
 
 namespace SnapZones.Windows.Displays;
 
@@ -7,7 +8,8 @@ public sealed record DisplayPathIdentity(
     string StableId,
     string FriendlyName,
     double? PhysicalWidthCentimeters = null,
-    double? PhysicalHeightCentimeters = null)
+    double? PhysicalHeightCentimeters = null,
+    string HardwareId = "")
 {
     public static MonitorIdentity Resolve(
         string gdiDeviceName,
@@ -17,12 +19,18 @@ public sealed record DisplayPathIdentity(
     {
         if (activePaths.TryGetValue(gdiDeviceName, out var path))
         {
+            var stableId = string.IsNullOrWhiteSpace(path.StableId) ? fallbackStableId : path.StableId;
             return new MonitorIdentity(
-                string.IsNullOrWhiteSpace(path.StableId) ? fallbackStableId : path.StableId,
+                stableId,
                 gdiDeviceName,
-                string.IsNullOrWhiteSpace(path.FriendlyName) ? fallbackFriendlyName : path.FriendlyName);
+                string.IsNullOrWhiteSpace(path.FriendlyName) ? fallbackFriendlyName : path.FriendlyName,
+                string.IsNullOrWhiteSpace(path.HardwareId) ? MonitorHardwareId.FromDevicePath(stableId) : path.HardwareId);
         }
 
-        return new MonitorIdentity(fallbackStableId, gdiDeviceName, fallbackFriendlyName);
+        return new MonitorIdentity(
+            fallbackStableId,
+            gdiDeviceName,
+            fallbackFriendlyName,
+            MonitorHardwareId.FromDevicePath(fallbackStableId));
     }
 }

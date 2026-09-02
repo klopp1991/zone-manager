@@ -212,14 +212,38 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
             throw new InvalidDataException("Die Konfiguration ist leer.");
         }
 
+        var upgraded = UpgradeSchema(configuration);
+
+        // Schema 6: jede Monitorkennung traegt Hersteller und Modell aus dem Anzeigepfad, damit ein
+        // umgesteckter Monitor wiedererkannt wird; Monitorsaetze verweisen nur auf vorhandene Layouts.
+        var layouts = MainZone.Normalize(upgraded.Layouts ?? [])
+            .Select(layout => string.IsNullOrWhiteSpace(layout.Monitor.HardwareId)
+                ? layout with { Monitor = layout.Monitor with { HardwareId = MonitorHardwareId.FromDevicePath(layout.Monitor.StableId) } }
+                : layout)
+            .ToArray();
+        return upgraded with
+        {
+            Layouts = layouts,
+            MonitorOrder = upgraded.MonitorOrder ?? [],
+            AppRules = upgraded.AppRules ?? [],
+            AppExclusions = upgraded.AppExclusions ?? [],
+            MonitorSets = MonitorSets.Prune(upgraded.MonitorSets, layouts)
+        };
+    }
+
+    private static SnapConfiguration UpgradeSchema(SnapConfiguration configuration)
+    {
         if (configuration.SchemaVersion == SnapConfiguration.CurrentSchemaVersion)
+        {
+            return configuration;
+        }
+
+        if (configuration.SchemaVersion == 5)
         {
             return configuration with
             {
-                Layouts = MainZone.Normalize(configuration.Layouts ?? []),
-                MonitorOrder = configuration.MonitorOrder ?? [],
-                AppRules = configuration.AppRules ?? [],
-                AppExclusions = configuration.AppExclusions ?? []
+                SchemaVersion = SnapConfiguration.CurrentSchemaVersion,
+                MonitorSets = []
             };
         }
 
@@ -327,6 +351,17 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
             configuration.MonitorOrder.Distinct(StringComparer.OrdinalIgnoreCase).Count() != configuration.MonitorOrder.Count)
         {
             throw new InvalidDataException("Die gespeicherte Monitorreihenfolge ist ungültig.");
+        }
+
+        var layoutIds = configuration.Layouts.Select(layout => layout.Id).ToHashSet();
+        if (configuration.MonitorSets is null ||
+            configuration.MonitorSets.Any(set =>
+                string.IsNullOrWhiteSpace(set.SetKey) ||
+                set.ActiveLayouts is null ||
+                set.ActiveLayouts.Any(entry => string.IsNullOrWhiteSpace(entry.Key) || !layoutIds.Contains(entry.Value))) ||
+            configuration.MonitorSets.Select(set => set.SetKey).Distinct(StringComparer.OrdinalIgnoreCase).Count() != configuration.MonitorSets.Count)
+        {
+            throw new InvalidDataException("Die gespeicherten Monitorsätze sind ungültig.");
         }
 
         foreach (var group in configuration.Layouts.GroupBy(MonitorKey, StringComparer.OrdinalIgnoreCase))

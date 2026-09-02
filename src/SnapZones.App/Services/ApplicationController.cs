@@ -17,6 +17,7 @@ using SnapZones.Core.Updates;
 using SnapZones.Core.Elevation;
 using SnapZones.Windows.Elevation;
 using SnapZones.Core.Setup;
+using SnapZones.Windows.Displays;
 using SnapZones.Windows.Hooks;
 using SnapZones.Windows.Hotkeys;
 using SnapZones.Windows.Startup;
@@ -29,7 +30,9 @@ public sealed class ApplicationController : IDisposable
 {
     private readonly MainWindow window;
     private readonly MainViewModel viewModel;
-    private readonly IReadOnlyList<LiveMonitor> monitors;
+    private readonly IMonitorService monitorService;
+    private readonly MonitorWatcher monitorWatcher;
+    private volatile IReadOnlyList<LiveMonitor> monitors;
     private readonly IStartupService startupService;
     private readonly FileLog log;
     private readonly IWindowMoveHook moveHook;
@@ -78,12 +81,14 @@ public sealed class ApplicationController : IDisposable
         IWindowPlacementRepository placementRepository,
         WindowPlacementCatalog initialPlacementCatalog,
         IReadOnlyList<LiveMonitor> monitors,
+        IMonitorService monitorService,
         IStartupService startupService,
         FileLog log)
     {
         this.window = window;
         this.viewModel = viewModel;
         this.monitors = monitors;
+        this.monitorService = monitorService;
         this.startupService = startupService;
         this.log = log;
         saveCoordinator = new ConfigurationSaveCoordinator(repository);
@@ -114,7 +119,7 @@ public sealed class ApplicationController : IDisposable
             message => log.Write("DEBUG", message));
         appRuleCoordinator = new AppRuleCoordinator(
             () => configuration,
-            monitors,
+            () => this.monitors,
             new WindowServiceAppRuleGateway(windowService, Environment.ProcessId),
             reportStatus: message => _ = window.Dispatcher.InvokeAsync(() => viewModel.StatusMessage = message));
         hotkeys = new GlobalHotkeyService();
@@ -188,7 +193,12 @@ public sealed class ApplicationController : IDisposable
             }
         };
         window.Closing += Window_Closing;
+        monitorWatcher = new MonitorWatcher(synchronizationContext);
+        monitorWatcher.Changed += HandleMonitorsChanged;
 
+        // Beim Start einmal abgleichen: umgesteckte Monitore uebernehmen, verwaiste Namen entfernen,
+        // die fuer diese Monitorkombination gemerkten Layouts aktivieren.
+        ReconcileMonitors(announce: false);
         Reconfigure(configuration);
 
         // Eine vom letzten Update beiseitegeschobene Programmdatei laesst sich erst loeschen, wenn der
@@ -261,6 +271,8 @@ public sealed class ApplicationController : IDisposable
 
         disposed = true;
         allowClose = true;
+        monitorWatcher.Changed -= HandleMonitorsChanged;
+        monitorWatcher.Dispose();
         cursorTimer.Stop();
         identificationTimer.Stop();
         moveHook.Disable();
@@ -284,6 +296,114 @@ public sealed class ApplicationController : IDisposable
         window.ImportConfigurationRequested -= ImportConfigurationAsync;
         window.IdentifyMonitorsRequested -= IdentifyMonitors;
         window.SettingsPageOpened -= PublishCertificateStatus;
+    }
+
+    /// <summary>
+    /// Reagiert auf geaenderte Monitore: neu einlesen, Konfiguration abgleichen, Zonen und Overlays
+    /// neu aufbauen. Ein laufender Ziehvorgang wird dabei abgebrochen, weil seine Ziele nicht mehr
+    /// stimmen.
+    /// </summary>
+    private void HandleMonitorsChanged()
+    {
+        if (shuttingDown || disposed)
+        {
+            return;
+        }
+
+        IReadOnlyList<LiveMonitor> fresh;
+        try
+        {
+            fresh = monitorService.GetMonitors();
+        }
+        catch (Exception exception)
+        {
+            log.Write("ERROR", "Die Monitore konnten nach einer Änderung nicht gelesen werden.", exception);
+            return;
+        }
+
+        if (fresh.Count == 0 || SameMonitors(monitors, fresh))
+        {
+            return;
+        }
+
+        log.Write("INFO", $"Monitore geändert: {string.Join(", ", fresh.Select(DescribeMonitor))}");
+        monitors = fresh;
+        ReconcileMonitors(announce: true);
+        Reconfigure(configuration);
+        if (!emergencyStopped)
+        {
+            foreach (var layout in configuration.Layouts.Where(layout => layout.IsActive))
+            {
+                CollectStrayWindowsIntoMainZone(layout.Id);
+            }
+        }
+    }
+
+    private void ReconcileMonitors(bool announce)
+    {
+        var result = MonitorReconciliation.Reconcile(configuration, monitors);
+        var setKey = MonitorSets.KeyFor(monitors);
+        var reconciled = MonitorSets.Apply(result.Configuration, setKey, monitors, out var activated);
+        reconciled = MonitorSets.Record(reconciled, setKey, monitors);
+        var notices = result.Notices
+            .Concat(activated.Select(layout => $"Layout «{layout.Name}» für diese Monitorkombination aktiviert."))
+            .ToArray();
+        var changed = notices.Length > 0 || !ReferenceEquals(reconciled, configuration);
+
+        viewModel.ReplaceMonitors(monitors, changed ? reconciled : null);
+        configuration = viewModel.Configuration;
+        foreach (var notice in notices)
+        {
+            log.Write("INFO", notice);
+        }
+
+        if (announce)
+        {
+            viewModel.StatusMessage = notices.Length > 0
+                ? string.Join(" ", notices)
+                : $"Monitore neu erkannt: {monitors.Count} verbunden.";
+        }
+        else if (notices.Length > 0)
+        {
+            viewModel.StatusMessage = string.Join(" ", notices);
+        }
+
+        if (changed)
+        {
+            saveCoordinator.RequestSave(configuration);
+        }
+    }
+
+    private static bool SameMonitors(IReadOnlyList<LiveMonitor> first, IReadOnlyList<LiveMonitor> second) =>
+        first.Count == second.Count &&
+        first.Zip(second).All(pair =>
+            string.Equals(pair.First.Identity.StableId, pair.Second.Identity.StableId, StringComparison.OrdinalIgnoreCase) &&
+            pair.First.WorkArea == pair.Second.WorkArea &&
+            pair.First.MonitorBounds == pair.Second.MonitorBounds &&
+            pair.First.DpiX == pair.Second.DpiX &&
+            pair.First.IsPrimary == pair.Second.IsPrimary);
+
+    private static string DescribeMonitor(LiveMonitor monitor) =>
+        $"{monitor.Identity.FriendlyName} {monitor.WorkArea.Width}×{monitor.WorkArea.Height}@{monitor.DpiX}dpi";
+
+    /// <summary>
+    /// Sichert beim Abmelden oder Herunterfahren, was noch aussteht. Windows gibt dafuer nur wenige
+    /// Sekunden; laenger wird nicht gewartet.
+    /// </summary>
+    public void PrepareForSessionEnd()
+    {
+        try
+        {
+            QuiesceForShutdown();
+            viewModel.Save();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            FlushAsync(timeout.Token).GetAwaiter().GetResult();
+            log.Write("INFO", "Einstellungen vor dem Sitzungsende gesichert.");
+        }
+        catch (Exception exception)
+        {
+            log.Write("ERROR", "Die Sicherung vor dem Sitzungsende ist unvollständig.", exception);
+        }
     }
 
     private void SaveRequested(SnapConfiguration newConfiguration)

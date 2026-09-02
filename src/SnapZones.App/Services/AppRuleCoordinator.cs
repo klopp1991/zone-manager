@@ -54,7 +54,7 @@ public sealed class AppRuleCoordinator : IDisposable
 {
     private static readonly TimeSpan RetryDelay = TimeSpan.FromMilliseconds(250);
     private readonly Func<SnapConfiguration> configurationProvider;
-    private readonly IReadOnlyList<LiveMonitor> monitors;
+    private readonly Func<IReadOnlyList<LiveMonitor>> monitorsProvider;
     private readonly IAppRuleWindowGateway windowGateway;
     private readonly Func<TimeSpan, CancellationToken, Task> delay;
     private readonly Action<string>? reportStatus;
@@ -69,9 +69,20 @@ public sealed class AppRuleCoordinator : IDisposable
         IAppRuleWindowGateway windowGateway,
         Func<TimeSpan, CancellationToken, Task>? delay = null,
         Action<string>? reportStatus = null)
+        : this(configurationProvider, () => monitors ?? throw new ArgumentNullException(nameof(monitors)), windowGateway, delay, reportStatus)
+    {
+    }
+
+    /// <summary>Die Monitore werden bei jeder Regel neu abgefragt: sie koennen sich zur Laufzeit aendern.</summary>
+    public AppRuleCoordinator(
+        Func<SnapConfiguration> configurationProvider,
+        Func<IReadOnlyList<LiveMonitor>> monitorsProvider,
+        IAppRuleWindowGateway windowGateway,
+        Func<TimeSpan, CancellationToken, Task>? delay = null,
+        Action<string>? reportStatus = null)
     {
         this.configurationProvider = configurationProvider ?? throw new ArgumentNullException(nameof(configurationProvider));
-        this.monitors = monitors ?? throw new ArgumentNullException(nameof(monitors));
+        this.monitorsProvider = monitorsProvider ?? throw new ArgumentNullException(nameof(monitorsProvider));
         this.windowGateway = windowGateway ?? throw new ArgumentNullException(nameof(windowGateway));
         this.delay = delay ?? Task.Delay;
         this.reportStatus = reportStatus;
@@ -272,7 +283,7 @@ public sealed class AppRuleCoordinator : IDisposable
         var zone = layout?.Zones.FirstOrDefault(candidate => candidate.Id == rule.TargetZoneId);
         var monitor = layout is null
             ? null
-            : monitors.FirstOrDefault(candidate => LayoutService.BelongsToMonitor(candidate.Identity, layout.Monitor));
+            : monitorsProvider().FirstOrDefault(candidate => LayoutService.BelongsToMonitor(candidate.Identity, layout.Monitor));
         if (layout is null || zone is null || monitor is null)
         {
             return false;

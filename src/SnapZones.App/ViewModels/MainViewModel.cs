@@ -9,7 +9,7 @@ namespace SnapZones.App.ViewModels;
 public sealed class MainViewModel : ViewModelBase
 {
     private LayoutService layoutService;
-    private readonly IReadOnlyList<LiveMonitor> liveMonitors;
+    private IReadOnlyList<LiveMonitor> liveMonitors;
     private MonitorChoice? selectedMonitor;
     private MonitorLayout? selectedLayout;
     private LayoutEditorViewModel? editor;
@@ -337,8 +337,36 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         layoutService.UpdateSettings(Settings.CreateSettings());
+        layoutService.RecordMonitorSet(liveMonitors);
         StatusMessage = "Wird gespeichert …";
         SaveRequested?.Invoke(layoutService.Configuration);
+    }
+
+    /// <summary>
+    /// Uebernimmt die neu erkannten Monitore und, falls die Abstimmung sie veraendert hat, die
+    /// Konfiguration. Ein gueltiger Entwurf im Editor wird vorher gesichert; gespeichert wird nicht
+    /// von hier aus, das entscheidet der Aufrufer.
+    /// </summary>
+    public void ReplaceMonitors(IReadOnlyList<LiveMonitor> monitors, SnapConfiguration? configuration)
+    {
+        ArgumentNullException.ThrowIfNull(monitors);
+        suppressPersistence = true;
+        try
+        {
+            StoreValidDraft();
+            liveMonitors = monitors;
+            if (configuration is not null)
+            {
+                layoutService = new LayoutService(configuration);
+            }
+
+            RefreshMonitors(selectedMonitor?.Live.Identity, selectedLayout?.Id);
+            AppRules.RefreshTargets(RuleTargetLayouts());
+        }
+        finally
+        {
+            suppressPersistence = false;
+        }
     }
 
     public void AddLayout()
@@ -614,6 +642,7 @@ public sealed class MainViewModel : ViewModelBase
     private void RequestPersistence()
     {
         AppRules.RefreshTargets(RuleTargetLayouts());
+        layoutService.RecordMonitorSet(liveMonitors);
         StatusMessage = "Wird gespeichert …";
         SaveRequested?.Invoke(layoutService.Configuration);
     }

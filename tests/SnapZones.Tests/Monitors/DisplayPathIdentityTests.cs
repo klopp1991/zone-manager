@@ -26,7 +26,8 @@ public sealed class DisplayPathIdentityTests
         Assert.Equal(new MonitorIdentity(
             "\\\\?\\DISPLAY#DEL40A9#5&123",
             "\\\\.\\DISPLAY2",
-            "DELL U3225QE"), result);
+            "DELL U3225QE",
+            "DEL40A9"), result);
     }
 
     [Fact]

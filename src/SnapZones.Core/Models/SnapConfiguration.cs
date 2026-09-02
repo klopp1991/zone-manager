@@ -5,7 +5,11 @@ namespace SnapZones.Core.Models;
 
 public sealed record SnapConfiguration
 {
-    public const int CurrentSchemaVersion = 5;
+    /// <summary>
+    /// Schema 6 (02.09.2026): Monitore tragen eine Hardwarekennung aus der EDID, und je
+    /// Monitorkombination wird die zuletzt aktive Layoutauswahl gemerkt.
+    /// </summary>
+    public const int CurrentSchemaVersion = 6;
 
     public SnapConfiguration()
     {
@@ -33,6 +37,9 @@ public sealed record SnapConfiguration
     /// Fenster, die die Anwendung vollstaendig in Ruhe laesst. Siehe <see cref="AppExclusion"/>.
     /// </summary>
     public IReadOnlyList<AppExclusion> AppExclusions { get; init; } = [];
+
+    /// <summary>Die zuletzt aktive Layoutauswahl je Monitorkombination. Siehe <see cref="MonitorSetSelection"/>.</summary>
+    public IReadOnlyList<MonitorSetSelection> MonitorSets { get; init; } = [];
 
     [JsonPropertyName("Profiles")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

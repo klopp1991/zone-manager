@@ -139,7 +139,8 @@ public partial class App : System.Windows.Application
             CancellationToken.None);
         themeService = new ThemeService();
         themeService.Apply(loadResult.Configuration.Settings.ThemeMode);
-        var monitors = new WindowsMonitorService().GetMonitors();
+        var monitorService = new WindowsMonitorService();
+        var monitors = monitorService.GetMonitors();
         var viewModel = new MainViewModel(loadResult.Configuration, monitors)
         {
             ProductVersion = ProductInfo.Version
@@ -164,8 +165,10 @@ public partial class App : System.Windows.Application
             placementRepository,
             placementLoadResult.Catalog,
             monitors,
+            monitorService,
             startupService,
             log);
+        SessionEnding += (_, _) => controller?.PrepareForSessionEnd();
         singleInstance.ActivationRequested += () =>
         {
             mainWindow.Show();
