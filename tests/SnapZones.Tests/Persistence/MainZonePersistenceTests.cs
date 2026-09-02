@@ -7,7 +7,8 @@ namespace SnapZones.Tests.Persistence;
 
 /// <summary>
 /// Die Hauptzone ist ein zusätzliches, weglassbares Feld am Layout. Bestehende Stände laufen ohne sie
-/// weiter; ein Verweis ins Leere oder eine zweite Hauptzone darf nie in den Betrieb gelangen.
+/// weiter, jedes Layout darf eine eigene tragen, und ein Verweis ins Leere darf nie in den Betrieb
+/// gelangen.
 /// </summary>
 public sealed class MainZonePersistenceTests
 {
@@ -52,7 +53,7 @@ public sealed class MainZonePersistenceTests
     }
 
     [Fact]
-    public async Task More_than_one_main_zone_is_rejected()
+    public async Task Each_layout_keeps_its_own_main_zone_across_a_round_trip()
     {
         using var directory = new TemporaryDirectory();
         var repository = new JsonConfigurationRepository(directory.Path);
@@ -66,8 +67,11 @@ public sealed class MainZonePersistenceTests
                 .ToArray()
         };
 
-        await Assert.ThrowsAsync<InvalidDataException>(
-            () => repository.SaveAsync(configuration, CancellationToken.None));
+        await repository.SaveAsync(configuration, CancellationToken.None);
+        var loaded = await repository.LoadAsync(CancellationToken.None);
+
+        Assert.Equal(LeftZoneId, loaded.Configuration.Layouts.Single(layout => layout.Id == WorkLayoutId).MainZoneId);
+        Assert.Equal(VideoZoneId, loaded.Configuration.Layouts.Single(layout => layout.Id == EveningLayoutId).MainZoneId);
     }
 
     private static SnapConfiguration WithMainZone(Guid layoutId, Guid zoneId)

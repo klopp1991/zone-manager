@@ -22,8 +22,10 @@ Die Hauptzone ist deine Arbeitszone: dort landen neue Fenster, die sonst nirgend
 im Layouteditor in der Karte **Ausgewählte Zone** unter **Hauptzone** fest; die markierte Zone trägt in der
 Vorschau das Feld «Hauptzone».
 
-Es gibt genau eine Hauptzone. Sie gehört zu einem Layout: wechselst du dieses Layout, gilt sie
-vorübergehend nicht mehr, und legst du in einem anderen Layout eine fest, verliert das bisherige seine.
+Jedes Layout darf eine eigene Hauptzone tragen. Markierst du nur eine einzige, landen neue Fenster immer
+am selben Ort. Markierst du in mehreren Layouts desselben Monitors je eine, überlebt die Hauptzone den
+Layoutwechsel. Tragen mehrere Monitore eine, gewinnt der vorderste aus der Monitorreihenfolge; die
+Statuszeile nennt dir nach dem Setzen, welche gerade wirksam ist.
 
 Ein Fenster kommt nur dann hinein, wenn weder eine Regel noch eine gemerkte Position dafür da ist und es
 nicht ohnehin schon auf einer Zone eingerastet liegt. Maximierte Fenster und Ausschlüsse bleiben unberührt.

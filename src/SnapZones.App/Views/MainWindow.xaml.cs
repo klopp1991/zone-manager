@@ -11,6 +11,7 @@ using SnapZones.App.Controls;
 using SnapZones.App.ViewModels;
 using SnapZones.Core.Editor;
 using SnapZones.Core.Geometry;
+using SnapZones.Core.Layouts;
 using SnapZones.Core.Models;
 
 namespace SnapZones.App.Views;
@@ -256,15 +257,37 @@ public partial class MainWindow : Window
         }
 
         var wasMainZone = editor.IsSelectedZoneMainZone;
+        var zoneName = editor.SelectedZone.Name;
         editor.ToggleSelectedZoneAsMainZone();
         if (viewModel is not null)
         {
             viewModel.StatusMessage = wasMainZone
-                ? "Hauptzone aufgehoben"
-                : $"«{editor.SelectedZone.Name}» ist jetzt die Hauptzone";
+                ? $"«{zoneName}» ist nicht mehr die Hauptzone dieses Layouts.{EffectiveMainZoneSuffix()}"
+                : $"«{zoneName}» ist jetzt die Hauptzone dieses Layouts.{EffectiveMainZoneSuffix()}";
         }
 
         RefreshEditor();
+    }
+
+    /// <summary>
+    /// Nennt die tatsaechlich wirksame Hauptzone, wenn mehrere Layouts eine tragen. Ohne diesen Zusatz
+    /// bliebe unsichtbar, dass die Monitorreihenfolge entscheidet, welche davon gilt.
+    /// </summary>
+    private string EffectiveMainZoneSuffix()
+    {
+        if (viewModel is null)
+        {
+            return string.Empty;
+        }
+
+        var effective = MainZone.Resolve(viewModel.Configuration);
+        if (effective is null)
+        {
+            return " Zurzeit ist keine Hauptzone wirksam.";
+        }
+
+        var monitor = viewModel.GetMonitorDisplayName(effective.Layout.Monitor);
+        return $" Wirksam ist «{effective.Zone.Name}» im Layout «{effective.Layout.Name}» auf {monitor}.";
     }
 
     private void ResetLayout_Click(object sender, RoutedEventArgs eventArgs)

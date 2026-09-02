@@ -282,7 +282,7 @@
                                             <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
                                                 <TextBlock Text="Hauptzone" Style="{StaticResource GroupTitle}" Margin="0" VerticalAlignment="Center" />
                                                 <Button x:Name="MainZoneInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Hauptzone"
-                                                        ToolTip="In der Hauptzone landen neu erscheinende Fenster, für die es weder eine Regel noch eine gemerkte Position gibt und die in keiner Zone des aktiven Layouts liegen. Es gibt genau eine Hauptzone; legst du sie in einem anderen Layout fest, verliert dieses hier seine. Ist das Layout mit der Hauptzone gerade nicht aktiv, bleiben neue Fenster unangetastet." />
+                                                        ToolTip="In der Hauptzone landen neu erscheinende Fenster, für die es weder eine Regel noch eine gemerkte Position gibt und die auf keiner Zone des aktiven Layouts eingerastet liegen. Jedes Layout darf eine eigene Hauptzone tragen; wirksam ist die des ersten Monitors der Monitorreihenfolge, dessen aktives Layout eine trägt. Solange nur eine einzige markiert ist, landen neue Fenster damit immer am selben Ort. Ohne jede Markierung bleiben neue Fenster unangetastet." />
                                             </StackPanel>
                                             <TextBlock x:Name="MainZoneStateText" Foreground="{DynamicResource SubtleInkBrush}" TextWrapping="Wrap" Margin="0,0,0,10" />
                                             <Button x:Name="MainZoneToggleButton" Click="MainZoneToggle_Click" HorizontalAlignment="Left" Margin="0"

@@ -2,6 +2,7 @@ using SnapZones.Core.Editor;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Layouts;
 using SnapZones.Core.Models;
+using SnapZones.Core.Monitors;
 using SnapZones.Core.Placement;
 using SnapZones.Tests.Support;
 using Xunit;
@@ -64,7 +65,7 @@ public sealed class MainZoneTests
     }
 
     [Fact]
-    public void Setting_a_main_zone_removes_the_previous_one()
+    public void Every_layout_may_carry_its_own_main_zone()
     {
         var service = new LayoutService(ConfigurationSamples.TwoLayouts());
         service.SetMainZone(EveningLayoutId, VideoZoneId);
@@ -72,7 +73,33 @@ public sealed class MainZoneTests
         service.SetMainZone(WorkLayoutId, LeftZoneId);
 
         Assert.Equal(LeftZoneId, service.Configuration.Layouts.Single(layout => layout.Id == WorkLayoutId).MainZoneId);
-        Assert.Null(service.Configuration.Layouts.Single(layout => layout.Id == EveningLayoutId).MainZoneId);
+        Assert.Equal(VideoZoneId, service.Configuration.Layouts.Single(layout => layout.Id == EveningLayoutId).MainZoneId);
+    }
+
+    [Fact]
+    public void The_marking_survives_a_layout_switch_when_both_layouts_carry_one()
+    {
+        var service = new LayoutService(ConfigurationSamples.TwoLayouts());
+        service.SetMainZone(WorkLayoutId, LeftZoneId);
+        service.SetMainZone(EveningLayoutId, VideoZoneId);
+
+        service.ActivateLayout(EveningLayoutId);
+
+        Assert.Equal(VideoZoneId, service.ResolveMainZone()?.Zone.Id);
+    }
+
+    [Fact]
+    public void The_monitor_order_decides_which_marking_applies()
+    {
+        var configuration = TwoMonitors();
+
+        // Ohne festgelegte Reihenfolge gewinnt das zuerst gespeicherte Layout.
+        Assert.Equal("Links", Core.Layouts.MainZone.Resolve(configuration)?.Zone.Name);
+
+        var service = new LayoutService(configuration);
+        service.UpdateMonitorOrder([SecondMonitor, FirstMonitor]);
+
+        Assert.Equal("Video", service.ResolveMainZone()?.Zone.Name);
     }
 
     [Fact]
@@ -95,37 +122,37 @@ public sealed class MainZoneTests
     }
 
     [Fact]
-    public void A_copied_layout_does_not_inherit_the_main_zone()
+    public void A_copied_layout_inherits_the_marking_on_its_own_new_zone()
     {
         var service = new LayoutService(ConfigurationSamples.TwoLayouts());
         service.SetMainZone(WorkLayoutId, LeftZoneId);
 
         var added = service.AddLayout(WorkLayoutId, "Fokus");
 
-        Assert.Null(service.Configuration.Layouts.Single(layout => layout.Id == added.Id).MainZoneId);
+        var copy = service.Configuration.Layouts.Single(layout => layout.Id == added.Id);
+        Assert.Equal(copy.Zones[0].Id, copy.MainZoneId);
+        Assert.NotEqual(LeftZoneId, copy.MainZoneId);
         Assert.Equal(LeftZoneId, service.Configuration.Layouts.Single(layout => layout.Id == WorkLayoutId).MainZoneId);
     }
 
     [Fact]
-    public void Saving_a_layout_with_a_main_zone_clears_the_marking_everywhere_else()
+    public void A_copy_of_a_layout_without_a_marking_has_none_either()
     {
         var service = new LayoutService(ConfigurationSamples.TwoLayouts());
-        service.SetMainZone(EveningLayoutId, VideoZoneId);
-        var work = service.Configuration.Layouts.Single(layout => layout.Id == WorkLayoutId);
 
-        service.UpdateLayout(work with { MainZoneId = LeftZoneId });
+        var added = service.AddLayout(WorkLayoutId, "Fokus");
 
-        Assert.Null(service.Configuration.Layouts.Single(layout => layout.Id == EveningLayoutId).MainZoneId);
+        Assert.Null(service.Configuration.Layouts.Single(layout => layout.Id == added.Id).MainZoneId);
     }
 
     [Fact]
-    public void Normalizing_keeps_only_the_first_valid_marking()
+    public void Normalizing_drops_only_markings_pointing_at_a_missing_zone()
     {
         var configuration = ConfigurationSamples.TwoLayouts();
         var layouts = configuration.Layouts
             .Select(layout => layout.Id == WorkLayoutId
                 ? layout with { MainZoneId = LeftZoneId }
-                : layout with { MainZoneId = VideoZoneId })
+                : layout with { MainZoneId = LeftZoneId })
             .ToArray();
 
         var normalized = Core.Layouts.MainZone.Normalize(layouts);
@@ -226,6 +253,33 @@ public sealed class MainZoneTests
         Assert.Equal(LeftZoneId, session.MainZoneId);
         Assert.False(session.IsDirty);
     }
+
+    private static readonly MonitorIdentity FirstMonitor =
+        new("DISPLAY-A", @"\\.\DISPLAY1", "Hauptmonitor");
+
+    private static readonly MonitorIdentity SecondMonitor =
+        new("DISPLAY-B", @"\\.\DISPLAY2", "Zweitmonitor");
+
+    /// <summary>Zwei Monitore, deren aktives Layout je eine Hauptzone traegt.</summary>
+    private static SnapConfiguration TwoMonitors() => new(
+        SnapConfiguration.CurrentSchemaVersion,
+        AppSettings.Default(Guid.Empty),
+        [
+            new MonitorLayout(FirstMonitor, 1920, 1080, [new ZoneDefinition(LeftZoneId, "Links", NormalizedRect.Full)])
+            {
+                Id = WorkLayoutId,
+                Name = "Arbeit",
+                IsActive = true,
+                MainZoneId = LeftZoneId
+            },
+            new MonitorLayout(SecondMonitor, 1920, 1080, [new ZoneDefinition(VideoZoneId, "Video", NormalizedRect.Full)])
+            {
+                Id = EveningLayoutId,
+                Name = "Abend",
+                IsActive = true,
+                MainZoneId = VideoZoneId
+            }
+        ]);
 
     private static SnapConfiguration WithMainZone(Guid layoutId, Guid zoneId)
     {

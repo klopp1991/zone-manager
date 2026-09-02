@@ -55,10 +55,11 @@ public sealed class LayoutService
             Id = Guid.NewGuid(),
             Name = trimmedName,
             IsActive = true,
-            // Die Kopie erbt die Hauptzone nicht: es gibt genau eine, und die bleibt beim Original.
-            MainZoneId = null,
+            // Die Kopie erhaelt neue Zonenkennungen; der geerbte Verweis auf die Hauptzone des Originals
+            // ginge damit ins Leere und wird weiter unten auf die entsprechende neue Zone umgesetzt.
             Zones = source.Zones.Select(zone => zone with { Id = Guid.NewGuid() }).ToArray()
         };
+        added = added with { MainZoneId = MappedMainZoneId(source, added) };
         var layouts = Configuration.Layouts
             .Select(layout => BelongsToMonitor(layout.Monitor, source.Monitor)
                 ? layout with { IsActive = false }
@@ -174,20 +175,11 @@ public sealed class LayoutService
         ArgumentNullException.ThrowIfNull(layout);
         _ = Find(layout.Id);
         Replace(layout);
-        if (layout.MainZoneId is not null)
-        {
-            // Eine Hauptzone gibt es nur einmal. Traegt das gespeicherte Layout eine, verlieren alle
-            // anderen ihre — sonst haette der Editor die Eindeutigkeit stillschweigend aufgehoben.
-            Configuration = Configuration with
-            {
-                Layouts = MainZone.Assign(Configuration.Layouts, layout.Id, layout.MainZoneId)
-            };
-        }
     }
 
     /// <summary>
-    /// Legt die Hauptzone fest oder hebt sie auf. Sie gilt fuer die gesamte Konfiguration nur einmal:
-    /// jedes andere Layout verliert dabei seine Markierung. Siehe <see cref="MainZone"/>.
+    /// Legt die Hauptzone eines Layouts fest oder hebt sie auf. Andere Layouts behalten ihre eigene;
+    /// welche zur Laufzeit gilt, entscheidet die Monitorreihenfolge. Siehe <see cref="MainZone"/>.
     /// </summary>
     public void SetMainZone(Guid layoutId, Guid? zoneId)
     {
@@ -255,6 +247,22 @@ public sealed class LayoutService
                 : layout).ToArray();
         Configuration = Configuration with { Layouts = repaired };
         return chosen with { IsActive = true };
+    }
+
+    /// <summary>
+    /// Setzt die Hauptzone des Originals auf die Zone an derselben Stelle der Kopie um. Ohne das haette
+    /// ein kopiertes Layout keine Hauptzone, und ein Layoutwechsel liesse sie ausfallen — genau das, was
+    /// die Kopie eines eingerichteten Layouts vermeiden soll.
+    /// </summary>
+    private static Guid? MappedMainZoneId(MonitorLayout source, MonitorLayout copy)
+    {
+        if (source.MainZoneId is not Guid zoneId)
+        {
+            return null;
+        }
+
+        var index = source.Zones.ToList().FindIndex(zone => zone.Id == zoneId);
+        return index >= 0 && index < copy.Zones.Count ? copy.Zones[index].Id : null;
     }
 
     private MonitorLayout Find(Guid layoutId) =>

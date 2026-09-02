@@ -33,7 +33,7 @@ public sealed class MainZonePresentationTests
             toggle.RaiseEvent(new System.Windows.RoutedEventArgs(Button.ClickEvent));
 
             Assert.Equal("Hauptzone aufheben", toggle.Content);
-            Assert.Equal("Diese Zone ist die Hauptzone.", state.Text);
+            Assert.Equal("Diese Zone ist die Hauptzone dieses Layouts.", state.Text);
 
             toggle.RaiseEvent(new System.Windows.RoutedEventArgs(Button.ClickEvent));
 

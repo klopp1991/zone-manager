@@ -35,11 +35,11 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         ? "Hauptzone aufheben"
         : "Als Hauptzone festlegen";
 
-    /// <summary>Was gerade gilt, im Klartext und ohne Farbe.</summary>
+    /// <summary>Was in diesem Layout gilt, im Klartext und ohne Farbe.</summary>
     public string MainZoneStateText => session.MainZoneId is null
         ? "Keine Zone dieses Layouts ist Hauptzone."
         : IsSelectedZoneMainZone
-            ? "Diese Zone ist die Hauptzone."
+            ? "Diese Zone ist die Hauptzone dieses Layouts."
             : $"Hauptzone dieses Layouts ist «{Zones.First(zone => zone.Id == session.MainZoneId).Name}».";
     public bool IsDirty => session.IsDirty;
     public bool IsValid => session.Validation.IsValid;
@@ -193,8 +193,8 @@ public sealed class LayoutEditorViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Macht die ausgewählte Zone zur Hauptzone, oder hebt die Markierung wieder auf, wenn sie es schon
-    /// ist. Mehr als eine Hauptzone kann es nicht geben; die vorherige verliert die Markierung.
+    /// Macht die ausgewählte Zone zur Hauptzone dieses Layouts, oder hebt die Markierung wieder auf, wenn
+    /// sie es schon ist. Andere Layouts behalten ihre eigene Markierung.
     /// </summary>
     public void ToggleSelectedZoneAsMainZone()
     {

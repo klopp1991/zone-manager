@@ -77,16 +77,28 @@ Die Hauptzone ist die Arbeitszone: dort landen neu erscheinende Fenster, die son
 Festgelegt wird sie im Layouteditor an der Zone selbst, in der Karte **Ausgewählte Zone** unter
 **Hauptzone**. Die markierte Zone trägt in der Zeichenfläche das Feld «Hauptzone».
 
-Es gibt in der gesamten Konfiguration genau eine Hauptzone. Sie gehört zu einem Layout und wandert damit
-beim Layoutwechsel mit; wird in einem anderen Layout eine Hauptzone festgelegt, verliert das bisherige
-seine. Ist das Layout mit der Hauptzone gerade nicht aktiv, gibt es vorübergehend keine Hauptzone, und
-neue Fenster bleiben unangetastet. Ohne festgelegte Hauptzone verhält sich alles wie zuvor.
+Jedes Layout darf eine eigene Hauptzone tragen. Welche davon wirksam ist, entscheidet die Monitorreihenfolge
+aus der Seite **Monitore**: es gilt die Hauptzone des ersten Monitors, dessen aktives Layout überhaupt eine
+trägt. Monitore ohne Eintrag in dieser Reihenfolge stehen hinten.
+
+Daraus folgt das Verhalten, das im Alltag zählt:
+
+- Ist nur eine einzige Zone markiert, landen neue Fenster immer am selben Ort.
+- Markierst du in mehreren Layouts desselben Monitors je eine, überlebt die Hauptzone den Layoutwechsel:
+  das neue Layout bringt seine eigene mit.
+- Trägt das aktive Layout des vordersten Monitors keine, rutscht die Wahl auf den nächsten Monitor, statt
+  ganz auszufallen.
+- Trägt kein aktives Layout eine, gibt es keine Hauptzone, und neue Fenster bleiben unangetastet — so
+  verhält sich das Programm auch ohne jede Markierung.
+
+Ein kopiertes Layout übernimmt die Markierung auf der Zone an derselben Stelle; ohne das hätte eine Kopie
+nie eine Hauptzone. Nach dem Setzen nennt die Statuszeile, welche Hauptzone tatsächlich wirksam ist.
 
 Ein Fenster kommt in die Hauptzone, wenn nacheinander nichts anderes zutrifft:
 
 1. Eine passende Regel platziert das Fenster — sie gewinnt immer.
 2. Eine gemerkte Position liegt vor — sie gewinnt vor der Hauptzone.
-3. Das Fenster liegt bereits auf einer Zone des aktiven Layouts eingerastet — es bleibt, wo es ist.
+3. Das Fenster liegt bereits auf einer Zone eines aktiven Layouts eingerastet — es bleibt, wo es ist.
 4. Sonst: Hauptzone.
 
 Eingerastet heisst, dass die vier Fensterränder auf höchstens 40 Pixel genau mit den Zonenrändern

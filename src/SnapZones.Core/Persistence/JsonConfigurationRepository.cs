@@ -365,11 +365,6 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
                 throw new InvalidDataException($"Die Hauptzone des Layouts «{layout.Name}» gibt es nicht.");
             }
         }
-
-        if (configuration.Layouts.Count(layout => layout.MainZoneId is not null) > 1)
-        {
-            throw new InvalidDataException("Es darf höchstens eine Hauptzone geben.");
-        }
     }
 
     private static string MonitorKey(MonitorLayout layout) =>
