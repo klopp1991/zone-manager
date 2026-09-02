@@ -283,7 +283,16 @@ public partial class MainWindow : Window
             return;
         }
 
-        editor.RenameSelectedZone(ZoneNameText.Text);
+        applyingZoneFieldChange = true;
+        try
+        {
+            editor.RenameSelectedZone(ZoneNameText.Text);
+        }
+        finally
+        {
+            applyingZoneFieldChange = false;
+        }
+
         EditorCanvas.Zones = editor.Zones;
         ValidationText.Text = editor.ValidationMessage;
         EditorCanvas.InvalidateVisual();
@@ -989,7 +998,7 @@ public partial class MainWindow : Window
         {
             var editor = viewModel?.Editor;
             var zone = editor?.SelectedZone;
-            ZoneNameText.Text = zone?.Name ?? string.Empty;
+            SetZoneNameText(zone?.Name ?? string.Empty);
             ClearZoneFieldErrors();
             if (editor is not null && zone is not null)
             {
@@ -1022,6 +1031,26 @@ public partial class MainWindow : Window
         {
             refreshingZoneFields = false;
         }
+    }
+
+    private void SetZoneNameText(string name)
+    {
+        if (string.Equals(ZoneNameText.Text, name, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        // Während der Eingabe darf der getrimmte Name die Rohfassung im Feld nicht ersetzen,
+        // sonst springt der Cursor bei jedem Leerschlag an den Anfang.
+        if (ZoneNameText.IsKeyboardFocusWithin &&
+            string.Equals(ZoneNameText.Text.Trim(), name, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var caretIndex = ZoneNameText.CaretIndex;
+        ZoneNameText.Text = name;
+        ZoneNameText.CaretIndex = Math.Min(caretIndex, name.Length);
     }
 
     private void SetZoneFieldValue(
