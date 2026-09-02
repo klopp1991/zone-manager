@@ -1,0 +1,28 @@
+<Window x:Class="SnapZones.App.Overlays.MonitorIdentificationWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ResizeMode="NoResize"
+        ShowActivated="False"
+        ShowInTaskbar="False"
+        Focusable="False"
+        IsHitTestVisible="False"
+        Topmost="True"
+        WindowStartupLocation="Manual"
+        Width="1"
+        Height="1"
+        Title="Monitor identifizieren">
+    <Grid IsHitTestVisible="False">
+        <Border HorizontalAlignment="Center" VerticalAlignment="Center"
+                MaxWidth="840" Padding="34,24"
+                Background="#E6222222" BorderBrush="#F0FFFFFF" BorderThickness="2"
+                CornerRadius="12">
+            <TextBlock x:Name="IdentificationText"
+                       Foreground="White" FontFamily="Segoe UI Variable Display"
+                       FontSize="64" FontWeight="SemiBold"
+                       TextAlignment="Center" TextWrapping="Wrap" />
+        </Border>
+    </Grid>
+</Window>

@@ -1,0 +1,17 @@
+<Project>
+  <!--
+    Produktversion nach dem Schema YYYY.MMDD.NN. NN startet taeglich bei 01.
+    Diese Datei wird von scripts/set-version.ps1 erzeugt; nicht von Hand bearbeiten.
+    ZoneManagerVersion ist die Anzeigeform, die numerischen Felder tragen dieselbe
+    Version ohne fuehrende Nullen, weil Assemblys keine speichern koennen.
+  -->
+  <PropertyGroup>
+    <ZoneManagerVersion>2026.0902.01</ZoneManagerVersion>
+    <Version>2026.902.1</Version>
+    <AssemblyVersion>2026.902.1</AssemblyVersion>
+    <FileVersion>2026.902.1</FileVersion>
+    <InformationalVersion>2026.0902.01</InformationalVersion>
+    <!-- Ohne diesen Schalter haengt das SDK die Commit-Id an die InformationalVersion. -->
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+  </PropertyGroup>
+</Project>

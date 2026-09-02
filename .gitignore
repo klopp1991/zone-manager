@@ -1,0 +1,24 @@
+# Build- und IDE-Artefakte
+bin/
+obj/
+.vs/
+.worktrees/
+*.user
+*.suo
+TestResults/
+work/
+*.log
+
+# Arbeitsverzeichnisse: Prüfausgaben, Prototypen und Diagnosen
+outputs/
+
+# Programmdateien inklusive der atomaren Austauschdateien und der Prüfsummen, die
+# scripts/publish-release.ps1 als Release-Anhänge erzeugt
+/ZoneManager.exe
+/ZoneManager.exe.new
+/ZoneManager.exe.previous.*
+/ZoneManager.exe.sha256
+/ZoneManager.Helper.exe
+/ZoneManager.Helper.exe.new
+/ZoneManager.Helper.exe.previous.*
+/ZoneManager.Helper.exe.sha256

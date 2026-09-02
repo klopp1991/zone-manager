@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <defs>
+    <clipPath id="iconShape">
+      <rect x="8" y="8" width="240" height="240" rx="46"/>
+    </clipPath>
+  </defs>
+  <g clip-path="url(#iconShape)">
+    <rect x="8" y="8" width="132" height="107" fill="#292D33"/>
+    <rect x="147" y="8" width="101" height="107" fill="#FF5A1F"/>
+    <rect x="8" y="122" width="132" height="126" fill="#90959D"/>
+    <rect x="147" y="122" width="101" height="126" fill="#515760"/>
+  </g>
+</svg>

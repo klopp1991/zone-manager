@@ -1,0 +1,1424 @@
+using System.Globalization;
+using System.Diagnostics;
+using System.Windows;
+using System.Windows.Automation;
+using System.Windows.Controls;
+using System.Windows.Input;
+using System.Windows.Interop;
+using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
+using SaveFileDialog = Microsoft.Win32.SaveFileDialog;
+using SnapZones.App.Controls;
+using SnapZones.App.ViewModels;
+using SnapZones.Core.Editor;
+using SnapZones.Core.Geometry;
+using SnapZones.Core.Layouts;
+using SnapZones.Core.Models;
+
+namespace SnapZones.App.Views;
+
+public partial class MainWindow : Window
+{
+    private MainViewModel? viewModel;
+    private readonly Func<string, string?> pickOverlayColor;
+    private MeasurementUnit zoneInputUnit = MeasurementUnit.Percent;
+    private bool refreshingZoneFields;
+    private bool applyingZoneFieldChange;
+    private ZoneInputGroup activeZoneInputGroup = ZoneInputGroup.PositionAndSize;
+    private LayoutEditorViewModel? observedEditor;
+
+    public event Func<string, Task>? ExportConfigurationRequested;
+    public event Func<string, Task>? ImportConfigurationRequested;
+    public event Action? IdentifyMonitorsRequested;
+
+    /// <summary>
+    /// Wird ausgeloest, sobald die Einstellungsseite sichtbar wird. Zertifikat und Fensterhelfer koennen
+    /// sich ausserhalb des Programms geaendert haben; ihr Zustand wird deshalb beim Oeffnen neu gelesen
+    /// statt einmal beim Start.
+    /// </summary>
+    public event Action? SettingsPageOpened;
+
+    public MainWindow()
+    {
+        pickOverlayColor = PickOverlayColorWithDialog;
+        InitializeComponent();
+        InitializeShell();
+    }
+
+    public MainWindow(Func<string, string?> pickOverlayColor)
+    {
+        this.pickOverlayColor = pickOverlayColor ?? throw new ArgumentNullException(nameof(pickOverlayColor));
+        InitializeComponent();
+        InitializeShell();
+    }
+
+    private void InitializeShell()
+    {
+        VersionLabel.Text = $"Version {ProductInfo.Version}";
+        ArrangeNavigationTabs();
+    }
+
+    private void NavigationTabs_SelectionChanged(object sender, SelectionChangedEventArgs eventArgs)
+    {
+        _ = sender;
+        if (eventArgs.AddedItems.Count > 0 && ReferenceEquals(eventArgs.AddedItems[0], ProgramTab))
+        {
+            SettingsPageOpened?.Invoke();
+        }
+    }
+
+    private void ArrangeNavigationTabs()
+    {
+        NavigationTabs.Items.Clear();
+        NavigationTabs.Items.Add(MonitorsTab);
+        NavigationTabs.Items.Add(LayoutsTab);
+        NavigationTabs.Items.Add(RulesTab);
+        // Ausschluesse stehen direkt hinter den Regeln: beide beschreiben Fenster nach denselben drei
+        // Merkmalen, die eine Seite ordnet sie an, die andere laesst sie in Ruhe.
+        NavigationTabs.Items.Add(ExclusionsTab);
+        // Sechs Seiten seit dem 02.09.2026: Skalierung steht bei den Monitoren, Import und Export beim
+        // Programm, und die frueheren Einstellungen sind nach Verhalten und Programm getrennt.
+        NavigationTabs.Items.Add(BehaviourTab);
+        NavigationTabs.Items.Add(ProgramTab);
+        NavigationTabs.SelectedItem = LayoutsTab;
+        NavigationTabs.SelectionChanged += NavigationTabs_SelectionChanged;
+    }
+
+    public void AttachViewModel(MainViewModel model)
+    {
+        if (viewModel is not null)
+        {
+            viewModel.PropertyChanged -= ViewModel_PropertyChanged;
+            viewModel.Settings.PropertyChanged -= Settings_PropertyChanged;
+        }
+        ObserveEditor(null);
+        viewModel = model;
+        DataContext = model;
+        model.PropertyChanged += ViewModel_PropertyChanged;
+        model.Settings.PropertyChanged += Settings_PropertyChanged;
+        ObserveEditor(model.Editor);
+        RefreshEditor();
+    }
+
+    private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs eventArgs)
+    {
+        _ = sender;
+        if (eventArgs.PropertyName == nameof(MainViewModel.Editor))
+        {
+            ObserveEditor(viewModel?.Editor);
+        }
+
+        if (eventArgs.PropertyName is nameof(MainViewModel.Editor) or
+            nameof(MainViewModel.SelectedMonitor) or
+            nameof(MainViewModel.SelectedLayout))
+        {
+            RefreshEditor();
+        }
+    }
+
+    private void Settings_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        RefreshEditor();
+    }
+
+    private void ObserveEditor(LayoutEditorViewModel? editor)
+    {
+        if (ReferenceEquals(observedEditor, editor))
+        {
+            return;
+        }
+
+        if (observedEditor is not null)
+        {
+            observedEditor.PropertyChanged -= Editor_PropertyChanged;
+        }
+
+        observedEditor = editor;
+        if (observedEditor is not null)
+        {
+            observedEditor.PropertyChanged += Editor_PropertyChanged;
+        }
+    }
+
+    private void Editor_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs eventArgs)
+    {
+        _ = sender;
+        if (!applyingZoneFieldChange &&
+            !refreshingZoneFields &&
+            eventArgs.PropertyName == nameof(LayoutEditorViewModel.Zones))
+        {
+            RefreshEditor();
+        }
+    }
+
+    private async void ExportConfiguration_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        var dialog = new SaveFileDialog
+        {
+            Title = "Vollständige Konfiguration exportieren",
+            Filter = "Zone Manager Vollbackup (*.swz.json)|*.swz.json|JSON-Dateien (*.json)|*.json",
+            DefaultExt = ".swz.json",
+            AddExtension = true,
+            FileName = $"ZoneManager-Vollbackup-{DateTime.Now:yyyy-MM-dd-HHmm}.swz.json"
+        };
+        if (dialog.ShowDialog(this) == true && ExportConfigurationRequested is { } export)
+        {
+            await RunConfigurationTransferAsync(() => export(dialog.FileName));
+        }
+    }
+
+    private async void ImportConfiguration_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        var dialog = new OpenFileDialog
+        {
+            Title = "Vollständige Konfiguration importieren",
+            Filter = "Zone Manager Vollbackup (*.swz.json)|*.swz.json|JSON-Dateien (*.json)|*.json",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) == true && ImportConfigurationRequested is { } import)
+        {
+            await RunConfigurationTransferAsync(() => import(dialog.FileName));
+        }
+    }
+
+    private async Task RunConfigurationTransferAsync(Func<Task> action)
+    {
+        ExportConfigurationButton.IsEnabled = false;
+        ImportConfigurationButton.IsEnabled = false;
+        try
+        {
+            await action();
+        }
+        catch (Exception exception)
+        {
+            if (viewModel is not null)
+            {
+                viewModel.StatusMessage = exception.Message;
+            }
+        }
+        finally
+        {
+            ExportConfigurationButton.IsEnabled = true;
+            ImportConfigurationButton.IsEnabled = true;
+        }
+    }
+
+    private void Template_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        if (viewModel?.Editor is null ||
+            sender is not System.Windows.Controls.Button { DataContext: LayoutSuggestion suggestion })
+        {
+            return;
+        }
+
+        // Eine Vorlage ersetzt alle Zonen. Bei einem handgebauten Layout wird nachgefragt; der Weg
+        // zurueck bleibt ueber «Rueckgaengig» trotzdem offen.
+        var zoneCount = viewModel.Editor.Zones.Count;
+        if (zoneCount > 1 && System.Windows.MessageBox.Show(
+                this,
+                $"Die Vorlage «{suggestion.Name}» ersetzt die {zoneCount} Zonen dieses Layouts.\n\nVorlage übernehmen? Rückgängig ist mit Strg + Z möglich.",
+                "Vorlage übernehmen",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Question,
+                MessageBoxResult.OK) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        viewModel.Editor.ApplyTemplate(suggestion.Template);
+        viewModel.StatusMessage = "Vorlage als Entwurf angewendet – Rückgängig mit Strg + Z";
+        RefreshEditor();
+    }
+
+    private void UndoZoneChange_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        UndoZoneChange();
+    }
+
+    private void RedoZoneChange_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        RedoZoneChange();
+    }
+
+    private void UndoZoneChange()
+    {
+        if (viewModel?.Editor is { } editor && editor.Undo())
+        {
+            viewModel.StatusMessage = "Letzte Änderung am Layout zurückgenommen";
+            RefreshEditor();
+        }
+    }
+
+    private void RedoZoneChange()
+    {
+        if (viewModel?.Editor is { } editor && editor.Redo())
+        {
+            viewModel.StatusMessage = "Änderung am Layout wiederhergestellt";
+            RefreshEditor();
+        }
+    }
+
+    private void EditorCanvas_DragStarted(object sender, EventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.Editor?.BeginInteractiveChange();
+    }
+
+    private void EditorCanvas_DragEnded(object sender, EventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.Editor?.EndInteractiveChange();
+    }
+
+    /// <summary>
+    /// Zeigt den Entwurf drei Sekunden lang auf dem echten Monitor, so wie das Overlay ihn beim Ziehen
+    /// zeigen wird. Der Controller uebernimmt die Anzeige, weil er die Overlays besitzt.
+    /// </summary>
+    private void PreviewLayout_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel?.Editor is null || viewModel.SelectedMonitor is null)
+        {
+            return;
+        }
+
+        if (!viewModel.Editor.IsValid)
+        {
+            viewModel.StatusMessage = "Der Entwurf ist ungültig und kann nicht angezeigt werden.";
+            return;
+        }
+
+        PreviewLayoutRequested?.Invoke(viewModel.SelectedMonitor.Live, viewModel.Editor.Zones);
+    }
+
+    /// <summary>Bittet darum, die Zonen des Entwurfs kurz auf dem Monitor zu zeigen.</summary>
+    public event Action<SnapZones.Core.Monitors.LiveMonitor, IReadOnlyList<ZoneDefinition>>? PreviewLayoutRequested;
+
+    private void AddZone_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        if (viewModel?.Editor is { } editor && !editor.AddZone())
+        {
+            viewModel.StatusMessage = "Keine freie rechteckige Fläche für eine weitere Zone vorhanden";
+        }
+        else if (viewModel is not null)
+        {
+            viewModel.StatusMessage = "Neue Zone in der grössten freien Fläche erstellt";
+        }
+        RefreshEditor();
+    }
+
+    private void DeleteZone_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        if (viewModel?.Editor is null || viewModel.Editor.Zones.Count <= 1)
+        {
+            if (viewModel is not null) viewModel.StatusMessage = "Mindestens eine Zone ist erforderlich";
+            return;
+        }
+
+        viewModel.Editor.DeleteSelected();
+        RefreshEditor();
+    }
+
+    private void MainZoneToggle_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        var editor = viewModel?.Editor;
+        if (editor?.SelectedZone is null)
+        {
+            return;
+        }
+
+        var wasMainZone = editor.IsSelectedZoneMainZone;
+        var zoneName = editor.SelectedZone.Name;
+        editor.ToggleSelectedZoneAsMainZone();
+        if (viewModel is not null)
+        {
+            viewModel.StatusMessage = wasMainZone
+                ? $"«{zoneName}» ist nicht mehr die Hauptzone dieses Layouts.{EffectiveMainZoneSuffix()}"
+                : $"«{zoneName}» ist jetzt die Hauptzone dieses Layouts.{EffectiveMainZoneSuffix()}";
+        }
+
+        RefreshEditor();
+    }
+
+    /// <summary>
+    /// Nennt die tatsaechlich wirksame Hauptzone, wenn mehrere Layouts eine tragen. Ohne diesen Zusatz
+    /// bliebe unsichtbar, dass die Monitorreihenfolge entscheidet, welche davon gilt.
+    /// </summary>
+    private string EffectiveMainZoneSuffix()
+    {
+        if (viewModel is null)
+        {
+            return string.Empty;
+        }
+
+        var effective = MainZone.Resolve(viewModel.Configuration);
+        if (effective is null)
+        {
+            return " Zurzeit ist keine Hauptzone wirksam.";
+        }
+
+        var monitor = viewModel.GetMonitorDisplayName(effective.Layout.Monitor);
+        return $" Wirksam ist «{effective.Zone.Name}» im Layout «{effective.Layout.Name}» auf {monitor}.";
+    }
+
+    private void ResetLayout_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        viewModel?.Editor?.Reset();
+        RefreshEditor();
+    }
+
+    private void ApplyZoneValues_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        _ = TryApplyZoneValues(activeZoneInputGroup, true, null);
+    }
+
+    private void ZoneField_TextChanged(object sender, TextChangedEventArgs eventArgs)
+    {
+        _ = eventArgs;
+        if (refreshingZoneFields ||
+            viewModel?.Editor?.SelectedZone is null ||
+            sender is not System.Windows.Controls.TextBox { Tag: string groupName } ||
+            !Enum.TryParse<ZoneInputGroup>(groupName, out var group))
+        {
+            return;
+        }
+
+        SetActiveZoneInputGroup(group);
+        _ = TryApplyZoneValues(group, false, group);
+    }
+
+    private void ZoneName_TextChanged(object sender, TextChangedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        var editor = viewModel?.Editor;
+        if (refreshingZoneFields || editor?.SelectedZone is null)
+        {
+            return;
+        }
+
+        applyingZoneFieldChange = true;
+        try
+        {
+            editor.RenameSelectedZone(ZoneNameText.Text);
+        }
+        finally
+        {
+            applyingZoneFieldChange = false;
+        }
+
+        EditorCanvas.Zones = editor.Zones;
+        MainZoneStateText.Text = editor.MainZoneStateText;
+        ValidationText.Text = editor.ValidationMessage;
+        EditorCanvas.InvalidateVisual();
+    }
+
+    private bool TryApplyZoneValues(
+        ZoneInputGroup group,
+        bool showErrors,
+        ZoneInputGroup? preservedInputGroup)
+    {
+        if (viewModel?.Editor?.SelectedZone is null)
+        {
+            return false;
+        }
+
+        SetActiveZoneInputGroup(group);
+        ClearZoneFieldErrors();
+        applyingZoneFieldChange = true;
+        try
+        {
+            if (group == ZoneInputGroup.PositionAndSize)
+            {
+                if (!TryReadZoneMeasurement(ZonePositionXText, true, showErrors, out var positionX) |
+                    !TryReadZoneMeasurement(ZonePositionYText, false, showErrors, out var positionY) |
+                    !TryReadZoneMeasurement(ZoneWidthText, true, showErrors, out var width) |
+                    !TryReadZoneMeasurement(ZoneHeightText, false, showErrors, out var height))
+                {
+                    if (showErrors)
+                    {
+                        ZoneInputErrorText.Text = "Prüfe die markierten Werte. Erlaubt sind 0 bis 100 % beziehungsweise die Monitorgrösse in Pixel.";
+                    }
+                    return false;
+                }
+
+                var bounds = ZoneEditorGeometry.FromPositionAndSize(
+                    positionX,
+                    positionY,
+                    width,
+                    height,
+                    viewModel.SelectedMonitor?.Live.WorkArea.Width ?? 1,
+                    viewModel.SelectedMonitor?.Live.WorkArea.Height ?? 1);
+                if (!TryValidateEditorBounds(bounds, group, showErrors))
+                {
+                    if (showErrors)
+                    {
+                        MarkZoneFieldsInvalid(ZonePositionXText, ZonePositionYText, ZoneWidthText, ZoneHeightText);
+                    }
+                    return false;
+                }
+
+                viewModel.Editor.UpdateSelectedZoneFromPositionAndSize(
+                    ZoneNameText.Text, positionX, positionY, width, height);
+            }
+            else
+            {
+                if (!TryReadZoneMeasurement(ZoneMarginLeftText, true, showErrors, out var left) |
+                    !TryReadZoneMeasurement(ZoneMarginTopText, false, showErrors, out var top) |
+                    !TryReadZoneMeasurement(ZoneMarginRightText, true, showErrors, out var right) |
+                    !TryReadZoneMeasurement(ZoneMarginBottomText, false, showErrors, out var bottom))
+                {
+                    if (showErrors)
+                    {
+                        ZoneInputErrorText.Text = "Prüfe die markierten Werte. Erlaubt sind 0 bis 100 % beziehungsweise die Monitorgrösse in Pixel.";
+                    }
+                    return false;
+                }
+
+                var bounds = ZoneEditorGeometry.FromMargins(
+                    left,
+                    top,
+                    right,
+                    bottom,
+                    viewModel.SelectedMonitor?.Live.WorkArea.Width ?? 1,
+                    viewModel.SelectedMonitor?.Live.WorkArea.Height ?? 1);
+                if (!TryValidateEditorBounds(bounds, group, showErrors))
+                {
+                    if (showErrors)
+                    {
+                        MarkZoneFieldsInvalid(ZoneMarginLeftText, ZoneMarginTopText, ZoneMarginRightText, ZoneMarginBottomText);
+                    }
+                    return false;
+                }
+
+                viewModel.Editor.UpdateSelectedZoneFromMargins(
+                    ZoneNameText.Text, left, top, right, bottom);
+            }
+        }
+        finally
+        {
+            applyingZoneFieldChange = false;
+        }
+
+        RefreshEditor(preservedInputGroup);
+        return true;
+    }
+
+    private void EditorCanvas_ZoneSelected(object sender, ZoneSelectedEventArgs eventArgs)
+    {
+        viewModel?.Editor?.SelectZone(eventArgs.ZoneId);
+        RefreshEditor();
+    }
+
+    private void EditorCanvas_ZoneChanged(object sender, ZoneChangedEventArgs eventArgs)
+    {
+        viewModel?.Editor?.MoveOrResizeZones(eventArgs.SelectedZoneId, eventArgs.ChangedBounds);
+        RefreshEditor();
+    }
+
+    private void Monitor_SelectionChanged(object sender, SelectionChangedEventArgs eventArgs) => RefreshEditor();
+
+    private void Layout_SelectionChanged(object sender, SelectionChangedEventArgs eventArgs) => RefreshEditor();
+
+    private void AddLayout_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        viewModel?.AddLayout();
+        RefreshEditor();
+    }
+
+    private void AppRuleAdd_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.AppRules.AddRule();
+    }
+
+    private void ResetSettings_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        var answer = System.Windows.MessageBox.Show(
+            this,
+            "Abstände, Darstellung, Verhalten und alle Feinabstimmungen werden auf die Voreinstellung zurückgesetzt.\n\n"
+                + "Erhalten bleiben Erscheinungsbild, Autostart, Rechte, Updatesuche sowie Layouts, Regeln und Ausschlüsse.\n\nZurücksetzen?",
+            "Einstellungen zurücksetzen",
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Question,
+            MessageBoxResult.Cancel);
+        if (answer != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        viewModel.Settings.ResetToDefaults();
+        viewModel.StatusMessage = "Einstellungen auf die Voreinstellung zurückgesetzt";
+        RefreshEditor();
+    }
+
+    private void ResumeSnapping_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.ResumeSnapping();
+    }
+
+    /// <summary>Wechselt auf die Einstellungsseite; wird vom Infobereich aufgerufen.</summary>
+    public void ShowSettingsPage() => NavigationTabs.SelectedItem = ProgramTab;
+
+    private void AppRuleDelete_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel?.AppRules.SelectedRule is not { } rule)
+        {
+            return;
+        }
+
+        if (System.Windows.MessageBox.Show(
+                $"Die App-Regel für «{rule.DisplayName}» wird gelöscht.",
+                "App-Regel löschen",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Warning) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        viewModel.AppRules.DeleteSelectedRule();
+    }
+
+    private void AppRuleBrowse_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Prozess für App-Regel auswählen",
+            Filter = "Programme (*.exe)|*.exe|Alle Dateien (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) == true)
+        {
+            viewModel.AppRules.ProcessPath = dialog.FileName;
+        }
+    }
+
+    private void LayoutName_LostFocus(object sender, RoutedEventArgs eventArgs)
+    {
+        if (viewModel?.SelectedLayout is null)
+        {
+            return;
+        }
+
+        if (string.Equals(LayoutNameText.Text, viewModel.SelectedLayout.Name, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        try
+        {
+            viewModel.RenameSelectedLayout(LayoutNameText.Text);
+        }
+        catch (Exception exception)
+        {
+            LayoutNameText.Text = viewModel.SelectedLayout.Name;
+            viewModel.StatusMessage = exception.Message;
+        }
+    }
+
+    private void MonitorName_LostFocus(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel?.SelectedMonitor is null)
+        {
+            return;
+        }
+
+        var enteredName = MonitorNameText.Text;
+        var normalisedName = string.IsNullOrWhiteSpace(enteredName) ? null : enteredName.Trim();
+        if (string.Equals(normalisedName, viewModel.SelectedMonitor.CustomName, StringComparison.Ordinal))
+        {
+            MonitorNameText.Text = viewModel.SelectedMonitor.CustomName ?? string.Empty;
+            return;
+        }
+
+        try
+        {
+            viewModel.RenameSelectedMonitor(enteredName);
+        }
+        catch (Exception exception)
+        {
+            MonitorNameText.Text = viewModel.SelectedMonitor.CustomName ?? string.Empty;
+            viewModel.StatusMessage = exception.Message;
+        }
+    }
+
+    private void IdentifyMonitors_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        IdentifyMonitorsRequested?.Invoke();
+    }
+
+    private void MoveMonitorUp_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.MoveSelectedMonitorUp();
+    }
+
+    private void MoveMonitorDown_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.MoveSelectedMonitorDown();
+    }
+
+    private void DeleteLayout_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        if (viewModel?.SelectedLayout is null || viewModel.SelectedMonitor is null)
+        {
+            return;
+        }
+
+        var impact =
+            $"Das Layout «{viewModel.SelectedLayout.Name}» für {viewModel.SelectedMonitor.UserFacingName} und seine Zonen werden gelöscht.";
+        if (System.Windows.MessageBox.Show(impact, "Layout löschen", MessageBoxButton.OKCancel, MessageBoxImage.Warning) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        try
+        {
+            viewModel.DeleteSelectedLayout();
+            RefreshEditor();
+        }
+        catch (Exception exception)
+        {
+            viewModel.StatusMessage = exception.Message;
+        }
+    }
+
+    private void ZoneUnit_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = eventArgs;
+        if (sender is not System.Windows.Controls.Button { Tag: string unitName } ||
+            !Enum.TryParse<MeasurementUnit>(unitName, out var unit) ||
+            unit == zoneInputUnit)
+        {
+            return;
+        }
+
+        zoneInputUnit = unit;
+        RefreshZoneFields();
+    }
+
+    private void ZoneField_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs eventArgs)
+    {
+        _ = eventArgs;
+        if (sender is System.Windows.Controls.TextBox { Tag: string groupName } &&
+            Enum.TryParse<ZoneInputGroup>(groupName, out var group))
+        {
+            SetActiveZoneInputGroup(group);
+        }
+    }
+
+    private void ZoneField_KeyDown(object sender, System.Windows.Input.KeyEventArgs eventArgs)
+    {
+        if (sender is System.Windows.Controls.TextBox { Tag: string groupName } &&
+            Enum.TryParse<ZoneInputGroup>(groupName, out var group))
+        {
+            SetActiveZoneInputGroup(group);
+        }
+
+        if (eventArgs.Key == Key.Enter)
+        {
+            ApplyZoneValues_Click(sender, eventArgs);
+            eventArgs.Handled = true;
+        }
+    }
+
+    private void Theme_SelectionChanged(object sender, SelectionChangedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is not null && System.Windows.Application.Current is App application)
+        {
+            application.ApplyTheme(viewModel.Settings.ThemeMode);
+        }
+    }
+
+    private void OverlayColorPicker_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        var selectedColor = pickOverlayColor(OverlayColorText.Text);
+        if (selectedColor is null)
+        {
+            return;
+        }
+
+        OverlayColorText.Text = selectedColor;
+        OverlayColorText.GetBindingExpression(System.Windows.Controls.TextBox.TextProperty)?.UpdateSource();
+    }
+
+    private void Window_PreviewKeyDown(object sender, System.Windows.Input.KeyEventArgs eventArgs)
+    {
+        _ = sender;
+        if (Keyboard.Modifiers == ModifierKeys.Control &&
+            eventArgs.Key is Key.Z or Key.Y &&
+            ReferenceEquals(NavigationTabs.SelectedItem, LayoutsTab) &&
+            Keyboard.FocusedElement is not System.Windows.Controls.TextBox)
+        {
+            if (eventArgs.Key == Key.Z)
+            {
+                UndoZoneChange();
+            }
+            else
+            {
+                RedoZoneChange();
+            }
+
+            eventArgs.Handled = true;
+            return;
+        }
+
+        if (eventArgs.Key is not (Key.Left or Key.Right))
+        {
+            return;
+        }
+
+        // Nur der fokussierte Regler reagiert auf Pfeiltasten. Frueher gewann der Regler unter dem
+        // Mauszeiger und verstellte sich, waehrend im Textfeld daneben der Cursor bewegt werden sollte.
+        var sliders = new[] { OverlayOpacitySlider, ZoneGapSlider, MagnetThresholdSlider };
+        var target = Keyboard.FocusedElement as Slider;
+        if (target is null || !sliders.Contains(target))
+        {
+            return;
+        }
+
+        var direction = eventArgs.Key == Key.Right ? 1 : -1;
+        var step = SliderArrowStep(target.Maximum - target.Minimum);
+        target.Value = Math.Clamp(target.Value + direction * step, target.Minimum, target.Maximum);
+        eventArgs.Handled = true;
+    }
+
+    private static double SliderArrowStep(double range) => range switch
+    {
+        <= 100 => 1,
+        <= 2500 => 25,
+        _ => 100
+    };
+
+    private string? PickOverlayColorWithDialog(string currentColor)
+    {
+        using var dialog = new System.Windows.Forms.ColorDialog
+        {
+            AllowFullOpen = true,
+            AnyColor = true,
+            FullOpen = true
+        };
+        if (TryParseRgb(currentColor, out var red, out var green, out var blue))
+        {
+            dialog.Color = System.Drawing.Color.FromArgb(red, green, blue);
+        }
+
+        var ownerHandle = new WindowInteropHelper(this).Handle;
+        var result = ownerHandle == nint.Zero
+            ? dialog.ShowDialog()
+            : dialog.ShowDialog(new DialogOwner(ownerHandle));
+        return result == System.Windows.Forms.DialogResult.OK
+            ? $"#{dialog.Color.R:X2}{dialog.Color.G:X2}{dialog.Color.B:X2}"
+            : null;
+    }
+
+    private static bool TryParseRgb(string value, out int red, out int green, out int blue)
+    {
+        red = 0;
+        green = 0;
+        blue = 0;
+        if (value.Length != 7 || value[0] != '#' ||
+            !int.TryParse(value.AsSpan(1), NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var rgb))
+        {
+            return false;
+        }
+
+        red = (rgb >> 16) & 0xFF;
+        green = (rgb >> 8) & 0xFF;
+        blue = rgb & 0xFF;
+        return true;
+    }
+
+    private void OpenSystemSetting_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        if (sender is not System.Windows.Controls.Button { Tag: string requested })
+        {
+            return;
+        }
+
+        var uri = requested switch
+        {
+            "ms-settings:display" => requested,
+            "ms-settings:easeofaccess-textsize" => requested,
+            "ms-settings:taskbar" => requested,
+            _ => string.Empty
+        };
+        if (string.IsNullOrEmpty(uri))
+        {
+            return;
+        }
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(uri) { UseShellExecute = true });
+        }
+        catch (Exception exception)
+        {
+            if (viewModel is not null)
+            {
+                viewModel.StatusMessage = $"Windows-Einstellung konnte nicht geöffnet werden: {exception.Message}";
+            }
+        }
+    }
+
+    private void RefreshScalingPage()
+    {
+        var choice = viewModel?.SelectedMonitor;
+        var monitor = choice?.Live;
+        if (monitor is null)
+        {
+            ScalingFactorText.Text = "–";
+            ScalingResolutionText.Text = "–";
+            ScalingWorkAreaText.Text = "–";
+            ScalingPhysicalSizeText.Text = "–";
+            WindowsScaleText.Text = "Kein Monitor ausgewählt.";
+            return;
+        }
+
+        var scalePercent = Math.Round(monitor.DpiX / 96d * 100);
+        ScalingFactorText.Text = $"{scalePercent:0} %";
+        ScalingResolutionText.Text = $"{monitor.MonitorBounds.Width} × {monitor.MonitorBounds.Height}";
+        ScalingWorkAreaText.Text = $"{monitor.WorkArea.Width} × {monitor.WorkArea.Height} px";
+        ScalingPhysicalSizeText.Text = PhysicalSizeText(monitor);
+        WindowsScaleText.Text =
+            $"{choice?.UserFacingName}: {scalePercent:0} % Skalierung, {monitor.DpiX:0} DPI. " +
+            "Diese Werte liest das Programm nur aus; ändern lassen sie sich ausschliesslich in den Windows-Einstellungen.";
+    }
+
+    private static string PhysicalSizeText(SnapZones.Core.Monitors.LiveMonitor monitor)
+    {
+        if (monitor.PhysicalWidthCentimeters is not { } width ||
+            monitor.PhysicalHeightCentimeters is not { } height ||
+            width <= 0 ||
+            height <= 0)
+        {
+            return "unbekannt";
+        }
+
+        var diagonalInches = Math.Sqrt(width * width + height * height) / 2.54d;
+        return $"{diagonalInches:0.#}″";
+    }
+
+    private void AppRuleRunningProcess_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var picker = new ProcessPickerWindow { Owner = this };
+            if (picker.ShowDialog() == true && picker.SelectedProcessPath is { Length: > 0 } path)
+            {
+                viewModel.AppRules.ProcessPath = path;
+            }
+        }
+        catch (Exception exception)
+        {
+            viewModel.StatusMessage = $"Die laufenden Programme konnten nicht gelesen werden: {exception.Message}";
+        }
+    }
+
+    private void CertificateAction_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        // Ein Eingriff in den Zertifikatspeicher des Rechners wird nicht beilaeufig bestaetigt. Die
+        // Rueckfrage nennt darum noch einmal, was passiert und was es bedeutet.
+        var (question, title) = viewModel.IsCertificateInstalled
+            ? ("Das Zertifikat wird aus allen Speichern entfernt. Der Fensterhelfer startet danach "
+                + "nicht mehr; für Fenster von Programmen mit Administratorrechten fragt das Programm "
+                + "dann wieder nach eigenen Rechten.",
+               "Zertifikat entfernen")
+            : ("Es wird ein eigenes Zertifikat auf diesem Rechner erzeugt und in die "
+                + "Vertrauensspeicher von Windows eingetragen. Damit wird anschliessend der "
+                + "Fensterhelfer unterschrieben.\n\n"
+                + "Dein Rechner vertraut danach allem, was mit diesem Zertifikat unterschrieben "
+                + "wurde. Der geheime Schlüssel bleibt auf dieser Maschine und lässt sich nicht "
+                + "exportieren; das Zertifikat kann keine weiteren Zertifikate ausstellen.\n\n"
+                + "Windows fragt gleich nach Administratorrechten. Fortfahren?",
+               "Zertifikat einrichten");
+
+        if (System.Windows.MessageBox.Show(
+                question,
+                title,
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Warning) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        viewModel.ToggleCertificate();
+    }
+
+    private void Install_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        if (System.Windows.MessageBox.Show(
+                "Die Programmdatei wird nach «Programme» kopiert, im Startmenü verknüpft und in "
+                    + "«Apps und Features» eingetragen. Das Programm startet danach von dort neu.",
+                "Installieren",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Information) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        viewModel.Install();
+    }
+
+    private void CheckForUpdates_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.CheckForUpdates();
+    }
+
+    private void InstallUpdate_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        if (System.Windows.MessageBox.Show(
+                "Die neue Programmdatei wird geladen und an die Stelle der laufenden gelegt. "
+                    + "Danach startet das Programm neu; Einstellungen und Layouts bleiben erhalten.",
+                "Update installieren",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Information) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        viewModel.InstallUpdate();
+    }
+
+    private void ForgetWindowPositions_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        if (System.Windows.MessageBox.Show(
+                $"{viewModel.RememberedWindowSummary} Sie werden gelöscht. Danach erscheint jedes Fenster wieder dort, wo Windows selbst es platziert.",
+                "Gemerkte Fensterpositionen verwerfen",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Warning) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        viewModel.ForgetWindowPositions();
+    }
+
+    private void AppExclusionAdd_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        viewModel?.AppExclusions.AddExclusion();
+    }
+
+    private void AppExclusionDelete_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel?.AppExclusions.SelectedExclusion is not { } exclusion)
+        {
+            return;
+        }
+
+        if (System.Windows.MessageBox.Show(
+                $"Der Ausschluss für «{exclusion.DisplayName}» wird gelöscht. Danach zeigt das Overlay diese Fenster wieder an und sie rasten wieder ein.",
+                "Ausschluss löschen",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Warning) != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        viewModel.AppExclusions.DeleteSelectedExclusion();
+    }
+
+    private void AppExclusionBrowse_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        var dialog = new OpenFileDialog
+        {
+            Title = "Prozess für Ausschluss auswählen",
+            Filter = "Programme (*.exe)|*.exe|Alle Dateien (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) == true)
+        {
+            viewModel.AppExclusions.ProcessPath = dialog.FileName;
+        }
+    }
+
+    private void AppExclusionRunningProcess_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var picker = new ProcessPickerWindow { Owner = this };
+            if (picker.ShowDialog() == true && picker.SelectedProcessPath is { Length: > 0 } path)
+            {
+                viewModel.AppExclusions.ProcessPath = path;
+            }
+        }
+        catch (Exception exception)
+        {
+            viewModel.StatusMessage = $"Die laufenden Programme konnten nicht gelesen werden: {exception.Message}";
+        }
+    }
+
+    private void RefreshEditor(ZoneInputGroup? preservedInputGroup = null)
+    {
+        var editor = viewModel?.Editor;
+        if (!LayoutNameText.IsKeyboardFocusWithin)
+        {
+            LayoutNameText.Text = viewModel?.SelectedLayout?.Name ?? string.Empty;
+        }
+        EditorCanvas.Zones = editor?.Zones ?? [];
+        EditorCanvas.SelectedZoneId = editor?.SelectedZone?.Id;
+        EditorCanvas.MainZoneId = editor?.MainZoneId;
+        AddZoneButton.IsEnabled = editor is not null;
+        DeleteZoneButton.IsEnabled = editor?.SelectedZone is not null && editor.Zones.Count > 1;
+        MainZoneToggleButton.IsEnabled = editor?.SelectedZone is not null;
+        MainZoneToggleButton.Content = editor?.MainZoneActionLabel ?? "Als Hauptzone festlegen";
+        MainZoneStateText.Text = editor?.MainZoneStateText ?? string.Empty;
+        var monitor = viewModel?.SelectedMonitor?.Live;
+        if (monitor is not null)
+        {
+            EditorCanvas.MonitorAspectRatio = (double)monitor.WorkArea.Width / monitor.WorkArea.Height;
+            EditorCanvas.MonitorPixelWidth = monitor.WorkArea.Width;
+            EditorCanvas.MonitorPixelHeight = monitor.WorkArea.Height;
+            EditorCanvas.MagnetThresholdPixels = viewModel?.Settings.MagnetThresholdPixels ?? 10;
+        }
+
+        RefreshScalingPage();
+
+        RefreshZoneFields(preservedInputGroup);
+        ValidationText.Text = editor?.ValidationMessage ?? string.Empty;
+        EditorCanvas.InvalidateVisual();
+    }
+
+    private void RefreshZoneFields(ZoneInputGroup? preservedInputGroup = null)
+    {
+        refreshingZoneFields = true;
+        try
+        {
+            var editor = viewModel?.Editor;
+            var zone = editor?.SelectedZone;
+            SetZoneNameText(zone?.Name ?? string.Empty);
+            ClearZoneFieldErrors();
+            if (editor is not null && zone is not null)
+            {
+                var percentValues = editor.GetSelectedValues(MeasurementUnit.Percent);
+                var pixelValues = editor.GetSelectedValues(MeasurementUnit.Pixels);
+                SetZoneFieldValue(ZoneField.PositionX, percentValues.Left, pixelValues.Left, preservedInputGroup);
+                SetZoneFieldValue(ZoneField.PositionY, percentValues.Top, pixelValues.Top, preservedInputGroup);
+                SetZoneFieldValue(ZoneField.Width, percentValues.Width, pixelValues.Width, preservedInputGroup);
+                SetZoneFieldValue(ZoneField.Height, percentValues.Height, pixelValues.Height, preservedInputGroup);
+                SetZoneFieldValue(ZoneField.MarginLeft, percentValues.Left, pixelValues.Left, preservedInputGroup);
+                SetZoneFieldValue(ZoneField.MarginTop, percentValues.Top, pixelValues.Top, preservedInputGroup);
+                SetZoneFieldValue(ZoneField.MarginRight, percentValues.Right, pixelValues.Right, preservedInputGroup);
+                SetZoneFieldValue(ZoneField.MarginBottom, percentValues.Bottom, pixelValues.Bottom, preservedInputGroup);
+            }
+            else
+            {
+                foreach (var field in Enum.GetValues<ZoneField>())
+                {
+                    if (preservedInputGroup != InputGroupFor(field))
+                    {
+                        TextBoxFor(field).Text = string.Empty;
+                    }
+                }
+            }
+
+            UpdateUnitSegments();
+            UpdateZoneInputGroupPresentation();
+        }
+        finally
+        {
+            refreshingZoneFields = false;
+        }
+    }
+
+    private void SetZoneNameText(string name)
+    {
+        if (string.Equals(ZoneNameText.Text, name, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        // Während der Eingabe darf der getrimmte Name die Rohfassung im Feld nicht ersetzen,
+        // sonst springt der Cursor bei jedem Leerschlag an den Anfang.
+        if (ZoneNameText.IsKeyboardFocusWithin &&
+            string.Equals(ZoneNameText.Text.Trim(), name, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        var caretIndex = ZoneNameText.CaretIndex;
+        ZoneNameText.Text = name;
+        ZoneNameText.CaretIndex = Math.Min(caretIndex, name.Length);
+    }
+
+    private void SetZoneFieldValue(
+        ZoneField field,
+        double percentValue,
+        double pixelValue,
+        ZoneInputGroup? preservedInputGroup)
+    {
+        if (preservedInputGroup != InputGroupFor(field))
+        {
+            TextBoxFor(field).Text = FormatMeasurement(
+                zoneInputUnit == MeasurementUnit.Percent ? percentValue : pixelValue);
+        }
+    }
+
+    private bool TryReadZoneMeasurement(
+        System.Windows.Controls.TextBox textBox,
+        bool horizontal,
+        bool showErrors,
+        out ZoneMeasurement measurement)
+    {
+        var maximum = zoneInputUnit == MeasurementUnit.Percent
+            ? 100d
+            : horizontal
+                ? viewModel?.SelectedMonitor?.Live.WorkArea.Width ?? 1
+                : viewModel?.SelectedMonitor?.Live.WorkArea.Height ?? 1;
+        if (TryMeasurement(textBox.Text, maximum, out var value))
+        {
+            measurement = new ZoneMeasurement(value, zoneInputUnit);
+            return true;
+        }
+
+        if (showErrors)
+        {
+            textBox.SetResourceReference(Border.BorderBrushProperty, "DangerBrush");
+        }
+        measurement = default;
+        return false;
+    }
+
+    private bool TryValidateEditorBounds(
+        NormalizedRect bounds,
+        ZoneInputGroup group,
+        bool showErrors)
+    {
+        const double tolerance = 0.000001;
+        var valid = bounds.X >= -tolerance &&
+                    bounds.Y >= -tolerance &&
+                    bounds.Width > tolerance &&
+                    bounds.Height > tolerance &&
+                    bounds.X + bounds.Width <= 1 + tolerance &&
+                    bounds.Y + bounds.Height <= 1 + tolerance;
+        if (!valid && showErrors)
+        {
+            ZoneInputErrorText.Text = group == ZoneInputGroup.PositionAndSize
+                ? "Position und Grösse müssen vollständig innerhalb der Monitorfläche liegen."
+                : "Die gegenüberliegenden Abstände müssen Platz für eine Zone übriglassen.";
+        }
+
+        return valid;
+    }
+
+    private void MarkZoneFieldsInvalid(params System.Windows.Controls.TextBox[] fields)
+    {
+        foreach (var field in fields)
+        {
+            field.SetResourceReference(Border.BorderBrushProperty, "DangerBrush");
+        }
+    }
+
+    private void ClearZoneFieldErrors()
+    {
+        ZoneInputErrorText.Text = string.Empty;
+        foreach (var field in Enum.GetValues<ZoneField>())
+        {
+            TextBoxFor(field).SetResourceReference(Border.BorderBrushProperty, "ControlBorderBrush");
+        }
+    }
+
+    private void SetActiveZoneInputGroup(ZoneInputGroup group)
+    {
+        activeZoneInputGroup = group;
+        UpdateZoneInputGroupPresentation();
+    }
+
+    private void UpdateZoneInputGroupPresentation()
+    {
+        ZonePositionGroupBorder.SetResourceReference(
+            Border.BorderBrushProperty,
+            activeZoneInputGroup == ZoneInputGroup.PositionAndSize ? "AccentBrush" : "BorderBrush");
+        ZoneMarginsGroupBorder.SetResourceReference(
+            Border.BorderBrushProperty,
+            activeZoneInputGroup == ZoneInputGroup.Margins ? "AccentBrush" : "BorderBrush");
+    }
+
+    private void UpdateUnitSegments()
+    {
+        var pixels = zoneInputUnit == MeasurementUnit.Pixels;
+        ZoneUnitPercentButton.Style = (Style)FindResource(pixels ? "UnitSegment" : "UnitSegmentActive");
+        ZoneUnitPixelButton.Style = (Style)FindResource(pixels ? "UnitSegmentActive" : "UnitSegment");
+        AutomationProperties.SetName(
+            ZoneUnitPercentButton,
+            pixels ? "Einheit Prozent für alle acht Werte" : "Einheit Prozent für alle acht Werte, aktiv");
+        AutomationProperties.SetName(
+            ZoneUnitPixelButton,
+            pixels ? "Einheit Pixel für alle acht Werte, aktiv" : "Einheit Pixel für alle acht Werte");
+        var unitLabel = pixels ? "Pixel" : "Prozent";
+        var suffix = pixels ? "px" : "%";
+        foreach (var field in Enum.GetValues<ZoneField>())
+        {
+            var textBox = TextBoxFor(field);
+            AutomationProperties.SetName(textBox, $"{FieldLabel(field)} in {unitLabel}");
+            textBox.ToolTip = $"Aktuelle Einheit: {suffix}. Die Umschaltung oben in der Karte gilt für alle acht Werte.";
+        }
+    }
+
+    private System.Windows.Controls.TextBox TextBoxFor(ZoneField field) => field switch
+    {
+        ZoneField.PositionX => ZonePositionXText,
+        ZoneField.PositionY => ZonePositionYText,
+        ZoneField.Width => ZoneWidthText,
+        ZoneField.Height => ZoneHeightText,
+        ZoneField.MarginLeft => ZoneMarginLeftText,
+        ZoneField.MarginTop => ZoneMarginTopText,
+        ZoneField.MarginRight => ZoneMarginRightText,
+        ZoneField.MarginBottom => ZoneMarginBottomText,
+        _ => throw new ArgumentOutOfRangeException(nameof(field))
+    };
+
+    private static ZoneInputGroup InputGroupFor(ZoneField field) => field is
+        ZoneField.PositionX or ZoneField.PositionY or ZoneField.Width or ZoneField.Height
+            ? ZoneInputGroup.PositionAndSize
+            : ZoneInputGroup.Margins;
+
+    private static string FieldLabel(ZoneField field) => field switch
+    {
+        ZoneField.PositionX => "X-Position",
+        ZoneField.PositionY => "Y-Position",
+        ZoneField.Width => "Breite",
+        ZoneField.Height => "Höhe",
+        ZoneField.MarginLeft => "Abstand links",
+        ZoneField.MarginTop => "Abstand oben",
+        ZoneField.MarginRight => "Abstand rechts",
+        ZoneField.MarginBottom => "Abstand unten",
+        _ => throw new ArgumentOutOfRangeException(nameof(field))
+    };
+
+    private static bool TryMeasurement(string text, double maximum, out double value)
+    {
+        var valid = double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value);
+        return valid && double.IsFinite(value) && value >= 0 && value <= maximum;
+    }
+
+    private static string FormatMeasurement(double value) =>
+        value.ToString("0.##", CultureInfo.CurrentCulture);
+
+    private enum ZoneInputGroup
+    {
+        PositionAndSize,
+        Margins
+    }
+
+    private enum ZoneField
+    {
+        PositionX,
+        PositionY,
+        Width,
+        Height,
+        MarginLeft,
+        MarginTop,
+        MarginRight,
+        MarginBottom
+    }
+
+    private sealed class DialogOwner(nint handle) : System.Windows.Forms.IWin32Window
+    {
+        public nint Handle { get; } = handle;
+    }
+}

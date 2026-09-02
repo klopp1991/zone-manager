@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<assembly manifestVersion="1.0" xmlns="urn:schemas-microsoft-com:asm.v1">
+  <assemblyIdentity version="1.0.0.0" name="ZoneManager.Helper" />
+  <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
+    <security>
+      <requestedPrivileges>
+        <!--
+          uiAccess erlaubt es, Fenster hoeher berechtigter Programme zu bewegen, ohne selbst
+          Administratorrechte zu besitzen. Windows verlangt dafuer zwingend eine gueltige
+          Authenticode-Signatur und einen geschuetzten Installationsort; ohne beides startet
+          diese Datei nicht (Win32-Fehler 740). Genau deshalb ist sie vom Hauptprogramm getrennt:
+          das Hauptprogramm muss auch unsigniert und aus jedem Verzeichnis starten koennen.
+        -->
+        <requestedExecutionLevel level="asInvoker" uiAccess="true" />
+      </requestedPrivileges>
+    </security>
+  </trustInfo>
+  <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">
+    <application>
+      <supportedOS Id="{8e0f7a12-bfb3-4fe8-b9a5-48fd50a15a9a}" />
+    </application>
+  </compatibility>
+  <application xmlns="urn:schemas-microsoft-com:asm.v3">
+    <windowsSettings>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
+    </windowsSettings>
+  </application>
+</assembly>
