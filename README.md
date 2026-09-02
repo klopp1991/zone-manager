@@ -49,6 +49,8 @@ dotnet build ZoneManager.sln -c Release
 
 Jeder Build des App-Projekts veröffentlicht anschliessend automatisch die selbständige Root-`ZoneManager.exe`. Für schnelle Zwischenbuilds lässt sich dieser Schritt mit `-p:SkipRootExecutablePublish=true` überspringen.
 
+`scriptserify-dpi-awareness.ps1` prüft im Rahmen von `verify.ps1` zweierlei am laufenden Programm: dass der Prozess pro Monitor DPI-bewusst ist, und wie gross der unsichtbare Fensterrand tatsächlich ausfällt, von dem der Ausgleich beim Einrasten abhängt.
+
 Die Lösung ist in `SnapZones.Core`, `SnapZones.Windows` und `SnapZones.App` geteilt. Tests liegen unter `tests\SnapZones.Tests`; der reproduzierbare Gesamtcheck ist `scripts\verify.ps1`. Die Skripte `scripts\test-new-task-worktree.ps1` und `scripts\test-set-version.ps1` prüfen die Hilfsskripte und laufen ausserhalb von `verify.ps1`.
 
 Die gebaute `ZoneManager.exe` im Wurzelverzeichnis ist ein Build-Artefakt und wird nicht versioniert; sie entsteht bei jedem Build neu und wird nur an Releases angehängt.

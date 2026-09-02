@@ -317,19 +317,12 @@ public sealed class ApplicationController : IDisposable
     }
 
     /// <summary>
-    /// Sammelt nach einem Layoutwechsel die Fenster des betroffenen Monitors ein, die im neuen Layout in
-    /// keiner Zone mehr liegen, und legt sie in die Hauptzone. Bewusst nur beim tatsaechlichen Wechsel des
-    /// aktiven Layouts: waehrend des Bearbeitens speichert die Oberflaeche nach jedem Zug, und ein Auffang
-    /// bei jedem Speichern wuerde dem Benutzer die Fenster unter den Haenden wegziehen.
+    /// Legt nach einem Layoutwechsel die Fenster in die Hauptzone, die <see cref="MainZoneSweep"/> dafuer
+    /// bestimmt. Der Entscheid steckt vollstaendig in der Kernfunktion; hier bleiben nur das Einsammeln
+    /// der Fenster und das Setzen.
     /// </summary>
     private void CollectStrayWindowsIntoMainZone(Guid activatedLayoutId)
     {
-        var mainZone = MainZone.Resolve(configuration);
-        if (mainZone is null || !configuration.Settings.SnappingEnabled)
-        {
-            return;
-        }
-
         var activatedLayout = configuration.Layouts.FirstOrDefault(layout => layout.Id == activatedLayoutId);
         var activatedMonitor = activatedLayout is null
             ? null
@@ -341,31 +334,24 @@ public sealed class ApplicationController : IDisposable
 
         try
         {
-            var zones = BuildPlacementEnvironment(configuration).Zones;
-            foreach (var window in windowService.GetMovableTopLevelWindows(Environment.ProcessId))
+            var planned = MainZoneSweep.Plan(
+                configuration,
+                BuildPlacementEnvironment(configuration).Zones,
+                activatedMonitor.WorkArea,
+                windowService
+                    .GetMovableTopLevelWindows(Environment.ProcessId)
+                    .Select(window => new MainZoneSweepWindow(window.WindowHandle, window.Bounds)),
+                handle => windowService.InspectRuleCandidate(handle, Environment.ProcessId)?.Identity);
+
+            foreach (var target in planned)
             {
-                if (!IsCentredOn(window.Bounds, activatedMonitor.WorkArea))
+                if (windowService.TrySnap(target.WindowHandle, target.Bounds))
                 {
-                    continue;
+                    log.Write("DEBUG", $"Fenster 0x{target.WindowHandle:X} in der Hauptzone aufgefangen: {target.Bounds}.");
                 }
-
-                if (MainZoneFallback.Resolve(configuration, zones, window.Bounds) is not { } bounds)
+                else
                 {
-                    continue;
-                }
-
-                var candidate = windowService.InspectRuleCandidate(window.WindowHandle, Environment.ProcessId);
-                if (candidate is null ||
-                    AppExclusionMatcher.IsExcluded(configuration.AppExclusions, candidate.Identity) ||
-                    configuration.AppRules.Any(rule =>
-                        rule.IsEnabled && AppRuleMatcher.Matches(rule, candidate.Identity)))
-                {
-                    continue;
-                }
-
-                if (windowService.TrySnap(window.WindowHandle, bounds))
-                {
-                    log.Write("DEBUG", $"Fenster 0x{window.WindowHandle:X} in der Hauptzone aufgefangen: {bounds}.");
+                    log.Write("WARN", $"Fenster 0x{target.WindowHandle:X} konnte nicht in der Hauptzone aufgefangen werden.");
                 }
             }
         }
@@ -373,17 +359,6 @@ public sealed class ApplicationController : IDisposable
         {
             log.Write("WARN", "Fenster konnten nach dem Layoutwechsel nicht in der Hauptzone aufgefangen werden.", exception);
         }
-    }
-
-    /// <summary>Ob der Mittelpunkt des Fensters auf dieser Arbeitsflaeche liegt.</summary>
-    private static bool IsCentredOn(PixelRect bounds, MonitorWorkArea workArea)
-    {
-        var centreX = bounds.X + (bounds.Width / 2);
-        var centreY = bounds.Y + (bounds.Height / 2);
-        return centreX >= workArea.X &&
-            centreX < workArea.X + workArea.Width &&
-            centreY >= workArea.Y &&
-            centreY < workArea.Y + workArea.Height;
     }
 
     public async Task FlushAsync(CancellationToken cancellationToken)

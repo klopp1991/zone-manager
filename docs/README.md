@@ -102,7 +102,8 @@ Ein Fenster kommt in die Hauptzone, wenn nacheinander nichts anderes zutrifft:
 4. Sonst: Hauptzone.
 
 Eingerastet heisst, dass die vier Fensterränder auf höchstens 40 Pixel genau mit den Zonenrändern
-zusammenfallen; genau so viel kann der unsichtbare Fensterrand ausmachen. Ein Fenster, das eine Zone bloss
+zusammenfallen; genau so viel kann der unsichtbare Fensterrand ausmachen. `scriptserify-dpi-awareness.ps1`
+misst diesen Rand am laufenden Programm und bricht ab, wenn er die 40 Pixel überschreitet. Ein Fenster, das eine Zone bloss
 überlappt, gilt nicht als eingerastet — bei einem lückenlos gekachelten Monitor überlappt sonst jedes
 Fenster irgendeine Zone.
 
