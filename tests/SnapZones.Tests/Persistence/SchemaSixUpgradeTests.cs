@@ -16,7 +16,7 @@ public sealed class SchemaSixUpgradeTests
 
         var loaded = await repository.LoadAsync(CancellationToken.None);
 
-        Assert.Equal(6, loaded.Configuration.SchemaVersion);
+        Assert.Equal(SnapConfiguration.CurrentSchemaVersion, loaded.Configuration.SchemaVersion);
         var layout = Assert.Single(loaded.Configuration.Layouts);
         Assert.Equal("GSM9EB9", layout.Monitor.HardwareId);
         Assert.Empty(loaded.Configuration.MonitorSets);

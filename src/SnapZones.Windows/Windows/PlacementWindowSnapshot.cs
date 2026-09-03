@@ -11,4 +11,13 @@ public sealed record PlacementWindowSnapshot(
     PixelRect NormalBounds,
     bool IsMaximized,
     bool IsMinimized,
-    string? ProcessPath = null);
+    string? ProcessPath = null,
+    /// <summary>
+    /// Ob das Programm dieses Fenster von sich aus verschieben darf, und wenn nicht, warum. Siehe
+    /// <see cref="AutomaticPlacement"/>. <c>None</c> heisst: erlaubt.
+    /// </summary>
+    AutomaticPlacementRejection AutomaticPlacementRejection = AutomaticPlacementRejection.None)
+{
+    /// <summary>Ob der Auffang und das Wiederherstellen dieses Fenster anfassen duerfen.</summary>
+    public bool CanPlaceAutomatically => AutomaticPlacementRejection == AutomaticPlacementRejection.None;
+}

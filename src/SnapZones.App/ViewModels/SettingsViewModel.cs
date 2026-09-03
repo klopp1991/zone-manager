@@ -325,12 +325,20 @@ public sealed class SettingsViewModel : ViewModelBase
             if (SetProperty(ref zoneHotkeyModifiers, value))
             {
                 OnPropertyChanged(nameof(ZoneHotkeyModifierLabel));
+                OnPropertyChanged(nameof(ZoneHotkeyModifiersBlockAltGr));
             }
         }
     }
 
     /// <summary>Die Zusatztasten in Worten, fuer die Tabelle der Tastenkuerzel.</summary>
     public string ZoneHotkeyModifierLabel => DescribeModifiers(zoneHotkeyModifiers);
+
+    /// <summary>
+    /// Ob die gewaehlten Zusatztasten die AltGr-Zeichen der Zifferntasten blockieren. Windows liefert
+    /// AltGr intern als Strg + Alt; ein globales Kuerzel mit diesen Tasten verschluckt daher @, # und |
+    /// auf einer Schweizer und {, [ und ] auf einer deutschen Tastatur.
+    /// </summary>
+    public bool ZoneHotkeyModifiersBlockAltGr => zoneHotkeyModifiers == ZoneHotkeyModifiers.ControlAlt;
 
     public static string DescribeModifiers(ZoneHotkeyModifiers modifiers) => modifiers switch
     {

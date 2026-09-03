@@ -574,6 +574,18 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             return;
         }
 
+        // Von selbst angefasst wird nur ein echtes Programmfenster. Kontextmenues, Aufklapplisten und
+        // Dialoge wie der Kopierdialog des Explorers bleiben liegen, wo sie erscheinen; per Maus oder
+        // Zonenkuerzel laesst der Benutzer sie weiterhin einrasten.
+        if (!snapshot.CanPlaceAutomatically)
+        {
+            MarkProcessed(context, snapshot.Identity);
+            log(
+                $"Fenster 0x{windowHandle:X} ({snapshot.Identity.WindowClass}) wird nicht von selbst platziert: "
+                    + AutomaticPlacement.Describe(snapshot.AutomaticPlacementRejection));
+            return;
+        }
+
         // Zurueckgelegt wird nur ein neu erschienenes Fenster. Ein Fokuswechsel darf ein Fenster nicht
         // verschieben, das der Benutzer gerade selbst irgendwohin gestellt hat.
         if (trigger != WindowPlacementTrigger.WindowCreated)

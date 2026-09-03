@@ -13,7 +13,12 @@ namespace SnapZones.Windows.Hotkeys;
 /// <item>Ctrl + Alt + 1 bis 9: Vordergrundfenster in die Zone mit dieser Nummer auf seinem Monitor.</item>
 /// <item>Ctrl + Alt + Ruecktaste: Vordergrundfenster zurueck an die Stelle vor dem letzten Einrasten.</item>
 /// </list>
-/// Ctrl + Alt ist gewaehlt, weil Windows die Win-Kombinationen mit Pfeiltasten und Ziffern selbst belegt.
+/// Voreingestellt ist Ctrl + Shift. Ctrl + Alt waere naheliegender, weil Windows die Win-Kombinationen
+/// mit Pfeiltasten und Ziffern selbst belegt — es ist aber unbrauchbar: Windows liefert AltGr intern als
+/// Ctrl + Alt, sodass <c>RegisterHotKey</c> mit diesen Zusatztasten jedes AltGr-Zeichen auf derselben
+/// Taste verschluckt. Auf einer Schweizer Tastatur sind das unter anderem @ (AltGr + 2), # (AltGr + 3)
+/// und | (AltGr + 7). Ein Ausweichen im Nachhinein gibt es nicht: sobald das Kuerzel feuert, ist das
+/// Zeichen weg. Ctrl + Alt bleibt waehlbar, aber mit Warnung in den Einstellungen.
 /// </summary>
 public sealed class GlobalHotkeyService : IGlobalHotkeyService
 {

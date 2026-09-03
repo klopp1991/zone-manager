@@ -1,7 +1,6 @@
 using System.IO;
 using System.Runtime.InteropServices;
 using SnapZones.Core.Geometry;
-
 using SnapZones.Core.Placement;
 using SnapZones.Windows.Native;
 
@@ -71,6 +70,10 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
             var identity = new WindowIdentity(applicationKey, classification.WindowClass, kind);
             var normalWorkspaceBounds = ToPixelRect(placement.NormalPosition);
 
+            // Die Aufnahme bleibt fuer jedes lesbare Fenster erhalten — auch fuer Menues und Dialoge, weil
+            // der Benutzer sie fuer eine Regel oder einen Ausschluss auswaehlen koennen muss. Ob das
+            // Programm es von sich aus anfassen darf, steht daneben und wird beim Platzieren geprueft.
+            var automaticRejection = AutomaticPlacement.Evaluate(classification.AutomaticPlacementTraits);
             return new PlacementWindowSnapshot(
                 windowHandle,
                 identity,
@@ -79,7 +82,8 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
                 WorkspaceToScreen(normalWorkspaceBounds, monitorInfo.Monitor, monitorInfo.Work),
                 placement.ShowCommand == ShowMaximized,
                 IsMinimized(placement.ShowCommand),
-                processPath is null ? null : Path.GetFullPath(processPath));
+                processPath is null ? null : Path.GetFullPath(processPath),
+                automaticRejection);
         }
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or OverflowException or IOException)
         {

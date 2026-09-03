@@ -66,7 +66,7 @@ Ausschlüsse zum selben Ergebnis führen.
 - **+ Zone** belegt die grösste freie achsenparallele Fläche; ohne ausreichenden freien Bereich wird nichts verändert.
 - **Rückgängig** und **Wiederholen** (auch `Strg + Z` / `Strg + Y`) nehmen jede Änderung am Entwurf zurück; ein Mausziehen zählt als eine Änderung. Eine Vorlage fragt nach, bevor sie ein Layout mit mehreren Zonen ersetzt.
 - **Auf dem Monitor zeigen** blendet den Entwurf drei Sekunden lang auf dem echten Monitor ein, genau so, wie das Overlay ihn beim Ziehen zeigen wird.
-- Jede Zone trägt vor ihrem Namen eine Nummer (`1 · Links`); dieselbe Nummer steht im Overlay und ist die Taste in `Ctrl + Alt + Nummer`.
+- Jede Zone trägt vor ihrem Namen eine Nummer (`1 · Links`); dieselbe Nummer steht im Overlay und ist die Taste in `Ctrl + Shift + Nummer`.
 - Zonen docken innerhalb der eingestellten Magnetdistanz an Monitor- und Zonenkanten an; `Alt` deaktiviert den Magnetismus während des Ziehens.
 - Die Karte **Ausgewählte Zone** schaltet die **Masseinheit** an einer einzigen Stelle um; die Umschaltung gilt gemeinsam für alle acht Zahlenfelder. **Prozent** bleibt bei Auflösungsänderungen proportional; **Pixel** bezieht sich auf die aktuelle Windows-Arbeitsfläche des Monitors.
 - **Position und Grösse** bearbeitet X, Y, Breite und Höhe; **Abstände zum Rand** beschreibt dieselbe Zone von den vier Rändern aus.
@@ -124,6 +124,25 @@ Aufgefangen wird in zwei Fällen:
 
 Ausgeschlossene Fenster fasst die Hauptzone nie an. Wie das Einrasten selbst läuft der Auffang genau dann, wenn
 mindestens ein Layout aktiv ist; einen eigenen Schalter dafür gibt es nicht.
+
+### Welche Fenster von selbst angefasst werden
+
+Von sich aus platziert die Anwendung nur echte Programmfenster. Ein Fenster ist davon ausgenommen, sobald
+eines zutrifft:
+
+- Die Fensterklasse gehört zu einem kurzlebigen Fenster: Win32-Menü (`#32768`), Dialogklasse (`#32770`),
+  Tooltip, Aufklappliste, Vorschlagsliste oder ein Popup-Wirt von XAML und WinUI.
+- Es hat keine Titelleiste. Kontextmenüs und Aufklappfenster jeder Oberfläche fallen darunter.
+- Es gehört einem anderen Fenster (Dialog, Palette, Hinweisfenster).
+- Seine Grösse lässt sich nicht ändern — es kann eine Zone gar nicht füllen.
+- Es hat keine Maximieren-Schaltfläche. Daran trennt Windows den Dialog vom Programmfenster; der
+  Kopierdialog des Explorers etwa bleibt so unangetastet.
+- Es ist kleiner als 200 × 120 Pixel.
+
+Die Regel gilt ausschliesslich für den automatischen Weg — Auffang in der Hauptzone, gemerkte Positionen,
+Auffang nach einem Layoutwechsel und das Nachziehen bei geänderten Zonen. Ziehst du ein solches Fenster
+selbst auf eine Zone oder drückst du ein Zonenkürzel, rastet es weiterhin ein: dort ist die Absicht
+eindeutig. Jede Ablehnung steht mit ihrer Begründung im Protokoll.
 
 ## Gemerkte Fensterpositionen
 
@@ -213,7 +232,7 @@ Der Schalter **Erweiterte Einstellungen anzeigen** oben auf der Seite **Verhalte
 | | Katalog gemerkter Positionen | 50–2000 (500) | Obergrenze des Positionsgedächtnisses. |
 | | Wartezeit vor dem Beurteilen neuer Fenster | 0–2000 ms (0) | Für Programme, die ihr Fenster spät fertig aufbauen. |
 | | Abstand zwischen Regelversuchen | 50–2000 ms (250) | |
-| Tastenkürzel | Zonenkürzel aktiv, Zusatztasten | ein; Ctrl + Alt / Ctrl + Shift / Alt + Shift / Ctrl + Win | Gilt für alle Zonenkürzel; der Not-Aus bleibt fest. |
+| Tastenkürzel | Zonenkürzel aktiv, Zusatztasten | ein; Ctrl + Shift / Ctrl + Alt / Alt + Shift / Ctrl + Win | Gilt für alle Zonenkürzel; der Not-Aus bleibt fest. `Ctrl + Alt` blockiert AltGr und wird in der Oberfläche mit einer Warnung angeboten. |
 | Schutz und Zeiten | Schutzschalter des Verschiebe-Hooks | 100–5000 Ereignisse je 10 s (400) | Darüber hält das Programm das Einrasten an. |
 | | Wachhund für hängende Ziehvorgänge | 5–600 s (120) | Danach werden die Zonen eingezogen, was auch immer Windows meldet. |
 
@@ -335,14 +354,15 @@ Programm fragt bei Bedarf wieder nach eigenen Administratorrechten.
 
 ## Tastenkürzel
 
-Die Kürzel sind fest und wirken auf das Fenster im Vordergrund; sie gelten nur, solange das Einrasten aktiv ist.
-Belegt ein anderes Programm ein Kürzel bereits, meldet die Statuszeile das beim Start.
+Die Tasten sind fest, die Zusatztasten wählbar; die Kürzel wirken auf das Fenster im Vordergrund und gelten nur,
+solange das Einrasten aktiv ist. Belegt ein anderes Programm ein Kürzel bereits, meldet die Statuszeile das beim Start.
+Die Tabelle zeigt die Voreinstellung `Ctrl + Shift`.
 
 | Kürzel | Wirkung |
 |---|---|
-| `Ctrl + Alt + Links` / `Rechts` | Fenster eine Zone zurück oder weiter, über Monitorgrenzen hinweg. Liegt es in keiner Zone, beginnt es bei der ersten beziehungsweise letzten Zone seines Monitors. |
-| `Ctrl + Alt + 1` bis `9` | Fenster in die Zone mit dieser Nummer auf seinem Monitor. |
-| `Ctrl + Alt + Rücktaste` | Fenster zurück an die Stelle vor dem letzten Einrasten. |
+| `Ctrl + Shift + Links` / `Rechts` | Fenster eine Zone zurück oder weiter, über Monitorgrenzen hinweg. Liegt es in keiner Zone, beginnt es bei der ersten beziehungsweise letzten Zone seines Monitors. |
+| `Ctrl + Shift + 1` bis `9` | Fenster in die Zone mit dieser Nummer auf seinem Monitor. |
+| `Ctrl + Shift + Rücktaste` | Fenster zurück an die Stelle vor dem letzten Einrasten. |
 | `Ctrl + Alt + Shift + F12` | Einrasten anhalten und wieder starten (Not-Aus). |
 | `Strg + Z` / `Strg + Y` | Im Layouteditor: Änderung zurücknehmen oder wiederherstellen. |
 
