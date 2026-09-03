@@ -1076,6 +1076,21 @@
                                                 ToolTip="Löscht sämtliche gemerkten Positionen. Danach erscheint jedes Fenster wieder dort, wo Windows selbst es platziert." />
                                     </StackPanel>
                                 </Border>
+                                <Border x:Name="ZoneFullscreenCard" Style="{StaticResource SectionCard}">
+                                    <StackPanel>
+                                        <TextBlock Text="Vollbild" Style="{StaticResource SectionTitle}" />
+                                        <TextBlock Text="Ein Video im Vollbild füllt die Zone, in der sein Fenster liegt, statt den ganzen Bildschirm."
+                                                   Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
+                                            <CheckBox x:Name="ZoneFullscreenCheckBox" Content="Vollbild in der Zone halten"
+                                                      IsChecked="{Binding Settings.ZoneFullscreen}"
+                                                      AutomationProperties.Name="Vollbild in der Zone halten" />
+                                            <Button x:Name="ZoneFullscreenInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Vollbild in der Zone halten"
+                                                    ToolTip="Schaltet ein Fenster, das in einer Zone liegt, auf Vollbild, wird es auf diese Zone zurückgeholt statt auf den ganzen Monitor. Das Programm bleibt dabei in seinem Vollbildmodus und legt seine Bedienelemente auf die kleinere Fläche aus; Twitch, YouTube und die üblichen Videoplayer verhalten sich darin wie auf einem eigenen Bildschirm. Angefasst wird nur, was vorher in einer Zone lag — ein frei abgelegtes Fenster geht weiterhin auf den ganzen Monitor, und ein Ausschluss gilt auch hier. Spiele im Exklusivvollbild erreicht die Funktion nicht: deren Bildschirmmodus vergibt der Grafiktreiber." />
+                                        </StackPanel>
+                                        <TextBlock Text="Aus: Vollbild nimmt wie gewohnt den ganzen Monitor ein." Style="{StaticResource HelpText}" Margin="0,4,0,0" />
+                                    </StackPanel>
+                                </Border>
                                 <Border x:Name="PlacementTuningCard" Style="{StaticResource SectionCard}" Visibility="{Binding Settings.ShowAdvancedSettings, Converter={StaticResource BooleanToVisibilityConverter}}">
                                     <StackPanel>
                                         <TextBlock Text="Feinabstimmung Platzieren" Style="{StaticResource SectionTitle}" />
@@ -1211,6 +1226,14 @@
                                         <TextBox Text="{Binding Settings.DragWatchdogSeconds}" TextAlignment="Right" VerticalContentAlignment="Center" MaxWidth="180" HorizontalAlignment="Left" Width="180"
                                                  AutomationProperties.Name="Wachhund für Ziehvorgänge in Sekunden" />
                                         <TextBlock Text="Sekunden, 5 bis 600. Voreinstellung 120." Style="{StaticResource HelpText}" />
+                                        <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
+                                            <TextBlock Text="Versuche beim Zonen-Vollbild" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                        <Button x:Name="ZoneFullscreenCorrectionsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Versuche beim Zonen-Vollbild"
+                                                ToolTip="So oft wird ein Fenster je Vollbildsitzung in seine Zone zurückgeholt, bevor das Programm es aufgibt und ihm den ganzen Monitor lässt. Mehrere Versuche sind nötig, weil manche Player ihr Fenster nach dem Umschalten noch einmal selbst setzen; die Grenze verhindert einen Dauerkampf mit einem Programm, das sich dagegen wehrt. Wird sie erreicht, steht der Grund im Protokoll. Zulässig sind 1 bis 20." />
+                                        </StackPanel>
+                                        <TextBox Text="{Binding Settings.ZoneFullscreenMaxCorrections}" TextAlignment="Right" VerticalContentAlignment="Center" MaxWidth="180" HorizontalAlignment="Left" Width="180"
+                                                 AutomationProperties.Name="Versuche beim Zonen-Vollbild je Sitzung" />
+                                        <TextBlock Text="Versuche je Vollbildsitzung, 1 bis 20. Voreinstellung 5." Style="{StaticResource HelpText}" />
                                     </StackPanel>
                                 </Border>
                             </StackPanel>

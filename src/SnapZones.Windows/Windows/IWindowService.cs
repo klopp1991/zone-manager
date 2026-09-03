@@ -34,6 +34,14 @@ public interface IWindowService : IPartMonitorWindowGateway
             ? PlacementOutcome.Success()
             : PlacementOutcome.Rejected("Windows hat die Platzierung abgelehnt.");
 
+    /// <summary>
+    /// Wie <see cref="Snap"/>, setzt die Groesse aber auch dann, wenn der Fensterstil sie nicht zulaesst.
+    /// Gebraucht fuer das Zonen-Vollbild: ein Fenster im Vollbild legt seinen Griffrahmen ab und gaelte
+    /// sonst als Fenster fester Groesse, das nur zentriert statt auf die Zone gestreckt wuerde. Die
+    /// Vorgabe reicht auf <see cref="Snap"/> durch, damit Fakes in Tests ohne Aenderung weiterlaufen.
+    /// </summary>
+    PlacementOutcome Fill(nint window, PixelRect bounds) => Snap(window, bounds);
+
     /// <summary>Ob die linke Maustaste gedrueckt ist; Wachhund fuer einen Ziehvorgang ohne Endereignis.</summary>
     bool IsLeftButtonPressed() => true;
 

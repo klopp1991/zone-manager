@@ -75,6 +75,14 @@ public enum OverlayLabelStyle
 /// an erfahrene Anwender und sind in der Oberflaeche erst nach «Erweiterte Einstellungen anzeigen»
 /// sichtbar. Jeder Wert hat einen sicheren Standard; <see cref="Default"/> ist zugleich das Zurücksetzen.
 /// </summary>
+/// <param name="ZoneFullscreen">
+/// Ob das Vollbild eines Fensters, das in einer Zone liegt, auf diese Zone begrenzt wird, statt den
+/// ganzen Monitor einzunehmen. Ausgeschaltet, weil es das gewohnte Verhalten von Windows ändert.
+/// </param>
+/// <param name="ZoneFullscreenMaxCorrections">
+/// Wie oft ein Fenster je Vollbildsitzung in seine Zone zurückgeholt wird, bevor es sein Monitorvollbild
+/// behält; 1 bis 20. Schützt vor einem Dauerkampf mit einem Programm, das sich dagegen wehrt.
+/// </param>
 public sealed record AppSettings(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     Guid ActiveProfileId,
@@ -114,7 +122,9 @@ public sealed record AppSettings(
     string HighlightColor = "",
     double HighlightOpacity = 0.36,
     int MoveHookEventLimit = 400,
-    int DragWatchdogSeconds = 120)
+    int DragWatchdogSeconds = 120,
+    bool ZoneFullscreen = false,
+    int ZoneFullscreenMaxCorrections = 5)
 {
     [JsonIgnore]
     public EdgeInsets EffectiveOuterMargins =>
