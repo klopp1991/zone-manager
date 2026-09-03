@@ -21,6 +21,9 @@ public sealed class WindowsWindowService : IWindowService
     private const uint NoZOrder = 0x0004;
     private const uint NoActivate = 0x0010;
     private const uint NoOwnerZOrder = 0x0200;
+
+    /// <summary>SWP_NOSENDCHANGING: nimmt dem Fenster das Einspruchsrecht gegen die neue Groesse.</summary>
+    private const uint NoSendChanging = 0x0400;
     private const int VirtualKeyLeftButton = 0x01;
 
     private readonly Action<string>? trace;
@@ -72,6 +75,9 @@ public sealed class WindowsWindowService : IWindowService
     /// <summary>Wie viele Pixel das Ergebnis von der Zielflaeche abweichen darf, bevor es als Fehler gilt.</summary>
     public int TolerancePixels { get; set; } = PlacementOutcome.TolerancePixels;
 
+    /// <summary>Nachmesstoleranz fuer <see cref="Fill"/>; siehe dort.</summary>
+    private const int FillTolerancePixels = 8;
+
     public bool TrySnap(nint window, PixelRect bounds) => Snap(window, bounds).Succeeded;
 
     /// <summary>
@@ -80,7 +86,16 @@ public sealed class WindowsWindowService : IWindowService
     /// zwischen Monitoren mit unterschiedlicher Skalierung braucht haeufig zwei Anlaeufe), danach wird
     /// die Abweichung benannt statt verschwiegen.
     /// </summary>
-    public PlacementOutcome Snap(nint window, PixelRect bounds)
+    public PlacementOutcome Snap(nint window, PixelRect bounds) => Place(window, bounds, forceSize: false);
+
+    /// <summary>
+    /// Wie <see cref="Snap"/>, setzt die Grösse aber auch dann, wenn der Fensterstil sie nicht zulässt.
+    /// Gebraucht für das Zonen-Vollbild: ein Fenster im Vollbild legt seinen Griffrahmen ab und gälte
+    /// sonst als Fenster fester Grösse, das nur zentriert statt auf die Zone gestreckt würde.
+    /// </summary>
+    public PlacementOutcome Fill(nint window, PixelRect bounds) => Place(window, bounds, forceSize: true);
+
+    private PlacementOutcome Place(nint window, PixelRect bounds, bool forceSize)
     {
         if (window == 0 || !User32.IsWindow(window))
         {
@@ -92,7 +107,7 @@ public sealed class WindowsWindowService : IWindowService
             return PlacementOutcome.Rejected("Die Zielzone hat keine Fläche.");
         }
 
-        var target = FitToWindowCapabilities(window, bounds);
+        var target = forceSize ? bounds : FitToWindowCapabilities(window, bounds);
         if (target is null)
         {
             return PlacementOutcome.Rejected("Das Fenster hat eine feste Grösse und bleibt laut Einstellung unberührt.");
@@ -100,11 +115,16 @@ public sealed class WindowsWindowService : IWindowService
 
         var placement = CompensateInvisibleBorder(window, target.Value);
 
+        // Ein Vollbildfenster korrigiert seine Groesse nach dem Setzen gern um ein paar Pixel. Das ist
+        // kein Fehlschlag: die Zone ist erkennbar getroffen, und ein strenges Nachmessen meldete das
+        // Fenster als «nicht gesetzt», obwohl es dort sitzt.
+        var tolerance = forceSize ? FillTolerancePixels : TolerancePixels;
+
         // Fenster hoeher berechtigter Programme gehen ueber den Helfer, alle uebrigen direkt. Der
         // Umweg kostet einen Prozesswechsel und lohnt sich nur dort, wo er noetig ist.
         if (RequiresElevation(window) && ElevatedPlacement is { } elevated && elevated(window, placement))
         {
-            return Verify(window, placement, attemptAgain: null);
+            return Verify(window, placement, tolerance, attemptAgain: null);
         }
 
         if (User32.IsIconic(window) || User32.IsZoomed(window))
@@ -112,12 +132,12 @@ public sealed class WindowsWindowService : IWindowService
             _ = User32.ShowWindow(window, Restore);
         }
 
-        if (!SetPosition(window, placement, out var error))
+        if (!SetPosition(window, placement, forceSize, out var error))
         {
             return PlacementOutcome.Rejected($"Windows hat die Platzierung abgelehnt ({error}).");
         }
 
-        return Verify(window, placement, attemptAgain: () => SetPosition(window, placement, out _));
+        return Verify(window, placement, tolerance, attemptAgain: () => SetPosition(window, placement, forceSize, out _));
     }
 
     public WindowPlacementSnapshot? Capture(nint window)
@@ -327,10 +347,31 @@ public sealed class WindowsWindowService : IWindowService
         };
     }
 
-    private bool SetPosition(nint window, PixelRect placement, out int error)
+    private bool SetPosition(nint window, PixelRect placement, out int error) =>
+        SetPosition(window, placement, overrideWindowVeto: false, out error);
+
+    /// <param name="overrideWindowVeto">
+    /// Setzt SWP_NOSENDCHANGING. Windows fragt ein Fenster vor jeder Groessenaenderung ueber
+    /// WM_WINDOWPOSCHANGING, und das Fenster darf die vorgeschlagenen Werte darin abaendern. Genau das
+    /// tut ein Programm im Vollbild: es klemmt sich auf die Monitorflaeche zurueck, sodass die
+    /// Platzierung wirkungslos bleibt und das Nachmessen eine Mindestgroesse in Monitorgroesse meldet.
+    /// Mit dem Flag unterbleibt die Nachricht, und die gesetzten Werte gelten.
+    ///
+    /// <para>
+    /// Nur fuer das Zonen-Vollbild gedacht. Im gewoehnlichen Einrasten bleibt das Einspruchsrecht
+    /// bestehen: dort ist eine gemeldete Mindestgroesse eine echte Eigenschaft des Fensters, und sie zu
+    /// uebergehen hiesse, ein Fenster kleiner zu zwingen, als es sich zeichnen kann.
+    /// </para>
+    /// </param>
+    private bool SetPosition(nint window, PixelRect placement, bool overrideWindowVeto, out int error)
     {
         // Ohne SWP_ASYNCWINDOWPOS: nur ein synchroner Aufruf laesst sich unmittelbar danach nachmessen.
         var flags = NoZOrder | NoOwnerZOrder | (ActivateAfterPlacement ? 0u : NoActivate);
+        if (overrideWindowVeto)
+        {
+            flags |= NoSendChanging;
+        }
+
         var ok = User32.SetWindowPos(
             window,
             0,
@@ -348,14 +389,14 @@ public sealed class WindowsWindowService : IWindowService
         return ok;
     }
 
-    private PlacementOutcome Verify(nint window, PixelRect expected, Func<bool>? attemptAgain)
+    private PlacementOutcome Verify(nint window, PixelRect expected, int tolerancePixels, Func<bool>? attemptAgain)
     {
         if (!User32.GetWindowRect(window, out var measured))
         {
             return PlacementOutcome.Rejected("Das Fenster ist nach dem Setzen nicht mehr lesbar.");
         }
 
-        var tolerance = Math.Clamp(TolerancePixels, 0, 10);
+        var tolerance = Math.Clamp(tolerancePixels, 0, 10);
         var actual = WindowEligibility.ToPixelRect(measured);
         if (actual.IsWithinTolerance(expected, tolerance))
         {

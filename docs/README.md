@@ -168,6 +168,63 @@ Unter **Verhalten** lässt sich das Merken abschalten und die Anzahl der gemerkt
 erhalten, werden aber weder angewendet noch ergänzt. Einzelne Einträge lassen sich nicht ansehen oder
 gezielt löschen.
 
+## Zonen-Vollbild
+
+Schaltet ein Fenster, das in einer Zone liegt, auf Vollbild, wird es auf die Fläche dieser Zone
+zurückgeholt statt auf den ganzen Monitor. Der Schalter **Vollbild in der Zone halten** steht unter
+**Verhalten** in der Karte **Vollbild** und ist ausgeschaltet, weil er das gewohnte Verhalten von Windows
+ändert.
+
+Möglich ist das, weil ein Browser oder Videoplayer im Vollbild keinen Exklusivmodus der Grafikkarte
+anfordert, sondern sein Fenster randlos über die volle Monitorfläche legt. Das bleibt ein gewöhnliches
+Fenster und lässt sich setzen. Das Programm bleibt dabei in seinem Vollbildzustand: Twitch, YouTube und die
+üblichen Player legen Bild und Bedienelemente auf die kleinere Fläche aus, so wie sie es auf einem
+kleineren Bildschirm täten.
+
+Erkannt wird das Vollbild daran, dass das Fenster die **ganze** Monitorfläche einnimmt — nicht die
+Arbeitsfläche. Ein maximiertes Fenster endet an der Taskleiste und fällt damit von selbst heraus; ist die
+Taskleiste automatisch ausgeblendet, decken sich beide Flächen, weshalb zusätzlich geprüft wird, dass das
+Fenster nicht maximiert ist.
+
+Angefasst wird nur ein Fenster, das vorher in einer Zone eingerastet lag, gemessen mit derselben Toleranz
+wie beim Auffang in der Hauptzone. Ein über mehrere Zonen gezogenes Fenster kehrt in deren gemeinsame
+Fläche zurück. Was frei auf dem Bildschirm liegt, geht weiterhin auf den ganzen Monitor: ohne Zone gäbe es
+keinen Bezugspunkt, und das Programm würde Fenster an Stellen zwingen, die niemand gewählt hat. Ein
+Ausschluss gilt auch hier und ist wie überall stärker.
+
+Setzt ein Programm sein Fenster nach dem Umschalten noch einmal selbst auf den Monitor, wird es erneut
+zurückgeholt. Das gilt auch für einen halben Rückfall: Chromium-Browser stellen bei jedem
+Aktivierungswechsel einen Teil ihrer Vollbildgrösse wieder her, oft nur die Breite, sobald ein anderes
+Fenster den Fokus bekommt. Solange dem Fenster Titelleiste und Griffrahmen fehlen, versteht es sich noch
+als Vollbild und wird in die Zone zurückgesetzt; erst wenn der Rahmen zurück ist, gilt das Vollbild als
+verlassen. Ein misslungenes Setzen lässt die gemerkte Zone ebenfalls stehen, damit der nächste Rückfall
+wieder dorthin führt. Damit daraus kein Dauerkampf wird, ist die Zahl der Versuche je Vollbildsitzung
+begrenzt (erweiterte Einstellung **Versuche beim Zonen-Vollbild**, Vorgabe 5). Ist sie erreicht, behält
+das Fenster sein Monitorvollbild, und der Grund steht im Protokoll. Nach fünf Sekunden ohne Korrektur
+beginnt die Zählung von vorn.
+
+Beim Setzen weicht der Weg an zwei Stellen vom gewöhnlichen Einrasten ab, beide am laufenden System
+gemessen:
+
+1. **Die Grösse wird erzwungen.** Ein Fenster im Vollbild legt seinen Griffrahmen ab (`WS_THICKFRAME`
+   fehlt) und gälte sonst als Fenster fester Grösse, das nur in der Zone zentriert statt auf sie
+   gestreckt würde.
+2. **Das Fenster verliert sein Einspruchsrecht** (`SWP_NOSENDCHANGING`). Windows fragt ein Fenster vor
+   jeder Grössenänderung über `WM_WINDOWPOSCHANGING`, und das Fenster darf die vorgeschlagenen Werte
+   darin abändern. Genau das tut ein Browser im Vollbild: er klemmt sich auf die Monitorfläche zurück.
+   Ohne das Flag blieb die Platzierung wirkungslos, und das Nachmessen meldete eine «Mindestgrösse» in
+   Monitorgrösse — der Grund, aus dem der erste Anlauf des Zonen-Vollbilds bei Chromium-Browsern
+   scheiterte.
+
+Beides gilt ausschliesslich für das Zonen-Vollbild. Beim gewöhnlichen Einrasten behält ein Fenster sein
+Einspruchsrecht: dort ist eine gemeldete Mindestgrösse eine echte Eigenschaft, und sie zu übergehen
+hiesse, ein Fenster kleiner zu zwingen, als es sich zeichnen kann. Nachgemessen wird beim Zonen-Vollbild
+mit acht statt zwei Pixeln Toleranz: ein Vollbildfenster korrigiert seine Grösse nach dem Setzen gern um
+ein paar Pixel, und das ist kein Fehlschlag.
+
+Nicht erreichbar ist echtes Exklusivvollbild, wie es Spiele über DirectX anfordern — diesen Bildschirmmodus
+vergibt der Grafiktreiber. Spiele im randlosen Fenster liegen dagegen als gewöhnliches Fenster vor.
+
 ## Monitore
 
 Auf der Seite **Monitore** wählt die Liste links den Monitor, der im ganzen Programm als aktiver Monitor gilt. **Nach oben** und **Nach unten** ändern die Reihenfolge, **Monitore identifizieren** blendet den verwendeten Namen drei Sekunden lang auf jedem Bildschirm ein. Rechts wird der Monitor umbenannt; ein leerer Name stellt die automatische Bezeichnung wieder her. Monitornamen werden bevorzugt aus dem aktiven Displaypfad und den EDID-Daten gelesen.
@@ -188,7 +245,7 @@ Die Seite **Skalierung** liest die erkannten Werte des gewählten Monitors aus �
 
 ## Einstellungen
 
-Die Einstellungen sind auf zwei Seiten verteilt: **Verhalten** (Beim Ziehen, Darstellung, Abstände, Fenster merken, Tastenkürzel) und **Programm** (Erscheinungsbild, Autostart, Updates, Rechte, Installation, Fensterhelfer, Sicherung). Die Skalierungswerte stehen auf der Seite **Monitore**, Export und Import unter **Programm → Sicherung**. Die Navigation hat damit sechs Seiten.
+Die Einstellungen sind auf zwei Seiten verteilt: **Verhalten** (Beim Ziehen, Darstellung, Abstände, Fenster merken, Vollbild, Tastenkürzel) und **Programm** (Erscheinungsbild, Autostart, Updates, Rechte, Installation, Fensterhelfer, Sicherung). Die Skalierungswerte stehen auf der Seite **Monitore**, Export und Import unter **Programm → Sicherung**. Die Navigation hat damit sechs Seiten.
 
 - System-, helles oder dunkles Theme; Systemänderungen werden ohne Neustart übernommen.
 - **Zonen anzeigen auf** bestimmt, wo die Zonen beim Ziehen erscheinen:
@@ -205,6 +262,8 @@ Die Einstellungen sind auf zwei Seiten verteilt: **Verhalten** (Beim Ziehen, Dar
 - Overlayfarbe, Deckkraft und ein-/ausblendbare Zonennamen.
 - **Fensterpositionen merken** schaltet den Positionskatalog ein und aus; daneben stehen die Anzahl der
   Einträge und die Schaltfläche zum Verwerfen. Siehe [Gemerkte Fensterpositionen](#gemerkte-fensterpositionen).
+- **Vollbild in der Zone halten** begrenzt das Vollbild eines eingerasteten Fensters auf seine Zone, statt
+  den ganzen Monitor einzunehmen. Ausgeschaltet. Siehe [Zonen-Vollbild](#zonen-vollbild).
 - Autostart pro Benutzer über eine Anmeldeaufgabe der Windows-Aufgabenplanung. Sie startet das Programm
   bereits erhöht, sodass bei der Anmeldung **keine** UAC-Abfrage erscheint. Das Anlegen der Aufgabe braucht
   Administratorrechte, die das Programm im Normalbetrieb ohnehin besitzt. Schlägt es fehl, weicht das
@@ -235,6 +294,7 @@ Der Schalter **Erweiterte Einstellungen anzeigen** oben auf der Seite **Verhalte
 | Tastenkürzel | Zonenkürzel aktiv, Zusatztasten | ein; Ctrl + Shift / Ctrl + Alt / Alt + Shift / Ctrl + Win | Gilt für alle Zonenkürzel; der Not-Aus bleibt fest. `Ctrl + Alt` blockiert AltGr und wird in der Oberfläche mit einer Warnung angeboten. |
 | Schutz und Zeiten | Schutzschalter des Verschiebe-Hooks | 100–5000 Ereignisse je 10 s (400) | Darüber hält das Programm das Einrasten an. |
 | | Wachhund für hängende Ziehvorgänge | 5–600 s (120) | Danach werden die Zonen eingezogen, was auch immer Windows meldet. |
+| | Versuche beim Zonen-Vollbild | 1–20 je Sitzung (5) | Danach behält ein Fenster, das sich wiederholt zurücksetzt, sein Monitorvollbild. |
 
 Jede Einstellung erklärt direkt in der Oberfläche Wirkung, Gültigkeitsbereich und Einschränkungen. Wie Titel, Beschriftungen und Hilfetexte dabei aufgebaut sind, steht verbindlich in [ui-richtlinien.md](ui-richtlinien.md).
 
@@ -403,6 +463,17 @@ gesichert, und ein Hinweisfenster nennt Ursache und Protokollpfad; Folgefehler w
 gezählt statt erneut behandelt.
 
 Die Diagnose liest Konfigurationsstatus, Monitore, DPI und Autostartstatus. Sie registriert keinen Fenster-Hook und verändert weder Einstellungen noch Registry.
+
+Holt das [Zonen-Vollbild](#zonen-vollbild) ein bestimmtes Programm nicht zurück, zeigt
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\measure-fullscreen-window.ps1
+```
+
+bei geöffnetem Vollbild, wie dessen Fenster tatsächlich aussieht: Rechteck, Monitorfläche, ob Windows es als
+maximiert führt und welche Stile es trägt. Erscheint das Fenster dort gar nicht, fordert das Programm ein
+Exklusivvollbild an und ist von aussen nicht erreichbar. Das Skript liest ausschliesslich; es startet,
+schliesst und verschiebt nichts.
 
 ## Einschränkungen
 
