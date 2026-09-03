@@ -50,6 +50,11 @@ public enum FixedSizeWindowPlacement
 /// <summary>Die Zusatztasten der Zonenkuerzel. Die eigentliche Taste (Pfeil, Ziffer, Ruecktaste) bleibt gleich.</summary>
 public enum ZoneHotkeyModifiers
 {
+    /// <summary>
+    /// Nicht mehr die Voreinstellung: Windows erzeugt aus AltGr intern Strg + Alt, sodass ein globales
+    /// Kuerzel mit diesen Zusatztasten alle AltGr-Zeichen auf denselben Tasten schluckt — auf einer
+    /// Schweizer Tastatur unter anderem @ (AltGr + 2), # (AltGr + 3) und | (AltGr + 7).
+    /// </summary>
     ControlAlt,
     ControlShift,
     AltShift,
@@ -101,7 +106,7 @@ public sealed record AppSettings(
     int NewWindowSettleDelayMilliseconds = 0,
     int RuleRetryDelayMilliseconds = 250,
     bool ZoneHotkeysEnabled = true,
-    ZoneHotkeyModifiers ZoneHotkeyModifiers = ZoneHotkeyModifiers.ControlAlt,
+    ZoneHotkeyModifiers ZoneHotkeyModifiers = ZoneHotkeyModifiers.ControlShift,
     OverlayLabelStyle OverlayLabelStyle = OverlayLabelStyle.NumberAndName,
     int OverlayBorderThickness = 1,
     int OverlayCornerRadius = 4,

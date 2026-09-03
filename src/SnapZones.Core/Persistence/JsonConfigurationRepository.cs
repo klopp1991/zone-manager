@@ -212,7 +212,19 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
             throw new InvalidDataException("Die Konfiguration ist leer.");
         }
 
+        // Vor dem Schemasprung gemerkt: die Zusatztasten werden nur bei einem Stand aus der Zeit vor der
+        // Umstellung angefasst. Danach ist Strg + Alt eine bewusste Wahl und bleibt stehen.
+        var migrateZoneHotkeyModifiers =
+            configuration.SchemaVersion < SnapConfiguration.ZoneHotkeyModifierMigrationSchemaVersion;
         var upgraded = UpgradeSchema(configuration);
+        if (migrateZoneHotkeyModifiers &&
+            upgraded.Settings.ZoneHotkeyModifiers == ZoneHotkeyModifiers.ControlAlt)
+        {
+            upgraded = upgraded with
+            {
+                Settings = upgraded.Settings with { ZoneHotkeyModifiers = ZoneHotkeyModifiers.ControlShift }
+            };
+        }
 
         // Schema 6: jede Monitorkennung traegt Hersteller und Modell aus dem Anzeigepfad, damit ein
         // umgesteckter Monitor wiedererkannt wird; Monitorsaetze verweisen nur auf vorhandene Layouts.
@@ -236,6 +248,11 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
         if (configuration.SchemaVersion == SnapConfiguration.CurrentSchemaVersion)
         {
             return configuration;
+        }
+
+        if (configuration.SchemaVersion == 6)
+        {
+            return configuration with { SchemaVersion = SnapConfiguration.CurrentSchemaVersion };
         }
 
         if (configuration.SchemaVersion == 5)

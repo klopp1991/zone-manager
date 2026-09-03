@@ -139,16 +139,18 @@ und ist in der Oberfläche mit allen Konsequenzen beschrieben — auch mit denen
 
 | Kürzel | Wirkung |
 |---|---|
-| `Ctrl + Alt + ←` / `→` | Fenster eine Zone zurück oder weiter, über Monitorgrenzen hinweg |
-| `Ctrl + Alt + 1` … `9` | Fenster in die Zone mit dieser Nummer |
-| `Ctrl + Alt + Rücktaste` | Fenster zurück an die Stelle vor dem letzten Einrasten |
+| `Ctrl + Shift + ←` / `→` | Fenster eine Zone zurück oder weiter, über Monitorgrenzen hinweg |
+| `Ctrl + Shift + 1` … `9` | Fenster in die Zone mit dieser Nummer |
+| `Ctrl + Shift + Rücktaste` | Fenster zurück an die Stelle vor dem letzten Einrasten |
 | `Ctrl + Alt + Shift + F12` | Not-Aus: Einrasten anhalten und wieder starten |
 | `Strg` beim Ziehen | Mehrere Zonen zu einer Fläche verbinden |
 | `Umschalt` beim Ziehen | Zonen einblenden, wenn sie nicht sofort erscheinen sollen |
 | `Strg + Z` / `Strg + Y` | Im Layouteditor: zurücknehmen und wiederherstellen |
 
-Die Zusatztasten der Zonenkürzel lassen sich auf `Ctrl + Shift`, `Alt + Shift` oder `Ctrl + Win`
-umstellen, falls ein anderes Programm sie belegt.
+Die Zusatztasten der Zonenkürzel lassen sich auf `Ctrl + Alt`, `Alt + Shift` oder `Ctrl + Win`
+umstellen, falls ein anderes Programm sie belegt. `Ctrl + Alt` ist dabei nicht zu empfehlen: Windows
+erzeugt aus `AltGr` intern `Ctrl + Alt`, sodass die Zifferkürzel die AltGr-Zeichen derselben Tasten
+verschlucken — auf einer Schweizer Tastatur `@`, `#` und `|`, auf einer deutschen `{`, `[` und `]`.
 
 ---
 

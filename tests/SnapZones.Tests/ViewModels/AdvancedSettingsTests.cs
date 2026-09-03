@@ -32,7 +32,7 @@ public sealed class AdvancedSettingsTests
         Assert.Equal(250, settings.RuleRetryDelayMilliseconds);
         Assert.Equal(400, settings.MoveHookEventLimit);
         Assert.Equal(120, settings.DragWatchdogSeconds);
-        Assert.Equal(ZoneHotkeyModifiers.ControlAlt, settings.ZoneHotkeyModifiers);
+        Assert.Equal(ZoneHotkeyModifiers.ControlShift, settings.ZoneHotkeyModifiers);
         Assert.Equal(OverlayStyle.Default with { HighlightColor = "#707070" }, OverlayStyle.From(settings));
         Assert.True(settings.CatchNewWindowsInMainZone);
         Assert.True(settings.PreferRememberedZone);

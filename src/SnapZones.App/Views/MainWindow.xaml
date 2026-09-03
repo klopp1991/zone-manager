@@ -1165,10 +1165,16 @@
                                         <StackPanel Orientation="Horizontal" Margin="0,16,0,6">
                                             <TextBlock Text="Zusatztasten" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
                                         <Button x:Name="ZoneHotkeyModifiersInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Zusatztasten"
-                                                ToolTip="Windows belegt viele Kombinationen mit der Win-Taste und Pfeiltasten selbst; Ctrl + Alt ist deshalb die Voreinstellung. Belegt ein anderes Programm ein Kürzel, meldet die Statuszeile das beim Start, und hier lässt sich ausweichen." />
+                                                ToolTip="Windows belegt viele Kombinationen mit der Win-Taste und Pfeiltasten selbst; Ctrl + Shift ist deshalb die Voreinstellung. Ctrl + Alt ist nicht zu empfehlen: Windows liefert AltGr intern als Ctrl + Alt, sodass die Zifferkürzel die AltGr-Zeichen derselben Tasten verschlucken. Belegt ein anderes Programm ein Kürzel, meldet die Statuszeile das beim Start, und hier lässt sich ausweichen." />
                                         </StackPanel>
                                         <ComboBox ItemsSource="{Binding Settings.ZoneHotkeyModifierChoices}" SelectedItem="{Binding Settings.ZoneHotkeyModifiers}" ItemTemplate="{StaticResource EnumItemTemplate}" AutomationProperties.Name="Zusatztasten der Zonenkürzel" />
                                         <TextBlock Text="Gilt für alle Zonenkürzel; der Not-Aus bleibt bei Ctrl + Alt + Shift + F12." Style="{StaticResource HelpText}" />
+                                        <Border Background="{DynamicResource WarningSoftBrush}" CornerRadius="4" Padding="10,8" Margin="0,8,0,0"
+                                                Visibility="{Binding Settings.ZoneHotkeyModifiersBlockAltGr, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                            <TextBlock Foreground="{DynamicResource WarningBrush}" TextWrapping="Wrap"
+                                                       AutomationProperties.Name="Warnung zu Ctrl + Alt"
+                                                       Text="Ctrl + Alt blockiert AltGr: Windows erzeugt aus AltGr intern Ctrl + Alt, deshalb verschlucken die Kürzel Ctrl + Alt + 1 bis 9 die AltGr-Zeichen derselben Tasten — auf einer Schweizer Tastatur @, # und |, auf einer deutschen {, [ und ]. Wähle Ctrl + Shift, Alt + Shift oder Ctrl + Win, wenn du diese Zeichen tippst." />
+                                        </Border>
                                         <Grid Margin="0,14,0,0">
                                             <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="18" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                             <Grid.RowDefinitions><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /><RowDefinition /></Grid.RowDefinitions>

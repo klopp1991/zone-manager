@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using Microsoft.Win32.SafeHandles;
 using SnapZones.Core.Geometry;
+using SnapZones.Core.Placement;
 using SnapZones.Windows.Native;
 
 namespace SnapZones.Windows.Windows;
@@ -16,9 +17,24 @@ internal sealed record WindowClassification(
     bool IsCloaked,
     bool CloakStateUnknown,
     bool IsMinimized,
-    bool IsMaximized)
+    bool IsMaximized,
+    bool HasOwner = false)
 {
     public bool IsResizable => (Style & WindowEligibility.ThickFrameStyle) != 0;
+
+    public bool HasCaption => (Style & WindowEligibility.CaptionStyle) == WindowEligibility.CaptionStyle;
+
+    public bool HasMaximizeBox => (Style & WindowEligibility.MaximizeBoxStyle) != 0;
+
+    /// <summary>Die Merkmale, an denen <see cref="AutomaticPlacement"/> entscheidet.</summary>
+    public AutomaticPlacementCandidate AutomaticPlacementTraits => new(
+        WindowClass,
+        HasCaption,
+        IsResizable,
+        HasMaximizeBox,
+        HasOwner,
+        Bounds.Width,
+        Bounds.Height);
 }
 
 /// <summary>Warum ein Fenster nicht in Frage kommt; fuer Protokoll und Fehlersuche.</summary>
@@ -54,7 +70,9 @@ internal static class WindowEligibility
     internal const long ThickFrameStyle = 0x00040000L;
     internal const long ToolWindowStyle = 0x00000080L;
     internal const long NoActivateStyle = 0x08000000L;
+    internal const long MaximizeBoxStyle = 0x00010000L;
     internal const uint RootAncestor = 2;
+    internal const uint OwnerWindow = 4;
     internal const int CloakedAttribute = 14;
 
     private static readonly IWindowStyleReader DefaultStyleReader = new User32WindowStyleReader();
@@ -190,7 +208,8 @@ internal static class WindowEligibility
             cloakResult == 0 && cloaked != 0,
             cloakResult != 0,
             User32.IsIconic(window),
-            User32.IsZoomed(window));
+            User32.IsZoomed(window),
+            User32.GetWindow(window, OwnerWindow) != 0);
         if (classification.IsCloaked)
         {
             reason = WindowRejectionReason.Cloaked;

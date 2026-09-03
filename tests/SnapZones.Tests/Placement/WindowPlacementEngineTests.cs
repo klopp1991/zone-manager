@@ -293,6 +293,39 @@ public sealed class WindowPlacementEngineTests
                 DateTimeOffset.UnixEpoch)
         ]);
 
+    [Fact]
+    public async Task A_window_that_may_not_be_placed_automatically_is_left_alone()
+    {
+        // Ein Kontextmenue oder ein Dialog erscheint wie jedes andere Fenster; die Begruendung aus
+        // AutomaticPlacement haengt an der Aufnahme und haelt den Auffang zurueck.
+        using var harness = Harness(mainZoneId: RightZoneId);
+        harness.WindowService.Add(Window(17, Stray) with
+        {
+            AutomaticPlacementRejection = AutomaticPlacementRejection.TransientClass
+        });
+        harness.Engine.Start();
+
+        await harness.ShowWindowAsync(17);
+
+        Assert.Empty(harness.WindowService.Placements);
+    }
+
+    [Fact]
+    public async Task A_dialog_is_not_restored_to_its_remembered_position_either()
+    {
+        var remembered = new PixelRect(120, 80, 640, 480);
+        using var harness = Harness(mainZoneId: RightZoneId, catalog: Catalog(remembered));
+        harness.WindowService.Add(Window(17, Stray) with
+        {
+            AutomaticPlacementRejection = AutomaticPlacementRejection.NoMaximizeBox
+        });
+        harness.Engine.Start();
+
+        await harness.ShowWindowAsync(17);
+
+        Assert.Empty(harness.WindowService.Placements);
+    }
+
     private static PlacementWindowSnapshot Window(nint handle, PixelRect bounds) => new(
         handle,
         EditorIdentity,

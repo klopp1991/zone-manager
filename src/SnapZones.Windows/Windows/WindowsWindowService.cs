@@ -4,6 +4,8 @@ using SnapZones.Core.Layouts;
 using SnapZones.Core.AppRules;
 using SnapZones.Core.Models;
 using SnapZones.Core.PartMonitors;
+using AutomaticPlacement = SnapZones.Core.Placement.AutomaticPlacement;
+using AutomaticPlacementRejection = SnapZones.Core.Placement.AutomaticPlacementRejection;
 using SnapZones.Windows.Native;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
@@ -173,6 +175,12 @@ public sealed class WindowsWindowService : IWindowService
     /// Alle Fenster, die ein Layoutwechsel mitfuehren darf: eigenstaendig, sichtbar, weder minimiert
     /// noch maximiert. Ein minimiertes Fenster wieder aufzuklappen oder ein maximiertes zu
     /// verkleinern, nur weil sich eine Zone verschoben hat, waere ein Eingriff, den niemand wollte.
+    ///
+    /// <para>
+    /// Zusaetzlich gilt der Filter fuer das automatische Platzieren: ein Kontextmenue, eine
+    /// Aufklappliste oder ein Dialog wird weder nach einem Layoutwechsel eingesammelt noch einer
+    /// geaenderten Zone nachgezogen. Siehe <see cref="AutomaticPlacement"/>.
+    /// </para>
     /// </summary>
     public IReadOnlyList<WindowPlacement> GetMovableTopLevelWindows(int ownProcessId)
     {
@@ -185,7 +193,17 @@ public sealed class WindowsWindowService : IWindowService
                 !classification.IsMinimized &&
                 !classification.IsMaximized)
             {
-                windows.Add(new WindowPlacement(window, classification.Bounds));
+                var rejection = AutomaticPlacement.Evaluate(classification.AutomaticPlacementTraits);
+                if (rejection == AutomaticPlacementRejection.None)
+                {
+                    windows.Add(new WindowPlacement(window, classification.Bounds));
+                }
+                else
+                {
+                    trace?.Invoke(
+                        $"Fenster 0x{window:X} ({classification.WindowClass}) wird nicht von selbst platziert: "
+                            + AutomaticPlacement.Describe(rejection));
+                }
             }
 
             return true;
