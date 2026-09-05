@@ -27,7 +27,7 @@ public sealed class SnappingStateTests
         Assert.False(viewModel.IsSnappingPaused);
 
         viewModel.SnappingState = SnappingState.Paused;
-        Assert.Equal("Einrasten pausiert", viewModel.SnappingStateLabel);
+        Assert.Equal("Einrasten angehalten", viewModel.SnappingStateLabel);
         Assert.True(viewModel.IsSnappingPaused);
 
         viewModel.SnappingState = SnappingState.NoActiveLayout;
@@ -55,6 +55,7 @@ public sealed class SnappingStateTests
             var viewModel = new MainViewModel(ConfigurationSamples.TwoLayouts(), []);
             window.AttachViewModel(viewModel);
             window.Show();
+            var pausedBox = Assert.IsType<System.Windows.Controls.Border>(window.FindName("PausedBox"));
             var stateText = Assert.IsType<TextBlock>(window.FindName("SnappingStateText"));
             var messageText = Assert.IsType<TextBlock>(window.FindName("StatusMessageText"));
             var resumeButton = Assert.IsType<System.Windows.Controls.Button>(window.FindName("ResumeSnappingButton"));
@@ -63,15 +64,16 @@ public sealed class SnappingStateTests
             viewModel.StatusMessage = "Speichern fehlgeschlagen: Datenträger voll";
             window.UpdateLayout();
 
-            Assert.Equal("Einrasten aktiv", stateText.Text);
+            // Ein laufendes Einrasten braucht keine Pille; die Warnung erscheint nur, wenn es angehalten ist.
+            Assert.Equal(System.Windows.Visibility.Collapsed, pausedBox.Visibility);
             Assert.Equal("Speichern fehlgeschlagen: Datenträger voll", messageText.Text);
-            Assert.Equal(System.Windows.Visibility.Collapsed, resumeButton.Visibility);
 
             viewModel.SnappingState = SnappingState.Paused;
             window.UpdateLayout();
 
-            Assert.Equal("Einrasten pausiert", stateText.Text);
-            Assert.Equal(System.Windows.Visibility.Visible, resumeButton.Visibility);
+            Assert.Equal(System.Windows.Visibility.Visible, pausedBox.Visibility);
+            Assert.Equal("Einrasten angehalten", stateText.Text);
+            Assert.True(resumeButton.IsVisible);
             window.Close();
         });
     }
@@ -86,10 +88,17 @@ public sealed class SnappingStateTests
             service.Update(ConfigurationSamples.TwoLayouts());
 
             service.SetSnappingState("Einrasten aktiv", paused: false);
-            Assert.Contains(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Einrasten aktiv");
+            // Flach: kein Eintrag fuer den Normalzustand, kein Kopf «Layouts pro Monitor», keine Untermenues.
+            Assert.DoesNotContain(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Einrasten aktiv");
+            Assert.DoesNotContain(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Layouts pro Monitor");
             Assert.DoesNotContain(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Einrasten wieder aktivieren");
+            Assert.Contains(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "MONITOR 1" && !item.Enabled);
+            Assert.Contains(service.Menu.Items.OfType<ToolStripMenuItem>(), item => item.Text?.Trim() == "Arbeit" && item.Checked);
+            Assert.Contains(service.Menu.Items.OfType<ToolStripMenuItem>(), item => item.Text?.Trim() == "Abend" && !item.Checked);
+            Assert.All(service.Menu.Items.OfType<ToolStripMenuItem>(), item => Assert.Empty(item.DropDownItems));
 
-            service.SetSnappingState("Einrasten pausiert", paused: true);
+            service.SetSnappingState("Einrasten angehalten", paused: true);
+            Assert.Contains(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Einrasten angehalten" && !item.Enabled);
             var resume = service.Menu.Items.Cast<ToolStripItem>().Single(item => item.Text == "Einrasten wieder aktivieren");
             resume.PerformClick();
 

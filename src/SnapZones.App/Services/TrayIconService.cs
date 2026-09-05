@@ -53,9 +53,9 @@ public sealed class TrayIconService : IDisposable
     public bool HasDeferredUpdate => deferredConfiguration is not null;
 
     /// <summary>
-    /// Nennt den Zustand der Snap-Funktion im Menue und im Tooltip. Ist sie pausiert, erscheint
-    /// zusaetzlich der Eintrag zum Wiedereinschalten; frueher fehlte beides und ein Not-Aus war im
-    /// Infobereich nicht erkennbar.
+    /// Nennt den Zustand der Snap-Funktion. Nur ein angehaltenes Einrasten erscheint im Menue und im
+    /// Tooltip, zusammen mit dem Eintrag zum Wiedereinschalten; ein laufendes Einrasten braucht keinen
+    /// Eintrag.
     /// </summary>
     public void SetSnappingState(string label, bool paused)
     {
@@ -123,10 +123,12 @@ public sealed class TrayIconService : IDisposable
             item.Dispose();
         }
 
-        if (snappingStateLabel.Length > 0)
+        // Flach statt verschachtelt: der Zustand «aktiv» braucht keinen Eintrag; nur ein angehaltenes
+        // Einrasten steht oben, zusammen mit dem Weg zurueck.
+        if (snappingPaused)
         {
-            menu.Items.Add(new Forms.ToolStripMenuItem(snappingStateLabel) { Enabled = false });
-            if (snappingPaused && resumeSnapping is not null)
+            menu.Items.Add(new Forms.ToolStripMenuItem(snappingStateLabel.Length > 0 ? snappingStateLabel : "Einrasten angehalten") { Enabled = false });
+            if (resumeSnapping is not null)
             {
                 menu.Items.Add("Einrasten wieder aktivieren", null, (_, _) => resumeSnapping());
             }
@@ -134,22 +136,21 @@ public sealed class TrayIconService : IDisposable
             menu.Items.Add(new Forms.ToolStripSeparator());
         }
 
-        menu.Items.Add(new Forms.ToolStripMenuItem("Layouts pro Monitor") { Enabled = false });
-        menu.Items.Add(new Forms.ToolStripSeparator());
+        // Pro Monitor eine Gruppenueberschrift in Grossbuchstaben, darunter die Layouts eingerueckt,
+        // das aktive mit Haekchen. Keine Untermenues: ein Layoutwechsel ist damit ein einziger Klick.
         foreach (var monitor in plan.Monitors)
         {
-            var monitorItem = new Forms.ToolStripMenuItem(monitor.Name);
+            menu.Items.Add(new Forms.ToolStripMenuItem(monitor.Name.ToUpperInvariant()) { Enabled = false });
             foreach (var layout in monitor.Layouts)
             {
-                var layoutItem = new Forms.ToolStripMenuItem(layout.Name)
+                var layoutItem = new Forms.ToolStripMenuItem($"    {layout.Name}")
                 {
-                    Checked = layout.IsActive
+                    Checked = layout.IsActive,
+                    Tag = layout.Id
                 };
                 layoutItem.Click += (_, _) => activateLayout(layout.Id);
-                monitorItem.DropDownItems.Add(layoutItem);
+                menu.Items.Add(layoutItem);
             }
-
-            menu.Items.Add(monitorItem);
         }
 
         menu.Items.Add(new Forms.ToolStripSeparator());
@@ -159,7 +160,7 @@ public sealed class TrayIconService : IDisposable
         menu.Items.Add("Beenden", null, (_, _) => exit());
 
         // NotifyIcon.Text ist auf 127 Zeichen begrenzt.
-        var tooltip = snappingStateLabel.Length > 0
+        var tooltip = snappingPaused && snappingStateLabel.Length > 0
             ? $"{ProductInfo.Name} · {snappingStateLabel}"
             : $"{ProductInfo.Name} · {plan.Monitors.Count} Monitore";
         icon.Text = tooltip.Length > 127 ? tooltip[..127] : tooltip;

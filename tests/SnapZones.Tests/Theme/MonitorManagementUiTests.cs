@@ -1,12 +1,13 @@
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
-using System.Windows.Data;
+using SnapZones.App.Controls;
 using SnapZones.App.ViewModels;
 using SnapZones.App.Views;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
+using SnapZones.Tests.Support;
 using Xunit;
 
 namespace SnapZones.Tests.Theme;
@@ -22,58 +23,45 @@ public sealed class MonitorManagementUiTests
             var root = Assert.IsType<Grid>(window.Content);
             var tabs = Assert.Single(root.Children.OfType<TabControl>());
             var pages = tabs.Items.OfType<TabItem>().ToArray();
-            var layoutsPage = pages.Single(page => Equals(page.Header, "Layouts"));
+            var layoutsPage = pages.Single(page => Equals(page.Header, "Zonen & Layouts"));
             var monitorsPage = pages.Single(page => Equals(page.Header, "Monitore"));
             var nameField = Assert.IsType<TextBox>(window.FindName("MonitorNameText"));
-            var managementList = Assert.IsType<ListBox>(window.FindName("MonitorManagementList"));
             var identifyButton = Assert.IsType<Button>(window.FindName("IdentifyMonitorsButton"));
 
-            // Die Skalierungswerte stehen seit dem 02.09.2026 auf derselben Seite wie die Monitore.
+            // Die Skalierungswerte stehen auf derselben Seite wie die Monitore, aufklappbar.
             Assert.DoesNotContain(pages, page => Equals(page.Header, "Skalierung"));
-            Assert.Contains(Assert.IsType<TextBlock>(window.FindName("ScalingResolutionText")), LogicalDescendants<TextBlock>(monitorsPage));
-            Assert.Contains(nameField, LogicalDescendants<TextBox>(monitorsPage));
-            Assert.Contains(managementList, LogicalDescendants<ListBox>(monitorsPage));
-            Assert.Contains(identifyButton, LogicalDescendants<Button>(monitorsPage));
-            Assert.DoesNotContain(nameField, LogicalDescendants<TextBox>(layoutsPage));
+            Assert.Contains(Assert.IsType<TextBlock>(window.FindName("ScalingResolutionText")), UiTree.LogicalDescendants<TextBlock>(monitorsPage));
+            Assert.Contains(nameField, UiTree.LogicalDescendants<TextBox>(monitorsPage));
+            Assert.Contains(identifyButton, UiTree.LogicalDescendants<Button>(monitorsPage));
+            Assert.Contains(Assert.IsType<ZonePreview>(window.FindName("MonitorPreview")), UiTree.LogicalDescendants<ZonePreview>(monitorsPage));
+            Assert.DoesNotContain(nameField, UiTree.LogicalDescendants<TextBox>(layoutsPage));
             Assert.Equal("Eigener Monitorname", AutomationProperties.GetName(nameField));
+            Assert.True(Assert.IsType<Expander>(window.FindName("DetectedValuesExpander")).IsExpanded);
         });
     }
 
     [Fact]
-    public void Monitor_page_lists_all_monitors_and_changes_the_shared_selection()
+    public void Monitor_page_steps_through_all_monitors_and_changes_the_shared_selection()
     {
         WpfThemeHost.Invoke(() =>
         {
-            var firstIdentity = new MonitorIdentity("FIRST", "DISPLAY1", "Erster Monitor");
-            var secondIdentity = new MonitorIdentity("SECOND", "DISPLAY2", "Zweiter Monitor");
-            var monitors = new[]
-            {
-                new LiveMonitor(firstIdentity, new MonitorWorkArea(0, 0, 2560, 1440), 96, 96, true),
-                new LiveMonitor(secondIdentity, new MonitorWorkArea(2560, 0, 1920, 1080), 96, 96, false)
-            };
-            var configuration = new SnapConfiguration(
-                SnapConfiguration.CurrentSchemaVersion,
-                AppSettings.Default(Guid.Empty),
-                [
-                    new MonitorLayout(firstIdentity, 2560, 1440, [new ZoneDefinition(Guid.NewGuid(), "Voll", NormalizedRect.Full)]),
-                    new MonitorLayout(secondIdentity, 1920, 1080, [new ZoneDefinition(Guid.NewGuid(), "Voll", NormalizedRect.Full)])
-                ]);
-            var viewModel = new MainViewModel(configuration, monitors);
-            var window = new MainWindow();
-            window.AttachViewModel(viewModel);
-            var root = Assert.IsType<Grid>(window.Content);
-            var tabs = Assert.Single(root.Children.OfType<TabControl>());
-            tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Monitore"));
-            root.Measure(new Size(1180, 720));
-            root.Arrange(new Rect(0, 0, 1180, 720));
-            root.UpdateLayout();
-            var managementList = Assert.IsType<ListBox>(window.FindName("MonitorManagementList"));
+            var viewModel = TwoMonitors(out var window);
+            var next = Assert.IsType<Button>(window.FindName("NextMonitorButton"));
+            var previous = Assert.IsType<Button>(window.FindName("PreviousMonitorButton"));
 
-            Assert.Equal(2, managementList.Items.Count);
-            managementList.SelectedIndex = 1;
+            Assert.Equal("Monitor 1 von 2", viewModel.MonitorPositionText);
+            Assert.False(viewModel.CanSelectPreviousMonitor);
+            Assert.True(viewModel.CanSelectNextMonitor);
+
+            next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
 
             Assert.Equal("SECOND", viewModel.SelectedMonitor?.Live.Identity.StableId);
-            Assert.Same(viewModel.SelectedMonitor, managementList.SelectedItem);
+            Assert.Equal("Monitor 2 von 2", viewModel.MonitorPositionText);
+            Assert.False(viewModel.CanSelectNextMonitor);
+
+            previous.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+            Assert.Equal("FIRST", viewModel.SelectedMonitor?.Live.Identity.StableId);
         });
     }
 
@@ -82,27 +70,11 @@ public sealed class MonitorManagementUiTests
     {
         WpfThemeHost.Invoke(() =>
         {
-            var firstIdentity = new MonitorIdentity("FIRST", "DISPLAY1", "Erster Monitor");
-            var secondIdentity = new MonitorIdentity("SECOND", "DISPLAY2", "Zweiter Monitor");
-            var monitors = new[]
-            {
-                new LiveMonitor(firstIdentity, new MonitorWorkArea(0, 0, 2560, 1440), 96, 96, true),
-                new LiveMonitor(secondIdentity, new MonitorWorkArea(2560, 0, 1920, 1080), 96, 96, false)
-            };
-            var configuration = new SnapConfiguration(
-                SnapConfiguration.CurrentSchemaVersion,
-                AppSettings.Default(Guid.Empty),
-                [
-                    new MonitorLayout(firstIdentity, 2560, 1440, [new ZoneDefinition(Guid.NewGuid(), "Voll", NormalizedRect.Full)]),
-                    new MonitorLayout(secondIdentity, 1920, 1080, [new ZoneDefinition(Guid.NewGuid(), "Voll", NormalizedRect.Full)])
-                ]);
-            var viewModel = new MainViewModel(configuration, monitors);
-            var window = new MainWindow();
-            window.AttachViewModel(viewModel);
+            var viewModel = TwoMonitors(out var window);
             viewModel.SelectedMonitor = viewModel.Monitors[1];
-            var upButton = Assert.IsType<Button>(window.FindName("MoveMonitorUpButton"));
+            var upItem = Assert.IsType<MenuItem>(window.FindName("MoveMonitorUpButton"));
 
-            upButton.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            upItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
 
             Assert.Equal(["SECOND", "FIRST"], viewModel.Monitors.Select(monitor => monitor.Live.Identity.StableId));
             Assert.Equal("SECOND", viewModel.SelectedMonitor!.Live.Identity.StableId);
@@ -111,39 +83,39 @@ public sealed class MonitorManagementUiTests
     }
 
     [Fact]
-    public void Monitor_template_binds_the_user_facing_name_instead_of_an_identifier()
+    public void The_overview_card_describes_each_monitor_without_an_identifier()
     {
-        WpfThemeHost.Invoke(() =>
-        {
-            var window = new MainWindow();
-            var identity = new MonitorIdentity("TECHNICAL-ID", "\\\\.\\DISPLAY3", "Dell U2723QE");
-            var monitor = new LiveMonitor(identity, new MonitorWorkArea(0, 0, 3840, 2160), 96, 96, false);
-            var choice = new MonitorChoice(monitor, new MonitorLayout(identity, 3840, 2160, []), 3, "Rechts");
-            var template = Assert.IsType<DataTemplate>(window.FindResource("MonitorItemTemplate"));
-            var content = Assert.IsType<StackPanel>(template.LoadContent());
-            var name = Assert.IsType<TextBlock>(content.Children[0]);
-            var binding = Assert.IsType<Binding>(BindingOperations.GetBinding(name, TextBlock.TextProperty));
+        var identity = new MonitorIdentity("TECHNICAL-ID", "\\\\.\\DISPLAY3", "Dell U2723QE");
+        var monitor = new LiveMonitor(identity, new MonitorWorkArea(0, 0, 3840, 2100), 120, 120, false, Bounds: new PixelRect(0, 0, 3840, 2160));
+        var layout = new MonitorLayout(identity, 3840, 2100, []);
+        var choice = new MonitorChoice(monitor, layout, 3, "Rechts") { Layouts = [layout, layout with { Id = Guid.NewGuid(), Name = "Abend" }] };
 
-            Assert.Equal(nameof(MonitorChoice.UserFacingName), binding.Path.Path);
-            Assert.Equal("Rechts", choice.UserFacingName);
-            Assert.DoesNotContain("TECHNICAL-ID", choice.UserFacingName, StringComparison.Ordinal);
-        });
+        Assert.Equal("Rechts", choice.UserFacingName);
+        Assert.Equal("3840 × 2160 · 125 %", choice.OverviewDetailsText);
+        Assert.Equal("2 Layouts", choice.LayoutCountText);
+        Assert.Equal(3840d / 2100d, choice.AspectRatio, 6);
+        Assert.DoesNotContain("TECHNICAL-ID", choice.UserFacingName, StringComparison.Ordinal);
     }
 
-    private static IEnumerable<T> LogicalDescendants<T>(DependencyObject parent)
-        where T : DependencyObject
+    private static MainViewModel TwoMonitors(out MainWindow window)
     {
-        foreach (var child in LogicalTreeHelper.GetChildren(parent).OfType<DependencyObject>())
+        var firstIdentity = new MonitorIdentity("FIRST", "DISPLAY1", "Erster Monitor");
+        var secondIdentity = new MonitorIdentity("SECOND", "DISPLAY2", "Zweiter Monitor");
+        var monitors = new[]
         {
-            if (child is T match)
-            {
-                yield return match;
-            }
-
-            foreach (var descendant in LogicalDescendants<T>(child))
-            {
-                yield return descendant;
-            }
-        }
+            new LiveMonitor(firstIdentity, new MonitorWorkArea(0, 0, 2560, 1440), 96, 96, true),
+            new LiveMonitor(secondIdentity, new MonitorWorkArea(2560, 0, 1920, 1080), 96, 96, false)
+        };
+        var configuration = new SnapConfiguration(
+            SnapConfiguration.CurrentSchemaVersion,
+            AppSettings.Default(Guid.Empty),
+            [
+                new MonitorLayout(firstIdentity, 2560, 1440, [new ZoneDefinition(Guid.NewGuid(), "Voll", NormalizedRect.Full)]),
+                new MonitorLayout(secondIdentity, 1920, 1080, [new ZoneDefinition(Guid.NewGuid(), "Voll", NormalizedRect.Full)])
+            ]);
+        var viewModel = new MainViewModel(configuration, monitors);
+        window = new MainWindow();
+        window.AttachViewModel(viewModel);
+        return viewModel;
     }
 }

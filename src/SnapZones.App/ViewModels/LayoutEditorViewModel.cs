@@ -24,23 +24,23 @@ public sealed class LayoutEditorViewModel : ViewModelBase
     public IReadOnlyList<ZoneDefinition> Zones => session.Zones;
     public ZoneDefinition? SelectedZone => Zones.FirstOrDefault(zone => zone.Id == selectedZoneId);
 
-    /// <summary>Die als Hauptzone markierte Zone dieses Layouts, falls es eine gibt.</summary>
+    /// <summary>Die Auffangzone dieses Layouts, falls es eine gibt.</summary>
     public Guid? MainZoneId => session.MainZoneId;
 
-    /// <summary>Ob die gerade ausgewählte Zone die Hauptzone ist.</summary>
+    /// <summary>Ob die gerade ausgewählte Zone die Auffangzone ist.</summary>
     public bool IsSelectedZoneMainZone => SelectedZone is { } zone && session.MainZoneId == zone.Id;
 
     /// <summary>Beschriftung der einen Schaltfläche; sie führt in beide Richtungen.</summary>
     public string MainZoneActionLabel => IsSelectedZoneMainZone
-        ? "Hauptzone aufheben"
-        : "Als Hauptzone festlegen";
+        ? "Auffangzone aufheben"
+        : "Als Auffangzone festlegen";
 
     /// <summary>Was in diesem Layout gilt, im Klartext und ohne Farbe.</summary>
     public string MainZoneStateText => session.MainZoneId is null
-        ? "Keine Zone dieses Layouts ist Hauptzone."
+        ? "Keine Zone dieses Layouts ist Auffangzone."
         : IsSelectedZoneMainZone
-            ? "Diese Zone ist die Hauptzone dieses Layouts."
-            : $"Hauptzone dieses Layouts ist «{Zones.First(zone => zone.Id == session.MainZoneId).Name}».";
+            ? "Diese Zone ist die Auffangzone dieses Layouts."
+            : $"Auffangzone dieses Layouts ist «{Zones.First(zone => zone.Id == session.MainZoneId).Name}».";
     public bool IsDirty => session.IsDirty;
     public bool IsValid => session.Validation.IsValid;
     public bool CanUndo => session.CanUndo;
@@ -208,6 +208,120 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         session.SetMainZone(IsSelectedZoneMainZone ? null : selectedZoneId);
         NotifyStateChanged();
         NotifyConfigurationChanged();
+    }
+
+    /// <summary>Ersetzt alle Zonen, etwa durch die einzelne Vollzone eines leeren Layouts.</summary>
+    public void ReplaceZones(IReadOnlyList<ZoneDefinition> zones)
+    {
+        ArgumentNullException.ThrowIfNull(zones);
+        session.ReplaceZones(zones);
+        selectedZoneId = Zones.FirstOrDefault()?.Id;
+        NotifyStateChanged();
+        NotifyConfigurationChanged();
+    }
+
+    /// <summary>Loescht eine beliebige Zone, etwa aus dem Kontextmenue; mindestens eine bleibt.</summary>
+    public bool DeleteZone(Guid zoneId)
+    {
+        if (Zones.Count <= 1 || Zones.All(zone => zone.Id != zoneId))
+        {
+            return false;
+        }
+
+        session.DeleteZone(zoneId);
+        if (selectedZoneId == zoneId || selectedZoneId is null)
+        {
+            selectedZoneId = Zones.FirstOrDefault()?.Id;
+        }
+
+        NotifyStateChanged();
+        NotifyConfigurationChanged();
+        return true;
+    }
+
+    /// <summary>Macht eine Zone zur Auffangzone oder hebt die Markierung auf, wenn sie es schon ist.</summary>
+    public void ToggleMainZone(Guid zoneId)
+    {
+        if (Zones.All(zone => zone.Id != zoneId))
+        {
+            return;
+        }
+
+        session.SetMainZone(session.MainZoneId == zoneId ? null : zoneId);
+        NotifyStateChanged();
+        NotifyConfigurationChanged();
+    }
+
+    public void RenameZone(Guid zoneId, string name)
+    {
+        var zone = Zones.FirstOrDefault(candidate => candidate.Id == zoneId);
+        if (zone is null)
+        {
+            return;
+        }
+
+        session.UpdateZone(zoneId, name, zone.Bounds);
+        NotifyStateChanged();
+        NotifyConfigurationChanged();
+    }
+
+    /// <summary>
+    /// Die Nachbarn einer Zone, mit denen sie sich zu einem Rechteck verbinden laesst: sie teilen eine
+    /// ganze Kante in gleicher Laenge, sodass die Vereinigung keine Luecke laesst.
+    /// </summary>
+    public IReadOnlyList<ZoneDefinition> MergeableNeighbours(Guid zoneId)
+    {
+        var zone = Zones.FirstOrDefault(candidate => candidate.Id == zoneId);
+        if (zone is null)
+        {
+            return [];
+        }
+
+        return Zones.Where(candidate => candidate.Id != zoneId && SharesFullEdge(zone.Bounds, candidate.Bounds)).ToArray();
+    }
+
+    /// <summary>
+    /// Verbindet zwei Zonen zu einer: die Vereinigung ersetzt beide, der Name der ersten bleibt. Gelingt nur,
+    /// wenn die Zonen eine ganze Kante teilen; sonst bleibt alles unveraendert.
+    /// </summary>
+    public bool MergeZones(Guid zoneId, Guid neighbourId)
+    {
+        var zone = Zones.FirstOrDefault(candidate => candidate.Id == zoneId);
+        var neighbour = Zones.FirstOrDefault(candidate => candidate.Id == neighbourId);
+        if (zone is null || neighbour is null || !SharesFullEdge(zone.Bounds, neighbour.Bounds))
+        {
+            return false;
+        }
+
+        var left = Math.Min(zone.Bounds.X, neighbour.Bounds.X);
+        var top = Math.Min(zone.Bounds.Y, neighbour.Bounds.Y);
+        var right = Math.Max(zone.Bounds.X + zone.Bounds.Width, neighbour.Bounds.X + neighbour.Bounds.Width);
+        var bottom = Math.Max(zone.Bounds.Y + zone.Bounds.Height, neighbour.Bounds.Y + neighbour.Bounds.Height);
+        var merged = zone with { Bounds = new NormalizedRect(left, top, right - left, bottom - top) };
+        var replacement = Zones
+            .Where(candidate => candidate.Id != neighbourId)
+            .Select(candidate => candidate.Id == zoneId ? merged : candidate)
+            .ToArray();
+        session.ReplaceZones(replacement);
+        if (session.MainZoneId is null && (zone.Id == MainZoneId || neighbour.Id == MainZoneId))
+        {
+            session.SetMainZone(merged.Id);
+        }
+
+        selectedZoneId = merged.Id;
+        NotifyStateChanged();
+        NotifyConfigurationChanged();
+        return true;
+    }
+
+    private static bool SharesFullEdge(NormalizedRect first, NormalizedRect second)
+    {
+        const double epsilon = 0.0005;
+        var sameColumns = Math.Abs(first.X - second.X) < epsilon && Math.Abs(first.Width - second.Width) < epsilon;
+        var stackedVertically = Math.Abs(first.Y + first.Height - second.Y) < epsilon || Math.Abs(second.Y + second.Height - first.Y) < epsilon;
+        var sameRows = Math.Abs(first.Y - second.Y) < epsilon && Math.Abs(first.Height - second.Height) < epsilon;
+        var sideBySide = Math.Abs(first.X + first.Width - second.X) < epsilon || Math.Abs(second.X + second.Width - first.X) < epsilon;
+        return (sameColumns && stackedVertically) || (sameRows && sideBySide);
     }
 
     public void RenameSelectedZone(string name)

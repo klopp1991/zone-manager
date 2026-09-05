@@ -1,11 +1,20 @@
+using System.Globalization;
 using System.Windows;
 using System.Windows.Input;
 using System.Windows.Media;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;
 using InputCursors = System.Windows.Input.Cursors;
+using MediaColor = System.Windows.Media.Color;
 
 namespace SnapZones.App.Controls;
+
+/// <summary>Wo die Zeichenflaeche steht: im Fenster (mit Monitorrahmen) oder in echter Groesse auf dem Monitor.</summary>
+public enum CanvasPresentation
+{
+    Embedded,
+    Fullscreen
+}
 
 public sealed class LayoutCanvas : FrameworkElement
 {
@@ -51,6 +60,22 @@ public sealed class LayoutCanvas : FrameworkElement
         typeof(LayoutCanvas),
         new FrameworkPropertyMetadata(10));
 
+    public static readonly DependencyProperty PresentationProperty = DependencyProperty.Register(
+        nameof(Presentation),
+        typeof(CanvasPresentation),
+        typeof(LayoutCanvas),
+        new FrameworkPropertyMetadata(CanvasPresentation.Embedded, FrameworkPropertyMetadataOptions.AffectsRender));
+
+    /// <summary>
+    /// Abstand zwischen den Zonen in Pixeln des Monitors, wie ihn das Overlay zeigt. Nur im Vollbild
+    /// gezeichnet, wo die Zonen ihre echte Groesse haben.
+    /// </summary>
+    public static readonly DependencyProperty ZoneGapPixelsProperty = DependencyProperty.Register(
+        nameof(ZoneGapPixels),
+        typeof(int),
+        typeof(LayoutCanvas),
+        new FrameworkPropertyMetadata(0, FrameworkPropertyMetadataOptions.AffectsRender));
+
     private System.Windows.Point dragStart;
     private NormalizedRect? originalBounds;
     private NormalizedRect? lastDragBounds;
@@ -61,6 +86,12 @@ public sealed class LayoutCanvas : FrameworkElement
     private SharedZoneDivider? draggedSharedDivider;
     private IReadOnlyDictionary<Guid, NormalizedRect>? lastSharedBounds;
     private System.Windows.Point lastPointer;
+
+    public LayoutCanvas()
+    {
+        Focusable = true;
+        FocusVisualStyle = null;
+    }
 
     public IReadOnlyList<ZoneDefinition> Zones
     {
@@ -74,7 +105,7 @@ public sealed class LayoutCanvas : FrameworkElement
         set => SetValue(SelectedZoneIdProperty, value);
     }
 
-    /// <summary>Die als Hauptzone markierte Zone; sie erhält im Editor eine eigene Kennzeichnung.</summary>
+    /// <summary>Die Auffangzone; sie erhält im Editor eine eigene, beschriftete Kennzeichnung.</summary>
     public Guid? MainZoneId
     {
         get => (Guid?)GetValue(MainZoneIdProperty);
@@ -105,8 +136,29 @@ public sealed class LayoutCanvas : FrameworkElement
         set => SetValue(MagnetThresholdPixelsProperty, value);
     }
 
+    public CanvasPresentation Presentation
+    {
+        get => (CanvasPresentation)GetValue(PresentationProperty);
+        set => SetValue(PresentationProperty, value);
+    }
+
+    public int ZoneGapPixels
+    {
+        get => (int)GetValue(ZoneGapPixelsProperty);
+        set => SetValue(ZoneGapPixelsProperty, value);
+    }
+
     public event EventHandler<ZoneSelectedEventArgs>? ZoneSelected;
     public event EventHandler<ZoneChangedEventArgs>? ZoneChanged;
+
+    /// <summary>Doppelklick auf eine Zone: der Anwender will sie umbenennen.</summary>
+    public event EventHandler<ZoneSelectedEventArgs>? ZoneRenameRequested;
+
+    /// <summary>Rechtsklick auf eine Zone: der Aufrufer zeigt das Kontextmenue.</summary>
+    public event EventHandler<ZoneContextMenuEventArgs>? ZoneContextMenuRequested;
+
+    /// <summary>Entf-Taste auf der ausgewaehlten Zone.</summary>
+    public event EventHandler<ZoneSelectedEventArgs>? ZoneDeleteRequested;
 
     /// <summary>Ein Ziehen mit der Maus beginnt; alle Aenderungen bis <see cref="DragEnded"/> gehoeren zusammen.</summary>
     public event EventHandler? DragStarted;
@@ -114,23 +166,46 @@ public sealed class LayoutCanvas : FrameworkElement
     /// <summary>Das Ziehen ist zu Ende, auch wenn die Maus den Fokus verloren hat.</summary>
     public event EventHandler? DragEnded;
 
+    private bool IsFullscreen => Presentation == CanvasPresentation.Fullscreen;
+
+    /// <summary>Die Monitorflaeche in Steuerelementkoordinaten; im Vollbild die ganze Flaeche.</summary>
+    public Rect ScreenRectangle => GetScreenRectangle();
+
+    /// <summary>Wo die Beschriftung einer Zone steht, fuer das Textfeld beim Umbenennen; null ohne die Zone.</summary>
+    public Rect? GetZoneLabelRect(Guid zoneId)
+    {
+        var zone = Zones.FirstOrDefault(candidate => candidate.Id == zoneId);
+        if (zone is null)
+        {
+            return null;
+        }
+
+        var rectangle = LayoutCanvasInteraction.ToCanvasRect(zone.Bounds, GetScreenRectangle());
+        var height = IsFullscreen ? 34 : 28;
+        var width = Math.Clamp(rectangle.Width - 20, 80, 320);
+        return new Rect(rectangle.X + 10, rectangle.Y + 8, width, height);
+    }
+
     protected override void OnRender(DrawingContext drawingContext)
     {
         base.OnRender(drawingContext);
-        var monitor = GetMonitorRectangle();
-        drawingContext.DrawRoundedRectangle(
-            ResourceBrush("MonitorFrameBrush", System.Windows.Media.Color.FromRgb(23, 32, 51)),
-            null,
-            monitor,
-            12,
-            12);
-        var screen = new Rect(monitor.X + 8, monitor.Y + 8, Math.Max(1, monitor.Width - 16), Math.Max(1, monitor.Height - 16));
-        drawingContext.DrawRoundedRectangle(
-            ResourceBrush("MonitorScreenBrush", System.Windows.Media.Color.FromRgb(244, 247, 251)),
-            null,
-            screen,
-            7,
-            7);
+        var screen = GetScreenRectangle();
+        if (!IsFullscreen)
+        {
+            var monitor = GetMonitorRectangle();
+            drawingContext.DrawRoundedRectangle(
+                ResourceBrush("MonitorFrameBrush", MediaColor.FromRgb(23, 32, 51)),
+                null,
+                monitor,
+                12,
+                12);
+            drawingContext.DrawRoundedRectangle(
+                ResourceBrush("MonitorScreenBrush", MediaColor.FromRgb(244, 247, 251)),
+                null,
+                screen,
+                7,
+                7);
+        }
 
         var validation = ZoneGeometry.Validate(Zones);
         var invalidIds = validation.Errors.Where(error => error.ZoneId.HasValue).Select(error => error.ZoneId!.Value).ToHashSet();
@@ -141,14 +216,29 @@ public sealed class LayoutCanvas : FrameworkElement
 
         DrawSnapGuides(drawingContext, screen);
         DrawSharedDivider(drawingContext, screen);
+        DrawDragMeasurement(drawingContext, screen);
     }
 
     protected override void OnMouseLeftButtonDown(MouseButtonEventArgs eventArgs)
     {
         base.OnMouseLeftButtonDown(eventArgs);
+        Focus();
         var point = eventArgs.GetPosition(this);
         var screen = GetScreenRectangle();
         lastPointer = point;
+        if (eventArgs.ClickCount == 2)
+        {
+            var doubleClicked = LayoutCanvasInteraction.HitTestZone(Zones, SelectedZoneId, screen, point);
+            if (doubleClicked is not null)
+            {
+                SelectedZoneId = doubleClicked.Id;
+                ZoneSelected?.Invoke(this, new ZoneSelectedEventArgs(doubleClicked.Id));
+                ZoneRenameRequested?.Invoke(this, new ZoneSelectedEventArgs(doubleClicked.Id));
+                eventArgs.Handled = true;
+                return;
+            }
+        }
+
         var sharedDivider = LayoutCanvasInteraction.FindSharedDivider(Zones, screen, point);
         if (sharedDivider is not null)
         {
@@ -199,6 +289,33 @@ public sealed class LayoutCanvas : FrameworkElement
         CaptureMouse();
         ZoneSelected?.Invoke(this, new ZoneSelectedEventArgs(zone.Id));
         InvalidateVisual();
+    }
+
+    protected override void OnMouseRightButtonUp(MouseButtonEventArgs eventArgs)
+    {
+        base.OnMouseRightButtonUp(eventArgs);
+        var point = eventArgs.GetPosition(this);
+        var zone = LayoutCanvasInteraction.HitTestZone(Zones, SelectedZoneId, GetScreenRectangle(), point);
+        if (zone is null)
+        {
+            return;
+        }
+
+        SelectedZoneId = zone.Id;
+        ZoneSelected?.Invoke(this, new ZoneSelectedEventArgs(zone.Id));
+        InvalidateVisual();
+        ZoneContextMenuRequested?.Invoke(this, new ZoneContextMenuEventArgs(zone.Id, point));
+        eventArgs.Handled = true;
+    }
+
+    protected override void OnKeyDown(System.Windows.Input.KeyEventArgs eventArgs)
+    {
+        base.OnKeyDown(eventArgs);
+        if (eventArgs.Key == Key.Delete && SelectedZoneId is { } selected && Zones.Any(zone => zone.Id == selected))
+        {
+            ZoneDeleteRequested?.Invoke(this, new ZoneSelectedEventArgs(selected));
+            eventArgs.Handled = true;
+        }
     }
 
     protected override void OnMouseMove(System.Windows.Input.MouseEventArgs eventArgs)
@@ -264,28 +381,22 @@ public sealed class LayoutCanvas : FrameworkElement
     }
 
     /// <summary>
-    /// Kennzeichnet die Hauptzone mit einem beschrifteten Feld neben dem Zonennamen. Bewusst mit Text und
+    /// Kennzeichnet die Auffangzone mit einem beschrifteten Feld neben dem Zonennamen. Bewusst mit Text und
     /// nicht nur mit Farbe: die Kennzeichnung muss auch ohne Farbwahrnehmung erkennbar sein.
     /// </summary>
-    private void DrawMainZoneBadge(DrawingContext context, Rect rectangle, double nameWidth)
+    private void DrawMainZoneBadge(DrawingContext context, Rect rectangle, double labelRight, double labelTop, double labelHeight)
     {
-        var badge = new FormattedText(
-            "Hauptzone",
-            System.Globalization.CultureInfo.CurrentUICulture,
-            System.Windows.FlowDirection.LeftToRight,
-            new Typeface("Segoe UI Variable Text"),
-            11,
-            System.Windows.Media.Brushes.White,
-            VisualTreeHelper.GetDpi(this).PixelsPerDip);
-        var left = rectangle.X + 10 + Math.Min(nameWidth, Math.Max(0, rectangle.Width - 20)) + 8;
-        var area = new Rect(left, rectangle.Y + 10, badge.Width + 12, badge.Height + 4);
+        var badge = Text("Auffangzone", IsFullscreen ? 12 : 11, System.Windows.Media.Brushes.White, 200);
+        var area = new Rect(labelRight + 8, labelTop + (labelHeight - badge.Height - 4) / 2, badge.Width + 12, badge.Height + 4);
         if (area.Right > rectangle.Right - 6 || area.Bottom > rectangle.Bottom - 6)
         {
             return;
         }
 
         context.DrawRoundedRectangle(
-            ResourceBrush("AccentBrush", System.Windows.Media.Color.FromRgb(47, 111, 237)),
+            IsFullscreen
+                ? new SolidColorBrush(MediaColor.FromArgb(200, 32, 32, 32))
+                : ResourceBrush("AccentBrush", MediaColor.FromRgb(47, 111, 237)),
             null,
             area,
             4,
@@ -310,50 +421,146 @@ public sealed class LayoutCanvas : FrameworkElement
     private void DrawZone(DrawingContext context, Rect screen, ZoneDefinition zone, bool invalid)
     {
         var rectangle = LayoutCanvasInteraction.ToCanvasRect(zone.Bounds, screen);
+        if (IsFullscreen)
+        {
+            // Der halbe Zonenabstand auf jeder Seite: so liegen die Zonen genau so auseinander wie im Overlay.
+            var inset = Math.Min(ZoneGapPixels / 2d * (screen.Width / Math.Max(1, MonitorPixelWidth)), Math.Min(rectangle.Width, rectangle.Height) / 4);
+            rectangle.Inflate(-inset, -inset);
+        }
+
         var selected = zone.Id == SelectedZoneId;
         var fillColour = ResourceBrush(
             invalid ? "DangerBrush" : "ZoneFillBrush",
-            invalid ? System.Windows.Media.Color.FromRgb(198, 54, 54) : System.Windows.Media.Color.FromRgb(112, 112, 112)).Color;
+            invalid ? MediaColor.FromRgb(198, 54, 54) : MediaColor.FromRgb(112, 112, 112)).Color;
         var borderColour = ResourceBrush(
             invalid ? "DangerBrush" : selected ? "AccentBrush" : "ZoneBorderBrush",
-            invalid ? System.Windows.Media.Color.FromRgb(198, 54, 54) : System.Windows.Media.Color.FromRgb(160, 160, 160)).Color;
+            invalid ? MediaColor.FromRgb(198, 54, 54) : MediaColor.FromRgb(160, 160, 160)).Color;
+        var borderThickness = IsFullscreen ? (selected ? 3 : 2) : (selected ? 3 : 1.5);
         context.DrawRoundedRectangle(
-            new SolidColorBrush(fillColour) { Opacity = selected ? 0.32 : 0.18 },
-            new System.Windows.Media.Pen(new SolidColorBrush(borderColour), selected ? 3 : 1.5),
+            new SolidColorBrush(fillColour) { Opacity = selected ? 0.32 : IsFullscreen ? 0.20 : 0.18 },
+            new System.Windows.Media.Pen(new SolidColorBrush(borderColour), borderThickness),
             rectangle,
             6,
             6);
-        // Die Nummer vor dem Namen ist dieselbe wie im Overlay und im Tastenkuerzel Ctrl + Alt + Nummer.
-        var text = new FormattedText(
-            $"{ZoneNumber(zone)} · {zone.Name}",
-            System.Globalization.CultureInfo.CurrentUICulture,
-            System.Windows.FlowDirection.LeftToRight,
-            new Typeface("Segoe UI Variable Text"),
-            selected ? 15 : 13,
-            ResourceBrush("InkBrush", System.Windows.Media.Color.FromRgb(23, 32, 51)),
-            VisualTreeHelper.GetDpi(this).PixelsPerDip)
-        {
-            MaxTextWidth = Math.Max(1, rectangle.Width - 20),
-            Trimming = TextTrimming.CharacterEllipsis
-        };
-        context.DrawText(text, new System.Windows.Point(rectangle.X + 10, rectangle.Y + 9));
 
-        if (zone.Id == MainZoneId)
+        // Die Nummer vor dem Namen ist dieselbe wie im Overlay und im Tastenkuerzel.
+        var labelText = $"{ZoneNumber(zone)} · {zone.Name}";
+        if (IsFullscreen)
         {
-            DrawMainZoneBadge(context, rectangle, text.Width);
+            var label = Text(labelText, 16, System.Windows.Media.Brushes.White, rectangle.Width - 40, FontWeights.SemiBold);
+            var pill = new Rect(rectangle.X + 12, rectangle.Y + 12, label.Width + 20, label.Height + 12);
+            context.DrawRoundedRectangle(new SolidColorBrush(MediaColor.FromArgb(191, 0, 0, 0)), null, pill, 5, 5);
+            context.DrawText(label, new System.Windows.Point(pill.X + 10, pill.Y + 6));
+            if (zone.Id == MainZoneId)
+            {
+                DrawMainZoneBadge(context, rectangle, pill.Right, pill.Y, pill.Height);
+            }
+
+            DrawDimensionBadge(context, rectangle, zone);
+        }
+        else
+        {
+            var label = Text(labelText, selected ? 15 : 13, ResourceBrush("InkBrush", MediaColor.FromRgb(23, 32, 51)), rectangle.Width - 20);
+            context.DrawText(label, new System.Windows.Point(rectangle.X + 10, rectangle.Y + 9));
+            if (zone.Id == MainZoneId)
+            {
+                DrawMainZoneBadge(context, rectangle, rectangle.X + 10 + label.Width, rectangle.Y + 8, label.Height + 2);
+            }
         }
 
         if (selected)
         {
+            var handleSize = IsFullscreen ? 10d : 8d;
+            var handleBrush = IsFullscreen ? ResourceBrush("AccentBrush", MediaColor.FromRgb(47, 111, 237)) : new SolidColorBrush(borderColour);
+            var handlePen = new System.Windows.Media.Pen(System.Windows.Media.Brushes.White, IsFullscreen ? 1.5 : 1);
             foreach (var handle in HandlePoints(rectangle))
             {
-                context.DrawRectangle(new SolidColorBrush(borderColour), new System.Windows.Media.Pen(System.Windows.Media.Brushes.White, 1), new Rect(handle.X - 4, handle.Y - 4, 8, 8));
+                context.DrawRectangle(handleBrush, handlePen, new Rect(handle.X - handleSize / 2, handle.Y - handleSize / 2, handleSize, handleSize));
             }
         }
     }
 
+    /// <summary>Oben rechts in jeder Zone: Groesse in Prozent und in Pixeln, live beim Ziehen.</summary>
+    private void DrawDimensionBadge(DrawingContext context, Rect rectangle, ZoneDefinition zone)
+    {
+        var widthPercent = zone.Bounds.Width * 100;
+        var heightPercent = zone.Bounds.Height * 100;
+        var widthPixels = Math.Round(zone.Bounds.Width * MonitorPixelWidth);
+        var heightPixels = Math.Round(zone.Bounds.Height * MonitorPixelHeight);
+        var text = string.Create(
+            CultureInfo.CurrentCulture,
+            $"{widthPercent:0.#} × {heightPercent:0.#} % · {widthPixels:0} × {heightPixels:0} px");
+        var badge = Mono(text, 13, System.Windows.Media.Brushes.White);
+        var area = new Rect(rectangle.Right - badge.Width - 12 - 16, rectangle.Y + 12, badge.Width + 16, badge.Height + 8);
+        if (area.X < rectangle.X + 8 || area.Bottom > rectangle.Bottom - 6)
+        {
+            return;
+        }
+
+        context.DrawRoundedRectangle(new SolidColorBrush(MediaColor.FromArgb(153, 0, 0, 0)), null, area, 4, 4);
+        context.DrawText(badge, new System.Windows.Point(area.X + 8, area.Y + 4));
+    }
+
+    /// <summary>Beim Ziehen eines Griffs: das Mass der gezogenen Kante in Prozent und Pixeln neben dem Zeiger.</summary>
+    private void DrawDragMeasurement(DrawingContext context, Rect screen)
+    {
+        if (!IsFullscreen || !IsMouseCaptured)
+        {
+            return;
+        }
+
+        string? text = null;
+        if (draggedSharedDivider is not null && lastSharedBounds is not null)
+        {
+            var after = lastSharedBounds[draggedSharedDivider.AfterZone.Id];
+            var value = draggedSharedDivider.Orientation == SharedDividerOrientation.Vertical ? after.X : after.Y;
+            var pixels = draggedSharedDivider.Orientation == SharedDividerOrientation.Vertical
+                ? value * MonitorPixelWidth
+                : value * MonitorPixelHeight;
+            text = string.Create(CultureInfo.CurrentCulture, $"{value * 100:0.#} % · {pixels:0} px");
+        }
+        else if (lastDragBounds is not null && resizeEdges != ZoneEdges.None)
+        {
+            var horizontal = resizeEdges.HasFlag(ZoneEdges.Left) || resizeEdges.HasFlag(ZoneEdges.Right);
+            var value = horizontal ? lastDragBounds.Width : lastDragBounds.Height;
+            var pixels = horizontal ? value * MonitorPixelWidth : value * MonitorPixelHeight;
+            text = string.Create(CultureInfo.CurrentCulture, $"{value * 100:0.#} % · {pixels:0} px");
+        }
+        else if (lastDragBounds is not null)
+        {
+            text = string.Create(
+                CultureInfo.CurrentCulture,
+                $"{lastDragBounds.X * 100:0.#} % · {lastDragBounds.Y * 100:0.#} %");
+        }
+
+        if (text is null)
+        {
+            return;
+        }
+
+        var label = Mono(text, 13, System.Windows.Media.Brushes.White, FontWeights.SemiBold);
+        var area = new Rect(lastPointer.X + 14, lastPointer.Y - label.Height - 14, label.Width + 14, label.Height + 8);
+        if (area.Right > screen.Right)
+        {
+            area.X = lastPointer.X - area.Width - 14;
+        }
+
+        if (area.Y < screen.Top)
+        {
+            area.Y = lastPointer.Y + 14;
+        }
+
+        context.DrawRoundedRectangle(ResourceBrush("AccentBrush", MediaColor.FromRgb(47, 111, 237)), null, area, 4, 4);
+        context.DrawText(label, new System.Windows.Point(area.X + 7, area.Y + 4));
+    }
+
     private Rect GetMonitorRectangle()
     {
+        if (IsFullscreen)
+        {
+            return new Rect(0, 0, Math.Max(1, ActualWidth), Math.Max(1, ActualHeight));
+        }
+
         const double padding = 24;
         var availableWidth = Math.Max(1, ActualWidth - (2 * padding));
         var availableHeight = Math.Max(1, ActualHeight - (2 * padding));
@@ -366,6 +573,11 @@ public sealed class LayoutCanvas : FrameworkElement
     private Rect GetScreenRectangle()
     {
         var monitor = GetMonitorRectangle();
+        if (IsFullscreen)
+        {
+            return monitor;
+        }
+
         return new Rect(monitor.X + 8, monitor.Y + 8, Math.Max(1, monitor.Width - 16), Math.Max(1, monitor.Height - 16));
     }
 
@@ -471,10 +683,10 @@ public sealed class LayoutCanvas : FrameworkElement
             return;
         }
 
-        var accent = ResourceBrush("AccentBrush", System.Windows.Media.Color.FromRgb(0, 120, 212)).Color;
-        var haloBrush = new SolidColorBrush(accent) { Opacity = 0.22 };
+        var accent = ResourceBrush("AccentBrush", MediaColor.FromRgb(0, 120, 212)).Color;
+        var haloBrush = new SolidColorBrush(accent) { Opacity = IsFullscreen ? 0.25 : 0.22 };
         var guideBrush = new SolidColorBrush(accent);
-        var haloPen = new System.Windows.Media.Pen(haloBrush, 7);
+        var haloPen = new System.Windows.Media.Pen(haloBrush, IsFullscreen ? 10 : 7);
         var guidePen = new System.Windows.Media.Pen(guideBrush, 2)
         {
             DashStyle = new DashStyle([6d, 4d], 0)
@@ -507,7 +719,7 @@ public sealed class LayoutCanvas : FrameworkElement
         }
 
         var visual = LayoutCanvasInteraction.GetSharedDividerVisual(divider, screen, lastPointer);
-        var accent = ResourceBrush("AccentBrush", System.Windows.Media.Color.FromRgb(0, 120, 212)).Color;
+        var accent = ResourceBrush("AccentBrush", MediaColor.FromRgb(0, 120, 212)).Color;
         var haloBrush = new SolidColorBrush(accent) { Opacity = 0.2 };
         var accentBrush = new SolidColorBrush(accent);
         context.DrawLine(new System.Windows.Media.Pen(haloBrush, 9), visual.Line.Start, visual.Line.End);
@@ -569,13 +781,42 @@ public sealed class LayoutCanvas : FrameworkElement
         first.Count == second.Count &&
         first.All(entry => second.TryGetValue(entry.Key, out var bounds) && bounds == entry.Value);
 
-    private SolidColorBrush ResourceBrush(string key, System.Windows.Media.Color fallback) =>
+    private FormattedText Text(string value, double size, System.Windows.Media.Brush brush, double maxWidth, FontWeight? weight = null) => new(
+        value,
+        CultureInfo.CurrentUICulture,
+        System.Windows.FlowDirection.LeftToRight,
+        new Typeface(new System.Windows.Media.FontFamily("Segoe UI Variable Text"), FontStyles.Normal, weight ?? FontWeights.Normal, FontStretches.Normal),
+        size,
+        brush,
+        VisualTreeHelper.GetDpi(this).PixelsPerDip)
+    {
+        MaxTextWidth = Math.Max(1, maxWidth),
+        Trimming = TextTrimming.CharacterEllipsis,
+        MaxLineCount = 1
+    };
+
+    private FormattedText Mono(string value, double size, System.Windows.Media.Brush brush, FontWeight? weight = null) => new(
+        value,
+        CultureInfo.CurrentUICulture,
+        System.Windows.FlowDirection.LeftToRight,
+        new Typeface(new System.Windows.Media.FontFamily("Cascadia Mono"), FontStyles.Normal, weight ?? FontWeights.Normal, FontStretches.Normal),
+        size,
+        brush,
+        VisualTreeHelper.GetDpi(this).PixelsPerDip);
+
+    private SolidColorBrush ResourceBrush(string key, MediaColor fallback) =>
         TryFindResource(key) as SolidColorBrush ?? new SolidColorBrush(fallback);
 }
 
 public sealed class ZoneSelectedEventArgs(Guid zoneId) : EventArgs
 {
     public Guid ZoneId { get; } = zoneId;
+}
+
+public sealed class ZoneContextMenuEventArgs(Guid zoneId, System.Windows.Point position) : EventArgs
+{
+    public Guid ZoneId { get; } = zoneId;
+    public System.Windows.Point Position { get; } = position;
 }
 
 public sealed class ZoneChangedEventArgs : EventArgs

@@ -11,34 +11,35 @@ using Xunit;
 namespace SnapZones.Tests.Theme;
 
 /// <summary>
-/// Die Hauptzone wird an der Zone selbst festgelegt. Geprüft wird, dass die Karte «Ausgewählte Zone» die
-/// eine Schaltfläche in beide Richtungen führt, den Zustand im Klartext nennt und die Zeichenfläche die
-/// Markierung mitbekommt.
+/// Die Auffangzone wird an der Zone selbst festgelegt: eine Checkbox im Werte-Panel, die in beide
+/// Richtungen führt, den Zustand im Klartext nennt und die Zeichenfläche mitnimmt.
 /// </summary>
 public sealed class MainZonePresentationTests
 {
     [Fact]
-    public void The_selected_zone_card_offers_one_button_for_both_directions()
+    public void The_value_panel_offers_one_checkbox_for_both_directions()
     {
         WpfThemeHost.Invoke(() =>
         {
-            var window = CreateWindow();
-            var toggle = Assert.IsType<Button>(window.FindName("MainZoneToggleButton"));
-            var state = Assert.IsType<TextBlock>(window.FindName("MainZoneStateText"));
+            var (_, panel) = CreateWindow();
+            var toggle = Assert.IsType<CheckBox>(panel.FindName("MainZoneCheckBox"));
+            var state = Assert.IsType<TextBlock>(panel.FindName("MainZoneStateText"));
 
-            Assert.Equal("Als Hauptzone festlegen", toggle.Content);
-            Assert.Equal("Keine Zone dieses Layouts ist Hauptzone.", state.Text);
-            Assert.Contains("Hauptzone", AutomationProperties.GetName(toggle));
+            Assert.Equal("Auffangzone", toggle.Content);
+            Assert.False(toggle.IsChecked);
+            Assert.Equal("Keine Zone dieses Layouts ist Auffangzone.", state.Text);
+            Assert.Contains("Auffangzone", AutomationProperties.GetName(toggle));
 
-            toggle.RaiseEvent(new System.Windows.RoutedEventArgs(Button.ClickEvent));
+            toggle.IsChecked = true;
+            toggle.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
 
-            Assert.Equal("Hauptzone aufheben", toggle.Content);
-            Assert.Equal("Diese Zone ist die Hauptzone dieses Layouts.", state.Text);
+            Assert.True(toggle.IsChecked);
+            Assert.Equal("Diese Zone ist die Auffangzone dieses Layouts.", state.Text);
 
-            toggle.RaiseEvent(new System.Windows.RoutedEventArgs(Button.ClickEvent));
+            toggle.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
 
-            Assert.Equal("Als Hauptzone festlegen", toggle.Content);
-            Assert.Equal("Keine Zone dieses Layouts ist Hauptzone.", state.Text);
+            Assert.False(toggle.IsChecked);
+            Assert.Equal("Keine Zone dieses Layouts ist Auffangzone.", state.Text);
         });
     }
 
@@ -47,20 +48,35 @@ public sealed class MainZonePresentationTests
     {
         WpfThemeHost.Invoke(() =>
         {
-            var window = CreateWindow();
+            var (window, panel) = CreateWindow();
             var viewModel = Assert.IsType<MainViewModel>(window.DataContext);
             var editor = Assert.IsType<LayoutEditorViewModel>(viewModel.Editor);
             var zoneId = Assert.IsType<Guid>(editor.SelectedZone?.Id);
 
-            Assert.IsType<Button>(window.FindName("MainZoneToggleButton"))
-                .RaiseEvent(new System.Windows.RoutedEventArgs(Button.ClickEvent));
+            Assert.IsType<CheckBox>(panel.FindName("MainZoneCheckBox"))
+                .RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
 
             Assert.Equal(zoneId, Assert.IsType<LayoutCanvas>(window.FindName("EditorCanvas")).MainZoneId);
             Assert.Equal(zoneId, viewModel.Configuration.Layouts.Single().MainZoneId);
         });
     }
 
-    private static MainWindow CreateWindow()
+    [Fact]
+    public void The_help_text_explains_the_catch_zone_with_an_example()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var (_, panel) = CreateWindow();
+            var help = Assert.IsType<Button>(panel.FindName("MainZoneInfoButton"));
+            var tooltip = Assert.IsType<string>(help.ToolTip);
+
+            Assert.True(tooltip.Length >= 120);
+            Assert.Contains("Beispiel", tooltip, StringComparison.Ordinal);
+            Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetName(help)));
+        });
+    }
+
+    private static (MainWindow Window, ZoneValuesPanel Panel) CreateWindow()
     {
         var identity = new MonitorIdentity("MONITOR", "DISPLAY1", "Testmonitor");
         var monitor = new LiveMonitor(
@@ -78,6 +94,6 @@ public sealed class MainZonePresentationTests
             [new MonitorLayout(identity, 3200, 1080, [zone])]);
         var window = new MainWindow();
         window.AttachViewModel(new MainViewModel(configuration, [monitor]));
-        return window;
+        return (window, Assert.IsType<ZoneValuesPanel>(window.FindName("ZoneValues")));
     }
 }

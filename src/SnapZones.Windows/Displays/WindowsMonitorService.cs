@@ -24,7 +24,9 @@ public sealed class WindowsMonitorService : IMonitorService
             throw new Win32Exception(Marshal.GetLastWin32Error(), "Die Monitore konnten nicht gelesen werden.");
         }
 
-        return monitors;
+        // Gesperrte Sitzung («WinDisc») und ausgeschaltete Monitore («Default_Monitor») sind keine
+        // Monitore; ohne diesen Filter bekamen sie ein Layout und blieben als Geister in der Liste.
+        return PseudoMonitors.RealOnly(monitors);
     }
 
     private static LiveMonitor ReadMonitor(

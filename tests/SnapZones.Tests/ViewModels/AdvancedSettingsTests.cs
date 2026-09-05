@@ -14,8 +14,8 @@ namespace SnapZones.Tests.ViewModels;
 
 /// <summary>
 /// Die Feinabstimmung fuer erfahrene Anwender (02.09.2026): jeder Wert hat einen sicheren Standard, wird
-/// beim Laden geprueft, im Modell begrenzt, in der Oberflaeche erst auf Wunsch gezeigt und laesst sich
-/// gesamthaft zuruecksetzen.
+/// beim Laden geprueft, im Modell begrenzt, steht seit dem 05.09.2026 offen auf der Seite «Verhalten» und
+/// laesst sich gesamthaft zuruecksetzen.
 /// </summary>
 public sealed class AdvancedSettingsTests
 {
@@ -24,7 +24,7 @@ public sealed class AdvancedSettingsTests
     {
         var settings = AppSettings.Default(Guid.Empty);
 
-        Assert.False(settings.ShowAdvancedSettings);
+        Assert.True(settings.EditorValuePanelOpen);
         Assert.Equal(0, settings.OverlayShowDelayMilliseconds);
         Assert.Equal(2, settings.PlacementTolerancePixels);
         Assert.Equal(40, settings.SnappedTolerancePixels);
@@ -73,7 +73,7 @@ public sealed class AdvancedSettingsTests
         {
             Settings = configuration.Settings with
             {
-                ShowAdvancedSettings = true,
+                EditorValuePanelOpen = false,
                 SnappedTolerancePixels = 24,
                 ZoneHotkeyModifiers = ZoneHotkeyModifiers.AltShift,
                 HighlightColor = "#2F6FED",
@@ -84,7 +84,7 @@ public sealed class AdvancedSettingsTests
         await repository.SaveAsync(configuration, CancellationToken.None);
         var loaded = await repository.LoadAsync(CancellationToken.None);
 
-        Assert.True(loaded.Configuration.Settings.ShowAdvancedSettings);
+        Assert.False(loaded.Configuration.Settings.EditorValuePanelOpen);
         Assert.Equal(24, loaded.Configuration.Settings.SnappedTolerancePixels);
         Assert.Equal(ZoneHotkeyModifiers.AltShift, loaded.Configuration.Settings.ZoneHotkeyModifiers);
         Assert.Equal("#2F6FED", loaded.Configuration.Settings.HighlightColor);
@@ -105,7 +105,7 @@ public sealed class AdvancedSettingsTests
             ElevationMode = ElevationMode.Always,
             ZoneGap = 12,
             OverlayCornerRadius = 20,
-            ShowAdvancedSettings = true
+            EditorValuePanelOpen = false
         });
 
         viewModel.ResetToDefaults();
@@ -114,7 +114,7 @@ public sealed class AdvancedSettingsTests
         Assert.Equal(ThemeMode.Dark, settings.ThemeMode);
         Assert.True(settings.StartWithWindows);
         Assert.Equal(ElevationMode.Always, settings.ElevationMode);
-        Assert.True(settings.ShowAdvancedSettings);
+        Assert.False(settings.EditorValuePanelOpen);
         Assert.Equal(0, settings.ZoneGap);
         Assert.Equal(4, settings.OverlayCornerRadius);
     }
@@ -182,7 +182,7 @@ public sealed class AdvancedSettingsTests
     }
 
     [Fact]
-    public void Advanced_cards_are_hidden_until_the_expert_switch_is_on()
+    public void Fine_tuning_is_visible_without_an_expert_switch()
     {
         WpfThemeHost.Invoke(() =>
         {
@@ -192,19 +192,44 @@ public sealed class AdvancedSettingsTests
             var tabs = Assert.IsType<TabControl>(Assert.IsType<Grid>(window.Content).Children[1]);
             tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Verhalten"));
             window.Show();
-            var tuning = Assert.IsType<Border>(window.FindName("PlacementTuningCard"));
-            var style = Assert.IsType<Border>(window.FindName("OverlayStyleCard"));
-            var toggle = Assert.IsType<CheckBox>(window.FindName("ShowAdvancedSettingsCheckBox"));
+            try
+            {
+                Assert.Null(window.FindName("ShowAdvancedSettingsCheckBox"));
+                Assert.Null(window.FindName("PlacementTuningCard"));
+                var behaviourTabs = Assert.IsType<TabControl>(window.FindName("BehaviourTabs"));
+                Assert.Equal(
+                    ["Beim Ziehen", "Darstellung", "Abstände", "Fenster merken", "Tastenkürzel"],
+                    behaviourTabs.Items.OfType<TabItem>().Select(item => item.Header?.ToString() ?? string.Empty).ToArray());
 
-            Assert.Equal(System.Windows.Visibility.Collapsed, tuning.Visibility);
-            Assert.Equal(System.Windows.Visibility.Collapsed, style.Visibility);
-
-            toggle.IsChecked = true;
-            window.UpdateLayout();
-
-            Assert.Equal(System.Windows.Visibility.Visible, tuning.Visibility);
-            Assert.True(viewModel.Configuration.Settings.ShowAdvancedSettings);
-            window.Close();
+                // Die Feinabstimmung steht offen im Untertab «Fenster merken», jede Einstellung mit «?».
+                foreach (var name in new[] { "PlacementToleranceInfoButton", "SnappedToleranceInfoButton", "MoveHookLimitInfoButton", "WatchdogInfoButton" })
+                {
+                    var help = Assert.IsType<System.Windows.Controls.Button>(window.FindName(name));
+                    Assert.True(Assert.IsType<string>(help.ToolTip).Length >= 120, $"{name} erklaert die Einstellung nicht ausfuehrlich genug.");
+                }
+            }
+            finally
+            {
+                window.Close();
+            }
         });
+    }
+
+    [Fact]
+    public void Ignoring_a_stored_expert_switch_keeps_the_rest_of_the_file()
+    {
+        // Ein Stand von vor dem 05.09.2026 traegt noch «ShowAdvancedSettings»; er wird beim Laden ignoriert.
+        var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        options.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+        var json = System.Text.Json.JsonSerializer.Serialize(ConfigurationSamples.TwoLayouts(), options);
+        var marker = "\"Settings\":{";
+        Assert.Contains(marker, json, StringComparison.Ordinal);
+        json = json.Replace(marker, marker + "\"ShowAdvancedSettings\":true,", StringComparison.Ordinal);
+
+        var loaded = System.Text.Json.JsonSerializer.Deserialize<SnapConfiguration>(json, options);
+
+        Assert.NotNull(loaded);
+        Assert.Equal(2, loaded.Layouts.Count);
+        Assert.True(loaded.Settings.EditorValuePanelOpen);
     }
 }

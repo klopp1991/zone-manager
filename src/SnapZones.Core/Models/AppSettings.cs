@@ -71,10 +71,15 @@ public enum OverlayLabelStyle
 
 /// <summary>
 /// Alle Einstellungen. Die Grundwerte reichen fuer den Alltag; die ab dem 02.09.2026 hinzugekommenen
-/// Feinabstimmungen (Toleranzen, Verzoegerungen, Overlay-Stil, Schutzgrenzen, Zusatztasten) richten sich
-/// an erfahrene Anwender und sind in der Oberflaeche erst nach «Erweiterte Einstellungen anzeigen»
-/// sichtbar. Jeder Wert hat einen sicheren Standard; <see cref="Default"/> ist zugleich das Zurücksetzen.
+/// Feinabstimmungen (Toleranzen, Verzoegerungen, Overlay-Stil, Schutzgrenzen, Zusatztasten) stehen seit
+/// dem 05.09.2026 offen auf der Seite «Verhalten», jede mit einer «?»-Erklaerung. Der fruehere Schalter
+/// «Erweiterte Einstellungen anzeigen» ist entfallen; ein gespeicherter Wert wird beim Laden ignoriert.
+/// Jeder Wert hat einen sicheren Standard; <see cref="Default"/> ist zugleich das Zurücksetzen.
 /// </summary>
+/// <param name="EditorValuePanelOpen">
+/// Ob das Werte-Panel im Layout-Editor ausgeklappt ist. Eine reine Oberflaechenvorliebe, die wie jede
+/// andere Einstellung gespeichert wird, damit der Editor so aufgeht, wie er verlassen wurde.
+/// </param>
 /// <param name="ZoneFullscreen">
 /// Ob das Vollbild eines Fensters, das in einer Zone liegt, auf diese Zone begrenzt wird, statt den
 /// ganzen Monitor einzunehmen. Ausgeschaltet, weil es das gewohnte Verhalten von Windows ändert.
@@ -100,7 +105,7 @@ public sealed record AppSettings(
     bool RememberWindowPositions = true,
     bool CheckForUpdatesOnStart = false,
     ElevationMode ElevationMode = ElevationMode.WhenNeeded,
-    bool ShowAdvancedSettings = false,
+    bool EditorValuePanelOpen = true,
     int OverlayShowDelayMilliseconds = 0,
     bool ActivateWindowAfterSnap = false,
     bool RestoreSizeWhenLeavingZone = false,

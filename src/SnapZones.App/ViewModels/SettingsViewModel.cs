@@ -3,9 +3,9 @@ using SnapZones.Core.Models;
 namespace SnapZones.App.ViewModels;
 
 /// <summary>
-/// Die Einstellungen der Oberflaeche. Grundwerte und Feinabstimmung liegen im selben Modell; welche Karten
-/// sichtbar sind, entscheidet <see cref="ShowAdvancedSettings"/>. Jeder Wert wird beim Setzen auf seinen
-/// gueltigen Bereich begrenzt; die Grenzen stehen in den Hilfetexten der Oberflaeche.
+/// Die Einstellungen der Oberflaeche. Grundwerte und Feinabstimmung liegen im selben Modell und sind auf der
+/// Seite «Verhalten» alle sichtbar, nach Untertabs geordnet. Jeder Wert wird beim Setzen auf seinen
+/// gueltigen Bereich begrenzt; die Grenzen stehen in den «?»-Erklaerungen der Oberflaeche.
 /// </summary>
 public sealed class SettingsViewModel : ViewModelBase
 {
@@ -27,7 +27,8 @@ public sealed class SettingsViewModel : ViewModelBase
     private bool showZoneNames;
     private string overlayColor;
     private double overlayOpacityPercent;
-    private bool showAdvancedSettings;
+    private bool editorValuePanelOpen = true;
+    private int behaviourTabIndex;
     private int overlayShowDelayMilliseconds;
     private bool activateWindowAfterSnap;
     private bool restoreSizeWhenLeavingZone;
@@ -228,11 +229,21 @@ public sealed class SettingsViewModel : ViewModelBase
         set => SetProperty(ref overlayOpacityPercent, NormalizePercent(value, 8, 75));
     }
 
-    /// <summary>Blendet die Karten der Feinabstimmung ein. Wird gespeichert wie jede andere Einstellung.</summary>
-    public bool ShowAdvancedSettings
+    /// <summary>Ob das Werte-Panel im Layout-Editor offen ist. Wird gespeichert wie jede andere Einstellung.</summary>
+    public bool EditorValuePanelOpen
     {
-        get => showAdvancedSettings;
-        set => SetProperty(ref showAdvancedSettings, value);
+        get => editorValuePanelOpen;
+        set => SetProperty(ref editorValuePanelOpen, value);
+    }
+
+    /// <summary>
+    /// Der gewaehlte Untertab der Seite «Verhalten» (Beim Ziehen, Darstellung, Abstaende, Fenster merken,
+    /// Tastenkuerzel). Nur fuer die Sitzung; die Suche springt darueber direkt zur richtigen Einstellung.
+    /// </summary>
+    public int BehaviourTabIndex
+    {
+        get => behaviourTabIndex;
+        set => SetProperty(ref behaviourTabIndex, Math.Clamp(value, 0, 4));
     }
 
     /// <summary>Wie lange nach dem Anfassen die Zonen erst erscheinen; 0 bis 1000 ms.</summary>
@@ -435,7 +446,7 @@ public sealed class SettingsViewModel : ViewModelBase
         RememberWindowPositions: RememberWindowPositions,
         CheckForUpdatesOnStart: CheckForUpdatesOnStart,
         ElevationMode: ElevationMode,
-        ShowAdvancedSettings: ShowAdvancedSettings,
+        EditorValuePanelOpen: EditorValuePanelOpen,
         OverlayShowDelayMilliseconds: OverlayShowDelayMilliseconds,
         ActivateWindowAfterSnap: ActivateWindowAfterSnap,
         RestoreSizeWhenLeavingZone: RestoreSizeWhenLeavingZone,
@@ -481,7 +492,7 @@ public sealed class SettingsViewModel : ViewModelBase
         ShowZoneNames = settings.ShowZoneNames;
         OverlayColor = settings.OverlayColor;
         OverlayOpacityPercent = settings.OverlayOpacity * 100d;
-        ShowAdvancedSettings = settings.ShowAdvancedSettings;
+        EditorValuePanelOpen = settings.EditorValuePanelOpen;
         OverlayShowDelayMilliseconds = settings.OverlayShowDelayMilliseconds;
         ActivateWindowAfterSnap = settings.ActivateWindowAfterSnap;
         RestoreSizeWhenLeavingZone = settings.RestoreSizeWhenLeavingZone;
@@ -520,7 +531,7 @@ public sealed class SettingsViewModel : ViewModelBase
             StartWithWindows = StartWithWindows,
             ElevationMode = ElevationMode,
             CheckForUpdatesOnStart = CheckForUpdatesOnStart,
-            ShowAdvancedSettings = ShowAdvancedSettings
+            EditorValuePanelOpen = EditorValuePanelOpen
         };
         Apply(defaults);
     }

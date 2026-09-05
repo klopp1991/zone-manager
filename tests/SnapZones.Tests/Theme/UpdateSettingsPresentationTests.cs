@@ -46,11 +46,14 @@ public sealed class UpdateSettingsPresentationTests
     {
         WpfThemeHost.Invoke(() =>
         {
-            var window = new MainWindow();
+            var window = new MainWindow { Left = -10000 };
             window.AttachViewModel(new MainViewModel(ConfigurationSamples.TwoLayouts(), [])
             {
                 ProductVersion = "2026.0901.01"
             });
+            window.ShowSettingsPage();
+            window.Show();
+            window.UpdateLayout();
 
             var check = Assert.IsType<Button>(window.FindName("CheckForUpdatesButton"));
             var install = Assert.IsType<Button>(window.FindName("InstallUpdateButton"));
@@ -68,14 +71,17 @@ public sealed class UpdateSettingsPresentationTests
                 "Settings.CheckForUpdatesOnStart",
                 onStart.GetBindingExpression(ToggleButton.IsCheckedProperty)!.ParentBinding.Path.Path);
             Assert.Equal(
-                "UpdateStatus",
+                "UpdateSummary",
                 status.GetBindingExpression(TextBlock.TextProperty)!.ParentBinding.Path.Path);
+            Assert.StartsWith("Version 2026.0901.01 · Noch nicht nach Updates gesucht.", status.Text, StringComparison.Ordinal);
+            Assert.EndsWith("Nur über HTTPS, geprüft per SHA-256.", status.Text, StringComparison.Ordinal);
 
             // Der Hilfetext muss benennen, dass und was gesendet wird.
             var tooltip = Assert.IsType<string>(help.ToolTip);
             Assert.True(tooltip.Length >= 120);
             Assert.Contains("sendet dabei nichts", tooltip, StringComparison.Ordinal);
             Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetName(check)));
+            window.Close();
         });
 
     }

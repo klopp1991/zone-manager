@@ -1,0 +1,74 @@
+<Window x:Class="SnapZones.App.Views.HelperWizardWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Fensterhelfer ohne Administratorrechte"
+        Width="720" SizeToContent="Height" MinWidth="560"
+        FontSize="16" ShowInTaskbar="False" WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <Border Background="{DynamicResource SurfaceBrush}" Padding="24">
+        <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+            <TextBlock Text="Fensterhelfer ohne Administratorrechte" FontFamily="Segoe UI Variable Display" FontSize="24" FontWeight="SemiBold" />
+            <TextBlock x:Name="StepText" Grid.Row="1" Style="{StaticResource HelpText}" Margin="0,4,0,18" Text="Schritt 1 von 3 · Was eingerichtet wird" />
+
+            <Grid Grid.Row="2">
+                <StackPanel x:Name="Step1">
+                    <TextBlock Style="{StaticResource HelpText}" Margin="0" Text="Diese Einrichtung ist freiwillig. Ohne sie funktioniert alles wie beschrieben; nur für Fenster von Programmen mit Administratorrechten fragt Zone Manager dann nach eigenen Administratorrechten." />
+                    <TextBlock Text="Was hier eingerichtet wird" Style="{StaticResource GroupTitle}" Margin="0,16,0,0" />
+                    <TextBlock Style="{StaticResource HelpText}" Margin="0,4,0,0" Text="Erstens ein eigenes Zertifikat, also ein digitaler Ausweis, den dein Rechner selbst ausstellt. Zweitens wird damit ein kleines Zusatzprogramm unterschrieben – der Fensterhelfer. Er liegt neben dem Hauptprogramm, ist rund zehnmal kleiner und kann genau eine Sache: ein Fenster an eine bestimmte Stelle setzen. Er liest keine Dateien, startet nichts und nimmt nur vom Hauptprogramm Befehle entgegen." />
+                    <TextBlock Text="Was du damit gewinnst" Style="{StaticResource GroupTitle}" Margin="0,16,0,0" />
+                    <TextBlock Style="{StaticResource HelpText}" Margin="0,4,0,0" Text="Auch Fenster von Programmen mit Administratorrechten – Taskmanager, Registrierungs-Editor, alles «als Administrator» Gestartete – rasten dann ein, und zwar ohne dass Zone Manager selbst jemals Administratorrechte bekommt. Es erscheint keine UAC-Abfrage mehr." />
+                    <TextBlock Text="Was du dafür in Kauf nimmst" Style="{StaticResource GroupTitle}" Margin="0,16,0,0" />
+                    <TextBlock Style="{StaticResource HelpText}" Margin="0,4,0,0" Text="Dein Rechner vertraut anschliessend allem, was mit diesem Zertifikat unterschrieben wurde. Der zugehörige geheime Schlüssel liegt auf dieser Maschine. Wer ihn stiehlt, könnte Schadsoftware so unterschreiben, dass Windows sie für vertrauenswürdig hält. Zwei Dinge halten das klein: das Zertifikat ist selbst keine Ausgabestelle und kann keine weiteren Zertifikate erzeugen, und sein Schlüssel lässt sich nicht exportieren. Ein Restrisiko bleibt – deshalb steht das hier und nicht im Kleingedruckten." />
+                    <TextBlock Style="{StaticResource HelpText}" Margin="0,6,0,0" Text="Das Zertifikat gilt nur auf diesem Rechner. Gibst du das Programm weiter, müsste der Empfänger dein Zertifikat installieren – dazu solltest du niemanden auffordern." />
+                </StackPanel>
+                <StackPanel x:Name="Step2" Visibility="Collapsed">
+                    <TextBlock Text="Voraussetzungen" Style="{StaticResource GroupTitle}" />
+                    <Border Style="{StaticResource FieldGroup}" Margin="0,10,0,0">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock x:Name="InstalledMark" Text="✓" FontWeight="SemiBold" Width="24" />
+                                <TextBlock Text="Nach «Programme» installiert" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <TextBlock x:Name="InstalledText" Style="{StaticResource HelpText}" Margin="24,4,0,0" Text="Windows akzeptiert uiAccess nur aus einem geschützten Verzeichnis." />
+                            <Button x:Name="InstallButton" Content="Jetzt nach «Programme» installieren" Margin="24,10,0,0" HorizontalAlignment="Left" Click="Install_Click"
+                                    AutomationProperties.Name="Nach Programme installieren" />
+                        </StackPanel>
+                    </Border>
+                    <Border Style="{StaticResource FieldGroup}" Margin="0">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="•" Width="24" FontWeight="SemiBold" />
+                                <TextBlock Text="Einmalig Administratorrechte" FontWeight="SemiBold" />
+                            </StackPanel>
+                            <TextBlock Style="{StaticResource HelpText}" Margin="24,4,0,0" Text="Das Einrichten schreibt in den Zertifikatspeicher des Rechners; Windows fragt dabei genau einmal nach Administratorrechten. Danach braucht Zone Manager sie nicht mehr." />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+                <StackPanel x:Name="Step3" Visibility="Collapsed">
+                    <TextBlock Text="Zertifikat und Fensterhelfer" Style="{StaticResource GroupTitle}" />
+                    <Border Style="{StaticResource FieldGroup}" Margin="0,10,0,0">
+                        <StackPanel>
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="Zertifikat" Style="{StaticResource FieldLabel}" Margin="0" VerticalAlignment="Center" />
+                                <TextBlock x:Name="CertificateStateText" Text="{Binding CertificateStateLabel}" Style="{StaticResource FieldLabel}" Margin="8,0,0,0" VerticalAlignment="Center"
+                                           Foreground="{DynamicResource MutedBrush}" AutomationProperties.Name="Zustand des Zertifikats in zwei Worten" />
+                            </StackPanel>
+                            <TextBlock x:Name="CertificateStatusText" Text="{Binding CertificateStatus}" Style="{StaticResource HelpText}" Margin="0,4,0,0" AutomationProperties.Name="Zustand des Zertifikats" />
+                            <TextBlock Text="Fensterhelfer" Style="{StaticResource FieldLabel}" Margin="0,12,0,0" />
+                            <TextBlock x:Name="HelperStatusText" Text="{Binding HelperStatus}" Style="{StaticResource HelpText}" Margin="0,4,0,0" AutomationProperties.Name="Zustand des Fensterhelfers" />
+                            <Button x:Name="CertificateActionButton" Content="{Binding CertificateActionLabel}" Click="CertificateAction_Click" HorizontalAlignment="Left" Margin="0,14,0,0"
+                                    IsEnabled="{Binding CanToggleCertificate}" ToolTip="{Binding CertificateActionHint}" AutomationProperties.Name="{Binding CertificateActionLabel}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Grid>
+
+            <Grid Grid.Row="3" Margin="0,18,0,0">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                <Button x:Name="BackButton" Content="‹ Zurück" Click="Back_Click" IsEnabled="False" MinWidth="120" AutomationProperties.Name="Zurück" />
+                <Button Grid.Column="2" Content="Schliessen" Click="Close_Click" IsCancel="True" MinWidth="120" AutomationProperties.Name="Assistent schliessen" />
+                <Button x:Name="NextButton" Grid.Column="3" Content="Weiter ›" Style="{StaticResource PrimaryButton}" Click="Next_Click" MinWidth="120" Margin="10,0,0,0" AutomationProperties.Name="Weiter" />
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

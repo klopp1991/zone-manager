@@ -1,0 +1,71 @@
+<Window x:Class="SnapZones.App.Views.FullscreenZoneEditorWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:SnapZones.App.Controls"
+        Title="Zonen auf dem Monitor zeichnen"
+        WindowStyle="None" ResizeMode="NoResize" AllowsTransparency="True" Background="#73000000"
+        ShowInTaskbar="False" Topmost="True" WindowStartupLocation="Manual" Width="1" Height="1"
+        FontSize="16" PreviewKeyDown="Window_PreviewKeyDown">
+    <Grid>
+        <controls:LayoutCanvas x:Name="Canvas" Presentation="Fullscreen" ZoneSelected="Canvas_ZoneSelected" ZoneChanged="Canvas_ZoneChanged"
+                               DragStarted="Canvas_DragStarted" DragEnded="Canvas_DragEnded" ZoneRenameRequested="Canvas_ZoneRenameRequested"
+                               ZoneContextMenuRequested="Canvas_ZoneContextMenuRequested" ZoneDeleteRequested="Canvas_ZoneDeleteRequested"
+                               AutomationProperties.Name="Zonen auf dem Monitor" />
+        <Canvas x:Name="RenameOverlay" Visibility="Collapsed">
+            <StackPanel x:Name="RenamePanel" Orientation="Horizontal">
+                <TextBox x:Name="RenameTextBox" MinHeight="34" Padding="10,0" FontSize="16" FontWeight="SemiBold" Background="White" Foreground="#172033" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2"
+                         KeyDown="RenameTextBox_KeyDown" LostKeyboardFocus="RenameTextBox_LostFocus" AutomationProperties.Name="Zone umbenennen" />
+                <Border Background="#BF000000" CornerRadius="4" Padding="10,6" Margin="8,0,0,0" VerticalAlignment="Center">
+                    <TextBlock Text="Enter = übernehmen · Esc = abbrechen" Foreground="#F3F3F3" FontSize="13" />
+                </Border>
+            </StackPanel>
+        </Canvas>
+
+        <!-- Schwebende Werkzeugleiste oben mittig. -->
+        <Border HorizontalAlignment="Center" VerticalAlignment="Top" Margin="0,16,0,0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource ControlBorderBrush}"
+                BorderThickness="1" CornerRadius="8" Padding="6">
+            <Border.Effect><DropShadowEffect BlurRadius="20" ShadowDepth="4" Opacity="0.45" /></Border.Effect>
+            <StackPanel Orientation="Horizontal">
+                <TextBlock x:Name="TitleText" FontWeight="SemiBold" VerticalAlignment="Center" Margin="10,0,10,0" />
+                <Border Width="1" Background="{DynamicResource BorderBrush}" Margin="4,4" />
+                <Button x:Name="AddZoneButton" Content="+ Zone" Style="{StaticResource PrimaryButton}" MinHeight="36" Padding="12,4" Margin="6,0,0,0" Click="AddZone_Click" AutomationProperties.Name="Neue Zone hinzufügen" />
+                <Button x:Name="TemplateButton" Content="Vorlage ⌵" MinHeight="36" Padding="12,4" Margin="6,0,0,0" Click="Template_Click" AutomationProperties.Name="Vorlage wählen" />
+                <Button x:Name="UndoButton" Content="↶" Width="36" MinHeight="36" Padding="0" FontSize="16" Margin="6,0,0,0" Click="Undo_Click" AutomationProperties.Name="Letzte Änderung zurücknehmen" />
+                <Button x:Name="RedoButton" Content="↷" Width="36" MinHeight="36" Padding="0" FontSize="16" Margin="6,0,0,0" Click="Redo_Click" AutomationProperties.Name="Zurückgenommene Änderung wiederherstellen" />
+                <Button x:Name="ValuesButton" Content="Werte ⌵" MinHeight="36" Padding="12,4" Margin="6,0,0,0" Click="Values_Click" AutomationProperties.Name="Werte der Zone anzeigen" />
+                <Border Width="1" Background="{DynamicResource BorderBrush}" Margin="10,4,4,4" />
+                <Button x:Name="DoneButton" Content="Fertig" MinHeight="36" Padding="14,4" Margin="6,0,0,0" FontWeight="SemiBold" Click="Done_Click" AutomationProperties.Name="Zeichnen beenden" />
+            </StackPanel>
+        </Border>
+        <Popup x:Name="ValuesPopup" PlacementTarget="{Binding ElementName=ValuesButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+            <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="16" Margin="0,6,0,0" Width="320">
+                <controls:ZoneValuesPanel x:Name="ZoneValues" ValuesApplied="ZoneValues_ValuesApplied" />
+            </Border>
+        </Popup>
+        <Popup x:Name="TemplatePopup" PlacementTarget="{Binding ElementName=TemplateButton}" Placement="Bottom" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+            <Border Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource ControlBorderBrush}" BorderThickness="1" CornerRadius="8" Padding="12" Margin="0,6,0,0" MaxWidth="900">
+                <ItemsControl x:Name="TemplateSuggestions">
+                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel Orientation="Horizontal" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Button Click="TemplateChoice_Click" Width="164" MinHeight="112" Margin="0,0,10,8" Padding="8,6" ToolTip="{Binding Description}" AutomationProperties.Name="{Binding AccessibilityName}"
+                                    HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                                <Grid>
+                                    <Grid.RowDefinitions><RowDefinition Height="52" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+                                    <controls:LayoutTemplatePreview Suggestion="{Binding}" Margin="4,0,4,4" />
+                                    <TextBlock Grid.Row="1" Text="{Binding Name}" FontWeight="SemiBold" FontSize="14" TextTrimming="CharacterEllipsis" HorizontalAlignment="Center" />
+                                </Grid>
+                            </Button>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Border>
+        </Popup>
+
+        <!-- Fusszeile mit Hinweis. -->
+        <Border HorizontalAlignment="Center" VerticalAlignment="Bottom" Margin="0,0,0,14" Background="#99000000" CornerRadius="12" Padding="14,6">
+            <TextBlock Text="Du zeichnest direkt auf dem Monitor – Zonen zeigen ihre echte Grösse. Kanten ziehen verschiebt beide Nachbarn. Doppelklick = umbenennen · Rechtsklick = Menü · Alt = Andocken aus · Esc = Fertig"
+                       Foreground="{DynamicResource MutedBrush}" FontSize="13" TextTrimming="CharacterEllipsis" />
+        </Border>
+    </Grid>
+</Window>

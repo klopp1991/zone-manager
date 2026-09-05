@@ -14,8 +14,6 @@ sitzt pixelgenau darin. Kein Treiber, kein Dienst, keine Code-Injektion, keine T
 [![Lizenz MIT](https://img.shields.io/badge/Lizenz-MIT-3DA639)](LICENSE)
 [![Neuestes Release](https://img.shields.io/github/v/release/klopp1991/zone-manager?label=Release)](https://github.com/klopp1991/zone-manager/releases/latest)
 
-<img src="docs/images/layouts.png" width="880" alt="Der Layouteditor mit drei Zonen">
-
 </div>
 
 ---
@@ -71,18 +69,17 @@ zwei Pixeln ein zweites Mal gesetzt.
 
 ### Fenster, die sich merken, wo sie hingehören
 
-<img src="docs/images/verhalten.png" width="900" alt="Die Seite Verhalten mit den erweiterten Einstellungen">
-
 Drei Mechanismen greifen ineinander, in dieser Reihenfolge:
 
-1. **Regeln** — eine feste Zone für ein bestimmtes Fenster.
+1. **Zuordnungen** — eine feste Zone für ein bestimmtes Fenster.
 2. **Gemerkte Positionen** — jedes einmal platzierte Fenster kehrt beim nächsten Öffnen in seine Zone
    zurück. Auch nach einem Auflösungswechsel, dann anteilig umgerechnet.
-3. **Hauptzone** — eine Zone je Layout als Arbeitszone. Dort landet, was sonst nirgends hingehört.
+3. **Auffangzone** — eine Zone je Layout als Arbeitszone. Dort landet, was sonst nirgends hingehört.
 
-Wer es genauer will, blendet die **erweiterten Einstellungen** ein: Anzeigeverzögerung, Toleranzen beim
-Nachmessen, Umgang mit Fenstern fester Grösse, Katalogumfang, Schutzgrenzen, Wartezeiten. Jeder Wert hat
-einen sicheren Standard, einen begrenzten Bereich und eine Erklärung direkt daneben.
+Wer es genauer will, findet auf der Seite **Verhalten** in fünf Untertabs alles offen: Anzeigeverzögerung,
+Toleranzen beim Nachmessen, Umgang mit Fenstern fester Grösse, Katalogumfang, Schutzgrenzen, Wartezeiten.
+Jeder Wert hat einen sicheren Standard, einen begrenzten Bereich und ein **?**, das beim Darüberfahren
+erklärt, was er tut. Löschen fragt nicht nach, sondern bietet sechs Sekunden lang **Rückgängig**.
 
 ### Vollbild, das in der Zone bleibt
 
@@ -100,30 +97,24 @@ Angefasst wird nur, was vorher in einer Zone lag. Ein frei abgelegtes Fenster ge
 Monitor, ein Ausschluss gilt auch hier, und ein Programm, das sich wiederholt zurücksetzt, bekommt nach
 einigen Versuchen seinen Willen statt in einen Dauerkampf zu geraten.
 
-### Regeln
+### Fenster zuordnen
 
-<img src="docs/images/regeln.png" width="900" alt="Der Regeleditor in vier nummerierten Schritten">
-
-Eine Regel verbindet ein Fenster mit einer Zielzone — beschrieben über Programm, Fenstertitel und
-Fensterklasse, einzeln oder kombiniert. Das Programm wählst du über den Dateidialog oder aus der Liste
-der laufenden Programme; von dort wird bewusst nur der Dateiname übernommen, damit die Regel das nächste
+Eine Zuordnung verbindet ein Fenster mit einer Zielzone — beschrieben über Programm, Fenstertitel und
+Fensterklasse, einzeln oder kombiniert. Im Dialog ziehst du ein laufendes Fenster einfach auf die Zone, in
+der es künftig landen soll; übernommen wird bewusst nur der Dateiname, damit die Zuordnung das nächste
 Programmupdate überlebt.
 
 Als Auslöser dienen **Fenster wird geöffnet**, **Fenster erhält den Fokus** oder **Layout wird
-aktiviert**, dazu Verzögerung, Wiederholungen und Priorität. Fehlt einer Regel ihr Ziel, pausiert sie
-sichtbar — es gibt keinen stillen Rückfall auf irgendetwas anderes.
+aktiviert**, dazu Verzögerung, Wiederholungen und Priorität. Fehlt einer Zuordnung ihr Ziel, pausiert sie
+sichtbar mit der Schaltfläche **Beheben** — es gibt keinen stillen Rückfall auf irgendetwas anderes.
 
-### Ausschlüsse
+### In Ruhe lassen
 
-<img src="docs/images/ausschluesse.png" width="900" alt="Die Seite Ausschlüsse">
-
-Manche Fenster sollen einfach in Ruhe gelassen werden. Ein Ausschluss bekommt kein Overlay, rastet
-nirgends ein, wird von keiner Regel bewegt und landet nicht im Positionsgedächtnis. Er ist stärker als
-jede Regel.
+Manche Fenster sollen einfach in Ruhe gelassen werden. Ein Programm auf dieser Liste bekommt kein Overlay,
+rastet nirgends ein, wird von keiner Zuordnung bewegt und landet nicht im Positionsgedächtnis. Die Liste
+ist stärker als jede Zuordnung.
 
 ### Monitore, die wiedererkannt werden
-
-<img src="docs/images/monitore.png" width="900" alt="Die Seite Monitore mit erkannten Anzeigewerten">
 
 Monitore werden an Hersteller, Modell und Seriennummer aus der EDID wiedererkannt — steckst du denselben
 Bildschirm an einen anderen Anschluss, folgen ihm Layouts, Name und Reihenfolge. Anstecken, Abstecken,
@@ -134,8 +125,6 @@ Und je Monitorkombination merkt sich das Programm, welche Layouts zuletzt aktiv 
 anderes Set als unterwegs.
 
 ### Rechte: so wenig wie möglich
-
-<img src="docs/images/programm.png" width="900" alt="Die Seite Programm mit Rechten und Fensterhelfer">
 
 Windows lässt ein Programm nur Fenster verschieben, die derselben oder einer niedrigeren Vertrauensstufe
 angehören. Statt sich deshalb dauerhaft Administratorrechte zu nehmen, startet Zone Manager gewöhnlich

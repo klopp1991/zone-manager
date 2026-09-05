@@ -226,6 +226,16 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
             };
         }
 
+        // Platzhalteranzeigen von Windows (gesperrte Sitzung, ausgeschaltete Monitore) haben bis zum
+        // 05.09.2026 eigene Layouts bekommen; sie werden beim Laden entfernt.
+        upgraded = PseudoMonitors.Prune(upgraded with
+        {
+            Layouts = upgraded.Layouts ?? [],
+            MonitorNames = upgraded.MonitorNames ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase),
+            MonitorOrder = upgraded.MonitorOrder ?? [],
+            MonitorSets = upgraded.MonitorSets ?? []
+        });
+
         // Schema 6: jede Monitorkennung traegt Hersteller und Modell aus dem Anzeigepfad, damit ein
         // umgesteckter Monitor wiedererkannt wird; Monitorsaetze verweisen nur auf vorhandene Layouts.
         var layouts = MainZone.Normalize(upgraded.Layouts ?? [])
