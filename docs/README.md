@@ -343,7 +343,7 @@ wird abgelehnt. Die geladene Datei muss ausserdem genau die angekündigte Gröss
 verworfen — eine abgebrochene Übertragung sieht sonst wie eine vollständige Datei aus.
 
 Der Austausch geht in zwei Hälften, die in zwei Prozessen laufen. Die laufende Anwendung lädt
-Programmdatei und Fensterhelfer nach `%LOCALAPPDATA%\SnapZones\updates` und prüft beide; ihre eigene
+Programmdatei und Fensterhelfer nach `%LOCALAPPDATA%\ZoneManager\updates` und prüft beide; ihre eigene
 Programmdatei fasst sie dabei nicht an. Dann startet sie die bereitgestellte Datei im Übernahmemodus
 (`--apply-update <Programmdatei> --wait-for-pid <Prozess>`) und beendet sich. Der neue Prozess wartet
 auf ihr Ende, schiebt die bisherige Datei als `ZoneManager.exe.previous.<Zeitstempel>` beiseite, legt die

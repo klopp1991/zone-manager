@@ -34,9 +34,13 @@ public partial class App : System.Windows.Application
 
     public void ApplyTheme(ThemeMode mode) => themeService?.Apply(mode);
 
-    /// <summary>Das Verzeichnis, in das ein Update geladen wird, bevor es übernommen wird.</summary>
+    /// <summary>
+    /// Das Verzeichnis, in das ein Update geladen wird, bevor es übernommen wird. Es liegt bewusst unter
+    /// dem Produktnamen und nicht neben Einstellungen und Protokoll, die aus Kompatibilität unter
+    /// <c>SnapZones</c> bleiben.
+    /// </summary>
     public static string UpdateStagingDirectory =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SnapZones", "updates");
+        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "ZoneManager", "updates");
 
     private void RunSetup(SetupRunner.Mode mode, IReadOnlyList<string> arguments)
     {
