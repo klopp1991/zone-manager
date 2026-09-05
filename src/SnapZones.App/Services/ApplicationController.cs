@@ -87,6 +87,7 @@ public sealed class ApplicationController : IDisposable
     private readonly DispatcherTimer hookResumeTimer;
     private readonly object environmentGate = new();
     private PlacementEnvironment? cachedEnvironment;
+    private readonly ConfigurationBackupCatalog? backups;
     private SnapConfiguration? cachedEnvironmentConfiguration;
     private IReadOnlyList<LiveMonitor>? cachedEnvironmentMonitors;
     private bool disposed;
@@ -102,8 +103,10 @@ public sealed class ApplicationController : IDisposable
         IStartupService startupService,
         FileLog log,
         string updateStagingDirectory,
-        IReadOnlyList<string> startupArguments)
+        IReadOnlyList<string> startupArguments,
+        ConfigurationBackupCatalog? backupCatalog = null)
     {
+        backups = backupCatalog;
         this.window = window;
         this.viewModel = viewModel;
         this.monitors = monitors;
@@ -204,6 +207,8 @@ public sealed class ApplicationController : IDisposable
         window.ImportConfigurationRequested += ImportConfigurationAsync;
         window.IdentifyMonitorsRequested += IdentifyMonitors;
         window.SettingsPageOpened += PublishCertificateStatus;
+        viewModel.BackupsRefreshRequested += RefreshBackups;
+        viewModel.RestoreBackupRequested += RestoreBackup;
         moveHook.MoveStarted += MoveStarted;
         moveHook.MoveEnded += _ => MoveEnded();
         moveHook.EmergencyStopped += reason => EmergencyStop(reason);
@@ -229,7 +234,7 @@ public sealed class ApplicationController : IDisposable
         zoneFullscreenTimer.Tick += (_, _) => zoneFullscreen.Poll();
         zoneFullscreenTimer.Start();
         hotkeys.ZoneHotkeyPressed += HandleZoneHotkey;
-        window.PreviewLayoutRequested += PreviewLayout;
+        window.PreviewActiveLayoutsRequested += PreviewActiveLayouts;
         previewTimer = new DispatcherTimer(DispatcherPriority.Normal, window.Dispatcher)
         {
             Interval = TimeSpan.FromSeconds(3)
@@ -424,7 +429,7 @@ public sealed class ApplicationController : IDisposable
         overlays.Dispose();
         previewTimer.Stop();
         previewOverlays.Dispose();
-        window.PreviewLayoutRequested -= PreviewLayout;
+        window.PreviewActiveLayoutsRequested -= PreviewActiveLayouts;
         monitorIdentification.Dispose();
         toast.Close();
         saveCoordinator.SaveFinished -= SaveFinished;
@@ -433,6 +438,8 @@ public sealed class ApplicationController : IDisposable
         window.ImportConfigurationRequested -= ImportConfigurationAsync;
         window.IdentifyMonitorsRequested -= IdentifyMonitors;
         window.SettingsPageOpened -= PublishCertificateStatus;
+        viewModel.BackupsRefreshRequested -= RefreshBackups;
+        viewModel.RestoreBackupRequested -= RestoreBackup;
     }
 
     /// <summary>
@@ -750,7 +757,7 @@ public sealed class ApplicationController : IDisposable
         {
             if (exception is null)
             {
-                viewModel.StatusMessage = "✓ Gespeichert";
+                viewModel.MarkSaved();
                 return;
             }
 
@@ -1084,8 +1091,71 @@ public sealed class ApplicationController : IDisposable
 
     private void ForgetWindowPositions()
     {
+        var previous = placementEngine.Catalog;
         placementEngine.ForgetAll();
         viewModel.StatusMessage = "Gemerkte Fensterpositionen verworfen";
+        viewModel.ShowToast(
+            previous.Entries.Count == 1 ? "Eine gemerkte Fensterposition verworfen." : $"{previous.Entries.Count} gemerkte Fensterpositionen verworfen.",
+            () =>
+            {
+                placementEngine.ReplaceCatalog(previous);
+                viewModel.StatusMessage = "Gemerkte Fensterpositionen wiederhergestellt";
+            });
+    }
+
+    private void RefreshBackups()
+    {
+        if (backups is null)
+        {
+            return;
+        }
+
+        try
+        {
+            viewModel.ReplaceBackups(backups.List(configuration));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            log.Write("WARN", $"Die Sicherungen liessen sich nicht lesen: {exception.Message}");
+        }
+    }
+
+    private void RestoreBackup(ConfigurationBackup backup) => _ = RestoreBackupAsync(backup);
+
+    /// <summary>
+    /// Stellt einen frueheren Stand wieder her. Das anschliessende Speichern legt den bisherigen Stand
+    /// selbst als juengste Sicherung ab; der Toast fuehrt ausserdem direkt zurueck.
+    /// </summary>
+    private async Task RestoreBackupAsync(ConfigurationBackup backup)
+    {
+        if (backups is null)
+        {
+            return;
+        }
+
+        SnapConfiguration restored;
+        try
+        {
+            restored = await backups.LoadAsync(backup.Path, CancellationToken.None);
+        }
+        catch (Exception exception) when (exception is IOException or InvalidDataException or System.Text.Json.JsonException or UnauthorizedAccessException)
+        {
+            viewModel.StatusMessage = $"Der Stand liess sich nicht lesen: {exception.Message}";
+            return;
+        }
+
+        var previous = viewModel.Configuration;
+        var when = BackupListItem.Describe(backup.SavedAt, DateTimeOffset.Now);
+        viewModel.ReplaceConfiguration(restored);
+        viewModel.StatusMessage = $"Stand {when} wiederhergestellt";
+        viewModel.Save();
+        viewModel.ShowToast($"Stand von {when} wiederhergestellt.", () =>
+        {
+            viewModel.ReplaceConfiguration(previous);
+            viewModel.StatusMessage = "Wiederherstellung zurückgenommen";
+            viewModel.Save();
+        });
+        RefreshBackups();
     }
 
     private void PublishRememberedWindowCount(WindowPlacementCatalog catalog) =>
@@ -1688,26 +1758,30 @@ public sealed class ApplicationController : IDisposable
     }
 
     /// <summary>Zeigt den Entwurf aus dem Editor drei Sekunden lang auf dem echten Monitor.</summary>
-    private void PreviewLayout(LiveMonitor monitor, IReadOnlyList<ZoneDefinition> zones)
+    /// <summary>
+    /// Zeigt die aktiven Layouts aller angeschlossenen Monitore drei Sekunden lang als Overlay, genau
+    /// so, wie das Overlay sie beim Ziehen zeigen wird. Waehrend auf dem Monitor gezeichnet wird,
+    /// bleibt die Vorschau aus; der Editor zeigt die Zonen dann ohnehin in echter Groesse.
+    /// </summary>
+    private void PreviewActiveLayouts()
     {
-        if (!monitors.Any(candidate => LayoutService.BelongsToMonitor(candidate.Identity, monitor.Identity)))
+        if (window.IsFullscreenEditorOpen)
         {
-            viewModel.StatusMessage = "Dieser Monitor ist nicht verbunden; eine Vorschau ist nicht möglich.";
             return;
         }
 
         previewTimer.Stop();
-        var target = new PartMonitorTarget(monitor, zones);
-        previewOverlays.UpdateTargets([target]);
+        var targets = BuildTargets(configuration);
+        previewOverlays.UpdateTargets(targets);
         previewOverlays.Show(
-            [monitor.Identity.StableId],
+            targets.Select(target => target.Monitor.Identity.StableId).ToArray(),
             new LayoutMetrics(configuration.Settings.EffectiveOuterMargins, configuration.Settings.ZoneGap),
             configuration.Settings.OverlayColor,
             configuration.Settings.OverlayOpacity,
             configuration.Settings.ShowZoneNames,
             OverlayStyle.From(configuration.Settings));
         previewTimer.Start();
-        viewModel.StatusMessage = "Vorschau des Entwurfs wird drei Sekunden lang angezeigt.";
+        viewModel.StatusMessage = "Zonen werden drei Sekunden lang eingeblendet.";
     }
 
     private void ActivateLayout(Guid layoutId)

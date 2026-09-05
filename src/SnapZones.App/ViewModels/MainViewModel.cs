@@ -1,8 +1,10 @@
 using System.Collections.ObjectModel;
+using SnapZones.Core.Editor;
 using SnapZones.Core.Layouts;
 using SnapZones.Core.Models;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Monitors;
+using SnapZones.Core.Persistence;
 
 namespace SnapZones.App.ViewModels;
 
@@ -14,6 +16,8 @@ public sealed class MainViewModel : ViewModelBase
     private MonitorLayout? selectedLayout;
     private LayoutEditorViewModel? editor;
     private string statusMessage = "Bereit";
+    private string lastAction = string.Empty;
+    private DateTimeOffset? lastSavedAt;
     private int rememberedWindowCount;
     private string updateStatus = "Noch nicht nach Updates gesucht.";
     private bool isUpdateAvailable;
@@ -27,6 +31,10 @@ public sealed class MainViewModel : ViewModelBase
     private bool suppressPersistence;
     private SnappingState snappingState = SnappingState.NoActiveLayout;
     private string? pauseReason;
+    private string searchQuery = string.Empty;
+    private string toastText = string.Empty;
+    private Action? toastUndo;
+    private bool isToastVisible;
 
     public MainViewModel(SnapConfiguration configuration, IReadOnlyList<LiveMonitor> monitors)
     {
@@ -41,8 +49,10 @@ public sealed class MainViewModel : ViewModelBase
             layoutService.Configuration.AppRules,
             RuleTargetLayouts());
         AppRules.RulesChanged += AppRules_RulesChanged;
+        AppRules.RuleItems.CollectionChanged += (_, _) => NotifyCounts();
         AppExclusions = new AppExclusionEditorViewModel(layoutService.Configuration.AppExclusions);
         AppExclusions.ExclusionsChanged += AppExclusions_ExclusionsChanged;
+        AppExclusions.Exclusions.CollectionChanged += (_, _) => NotifyCounts();
     }
 
     public event Action<SnapConfiguration>? SaveRequested;
@@ -67,6 +77,12 @@ public sealed class MainViewModel : ViewModelBase
 
     /// <summary>Bittet darum, das Einrasten nach einem Not-Aus oder Sicherheitsstopp wieder einzuschalten.</summary>
     public event Action? ResumeSnappingRequested;
+
+    /// <summary>Bittet darum, die Liste der frueheren Staende neu zu lesen.</summary>
+    public event Action? BackupsRefreshRequested;
+
+    /// <summary>Bittet darum, einen frueheren Stand wiederherzustellen.</summary>
+    public event Action<ConfigurationBackup>? RestoreBackupRequested;
 
     /// <summary>
     /// Zustand der Snap-Funktion, wie ihn Statuszeile und Infobereich zeigen. Wird vom Controller
@@ -98,7 +114,7 @@ public sealed class MainViewModel : ViewModelBase
     public string SnappingStateLabel => snappingState switch
     {
         SnappingState.Active => "Einrasten aktiv",
-        SnappingState.Paused => "Einrasten pausiert",
+        SnappingState.Paused => "Einrasten angehalten",
         _ => "Kein aktives Layout"
     };
 
@@ -109,6 +125,81 @@ public sealed class MainViewModel : ViewModelBase
     public SettingsViewModel Settings { get; }
     public AppRuleEditorViewModel AppRules { get; }
     public AppExclusionEditorViewModel AppExclusions { get; }
+
+    /// <summary>Die frueheren Staende der Konfiguration, die juengste zuerst.</summary>
+    public ObservableCollection<BackupListItem> Backups { get; } = [];
+
+    /// <summary>Treffer der Einstellungssuche zum aktuellen Suchbegriff.</summary>
+    public ObservableCollection<SettingsSearchResult> SearchResults { get; } = [];
+
+    /// <summary>Der Suchbegriff aus der Seitenleiste; jede Aenderung filtert den Index neu.</summary>
+    public string SearchQuery
+    {
+        get => searchQuery;
+        set
+        {
+            if (!SetProperty(ref searchQuery, value ?? string.Empty))
+            {
+                return;
+            }
+
+            SearchResults.Clear();
+            foreach (var result in SettingsSearchIndex.Search(searchQuery))
+            {
+                SearchResults.Add(result);
+            }
+
+            OnPropertyChanged(nameof(HasSearchQuery));
+            OnPropertyChanged(nameof(HasNoSearchResults));
+        }
+    }
+
+    public bool HasSearchQuery => searchQuery.Trim().Length > 0;
+    public bool HasNoSearchResults => HasSearchQuery && SearchResults.Count == 0;
+
+    public void ClearSearch() => SearchQuery = string.Empty;
+
+    /// <summary>Text des Rueckgaengig-Toasts unten in der Mitte; leer, wenn keiner sichtbar ist.</summary>
+    public string ToastText
+    {
+        get => toastText;
+        private set => SetProperty(ref toastText, value);
+    }
+
+    public bool IsToastVisible
+    {
+        get => isToastVisible;
+        private set => SetProperty(ref isToastVisible, value);
+    }
+
+    public bool CanUndoToast => toastUndo is not null;
+
+    /// <summary>
+    /// Zeigt einen Toast mit optionalem Rueckgaengig. Die Loeschung ist zu diesem Zeitpunkt bereits
+    /// gespeichert; <paramref name="undo"/> schreibt das Objekt zurueck. Ein neuer Toast ersetzt den alten.
+    /// </summary>
+    public void ShowToast(string text, Action? undo = null)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(text);
+        toastUndo = undo;
+        ToastText = text;
+        OnPropertyChanged(nameof(CanUndoToast));
+        IsToastVisible = true;
+    }
+
+    public void UndoToast()
+    {
+        var undo = toastUndo;
+        DismissToast();
+        undo?.Invoke();
+    }
+
+    public void DismissToast()
+    {
+        toastUndo = null;
+        IsToastVisible = false;
+        OnPropertyChanged(nameof(CanUndoToast));
+    }
 
     /// <summary>
     /// Anzahl der gemerkten Fensterpositionen. Wird vom Platzierungs-Modul nachgefuehrt und macht die
@@ -145,8 +236,18 @@ public sealed class MainViewModel : ViewModelBase
     public string UpdateStatus
     {
         get => updateStatus;
-        set => SetProperty(ref updateStatus, value);
+        set
+        {
+            if (SetProperty(ref updateStatus, value))
+            {
+                OnPropertyChanged(nameof(UpdateSummary));
+            }
+        }
     }
+
+    /// <summary>Untertitel der Zeile «Updates»: Version, letzter Stand der Suche, Sicherheitszusage.</summary>
+    public string UpdateSummary =>
+        $"Version {ProductVersion} · {TrimEnd(updateStatus)} Nur über HTTPS, geprüft per SHA-256.";
 
     /// <summary>Ob eine neuere Veroeffentlichung bereitsteht und angeboten werden darf.</summary>
     public bool IsUpdateAvailable
@@ -193,8 +294,17 @@ public sealed class MainViewModel : ViewModelBase
     public bool CanInstall
     {
         get => canInstall;
-        set => SetProperty(ref canInstall, value);
+        set
+        {
+            if (SetProperty(ref canInstall, value))
+            {
+                OnPropertyChanged(nameof(IsInstalled));
+            }
+        }
     }
+
+    /// <summary>Ob das Programm aus «Programme» laeuft – Voraussetzung fuer den Fensterhelfer.</summary>
+    public bool IsInstalled => !canInstall;
 
     public void Install() => InstallRequested?.Invoke();
 
@@ -214,7 +324,7 @@ public sealed class MainViewModel : ViewModelBase
 
     /// <summary>
     /// Ob das eigene Zertifikat eingerichtet und gültig ist. Danach richtet sich die einzige
-    /// Schaltfläche der Karte: einrichten, solange es fehlt — entfernen, sobald es steht.
+    /// Schaltfläche des Assistenten: einrichten, solange es fehlt — entfernen, sobald es steht.
     /// </summary>
     public bool IsCertificateInstalled
     {
@@ -300,22 +410,57 @@ public sealed class MainViewModel : ViewModelBase
         }
     }
 
+    /// <summary>«Monitor 1 von 2» fuer die Kopfzeile der Monitorseite.</summary>
+    public string MonitorPositionText => selectedMonitor is null
+        ? string.Empty
+        : $"Monitor {Monitors.IndexOf(selectedMonitor) + 1} von {Monitors.Count}";
+
+    public bool CanSelectPreviousMonitor => selectedMonitor is not null && Monitors.IndexOf(selectedMonitor) > 0;
+    public bool CanSelectNextMonitor => selectedMonitor is not null && Monitors.IndexOf(selectedMonitor) < Monitors.Count - 1;
+
+    public void SelectPreviousMonitor() => SelectMonitorAt(Monitors.IndexOf(selectedMonitor!) - 1);
+
+    public void SelectNextMonitor() => SelectMonitorAt(Monitors.IndexOf(selectedMonitor!) + 1);
+
+    private void SelectMonitorAt(int index)
+    {
+        if (selectedMonitor is null || index < 0 || index >= Monitors.Count)
+        {
+            return;
+        }
+
+        SelectedMonitor = Monitors[index];
+    }
+
+    /// <summary>
+    /// Das im Editor bearbeitete Layout. Das Setzen ueber die Auswahl «Aktives Layout» aktiviert es
+    /// zugleich auf dem Monitor; <see cref="EditLayout"/> wechselt nur das bearbeitete Layout.
+    /// </summary>
     public MonitorLayout? SelectedLayout
     {
         get => selectedLayout;
         set
         {
-            if (value is null || value.Id == selectedLayout?.Id)
+            if (value is null || value.Id == selectedLayout?.Id && value.IsActive)
             {
                 return;
             }
 
-            StoreValidDraft();
-            var activated = layoutService.ActivateLayout(value.Id);
-            RefreshMonitors(activated.Monitor);
-            StatusMessage = $"Layout «{activated.Name}» auf {GetMonitorDisplayName(activated.Monitor)} aktiv";
-            RequestPersistence();
+            ActivateLayout(value.Id);
         }
+    }
+
+    /// <summary>Wechselt das bearbeitete Layout, ohne es auf dem Monitor zu aktivieren.</summary>
+    public void EditLayout(Guid layoutId)
+    {
+        var layout = Layouts.FirstOrDefault(candidate => candidate.Id == layoutId);
+        if (layout is null || layout.Id == selectedLayout?.Id)
+        {
+            return;
+        }
+
+        StoreValidDraft();
+        RefreshMonitors(selectedMonitor?.Live.Identity, layoutId);
     }
 
     public LayoutEditorViewModel? Editor => editor;
@@ -324,10 +469,94 @@ public sealed class MainViewModel : ViewModelBase
     public string StatusMessage
     {
         get => statusMessage;
-        set => SetProperty(ref statusMessage, value);
+        set
+        {
+            if (SetProperty(ref statusMessage, value) && !IsTransientStatus(value))
+            {
+                lastAction = value;
+            }
+        }
     }
 
+    /// <summary>Wann zuletzt gespeichert wurde; null vor dem ersten Speichern in dieser Sitzung.</summary>
+    public DateTimeOffset? LastSavedAt
+    {
+        get => lastSavedAt;
+        private set
+        {
+            if (SetProperty(ref lastSavedAt, value))
+            {
+                OnPropertyChanged(nameof(LastSavedText));
+            }
+        }
+    }
+
+    /// <summary>«Zuletzt gespeichert vor 2 Minuten» fuer die Uebersicht.</summary>
+    public string LastSavedText => DescribeLastSaved(lastSavedAt, DateTimeOffset.Now);
+
+    public static string DescribeLastSaved(DateTimeOffset? savedAt, DateTimeOffset now)
+    {
+        if (savedAt is not { } moment)
+        {
+            return "In dieser Sitzung noch nichts geändert";
+        }
+
+        var elapsed = now - moment;
+        if (elapsed < TimeSpan.FromMinutes(1))
+        {
+            return "Zuletzt gespeichert gerade eben";
+        }
+
+        if (elapsed < TimeSpan.FromHours(1))
+        {
+            var minutes = (int)elapsed.TotalMinutes;
+            return minutes == 1 ? "Zuletzt gespeichert vor einer Minute" : $"Zuletzt gespeichert vor {minutes} Minuten";
+        }
+
+        if (elapsed < TimeSpan.FromDays(1))
+        {
+            var hours = (int)elapsed.TotalHours;
+            return hours == 1 ? "Zuletzt gespeichert vor einer Stunde" : $"Zuletzt gespeichert vor {hours} Stunden";
+        }
+
+        return $"Zuletzt gespeichert am {moment:dd.MM. HH:mm}";
+    }
+
+    /// <summary>Der Controller meldet ein erfolgreiches Speichern; die Statuszeile nennt Aktion und Uhrzeit.</summary>
+    public void MarkSaved()
+    {
+        LastSavedAt = DateTimeOffset.Now;
+        var action = lastAction.Length > 0 ? $" · {lastAction}" : string.Empty;
+        statusMessage = $"✓ Gespeichert{action} ({LastSavedAt:HH:mm})";
+        OnPropertyChanged(nameof(StatusMessage));
+    }
+
+    /// <summary>Laesst die relative Zeitangabe der Uebersicht nachrechnen; die Oberflaeche ruft das im Takt auf.</summary>
+    public void RefreshLastSavedText() => OnPropertyChanged(nameof(LastSavedText));
+
     public SnapConfiguration Configuration => layoutService.Configuration;
+
+    public int MonitorCount => Monitors.Count;
+    public int LayoutCount => layoutService.Configuration.Layouts.Count;
+    public int RuleCount => AppRules.RuleItems.Count;
+    public int ExclusionCount => AppExclusions.Exclusions.Count;
+    public int PausedRuleCount => AppRules.PausedCount;
+    public bool HasPausedRules => PausedRuleCount > 0;
+
+    /// <summary>Untertitel der Zaehlerkarte «Zugeordnete Fenster».</summary>
+    public string RuleCountHint => RuleCount == 0
+        ? "Noch keins – ein Fenster auf eine Zone ziehen"
+        : PausedRuleCount switch
+        {
+            0 => "Alle laufen",
+            1 => "1 pausiert – Ziel fehlt",
+            _ => $"{PausedRuleCount} pausiert – Ziel fehlt"
+        };
+
+    public string MonitorCountText => Monitors.Count.ToString();
+    public string LayoutCountText => LayoutCount.ToString();
+    public string RuleCountText => RuleCount.ToString();
+    public string ExclusionCountText => ExclusionCount.ToString();
 
     public void Save()
     {
@@ -377,18 +606,58 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         StoreValidDraft();
-        var number = 1;
-        string name;
-        do
-        {
-            name = $"Layout {number++}";
-        }
-        while (Layouts.Any(layout => string.Equals(layout.Name, name, StringComparison.CurrentCultureIgnoreCase)));
-
-        var added = layoutService.AddLayout(selectedLayout.Id, name);
+        var added = layoutService.AddLayout(selectedLayout.Id, NextLayoutName("Layout"));
         RefreshMonitors(added.Monitor);
         StatusMessage = $"Layout «{added.Name}» erstellt";
         RequestPersistence();
+    }
+
+    /// <summary>Ein neues Layout mit einer einzigen Zone ueber die ganze Flaeche.</summary>
+    public void AddEmptyLayout()
+    {
+        AddLayout();
+        Editor?.ReplaceZones([new ZoneDefinition(Guid.NewGuid(), "Voll", NormalizedRect.Full)]);
+    }
+
+    /// <summary>Ein neues Layout aus einer der Vorlagen.</summary>
+    public void AddLayoutFromTemplate(LayoutTemplate template)
+    {
+        AddLayout();
+        Editor?.ApplyTemplate(template);
+    }
+
+    /// <summary>Eine Kopie des bearbeiteten Layouts unter neuem Namen.</summary>
+    public void DuplicateSelectedLayout()
+    {
+        if (selectedLayout is null)
+        {
+            return;
+        }
+
+        StoreValidDraft();
+        var added = layoutService.AddLayout(selectedLayout.Id, NextLayoutName($"{selectedLayout.Name} Kopie"));
+        RefreshMonitors(added.Monitor);
+        StatusMessage = $"Layout «{added.Name}» als Kopie erstellt";
+        RequestPersistence();
+    }
+
+    /// <summary>«Layout 1», «Layout 2» … beziehungsweise «Arbeiten Kopie», «Arbeiten Kopie 2» ….</summary>
+    private string NextLayoutName(string stem)
+    {
+        var numbered = string.Equals(stem, "Layout", StringComparison.Ordinal);
+        if (!numbered && Layouts.All(layout => !string.Equals(layout.Name, stem, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            return stem;
+        }
+
+        var number = numbered ? 1 : 2;
+        string name;
+        do
+        {
+            name = $"{stem} {number++}";
+        }
+        while (Layouts.Any(layout => string.Equals(layout.Name, name, StringComparison.CurrentCultureIgnoreCase)));
+        return name;
     }
 
     public void RenameSelectedLayout(string name)
@@ -401,6 +670,7 @@ public sealed class MainViewModel : ViewModelBase
         var selectedId = selectedLayout.Id;
         layoutService.RenameLayout(selectedId, name);
         RefreshMonitors(selectedLayout.Monitor, selectedId);
+        StatusMessage = $"Layout in «{name.Trim()}» umbenannt";
         RequestPersistence();
     }
 
@@ -437,20 +707,37 @@ public sealed class MainViewModel : ViewModelBase
         return MonitorNaming.UserFacingName(layoutService.CustomMonitorNameFor(monitor), displayNumber);
     }
 
-    public void DeleteSelectedLayout()
+    /// <summary>
+    /// Loescht das bearbeitete Layout und liefert es zurueck, damit der Toast es ueber
+    /// <see cref="RestoreLayout"/> wiederherstellen kann. Null, wenn nichts geloescht wurde.
+    /// </summary>
+    public MonitorLayout? DeleteSelectedLayout()
     {
         if (selectedLayout is null)
         {
-            return;
+            return null;
         }
 
+        var deleted = selectedLayout;
         var monitor = selectedLayout.Monitor;
         var disconnected = selectedMonitor is { IsConnected: false };
         layoutService.DeleteLayout(selectedLayout.Id, allowRemovingLastLayout: disconnected);
         RefreshMonitors(monitor);
         StatusMessage = disconnected && Monitors.All(choice => !LayoutService.BelongsToMonitor(choice.Live.Identity, monitor))
             ? "Letztes Layout gelöscht – der nicht verbundene Monitor wird nicht mehr aufgeführt"
-            : "Layout gelöscht";
+            : $"Layout «{deleted.Name}» gelöscht";
+        RequestPersistence();
+        return deleted;
+    }
+
+    /// <summary>Schreibt ein geloeschtes Layout zurueck – der Rueckweg aus dem Toast.</summary>
+    public void RestoreLayout(MonitorLayout layout)
+    {
+        ArgumentNullException.ThrowIfNull(layout);
+        StoreValidDraft();
+        var restored = layoutService.RestoreLayout(layout);
+        RefreshMonitors(restored.Monitor, restored.Id);
+        StatusMessage = $"Layout «{restored.Name}» wiederhergestellt";
         RequestPersistence();
     }
 
@@ -459,7 +746,11 @@ public sealed class MainViewModel : ViewModelBase
         StoreValidDraft();
         var activated = layoutService.ActivateLayout(layoutId);
         var selectedIdentity = selectedMonitor?.Live.Identity;
-        RefreshMonitors(selectedIdentity);
+        // Das aktivierte Layout wird zugleich bearbeitet, sofern es auf dem gewaehlten Monitor liegt.
+        var preferredLayout = selectedIdentity is not null && LayoutService.BelongsToMonitor(activated.Monitor, selectedIdentity)
+            ? activated.Id
+            : selectedLayout?.Id;
+        RefreshMonitors(selectedIdentity, preferredLayout);
         StatusMessage = $"Layout «{activated.Name}» auf {GetMonitorDisplayName(activated.Monitor)} aktiv";
         RequestPersistence();
     }
@@ -481,6 +772,29 @@ public sealed class MainViewModel : ViewModelBase
         {
             suppressPersistence = false;
         }
+    }
+
+    /// <summary>Ersetzt die Liste der frueheren Staende durch das, was der Controller gelesen hat.</summary>
+    public void ReplaceBackups(IReadOnlyList<ConfigurationBackup> backups)
+    {
+        ArgumentNullException.ThrowIfNull(backups);
+        Backups.Clear();
+        foreach (var backup in backups)
+        {
+            Backups.Add(new BackupListItem(backup));
+        }
+
+        OnPropertyChanged(nameof(HasBackups));
+    }
+
+    public bool HasBackups => Backups.Count > 0;
+
+    public void RefreshBackups() => BackupsRefreshRequested?.Invoke();
+
+    public void RestoreBackup(BackupListItem item)
+    {
+        ArgumentNullException.ThrowIfNull(item);
+        RestoreBackupRequested?.Invoke(item.Backup);
     }
 
     private void StoreValidDraft()
@@ -517,7 +831,10 @@ public sealed class MainViewModel : ViewModelBase
                 live,
                 active,
                 displayNumber,
-                layoutService.CustomMonitorNameFor(live.Identity)));
+                layoutService.CustomMonitorNameFor(live.Identity))
+            {
+                Layouts = layoutService.LayoutsFor(live.Identity)
+            });
         }
 
         AddMonitorsWithoutConnection(orderedMonitors.Length);
@@ -527,13 +844,17 @@ public sealed class MainViewModel : ViewModelBase
             : Monitors.FirstOrDefault(choice => LayoutService.BelongsToMonitor(choice.Live.Identity, wantedMonitor))
               ?? Monitors.FirstOrDefault();
         OnPropertyChanged(nameof(SelectedMonitor));
+        OnPropertyChanged(nameof(MonitorPositionText));
+        OnPropertyChanged(nameof(CanSelectPreviousMonitor));
+        OnPropertyChanged(nameof(CanSelectNextMonitor));
         RefreshLayouts(preferredLayoutId);
+        NotifyCounts();
     }
 
     /// <summary>
     /// Ergänzt Monitore, die nicht angeschlossen sind, für die aber noch Layouts gespeichert sind.
-    /// Ohne sie wären diese Layouts in der Oberfläche unerreichbar: sie tauchen weiterhin als Regelziel
-    /// auf, lassen sich aber nirgends löschen.
+    /// Ohne sie wären diese Layouts in der Oberfläche unerreichbar: sie tauchen weiterhin als Ziel
+    /// einer Zuordnung auf, lassen sich aber nirgends löschen.
     /// </summary>
     private void AddMonitorsWithoutConnection(int connectedCount)
     {
@@ -563,7 +884,10 @@ public sealed class MainViewModel : ViewModelBase
                 layout,
                 MonitorNaming.ResolveDisplayNumber(identity, number),
                 layoutService.CustomMonitorNameFor(identity),
-                IsConnected: false));
+                IsConnected: false)
+            {
+                Layouts = layouts
+            });
         }
     }
 
@@ -616,14 +940,14 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         layoutService.UpdateLayout(editor.CreateSnapshot());
+        StatusMessage = $"Layout «{selectedLayout?.Name}» geändert";
         RequestPersistence();
     }
 
     private void Settings_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs eventArgs)
     {
         _ = sender;
-        _ = eventArgs;
-        if (suppressPersistence)
+        if (suppressPersistence || eventArgs.PropertyName == nameof(SettingsViewModel.BehaviourTabIndex))
         {
             return;
         }
@@ -636,6 +960,11 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         layoutService.UpdateSettings(settings);
+        if (eventArgs.PropertyName is { } name && name != nameof(SettingsViewModel.EditorValuePanelOpen))
+        {
+            StatusMessage = "Einstellung geändert";
+        }
+
         RequestPersistence();
     }
 
@@ -643,7 +972,9 @@ public sealed class MainViewModel : ViewModelBase
     {
         AppRules.RefreshTargets(RuleTargetLayouts());
         layoutService.RecordMonitorSet(liveMonitors);
-        StatusMessage = "Wird gespeichert …";
+        NotifyCounts();
+        statusMessage = "Wird gespeichert …";
+        OnPropertyChanged(nameof(StatusMessage));
         SaveRequested?.Invoke(layoutService.Configuration);
     }
 
@@ -655,6 +986,7 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         layoutService.UpdateAppRules(rules);
+        StatusMessage = "Zuordnungen geändert";
         RequestPersistence();
     }
 
@@ -666,6 +998,7 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         layoutService.UpdateAppExclusions(exclusions);
+        StatusMessage = "Liste «In Ruhe lassen» geändert";
         RequestPersistence();
     }
 
@@ -710,6 +1043,32 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         return int.MaxValue;
+    }
+
+    private void NotifyCounts()
+    {
+        OnPropertyChanged(nameof(MonitorCount));
+        OnPropertyChanged(nameof(LayoutCount));
+        OnPropertyChanged(nameof(RuleCount));
+        OnPropertyChanged(nameof(ExclusionCount));
+        OnPropertyChanged(nameof(PausedRuleCount));
+        OnPropertyChanged(nameof(HasPausedRules));
+        OnPropertyChanged(nameof(RuleCountHint));
+        OnPropertyChanged(nameof(MonitorCountText));
+        OnPropertyChanged(nameof(LayoutCountText));
+        OnPropertyChanged(nameof(RuleCountText));
+        OnPropertyChanged(nameof(ExclusionCountText));
+    }
+
+    private static bool IsTransientStatus(string value) =>
+        value.StartsWith("Wird gespeichert", StringComparison.Ordinal) ||
+        value.StartsWith("✓ Gespeichert", StringComparison.Ordinal) ||
+        value.Length == 0;
+
+    private static string TrimEnd(string value)
+    {
+        var trimmed = value.Trim();
+        return trimmed.Length == 0 || trimmed.EndsWith('.') ? trimmed : $"{trimmed}.";
     }
 
     private static bool IsValidOverlayColor(string value) =>

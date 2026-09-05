@@ -45,7 +45,10 @@ public sealed class ThemeResourceTests
                 typeof(TabControl),
                 typeof(TabItem),
                 typeof(ScrollBar),
-                typeof(Slider)
+                typeof(Slider),
+                typeof(Expander),
+                typeof(ContextMenu),
+                typeof(MenuItem)
             };
 
             foreach (var controlType in themedControls)
@@ -181,6 +184,9 @@ public sealed class ThemeResourceTests
                 ("AccentStatusBrush", "AccentSoftBrush"),
                 ("WarningBrush", "WarningSoftBrush"),
                 ("DangerBrush", "SurfaceBrush"),
+                ("SuccessBrush", "SurfaceBrush"),
+                ("DropTargetInkBrush", "SurfaceBrush"),
+                ("CanvasBrush", "InkBrush"),
                 ("DisabledInkBrush", "DisabledSurfaceBrush")
             };
             foreach (var pair in textPairs)
@@ -189,6 +195,7 @@ public sealed class ThemeResourceTests
             }
 
             AssertContrast("ControlBorderBrush", "SurfaceRaisedBrush", 3d);
+            AssertContrast("WarningBorderBrush", "SurfaceBrush", 3d);
             AssertContrast("DisabledCheckBrush", "DisabledSurfaceBrush", 3d);
         });
     }
@@ -262,7 +269,7 @@ public sealed class ThemeResourceTests
         WpfThemeHost.Invoke(() =>
         {
             var window = new MainWindow();
-            var headerIcon = Assert.Single(LogicalDescendants<Image>(window));
+            var headerIcon = Assert.Single(LogicalDescendants<Image>(window), image => image.Width == 36d);
             var bitmap = Assert.IsAssignableFrom<BitmapSource>(headerIcon.Source);
 
             Assert.True(bitmap.PixelWidth >= 180,
@@ -289,7 +296,7 @@ public sealed class ThemeResourceTests
         WpfThemeHost.Invoke(() =>
         {
             var window = new MainWindow();
-            var headerIcon = Assert.Single(LogicalDescendants<Image>(window));
+            var headerIcon = Assert.Single(LogicalDescendants<Image>(window), image => image.Width == 36d);
             var bitmap = Assert.IsAssignableFrom<BitmapSource>(headerIcon.Source);
 
             Assert.Equal(Color.FromRgb(0x29, 0x2D, 0x33), PixelColour(bitmap, 64, 64));
@@ -305,7 +312,7 @@ public sealed class ThemeResourceTests
         WpfThemeHost.Invoke(() =>
         {
             var window = new MainWindow();
-            var headerIcon = Assert.Single(LogicalDescendants<Image>(window));
+            var headerIcon = Assert.Single(LogicalDescendants<Image>(window), image => image.Width == 36d);
             var bitmap = Assert.IsAssignableFrom<BitmapSource>(headerIcon.Source);
 
             Assert.Equal(255, PixelAlpha(bitmap, 70, 200));
@@ -334,18 +341,23 @@ public sealed class ThemeResourceTests
             var window = new MainWindow();
             var requiredHelpButtons = new[]
             {
-                "LayoutInfoButton",
-                "ZonePositionInfoButton",
-                "ZoneMarginsInfoButton",
                 "ThemeInfoButton",
                 "OverlayScopeInfoButton",
                 "TriggerModeInfoButton",
+                "ShowZoneNamesInfoButton",
                 "OuterMarginsInfoButton",
                 "ZoneGapInfoButton",
                 "MagnetDistanceInfoButton",
                 "OverlayColourInfoButton",
-                "OverlayOpacityInfoButton"
+                "OverlayOpacityInfoButton",
+                "StartWithWindowsInfoButton",
+                "BackupsInfoButton"
             };
+            var panel = Assert.IsType<SnapZones.App.Controls.ZoneValuesPanel>(window.FindName("ZoneValues"));
+            foreach (var name in new[] { "ZonePositionInfoButton", "ZoneMarginsInfoButton", "MainZoneInfoButton" })
+            {
+                Assert.IsType<Button>(panel.FindName(name));
+            }
 
             foreach (var name in requiredHelpButtons)
             {
@@ -361,8 +373,9 @@ public sealed class ThemeResourceTests
             Assert.Contains(
                 LogicalDescendants<TextBlock>(window),
                 textBlock => ReferenceEquals(textBlock.Style, helpStyle) &&
-                    textBlock.Text == "Lege fest, wie Fenster beim Ziehen und beim Öffnen behandelt werden. Änderungen werden sofort gespeichert.");
+                    textBlock.Text == "Alle Einstellungen, sofort gespeichert. Das ? neben jeder Einstellung erklärt beim Darüberfahren, was sie tut.");
             Assert.Null(window.FindName("OverlayVisualMarginInfoButton"));
+            Assert.Null(window.FindName("ShowAdvancedSettingsCheckBox"));
         });
     }
 
@@ -426,9 +439,9 @@ public sealed class ThemeResourceTests
     }
 
     [Theory]
-    [InlineData("Monitore", "MoveMonitorUpButton,MoveMonitorDownButton,IdentifyMonitorsButton")]
-    [InlineData("Regeln", "AppRuleAddButton,AppRuleDeleteButton")]
-    [InlineData("Regeln", "AppRuleBrowseButton,AppRuleRunningProcessButton")]
+    [InlineData("Monitore", "IdentifyMonitorsButton,MonitorOrderButton")]
+    [InlineData("Übersicht", "DrawZonesButton,OverviewAssignButton,PreviewZonesButton")]
+    [InlineData("Programm", "ExportConfigurationButton,ImportConfigurationButton")]
     public void Neighbouring_buttons_render_with_the_same_height(string tabHeader, string buttonNames)
     {
         WpfThemeHost.Invoke(() =>
@@ -464,10 +477,12 @@ public sealed class ThemeResourceTests
         WpfThemeHost.Invoke(() =>
         {
             var window = new MainWindow();
-            var button = Assert.IsType<Button>(window.FindName("LayoutInfoButton"));
+            var button = Assert.IsType<Button>(window.FindName("OverlayScopeInfoButton"));
 
             Assert.True(button.ApplyTemplate());
             var glyph = Assert.IsType<Grid>(button.Template.FindName("InfoGlyph", button));
+            // Das Zeichen ist ein Fragezeichen: die Erklaerung antwortet auf «was tut das?».
+            Assert.Equal("?", Assert.IsType<TextBlock>(button.Template.FindName("InfoText", button)).Text);
 
             Assert.Equal(22d, button.Width);
             Assert.Equal(22d, button.Height);
@@ -559,8 +574,8 @@ public sealed class ThemeResourceTests
             root.UpdateLayout();
 
             var content = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("SettingsContent"));
-            Assert.True(content.ActualWidth >= 1100,
-                $"Der Einstellungsbereich nutzt nur {content.ActualWidth:0} von 1480 Pixel Fensterbreite.");
+            // Listen und Einstellungsseiten sind auf 860 bis 900 Pixel begrenzt, damit Zeilen lesbar bleiben.
+            Assert.InRange(content.ActualWidth, 860d, 900d);
         });
     }
 
@@ -582,12 +597,14 @@ public sealed class ThemeResourceTests
                 .Select(textBlock => textBlock.Text)
                 .Where(value => !string.IsNullOrWhiteSpace(value)));
 
+            var behaviourTabs = Assert.IsType<TabControl>(window.FindName("BehaviourTabs"));
             foreach (var heading in new[] { "Beim Ziehen", "Darstellung", "Abstände", "Tastenkürzel", "Fenster merken" })
             {
-                Assert.Contains(heading, behaviourText);
+                Assert.Contains(behaviourTabs.Items.OfType<TabItem>(), item => Equals(item.Header, heading));
             }
 
-            foreach (var heading in new[] { "Programm", "Updates", "Rechte", "Installation", "Sicherung" })
+            Assert.Contains("Alle Einstellungen, sofort gespeichert.", behaviourText);
+            foreach (var heading in new[] { "Erscheinungsbild", "Updates", "Administratorrechte", "Installation", "Sicherung", "Frühere Stände" })
             {
                 Assert.Contains(heading, text);
             }

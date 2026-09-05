@@ -1,17 +1,19 @@
 using System.Windows;
 using System.Windows.Automation;
 using System.Windows.Controls;
-using System.Windows.Media;
+using System.Windows.Controls.Primitives;
 using SnapZones.App.Controls;
 using SnapZones.App.ViewModels;
 using SnapZones.App.Views;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Models;
 using SnapZones.Core.Monitors;
+using SnapZones.Tests.Support;
 using Xunit;
 
 namespace SnapZones.Tests.Theme;
 
+/// <summary>Die Seite «Zonen &amp; Layouts»: Monitorauswahl, ein Tab je Layout, Vorlagen im Menue.</summary>
 public sealed class LayoutSuggestionPresentationTests
 {
     [Fact]
@@ -23,81 +25,48 @@ public sealed class LayoutSuggestionPresentationTests
             var root = Assert.IsType<Grid>(window.Content);
 
             Assert.DoesNotContain(
-                VisualDescendants<TextBlock>(root),
+                UiTree.VisualDescendants<TextBlock>(root),
                 textBlock => AutomationProperties.GetName(textBlock) == "Layoutübersicht");
         });
     }
 
     [Fact]
-    public void Layout_header_controls_share_one_height_without_monitor_details()
+    public void Layout_page_shows_one_tab_per_layout_and_marks_the_active_one()
     {
         WpfThemeHost.Invoke(() =>
         {
-            var monitor = new LiveMonitor(
-                new MonitorIdentity("MONITOR-A", "DISPLAY1", "Monitor A"),
-                new MonitorWorkArea(0, 0, 5120, 1380),
-                96,
-                96,
-                true,
-                119,
-                34);
-            var viewModel = new MainViewModel(SnapConfiguration.CreateDefault(), [monitor]);
-            var window = new MainWindow();
+            var monitor = new LiveMonitor(new MonitorIdentity("DISPLAY-A", "DISPLAY1", "Monitor A"), new MonitorWorkArea(0, 0, 3440, 1440), 96, 96, true);
+            var viewModel = new MainViewModel(ConfigurationSamples.TwoLayouts(), [monitor]);
+            var window = new MainWindow { Left = -10000 };
             window.AttachViewModel(viewModel);
-            var root = Assert.IsType<Grid>(window.Content);
-            var tabs = Assert.Single(root.Children.OfType<TabControl>());
-            var layoutTab = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Layouts"));
-            tabs.SelectedItem = layoutTab;
-
-            root.Measure(new Size(1480, 900));
-            root.Arrange(new Rect(0, 0, 1480, 900));
-            root.UpdateLayout();
-
-            var addButton = LogicalDescendants<Button>(layoutTab)
-                .Single(button => AutomationProperties.GetName(button) == "Neues Layout erstellen");
-            var controls = new FrameworkElement[]
+            var tabs = Assert.Single(Assert.IsType<Grid>(window.Content).Children.OfType<TabControl>());
+            tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Zonen & Layouts"));
+            window.Show();
+            try
             {
-                Assert.IsType<ComboBox>(window.FindName("LayoutMonitorSelector")),
-                Assert.IsType<ComboBox>(window.FindName("LayoutSelector")),
-                Assert.IsType<TextBox>(window.FindName("LayoutNameText")),
-                addButton,
-                Assert.IsType<Button>(window.FindName("DeleteLayoutButton"))
-            };
-            var expectedHeight = controls[0].ActualHeight;
+                window.UpdateLayout();
+                var layoutTabs = Assert.IsType<ItemsControl>(window.FindName("LayoutTabs"));
+                Assert.Equal(2, layoutTabs.Items.Count);
+                var buttons = UiTree.VisualDescendants<Button>(layoutTabs).Where(button => button.DataContext is MonitorLayout).ToArray();
+                Assert.Equal(2, buttons.Length);
+                Assert.True(Chrome.GetIsCurrent(buttons[0]));
+                Assert.False(Chrome.GetIsCurrent(buttons[1]));
 
-            Assert.All(controls, control => Assert.Equal(expectedHeight, control.ActualHeight, 3));
-            Assert.DoesNotContain(
-                VisualDescendants<TextBlock>(controls[0]),
-                textBlock => textBlock.Text == viewModel.Monitors[0].DetailsText);
-        });
-    }
+                // Ein Klick wechselt nur das bearbeitete Layout; aktiv bleibt «Arbeit».
+                buttons[1].RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                window.UpdateLayout();
 
-    [Fact]
-    public void Main_window_exposes_monitor_layout_management_without_a_profile_page()
-    {
-        WpfThemeHost.Invoke(() =>
-        {
-            var monitor = new LiveMonitor(
-                new MonitorIdentity("MONITOR-A", "DISPLAY1", "Monitor A"),
-                new MonitorWorkArea(0, 0, 2560, 1440),
-                96,
-                96,
-                true);
-            var viewModel = new MainViewModel(SnapConfiguration.CreateDefault(), [monitor]);
-            var window = new MainWindow();
-            window.AttachViewModel(viewModel);
-            var root = Assert.IsType<Grid>(window.Content);
-            var tabs = Assert.Single(root.Children.OfType<TabControl>());
-
-            Assert.DoesNotContain(tabs.Items.OfType<TabItem>(), item => Equals(item.Header, "Profile"));
-            Assert.IsType<ComboBox>(window.FindName("LayoutMonitorSelector"));
-            Assert.IsType<ComboBox>(window.FindName("LayoutSelector"));
-            Assert.IsType<TextBox>(window.FindName("LayoutNameText"));
-            Assert.IsType<TextBox>(window.FindName("MonitorNameText"));
-            Assert.IsType<Button>(window.FindName("IdentifyMonitorsButton"));
-            var deleteButton = Assert.IsType<Button>(window.FindName("DeleteLayoutButton"));
-            var binding = System.Windows.Data.BindingOperations.GetBinding(deleteButton, Button.IsEnabledProperty);
-            Assert.Equal(nameof(MainViewModel.CanDeleteSelectedLayout), binding?.Path.Path);
+                Assert.Equal("Abend", viewModel.SelectedLayout?.Name);
+                Assert.True(viewModel.Configuration.Layouts.Single(layout => layout.Name == "Arbeit").IsActive);
+                Assert.True(Chrome.GetIsCurrent(buttons[1]));
+                Assert.IsType<Button>(window.FindName("AddLayoutButton"));
+                Assert.Null(window.FindName("LayoutSelector"));
+                Assert.Null(window.FindName("DeleteLayoutButton"));
+            }
+            finally
+            {
+                window.Close();
+            }
         });
     }
 
@@ -106,28 +75,14 @@ public sealed class LayoutSuggestionPresentationTests
     {
         WpfThemeHost.Invoke(() =>
         {
-            var firstMonitor = new LiveMonitor(
-                new MonitorIdentity("MONITOR-LEFT", "DISPLAY1", "Monitor links"),
-                new MonitorWorkArea(0, 0, 2560, 1440),
-                96,
-                96,
-                true,
-                60,
-                34);
-            var secondMonitor = new LiveMonitor(
-                new MonitorIdentity("MONITOR-RIGHT", "DISPLAY2", "Monitor rechts"),
-                new MonitorWorkArea(2560, 0, 1920, 1080),
-                96,
-                96,
-                false,
-                53,
-                30);
+            var firstMonitor = new LiveMonitor(new MonitorIdentity("MONITOR-LEFT", "DISPLAY1", "Monitor links"), new MonitorWorkArea(0, 0, 2560, 1440), 96, 96, true, 60, 34);
+            var secondMonitor = new LiveMonitor(new MonitorIdentity("MONITOR-RIGHT", "DISPLAY2", "Monitor rechts"), new MonitorWorkArea(2560, 0, 1920, 1080), 96, 96, false, 53, 30);
             var viewModel = new MainViewModel(SnapConfiguration.CreateDefault(), [firstMonitor, secondMonitor]);
             var window = new MainWindow();
             window.AttachViewModel(viewModel);
             var root = Assert.IsType<Grid>(window.Content);
             var tabs = Assert.Single(root.Children.OfType<TabControl>());
-            tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Layouts"));
+            tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Zonen & Layouts"));
             var size = new Size(1180, 720);
 
             root.Measure(size);
@@ -140,6 +95,7 @@ public sealed class LayoutSuggestionPresentationTests
             root.UpdateLayout();
 
             Assert.Same(viewModel.Monitors[1], viewModel.SelectedMonitor);
+            Assert.Equal(220d, selector.ActualWidth, 1);
             Assert.True(editorArea.ActualWidth >= 600,
                 $"Der Layout-Editor ist bei Mindestbreite nur {editorArea.ActualWidth:0} Pixel breit.");
         });
@@ -152,15 +108,12 @@ public sealed class LayoutSuggestionPresentationTests
     {
         WpfThemeHost.Invoke(() =>
         {
-            var monitor = new LiveMonitor(
-                new MonitorIdentity("MONITOR-A", "DISPLAY1", "Monitor A"),
-                new MonitorWorkArea(0, 0, 2560, 1440),
-                96,
-                96,
-                true);
+            var monitor = new LiveMonitor(new MonitorIdentity("MONITOR-A", "DISPLAY1", "Monitor A"), new MonitorWorkArea(0, 0, 2560, 1440), 96, 96, true);
             var window = new MainWindow();
             window.AttachViewModel(new MainViewModel(SnapConfiguration.CreateDefault(), [monitor]));
             var root = Assert.IsType<Grid>(window.Content);
+            var tabs = Assert.Single(root.Children.OfType<TabControl>());
+            tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Zonen & Layouts"));
 
             root.Measure(new Size(width, height));
             root.Arrange(new Rect(0, 0, width, height));
@@ -171,117 +124,56 @@ public sealed class LayoutSuggestionPresentationTests
             var headerControls = new FrameworkElement[]
             {
                 Assert.IsType<ComboBox>(window.FindName("LayoutMonitorSelector")),
-                Assert.IsType<ComboBox>(window.FindName("LayoutSelector")),
-                Assert.IsType<TextBox>(window.FindName("LayoutNameText")),
-                Assert.IsType<TextBox>(window.FindName("MonitorNameText")),
-                Assert.IsType<Button>(window.FindName("DeleteLayoutButton"))
+                Assert.IsType<Button>(window.FindName("AddLayoutButton")),
+                Assert.IsType<Button>(window.FindName("ToggleValuePanelButton"))
             };
 
             Assert.All(headerControls, control =>
             {
                 var bounds = BoundsRelativeTo(control, root);
-                Assert.True(bounds.Bottom + 12 <= editorBounds.Top,
+                Assert.True(bounds.Bottom + 8 <= editorBounds.Top,
                     $"{control.Name} endet bei {bounds.Bottom:0.0}, der Editor beginnt bereits bei {editorBounds.Top:0.0}.");
             });
+
+            var footer = Assert.IsType<Button>(window.FindName("DrawOnMonitorButton"));
+            var page = Assert.IsType<Grid>(tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Zonen & Layouts")).Content);
+            Assert.True(BoundsRelativeTo(footer, root).Right <= BoundsRelativeTo(page, root).Right + 0.5,
+                "Die Hauptaktion der Fusszeile ragt aus der Seite.");
         });
     }
 
     [Fact]
-    public void Layout_header_actions_stay_inside_the_page_at_minimum_width()
-    {
-        WpfThemeHost.Invoke(() =>
-        {
-            var monitor = new LiveMonitor(
-                new MonitorIdentity("MONITOR-A", "DISPLAY1", "Monitor A"),
-                new MonitorWorkArea(0, 0, 2560, 1440),
-                96,
-                96,
-                true);
-            var window = new MainWindow();
-            window.AttachViewModel(new MainViewModel(SnapConfiguration.CreateDefault(), [monitor]));
-            var root = Assert.IsType<Grid>(window.Content);
-            var tabs = Assert.Single(root.Children.OfType<TabControl>());
-            var layoutTab = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Layouts"));
-            var page = Assert.IsType<Grid>(layoutTab.Content);
-            var size = new Size(1180, 720);
-
-            root.Measure(size);
-            root.Arrange(new Rect(size));
-            root.UpdateLayout();
-
-            var deleteButton = Assert.IsType<Button>(window.FindName("DeleteLayoutButton"));
-            var pageBounds = BoundsRelativeTo(page, root);
-            var buttonBounds = BoundsRelativeTo(deleteButton, root);
-
-            Assert.True(buttonBounds.Right <= pageBounds.Right,
-                $"Die Layoutaktion endet bei {buttonBounds.Right:0.0}, die Seite bereits bei {pageBounds.Right:0.0}.");
-        });
-    }
-
-    [Fact]
-    public void Layout_page_renders_each_adaptive_suggestion_as_a_graphic_preview_card()
+    public void Template_menu_renders_each_adaptive_suggestion_as_a_graphic_preview_card()
     {
         WpfThemeHost.Invoke(() =>
         {
             var identity = new MonitorIdentity("MONITOR-WIDE", "DISPLAY1", "Super-Ultrawide");
-            var monitor = new LiveMonitor(
-                identity,
-                new MonitorWorkArea(0, 0, 5120, 1440),
-                96,
-                96,
-                true,
-                119,
-                34);
-            var window = new MainWindow();
+            var monitor = new LiveMonitor(identity, new MonitorWorkArea(0, 0, 5120, 1440), 96, 96, true, 119, 34);
+            var window = new MainWindow { Left = -10000 };
             window.AttachViewModel(new MainViewModel(SnapConfiguration.CreateDefault(), [monitor]));
-            var root = Assert.IsType<Grid>(window.Content);
-            var tabs = Assert.Single(root.Children.OfType<TabControl>());
-            tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Layouts"));
-            root.Measure(new Size(1480, 900));
-            root.Arrange(new Rect(0, 0, 1480, 900));
-            root.UpdateLayout();
+            var tabs = Assert.Single(Assert.IsType<Grid>(window.Content).Children.OfType<TabControl>());
+            tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Zonen & Layouts"));
+            window.Show();
+            try
+            {
+                var popup = Assert.IsType<Popup>(window.FindName("TemplatePopup"));
+                Assert.IsType<Button>(window.FindName("TemplateMenuButton")).RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+                Assert.True(popup.IsOpen);
+                var items = Assert.IsType<ItemsControl>(window.FindName("TemplateSuggestions"));
+                items.UpdateLayout();
+                var previews = UiTree.VisualDescendants<LayoutTemplatePreview>(items).ToArray();
 
-            var items = Assert.IsType<ItemsControl>(window.FindName("TemplateSuggestions"));
-            var previews = VisualDescendants<LayoutTemplatePreview>(items).ToArray();
-
-            Assert.Equal(items.Items.Count, previews.Length);
-            Assert.True(previews.Length >= 4);
-            Assert.All(previews, preview => Assert.NotNull(preview.Suggestion));
-            Assert.All(previews, preview => Assert.Equal(5120d / 1440d, preview.Suggestion!.MonitorAspectRatio, 6));
+                Assert.True(items.Items.Count >= 4);
+                Assert.Equal(items.Items.Count, previews.Length);
+                Assert.All(previews, preview => Assert.NotNull(preview.Suggestion));
+                Assert.All(previews, preview => Assert.Equal(5120d / 1440d, preview.Suggestion!.MonitorAspectRatio, 6));
+                popup.IsOpen = false;
+            }
+            finally
+            {
+                window.Close();
+            }
         });
-    }
-
-    private static IEnumerable<T> VisualDescendants<T>(DependencyObject parent) where T : DependencyObject
-    {
-        for (var index = 0; index < VisualTreeHelper.GetChildrenCount(parent); index++)
-        {
-            var child = VisualTreeHelper.GetChild(parent, index);
-            if (child is T match)
-            {
-                yield return match;
-            }
-
-            foreach (var descendant in VisualDescendants<T>(child))
-            {
-                yield return descendant;
-            }
-        }
-    }
-
-    private static IEnumerable<T> LogicalDescendants<T>(DependencyObject parent) where T : DependencyObject
-    {
-        foreach (var child in LogicalTreeHelper.GetChildren(parent).OfType<DependencyObject>())
-        {
-            if (child is T match)
-            {
-                yield return match;
-            }
-
-            foreach (var descendant in LogicalDescendants<T>(child))
-            {
-                yield return descendant;
-            }
-        }
     }
 
     private static Rect BoundsRelativeTo(FrameworkElement element, UIElement ancestor)

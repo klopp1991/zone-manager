@@ -2,6 +2,7 @@ using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows;
 using SnapZones.App.Views;
+using SnapZones.Tests.Support;
 using Xunit;
 
 namespace SnapZones.Tests.Theme;
@@ -21,11 +22,11 @@ public sealed class ConfigurationTransferUiTests
                 .Single(item => Equals(item.Header, "Programm"));
             var exportButton = Assert.IsType<Button>(window.FindName("ExportConfigurationButton"));
             var importButton = Assert.IsType<Button>(window.FindName("ImportConfigurationButton"));
-            var pageButtons = LogicalDescendants<Button>(transferPage).ToArray();
+            var pageButtons = UiTree.LogicalDescendants<Button>(transferPage).ToArray();
             var header = root.Children
                 .OfType<Border>()
                 .Single(border => Grid.GetRow(border) == 0);
-            var headerButtons = LogicalDescendants<Button>(header).ToArray();
+            var headerButtons = UiTree.LogicalDescendants<Button>(header).ToArray();
 
             Assert.Equal("Vollständig exportieren", AutomationProperties.GetName(exportButton));
             Assert.Equal("Vollständig importieren", AutomationProperties.GetName(importButton));
@@ -34,27 +35,9 @@ public sealed class ConfigurationTransferUiTests
             Assert.DoesNotContain(exportButton, headerButtons);
             Assert.DoesNotContain(importButton, headerButtons);
 
-            // Beide Aktionen sind gleichrangig und teilen sich denselben farbigen Schaltflaechenstil.
-            var primary = Assert.IsType<Style>(Application.Current.Resources["PrimaryButton"]);
-            Assert.Same(primary, exportButton.Style);
-            Assert.Same(primary, importButton.Style);
+            // Beide Aktionen sind gleichrangig und teilen sich denselben Schaltflaechenstil.
+            Assert.Same(exportButton.Style, importButton.Style);
+            Assert.NotSame(window.FindResource("PrimaryButton"), exportButton.Style);
         });
-    }
-
-    private static IEnumerable<T> LogicalDescendants<T>(DependencyObject parent)
-        where T : DependencyObject
-    {
-        foreach (var child in LogicalTreeHelper.GetChildren(parent).OfType<DependencyObject>())
-        {
-            if (child is T match)
-            {
-                yield return match;
-            }
-
-            foreach (var descendant in LogicalDescendants<T>(child))
-            {
-                yield return descendant;
-            }
-        }
     }
 }

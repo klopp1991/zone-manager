@@ -171,6 +171,36 @@ public sealed class LayoutService
         Configuration = Configuration with { Layouts = remaining };
     }
 
+    /// <summary>
+    /// Legt ein zuvor geloeschtes Layout wieder ab, damit ein Loeschen ueber «Rueckgaengig» zuruecknehmbar
+    /// ist. Traegt der Monitor inzwischen kein aktives Layout, wird das wiederhergestellte aktiv; ein
+    /// zwischenzeitlich vergebener Name erhaelt einen Zusatz.
+    /// </summary>
+    public MonitorLayout RestoreLayout(MonitorLayout layout)
+    {
+        ArgumentNullException.ThrowIfNull(layout);
+        if (Configuration.Layouts.Any(existing => existing.Id == layout.Id))
+        {
+            return Find(layout.Id);
+        }
+
+        var siblings = LayoutsFor(layout.Monitor);
+        var name = layout.Name;
+        var suffix = 2;
+        while (siblings.Any(sibling => string.Equals(sibling.Name, name, StringComparison.CurrentCultureIgnoreCase)))
+        {
+            name = $"{layout.Name} ({suffix++})";
+        }
+
+        var restored = layout with
+        {
+            Name = name,
+            IsActive = siblings.All(sibling => !sibling.IsActive)
+        };
+        Configuration = Configuration with { Layouts = [.. Configuration.Layouts, restored] };
+        return restored;
+    }
+
     public MonitorLayout ActivateLayout(Guid layoutId)
     {
         var selected = Find(layoutId);

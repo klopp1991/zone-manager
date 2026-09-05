@@ -5,14 +5,26 @@ Zone Manager erstellt frei bearbeitbare Fensterbereiche pro Monitor. Sobald mind
 ## Schnellstart
 
 1. `ZoneManager.exe` starten und die Windows-UAC-Abfrage bestätigen. Die Datei kommt entweder aus dem neuesten [Release](https://github.com/klopp1991/zone-manager/releases/latest) oder entsteht im Rootverzeichnis, sobald das Projekt gebaut wird.
-2. Unter **Layouts** einen Monitor und eines seiner Layouts wählen oder ein neues Layout erstellen.
-3. Die vorhandenen Zonen anpassen und mit **+ Zone** die grösste freie Fläche belegen.
-4. Zonen ziehen, über acht Griffe skalieren oder rechts als Zahlen eingeben – wahlweise über Position und Grösse oder über die vier Randabstände. Die **Masseinheit** wird einmal pro Karte auf Prozent oder Pixel gestellt und gilt für alle acht Felder.
-5. Die Snap-Funktion läuft mit den aktiven Layouts automatisch; jede gültige Änderung wird sofort gespeichert und angewendet.
+2. Die **Übersicht** zeigt jeden Monitor mit seinem aktiven Layout. Ein Klick auf einen Monitor öffnet **Zonen & Layouts**; dort steht ein Tab je Layout, **+ Neu** legt ein leeres, ein Vorlagen- oder ein dupliziertes Layout an.
+3. Die vorhandenen Zonen anpassen und mit **+ Zone** die grösste freie Fläche belegen – im Fenster oder mit **Auf dem Monitor zeichnen** in echter Grösse direkt auf dem Bildschirm.
+4. Zonen ziehen, über acht Griffe skalieren oder im Werte-Panel als Zahlen eingeben – wahlweise über Position und Grösse oder über die vier Randabstände. Die **Masseinheit** wird einmal pro Panel auf Prozent oder Pixel gestellt und gilt für alle acht Felder.
+5. Die Snap-Funktion läuft mit den aktiven Layouts automatisch; jede gültige Änderung wird sofort gespeichert und angewendet. Die Statuszeile nennt die letzte Aktion mit Uhrzeit.
 
 Konfiguration und bestehende Installationen bleiben unter `%APPDATA%\SnapZones\settings.json` kompatibel. Die fünf letzten Stände liegen daneben als `settings.backup-1.json` bis `settings.backup-5.json`; bei einer beschädigten Hauptdatei wird die neueste gültige Sicherung automatisch wiederhergestellt. Autostart ist beim ersten Start ausgeschaltet.
 
 **Export** schreibt jederzeit ein vollständiges JSON-Backup mit sämtlichen Einstellungen, Monitorlayouts, Zonen, IDs und Parametern. **Import** validiert die komplette Datei, zeigt den exakten Ersetzungsumfang und sichert den bisherigen Zustand unmittelbar vor der bestätigten Übernahme. Bestehende Profilkonfigurationen aus Schema 1 werden beim Laden in unabhängige Layouts pro Monitor migriert.
+
+Die fünf Sicherungen erscheinen unter **Programm → Frühere Stände** mit Zeitstempel und einem Satz, was sich danach geändert hat («Layout «Video» angelegt», «Deckkraft 24 % → 30 %»). **Wiederherstellen** holt einen Stand zurück; der bisherige wird dabei selbst als jüngste Sicherung abgelegt, und der Hinweis unten bietet **Rückgängig**.
+
+## Oberfläche
+
+Die Navigation links hat sieben Seiten in drei Gruppen: **Übersicht** · **Einrichten** (Monitore, Zonen & Layouts, Fenster zuordnen, In Ruhe lassen) · **Einstellungen** (Verhalten, Programm). Die Zähler neben den Einträgen nennen Monitore, Layouts, Zuordnungen und in Ruhe gelassene Programme. Das Suchfeld oben findet jede Einstellung über Beschriftung, Pfad und Synonyme («dunkel» führt zum Erscheinungsbild); ein Treffer öffnet Seite und Untertab, `Enter` den ersten Treffer, `Esc` leert das Feld.
+
+Die **Übersicht** zeigt jeden Monitor als Karte mit Miniatur seines aktiven Layouts und einer Auswahl zum Umschalten, darunter drei Zähler (zugeordnete Fenster mit Hinweis auf pausierte Zuordnungen, in Ruhe gelassene Programme, gemerkte Fenster) und die drei häufigsten Aktionen: **Zonen auf dem Monitor zeichnen**, **+ Fenster zuordnen**, **Zonen kurz einblenden** (drei Sekunden auf allen Monitoren).
+
+Löschende Aktionen fragen nicht mehr nach. Zuordnung entfernen, wieder einrasten lassen, Zone oder Layout löschen, gemerkte Positionen verwerfen, Einstellungen zurücksetzen und einen früheren Stand wiederherstellen werden sofort gespeichert und unten in der Mitte mit einem Hinweis samt **Rückgängig** bestätigt; er bleibt sechs Sekunden stehen, länger, solange der Mauszeiger darauf liegt. Nachgefragt wird nur noch, wo sich nichts zurücknehmen lässt: Zertifikat, Installation, Update.
+
+Jede Einstellung trägt ein **?**; beim Darüberfahren oder mit Tastaturfokus erklärt es in zwei bis fünf Sätzen Wirkung, Beispiel, Bedeutung des leeren Werts und den erlaubten Bereich. Schalter ersetzen die Checkboxen in Listen und Einstellungszeilen.
 
 ## Mehrere Zonen verbinden
 
@@ -30,81 +42,77 @@ aneinander, deckt das Fenster auch die Lücke dazwischen ab — ein Fenster kann
 Ein so platziertes Fenster wird wie jedes andere gemerkt, allerdings über sein Rechteck statt über eine
 einzelne Zone.
 
-## Regeln
+## Fenster zuordnen
 
-Auf der Seite **Regeln** verbindet eine Regel ein Fenster mit einer Zielzone. Der Editor führt in vier nummerierten Gruppen durch die Eingabe:
+Auf der Seite **Fenster zuordnen** bringt eine Zuordnung ein Fenster immer in dieselbe Zone – beim Öffnen, beim Fokus oder beim Layoutwechsel. Jede Zuordnung ist eine Zeile: Programmsymbol, «Explorer.exe → Referenz», darunter Ereignis · Monitor › Layout · Eingrenzung, rechts ein Schalter zum Ein- und Ausschalten und **Bearbeiten**. Fehlt das Ziel, weil Layout oder Zone gelöscht wurden, trägt die Zeile einen gelben Rand, «Ziel fehlt – Zuordnung pausiert» und die Schaltfläche **Beheben**; es gibt keinen stillen Fallback, und Zuordnungen starten keine Programme.
 
-1. **Programm** — Prozesspfad oder Programmname; wie Titelmuster und Fensterklasse ein Filter und kein Pflichtfeld. Zwei Wege führen dorthin: **Programmdatei wählen …** öffnet den Dateidialog und trägt den vollständigen Pfad ein; das ist die richtige Wahl, wenn genau eine bestimmte Programmdatei gemeint ist. **Laufendes Programm wählen …** listet die laufenden Programme mit sichtbarem Fenster samt Fenstertitel und Pfad, ist durchsuchbar und übernimmt bewusst **nur den Dateinamen**, etwa `Discord.exe`. Viele Programme installieren sich in ein Verzeichnis mit Versionsnummer; eine Regel auf den vollständigen Pfad hört beim nächsten Update auf zu greifen, während der blosse Dateiname unabhängig vom Installationsort trifft. Läuft ein Programm mit erhöhten Rechten, gibt Windows den Pfad ohnehin nicht preis; dann steht der Programmname allein zur Verfügung.
-2. **Fenster eingrenzen** — Titelmuster vergleicht einen Teil des Fenstertitels ohne Rücksicht auf Gross- und Kleinschreibung; Fensterklasse vergleicht den internen Windows-Fenstertyp wie `CabinetWClass`. Leer bedeutet jeweils: keine Einschränkung. `*` und `?` dienen als Platzhalter.
-   Programm, Titelmuster und Fensterklasse sind gleichrangig; **mindestens eines der drei** muss stehen, welches, entscheidest du. Eine Regel lässt sich deshalb jederzeit umstellen: wer vom Pfad auf das Titelmuster wechselt, trägt das Muster ein und leert das Programmfeld. Solange kein Merkmal gesetzt ist, weist der Editor darauf hin und die Regel bleibt wirkungslos – sie würde sonst auf jedes Fenster passen. Passen mehrere Regeln bei gleicher Priorität, gewinnt die enger gefasste.
-3. **Auslöser** — Ereignis, Verzögerung von 0 bis 30000 Millisekunden, 0 bis 3 Wiederholungen, Priorität von 0 bis 100. Unter der Zeile erklärt ein Hinweisfeld das gewählte Ereignis im Klartext: **Fenster wird geöffnet** greift einmalig beim Erscheinen eines neuen Fensters, **Fenster erhält den Fokus** jedes Mal beim Wechsel zu einem passenden Fenster, **Layout wird aktiviert** ordnet beim Layoutwechsel alle bereits offenen passenden Fenster neu an.
-4. **Ziel** — Ziellayout und Zielzone; das Layout bestimmt zugleich den Monitor.
+**+ Fenster zuordnen** öffnet einen Dialog: links die laufenden Fenster mit Symbol, Programmname und Fenstertitel, durchsuchbar; rechts das Ziel als Monitor · Layout mit seinen Zonen und den bereits zugeordneten Programmen als Chips («Explorer.exe ×»). Ein Fenster wird auf eine Zone gezogen oder gewählt und die Zone angeklickt; **Wann?** legt das Ereignis fest, **Zuordnen** legt die Zuordnung an, **Eingrenzen & Feinheiten …** öffnet gleich das Detail. Übernommen wird bewusst **nur der Dateiname**, etwa `Discord.exe`: viele Programme installieren sich in ein Verzeichnis mit Versionsnummer, und eine Zuordnung auf den vollständigen Pfad hörte beim nächsten Update auf zu greifen. **Programmdatei wählen, die gerade nicht läuft …** führt in den Dateidialog. Ohne Zuordnung zeigt die Seite ein Beispiel und **+ Erstes Fenster zuordnen**.
 
-**+ Regel** legt den Eintrag sofort an und wählt ihn in der Liste aus, auch wenn noch kein Feld ausgefüllt ist; der Entwurf geht damit beim nächsten Klick in der Liste nicht verloren.
+**Bearbeiten** klappt das Detail unter der Zeile auf: Programm (mit **ändern**), Wann (**Fenster wird geöffnet** greift einmalig beim Erscheinen, **Fenster erhält den Fokus** bei jedem Wechsel zu einem passenden Fenster, **Layout wird aktiviert** ordnet beim Layoutwechsel alle offenen passenden Fenster neu an), Ziellayout und Zielzone. Aufklappbar darunter **Fenster eingrenzen** (Titel enthält, Fensterklasse wie `CabinetWClass`; `*` und `?` als Platzhalter) und **Feinheiten** (Verzögerung 0 bis 30000 ms, 0 bis 3 Wiederholungen, Priorität 0 bis 100). Programm, Titel und Fensterklasse sind gleichrangige Filter; mindestens eines der drei muss stehen, sonst weist das Detail darauf hin und die Zuordnung bleibt wirkungslos. Passen mehrere Zuordnungen bei gleicher Priorität, gewinnt die enger gefasste. Alles wird sofort gespeichert; **Zuordnung entfernen** lässt sich über den Hinweis rückgängig machen.
 
-In der Regelliste steht als Überschrift das Titelmuster, sofern eines gesetzt ist, sonst der Dateiname des Programms, sonst die Fensterklasse – nie der vollständige Pfad. Den vollständigen Pfad zeigt der Tooltip des Listeneintrags.
+## In Ruhe lassen
 
-Vor jedem Platzierungsversuch werden Fensteridentität, Regel und Ziel erneut geprüft. Fehlende Layouts, Monitore oder Zonen pausieren die Regel sichtbar; es gibt keinen stillen Fallback und Regeln starten keine Programme.
-
-## Ausschlüsse
-
-Auf der Seite **Ausschlüsse** stehen die Fenster, die die Anwendung vollständig in Ruhe lässt. Für ein
-ausgeschlossenes Fenster erscheint beim Ziehen kein Overlay, es rastet in keine Zone ein, keine Regel bewegt
+Auf der Seite **In Ruhe lassen** stehen die Fenster, die die Anwendung vollständig in Ruhe lässt. Für ein
+solches Fenster erscheint beim Ziehen kein Overlay, es rastet in keine Zone ein, keine Zuordnung bewegt
 es, und seine Position wird weder gemerkt noch beim nächsten Öffnen wiederhergestellt. Es behält damit
 dauerhaft die Grösse und Position, die ihm der Benutzer selbst gibt.
 
-Ein Ausschluss beschreibt das Fenster nach denselben drei Merkmalen wie eine Regel — Programm, Titelmuster,
-Fensterklasse — und über dieselben zwei Wege der Programmauswahl. Leere Felder schränken nicht ein; mindestens
-eines der drei muss stehen, sonst würde der Ausschluss auf jedes Fenster passen und wird nicht gespeichert.
+Jede Zeile nennt das Programm und «Alle Fenster» oder die Eingrenzung; der Schalter schaltet den Eintrag aus,
+ohne ihn zu löschen. **Eingrenzen …** klappt das Detail auf: **Titel enthält** und **Fensterklasse (selten
+nötig)**, damit nur eine Fensterart frei bleibt – etwa ein Vorschaufenster, während das Hauptfenster
+weiterhin einrastet. Die gestrichelte Zeile **+ Programm in Ruhe lassen** öffnet die Auswahl der laufenden
+Programme oder eine .exe-Datei. Ein Eintrag ohne jedes Merkmal wird nicht gespeichert; er würde auf jedes
+Fenster passen. **Wieder einrasten lassen** entfernt den Eintrag mit **Rückgängig**.
 
-Ein Ausschluss ist stärker als jede Regel: passen auf ein Fenster gleichzeitig ein Ausschluss und eine Regel,
-bleibt das Fenster unberührt. Priorität und Konflikte gibt es beim Ausschluss nicht, weil mehrere zutreffende
-Ausschlüsse zum selben Ergebnis führen.
+Ein Eintrag hier ist stärker als jede Zuordnung: passen auf ein Fenster beide, bleibt das Fenster unberührt.
+Priorität und Konflikte gibt es nicht, weil mehrere zutreffende Einträge zum selben Ergebnis führen.
 
 ## Layouteditor
 
-- **+ Zone** belegt die grösste freie achsenparallele Fläche; ohne ausreichenden freien Bereich wird nichts verändert.
-- **Rückgängig** und **Wiederholen** (auch `Strg + Z` / `Strg + Y`) nehmen jede Änderung am Entwurf zurück; ein Mausziehen zählt als eine Änderung. Eine Vorlage fragt nach, bevor sie ein Layout mit mehreren Zonen ersetzt.
-- **Auf dem Monitor zeigen** blendet den Entwurf drei Sekunden lang auf dem echten Monitor ein, genau so, wie das Overlay ihn beim Ziehen zeigen wird.
+- Über der Zeichenfläche steht die Monitorauswahl und ein **Tab je Layout**; das auf dem Monitor aktive trägt «● aktiv». Ein Klick wechselt nur das bearbeitete Layout, aktiviert wird über die Übersicht, das Infobereichsmenü oder den Rechtsklick auf den Tab (**Aktivieren**, **Umbenennen …**, **Duplizieren**, **Layout löschen**). **+ Neu ⌵** legt ein leeres Layout, eines aus einer Vorlage oder eine Kopie des aktuellen an.
+- **+ Zone** belegt die grösste freie achsenparallele Fläche; ohne ausreichenden freien Bereich wird nichts verändert. **Zone löschen** und `Entf` entfernen die ausgewählte Zone mit **Rückgängig**.
+- **Vorlage ⌵** zeigt die fünf Vorschläge, die zu Seitenverhältnis, Auflösung, Skalierung und Monitorgrösse passen; eine Vorlage ersetzt alle Zonen, der Hinweis bietet **Rückgängig**.
+- **↶** und **↷** (auch `Strg + Z` / `Strg + Y`) nehmen jede Änderung am Entwurf zurück; ein Mausziehen zählt als eine Änderung.
+- **Doppelklick** auf eine Zone benennt sie an Ort um (`Enter` übernimmt, `Esc` bricht ab). **Rechtsklick** öffnet das Menü: Auffangzone festlegen oder aufheben, Umbenennen, **Mit Zone n verbinden** (zwei Zonen, die eine ganze Kante teilen, werden zu einer), Zone entfernen.
 - Jede Zone trägt vor ihrem Namen eine Nummer (`1 · Links`); dieselbe Nummer steht im Overlay und ist die Taste in `Ctrl + Shift + Nummer`.
-- Zonen docken innerhalb der eingestellten Magnetdistanz an Monitor- und Zonenkanten an; `Alt` deaktiviert den Magnetismus während des Ziehens.
-- Die Karte **Ausgewählte Zone** schaltet die **Masseinheit** an einer einzigen Stelle um; die Umschaltung gilt gemeinsam für alle acht Zahlenfelder. **Prozent** bleibt bei Auflösungsänderungen proportional; **Pixel** bezieht sich auf die aktuelle Windows-Arbeitsfläche des Monitors.
-- **Position und Grösse** bearbeitet X, Y, Breite und Höhe; **Abstände zum Rand** beschreibt dieselbe Zone von den vier Rändern aus.
+- Zonen docken innerhalb der eingestellten Magnetdistanz an Monitor- und Zonenkanten an; `Alt` deaktiviert das Andocken während des Ziehens.
+- Das **Werte-Panel** rechts (mit **Werte ausblenden ›** einklappbar; die Stellung wird gespeichert) schaltet die **Masseinheit** an einer einzigen Stelle um; die Umschaltung gilt gemeinsam für alle acht Zahlenfelder. **Prozent** bleibt bei Auflösungsänderungen proportional; **Pixel** bezieht sich auf die aktuelle Windows-Arbeitsfläche des Monitors. **Position und Grösse** bearbeitet X, Y, Breite und Höhe; **Abstände zum Rand** beschreibt dieselbe Zone von den vier Rändern aus. Die Checkbox **Auffangzone** markiert die ausgewählte Zone. Siehe [Auffangzone](#auffangzone).
+- **Auf dem Monitor zeichnen ⤢** öffnet denselben Editor als randloses Fenster über der Arbeitsfläche des gewählten Monitors: die Zonen in echter Grösse, der Desktop abgedunkelt dahinter, oben eine schwebende Werkzeugleiste (+ Zone, Vorlage, ↶ ↷, **Werte ⌵** mit den acht Zahlenfeldern, Fertig), an jeder Zone ihr Mass in Prozent **und** Pixel, beim Ziehen eine Hilfslinie mit Masstooltip. Doppelklick, Rechtsklick, `Alt` und `Strg + Z` gelten wie im Fenster; `Esc` oder **Fertig** schliesst. Gespeichert ist ohnehin schon alles. Solange gezeichnet wird, blendet **Zonen kurz einblenden** nichts ein.
 - Überlappende, zu kleine oder ausserhalb liegende Zonen werden markiert und können nicht gespeichert werden.
-- Die Gruppe **Hauptzone** in derselben Karte macht die ausgewählte Zone zur Arbeitszone und hebt die Markierung wieder auf. Siehe [Hauptzone](#hauptzone).
 - Nach jedem Setzen misst das Programm nach. Sitzt das Fenster nicht innerhalb von zwei Pixeln auf der Zielfläche, wird es einmal erneut gesetzt (ein Wechsel zwischen Monitoren mit unterschiedlicher Skalierung braucht häufig zwei Anläufe). Bleibt eine Abweichung, nennt die Statuszeile den Grund, etwa eine Mindestgrösse des Fensters; nach Administratorrechten wird nur gefragt, wenn sich das Fenster gar nicht bewegen liess. Fenster ohne veränderbare Grösse werden in der Zone zentriert statt gestreckt.
 - Beginnt das Ziehen über der Taskleiste, gilt der nächstgelegene Monitor; bleibt das Endereignis von Windows aus (Fenster geschlossen, Maustaste losgelassen), zieht ein Wachhund die Overlays nach spätestens einer Sekunde ein.
 - Beim Einrasten wird der unsichtbare Fensterrand ausgeglichen. Windows gibt Fenstern mit veränderbarer Grösse einen Griffbereich zum Ziehen, der zum Fensterrechteck zählt, aber nicht gezeichnet wird – typischerweise sieben Pixel links, rechts und unten. Ohne Ausgleich stünden zwei Fenster in lückenlos aneinandergrenzenden Zonen sichtbar auseinander. Das Programm vergrössert das Fensterrechteck deshalb um genau diesen Rand, sodass der sichtbare Rahmen exakt in der Zone liegt.
 
-## Hauptzone
+## Auffangzone
 
-Die Hauptzone ist die Arbeitszone: dort landen neu erscheinende Fenster, die sonst nirgends hingehören.
-Festgelegt wird sie im Layouteditor an der Zone selbst, in der Karte **Ausgewählte Zone** unter
-**Hauptzone**. Die markierte Zone trägt in der Zeichenfläche das Feld «Hauptzone».
+Die Auffangzone (bis zum 05.09.2026 «Auffangzone») ist die Arbeitszone: dort landen neu erscheinende Fenster,
+die sonst nirgends hingehören. Festgelegt wird sie im Layouteditor an der Zone selbst – über die Checkbox
+**Auffangzone** im Werte-Panel oder den Rechtsklick auf die Zone. Die markierte Zone trägt in der
+Zeichenfläche das Feld «Auffangzone».
 
-Jedes Layout darf eine eigene Hauptzone tragen. Welche davon wirksam ist, entscheidet die Monitorreihenfolge
-aus der Seite **Monitore**: es gilt die Hauptzone des ersten Monitors, dessen aktives Layout überhaupt eine
+Jedes Layout darf eine eigene Auffangzone tragen. Welche davon wirksam ist, entscheidet die Monitorreihenfolge
+aus der Seite **Monitore**: es gilt die Auffangzone des ersten Monitors, dessen aktives Layout überhaupt eine
 trägt. Monitore ohne Eintrag in dieser Reihenfolge stehen hinten.
 
 Daraus folgt das Verhalten, das im Alltag zählt:
 
 - Ist nur eine einzige Zone markiert, landen neue Fenster immer am selben Ort.
-- Markierst du in mehreren Layouts desselben Monitors je eine, überlebt die Hauptzone den Layoutwechsel:
+- Markierst du in mehreren Layouts desselben Monitors je eine, überlebt die Auffangzone den Layoutwechsel:
   das neue Layout bringt seine eigene mit.
 - Trägt das aktive Layout des vordersten Monitors keine, rutscht die Wahl auf den nächsten Monitor, statt
   ganz auszufallen.
-- Trägt kein aktives Layout eine, gibt es keine Hauptzone, und neue Fenster bleiben unangetastet — so
+- Trägt kein aktives Layout eine, gibt es keine Auffangzone, und neue Fenster bleiben unangetastet — so
   verhält sich das Programm auch ohne jede Markierung.
 
 Ein kopiertes Layout übernimmt die Markierung auf der Zone an derselben Stelle; ohne das hätte eine Kopie
-nie eine Hauptzone. Nach dem Setzen nennt die Statuszeile, welche Hauptzone tatsächlich wirksam ist.
+nie eine Auffangzone. Nach dem Setzen nennt die Statuszeile, welche Auffangzone tatsächlich wirksam ist.
 
-Ein Fenster kommt in die Hauptzone, wenn nacheinander nichts anderes zutrifft:
+Ein Fenster kommt in die Auffangzone, wenn nacheinander nichts anderes zutrifft:
 
 1. Eine passende Regel platziert das Fenster — sie gewinnt immer.
-2. Eine gemerkte Position liegt vor — sie gewinnt vor der Hauptzone.
+2. Eine gemerkte Position liegt vor — sie gewinnt vor der Auffangzone.
 3. Das Fenster liegt bereits auf einer Zone eines aktiven Layouts eingerastet — es bleibt, wo es ist.
-4. Sonst: Hauptzone.
+4. Sonst: Auffangzone.
 
 Eingerastet heisst, dass die vier Fensterränder auf höchstens 40 Pixel genau mit den Zonenrändern
 zusammenfallen; genau so viel kann der unsichtbare Fensterrand ausmachen. `scripts\measure-window-frame.ps1`
@@ -122,7 +130,7 @@ Aufgefangen wird in zwei Fällen:
   speichert die Oberfläche nach jedem Zug, und ein Auffang bei jedem Speichern zöge die Fenster unter den
   Händen weg.
 
-Ausgeschlossene Fenster fasst die Hauptzone nie an. Wie das Einrasten selbst läuft der Auffang genau dann, wenn
+Ausgeschlossene Fenster fasst die Auffangzone nie an. Wie das Einrasten selbst läuft der Auffang genau dann, wenn
 mindestens ein Layout aktiv ist; einen eigenen Schalter dafür gibt es nicht.
 
 ### Welche Fenster von selbst angefasst werden
@@ -139,7 +147,7 @@ eines zutrifft:
   Kopierdialog des Explorers etwa bleibt so unangetastet.
 - Es ist kleiner als 200 × 120 Pixel.
 
-Die Regel gilt ausschliesslich für den automatischen Weg — Auffang in der Hauptzone, gemerkte Positionen,
+Die Regel gilt ausschliesslich für den automatischen Weg — Auffang in der Auffangzone, gemerkte Positionen,
 Auffang nach einem Layoutwechsel und das Nachziehen bei geänderten Zonen. Ziehst du ein solches Fenster
 selbst auf eine Zone oder drückst du ein Zonenkürzel, rastet es weiterhin ein: dort ist die Absicht
 eindeutig. Jede Ablehnung steht mit ihrer Begründung im Protokoll.
@@ -155,7 +163,7 @@ Ist die gemerkte Zone im aktiven Layout noch vorhanden, kehrt das Fenster in die
 sich deren Fläche inzwischen geändert hat; erst ohne Zone zählt die gemerkte Lage. Ein kleines Fenster bleibt
 beim Wiederherstellen klein.
 
-Fehlt eine gemerkte Position, greift die [Hauptzone](#hauptzone), sofern eine festgelegt ist.
+Fehlt eine gemerkte Position, greift die [Auffangzone](#auffangzone), sofern eine festgelegt ist.
 
 Zurückgelegt wird ein Fenster nur beim Erscheinen; ein blosser Fokuswechsel verschiebt nie ein Fenster,
 das gerade von Hand irgendwohin gestellt wurde. Erkannt wird ein Fenster an Programm, Fensterklasse und
@@ -189,7 +197,7 @@ Taskleiste automatisch ausgeblendet, decken sich beide Flächen, weshalb zusätz
 Fenster nicht maximiert ist.
 
 Angefasst wird nur ein Fenster, das vorher in einer Zone eingerastet lag, gemessen mit derselben Toleranz
-wie beim Auffang in der Hauptzone. Ein über mehrere Zonen gezogenes Fenster kehrt in deren gemeinsame
+wie beim Auffang in der Auffangzone. Ein über mehrere Zonen gezogenes Fenster kehrt in deren gemeinsame
 Fläche zurück. Was frei auf dem Bildschirm liegt, geht weiterhin auf den ganzen Monitor: ohne Zone gäbe es
 keinen Bezugspunkt, und das Programm würde Fenster an Stellen zwingen, die niemand gewählt hat. Ein
 Ausschluss gilt auch hier und ist wie überall stärker.
@@ -231,27 +239,26 @@ vergibt der Grafiktreiber. Spiele im randlosen Fenster liegen dagegen als gewöh
 
 ## Monitore
 
-Auf der Seite **Monitore** wählt die Liste links den Monitor, der im ganzen Programm als aktiver Monitor gilt. **Nach oben** und **Nach unten** ändern die Reihenfolge, **Monitore identifizieren** blendet den verwendeten Namen drei Sekunden lang auf jedem Bildschirm ein. Rechts wird der Monitor umbenannt; ein leerer Name stellt die automatische Bezeichnung wieder her. Monitornamen werden bevorzugt aus dem aktiven Displaypfad und den EDID-Daten gelesen.
+Die Seite **Monitore** zeigt einen Monitor auf einmal: **‹** und **›** blättern («Monitor 1 von 2»), in der Mitte steht das aktive Layout als grosse Vorschau mit dem Verweis **Layout «…» · bearbeiten**. Darunter das Feld **Name** (leer stellt die automatische Bezeichnung «Monitor n» wieder her), **Auf Monitor zeigen** blendet den verwendeten Namen drei Sekunden lang auf jedem Bildschirm ein, **Reihenfolge ⌵** verschiebt den Monitor nach oben oder unten. Die Reihenfolge entscheidet, welche Auffangzone wirksam ist. Monitornamen werden bevorzugt aus dem aktiven Displaypfad und den EDID-Daten gelesen.
 
-Monitore werden zur Laufzeit beobachtet. Anstecken, Abstecken, eine geänderte Auflösung, Skalierung oder Drehung und eine verschobene Taskleiste werden nach einer kurzen Ruhepause übernommen: Zonen, Overlays und Zielflächen werden neu aufgebaut, die Statuszeile meldet den neuen Stand, und Fenster, die im neuen Bild auf keiner Zone mehr liegen, werden in die Hauptzone geholt. Ein Neustart ist nicht nötig.
+**Erkannte Werte** (aufgeklappt) nennt Skalierung, Auflösung, Arbeitsfläche und, sofern Windows die EDID liefert, die Diagonale sowie den gemeldeten Namen mit der Kennung aus der EDID. **Windows-Einstellungen öffnen** (zugeklappt) führt zu Anzeige, Textgrösse und Taskleiste. Ändern lassen sich diese Werte nur in Windows selbst: Windows 11 stellt normalen Desktopanwendungen keine unterstützte Schnittstelle bereit, um Anzeigeskalierung, Textskalierung oder monitorweise Taskleisten- und Icongrössen zu setzen; Zone Manager verwendet dafür bewusst keine Explorer-Injektion, keine privaten DPI-Pakete und keine undokumentierten Registry-Werte.
+
+Monitore werden zur Laufzeit beobachtet. Anstecken, Abstecken, eine geänderte Auflösung, Skalierung oder Drehung und eine verschobene Taskleiste werden nach einer kurzen Ruhepause übernommen: Zonen, Overlays und Zielflächen werden neu aufgebaut, die Statuszeile meldet den neuen Stand, und Fenster, die im neuen Bild auf keiner Zone mehr liegen, werden in die Auffangzone geholt. Ein Neustart ist nicht nötig.
 
 Wiedererkannt wird ein Monitor an seiner Hardware: Hersteller, Modell und, sofern der Monitor eine liefert, Seriennummer aus der EDID. Hängt derselbe Monitor an einem anderen Anschluss oder hinter einem anderen Treiber, ändert sich der Anzeigepfad von Windows; die Layouts, der eigene Name und die Position in der Reihenfolge werden dann übernommen, und die Statuszeile nennt das. Zwei baugleiche Monitore ohne Seriennummer bleiben getrennt, weil eine Verwechslung schlimmer wäre als ein neues Standardlayout. Verwaiste Namen und Reihenfolgeeinträge, die zu keinem Monitor und keinem Layout mehr gehören, werden beim Abgleich entfernt.
 
+Platzhalteranzeigen von Windows sind keine Monitore: `WinDisc` meldet Windows, solange die Sitzung gesperrt oder per Fernzugriff getrennt ist, `Default_Monitor` («Generic PnP Monitor»), solange alle echten Monitore aus oder im Standby sind. Beide werden beim Einlesen übersprungen; Layouts, die frühere Versionen dafür angelegt hatten, verschwinden beim nächsten Laden der Konfiguration.
+
 Je Monitorkombination merkt sich das Programm, welche Layouts zuletzt aktiv waren: am Dock mit zwei Monitoren ein anderes als unterwegs mit dem Laptopdisplay allein. Kehrt eine Kombination zurück, werden ihre Layouts wieder aktiviert, ohne dass jemand umschalten muss. Ein Wechsel des aktiven Layouts gilt immer für die gerade verbundene Kombination.
 
-Die Liste enthält auch Monitore, die gerade **nicht verbunden** sind, solange für sie noch mindestens ein Layout gespeichert ist. Sie sind als solche gekennzeichnet und stehen am Ende der Liste. Der Grund: solche Layouts erscheinen weiterhin als Regelziel, wären ohne diesen Eintrag aber nirgends erreichbar und liessen sich nicht mehr löschen. Bei einem nicht verbundenen Monitor darf deshalb auch sein letztes Layout gelöscht werden — danach verschwindet der Monitor aus der Liste. Bei einem verbundenen Monitor bleibt das letzte Layout weiterhin geschützt.
-
-## Skalierung
-
-Die Seite **Skalierung** liest die erkannten Werte des gewählten Monitors aus — Anzeigeskalierung, Auflösung, Arbeitsfläche und, sofern Windows die EDID liefert, die Bildschirmdiagonale — und öffnet die zuständige Windows-Seite.
-
-Ändern lassen sich diese Werte nur in Windows selbst. Windows 11 stellt normalen Desktopanwendungen keine unterstützte Schnittstelle bereit, um Anzeigeskalierung, Textskalierung oder monitorweise Taskleisten- und Icongrössen zu setzen. Benutzerdefinierte Windows-Skalierung von 100 bis 500 % und Textskalierung von 100 bis 225 % sind zudem globale Windows-Einstellungen. Zone Manager verwendet dafür bewusst keine Explorer-Injektion, keine privaten DPI-Pakete und keine undokumentierten Registry-Werte; die Seite bleibt deshalb lesend.
+Die Monitorauswahl enthält auch Monitore, die gerade **nicht verbunden** sind, solange für sie noch mindestens ein Layout gespeichert ist. Sie sind als solche gekennzeichnet und stehen am Ende. Der Grund: solche Layouts erscheinen weiterhin als Ziel einer Zuordnung, wären ohne diesen Eintrag aber nirgends erreichbar und liessen sich nicht mehr löschen. Bei einem nicht verbundenen Monitor darf deshalb auch sein letztes Layout gelöscht werden — danach verschwindet der Monitor. Bei einem verbundenen Monitor bleibt das letzte Layout weiterhin geschützt.
 
 ## Einstellungen
 
-Die Einstellungen sind auf zwei Seiten verteilt: **Verhalten** (Beim Ziehen, Darstellung, Abstände, Fenster merken, Vollbild, Tastenkürzel) und **Programm** (Erscheinungsbild, Autostart, Updates, Rechte, Installation, Fensterhelfer, Sicherung). Die Skalierungswerte stehen auf der Seite **Monitore**, Export und Import unter **Programm → Sicherung**. Die Navigation hat damit sechs Seiten.
+Die Einstellungen sind auf zwei Seiten verteilt: **Verhalten** mit den Untertabs **Beim Ziehen**, **Darstellung**, **Abstände**, **Fenster merken** und **Tastenkürzel**, und **Programm** (Erscheinungsbild, Autostart, Updates, Administratorrechte, Installation, Sicherung, Frühere Stände, Fensterhelfer, Zurücksetzen). Alle Einstellungen sind sichtbar; einen Standard-/Experten-Schalter gibt es seit dem 05.09.2026 nicht mehr. Jede Zeile trägt links die Beschriftung mit **?**, rechts das Steuerelement; das **?** erklärt beim Darüberfahren, was die Einstellung tut, mit Beispiel und Wertebereich. Jeder Wert hat einen sicheren Standard und einen begrenzten Bereich; ungültige Werte werden schon beim Eingeben auf den Bereich gestutzt und beim Laden der Datei abgewiesen.
 
-- System-, helles oder dunkles Theme; Systemänderungen werden ohne Neustart übernommen.
+**Beim Ziehen**
+
 - **Zonen anzeigen auf** bestimmt, wo die Zonen beim Ziehen erscheinen:
   - **Alle Monitore** — gleichzeitig auf jeder Anzeige.
   - **Monitor beim Ziehbeginn** — nur auf dem Bildschirm, auf dem das Fenster angefasst wurde. Die Zonen
@@ -260,47 +267,45 @@ Die Einstellungen sind auf zwei Seiten verteilt: **Verhalten** (Beim Ziehen, Dar
     dem der Zeiger gerade steht, und verschwinden auf allen übrigen. Liegt der Zeiger kurz auf keinem
     Bildschirm — über der Taskleiste oder in der Lücke zwischen zwei unterschiedlich hohen Monitoren —,
     bleibt die bisherige Anzeige stehen, statt zu flackern.
-- Sofortige Aktivierung oder Aktivierung mit Umschalttaste. Die Umschalttaste darf auch erst während des
+- **Zonen einblenden**: sofort oder nur mit Umschalttaste. Die Umschalttaste darf auch erst während des
   Ziehens gedrückt werden; wird sie losgelassen, verschwinden die Zonen wieder, bis sie erneut gedrückt wird.
-- **Abstände**: Aussenabstände links, oben, rechts und unten in Pixel, Zonenabstand und Magnetdistanz in ganzen Prozent. Aussen- und Zonenabstand gelten für Vorschau **und** Fenster: ein Fenster landet genau auf der Fläche, die das Overlay zeigt, auch über Regeln, Hauptzone und Layoutwechsel. Neben jedem Prozentregler steht der abgeleitete Pixelwert als `≙ n px`.
-- Overlayfarbe, Deckkraft und ein-/ausblendbare Zonennamen.
-- **Fensterpositionen merken** schaltet den Positionskatalog ein und aus; daneben stehen die Anzahl der
-  Einträge und die Schaltfläche zum Verwerfen. Siehe [Gemerkte Fensterpositionen](#gemerkte-fensterpositionen).
-- **Vollbild in der Zone halten** begrenzt das Vollbild eines eingerasteten Fensters auf seine Zone, statt
-  den ganzen Monitor einzunehmen. Ausgeschaltet. Siehe [Zonen-Vollbild](#zonen-vollbild).
-- Autostart pro Benutzer über eine Anmeldeaufgabe der Windows-Aufgabenplanung. Sie startet das Programm
-  bereits erhöht, sodass bei der Anmeldung **keine** UAC-Abfrage erscheint. Das Anlegen der Aufgabe braucht
-  Administratorrechte, die das Programm im Normalbetrieb ohnehin besitzt. Schlägt es fehl, weicht das
-  Programm auf den bisherigen Registry-Eintrag `Run` aus und meldet das im Protokoll; dann erscheint die
-  Abfrage bei jeder Anmeldung wieder. Eingetragen ist immer nur einer der beiden Wege.
+- **Zonennamen anzeigen** und die Karte **Feinabstimmung**: Anzeigeverzögerung, Fenster nach dem Einrasten in den Vordergrund holen, Grösse beim Herausziehen wiederherstellen.
 
-### Erweiterte Einstellungen
+**Darstellung**: Farbe der Zonen (Farbfeld und Hexwert), Deckkraft, Beschriftung, dazu der **Overlay-Stil** mit Rahmenbreite, Eckenradius, Hervorhebung (Farbe und Deckkraft der Zielzone) und Schriftgrösse der Beschriftung. Rechts zeigt die Karte **Vorschau** ein Overlay mit drei Zonen, das jede Änderung sofort übernimmt.
 
-Der Schalter **Erweiterte Einstellungen anzeigen** oben auf der Seite **Verhalten** blendet die Feinabstimmung für erfahrene Anwender ein. Jeder Wert hat einen sicheren Standard und einen begrenzten Bereich; ungültige Werte werden schon beim Eingeben auf den Bereich gestutzt und beim Laden der Datei abgewiesen. **Einstellungen zurücksetzen** auf der Seite **Programm** stellt Abstände, Darstellung, Verhalten und alle Feinabstimmungen wieder her; Erscheinungsbild, Autostart, Rechte, Updatesuche, Layouts, Regeln und Ausschlüsse bleiben.
+**Abstände**: Abstand zum Bildschirmrand (links, oben, rechts, unten in Pixel), Abstand zwischen Zonen und Andocken im Editor in ganzen Prozent. Aussen- und Zonenabstand gelten für Vorschau **und** Fenster: ein Fenster landet genau auf der Fläche, die das Overlay zeigt, auch über Zuordnungen, Auffangzone und Layoutwechsel. Neben jedem Prozentregler steht der abgeleitete Pixelwert als `≙ n px`.
 
-| Karte | Einstellung | Bereich (Standard) | Wirkung |
+**Fenster merken**: **Fensterpositionen merken** schaltet den Positionskatalog ein und aus; darunter stehen die Anzahl der Einträge und der Verweis **alle verwerfen** (mit Rückgängig). Siehe [Gemerkte Fensterpositionen](#gemerkte-fensterpositionen). **Vollbild in der Zone halten** begrenzt das Vollbild eines eingerasteten Fensters auf seine Zone; ausgeschaltet, siehe [Zonen-Vollbild](#zonen-vollbild). Darunter die Karten **Feinabstimmung Platzieren** und **Schutz und Zeiten**, siehe Tabelle.
+
+**Tastenkürzel**: Zonenkürzel aktiv, Zusatztasten mit AltGr-Warnung bei `Ctrl + Alt`, und die Tabelle aller Kürzel.
+
+**Programm**: System-, helles oder dunkles Theme (Systemänderungen werden ohne Neustart übernommen); Autostart pro Benutzer über eine Anmeldeaufgabe der Windows-Aufgabenplanung, die das Programm bereits erhöht startet, sodass bei der Anmeldung **keine** UAC-Abfrage erscheint (schlägt das Anlegen fehl, weicht das Programm auf den Registry-Eintrag `Run` aus und meldet das im Protokoll; eingetragen ist immer nur einer der beiden Wege); Updates mit Schalter «beim Start» und **Jetzt suchen**; Administratorrechte; Installation; Sicherung mit **Exportieren** und **Importieren**; **Frühere Stände**; die gestrichelte Karte **Erweitert: Fensterhelfer ohne Administratorrechte** mit dem dreischrittigen **Assistent …**; ganz unten **Alle Einstellungen zurücksetzen** – mit Rückgängig, ohne Nachfrage. Zurückgesetzt werden Abstände, Darstellung, Verhalten und alle Feinabstimmungen; Erscheinungsbild, Autostart, Rechte, Updatesuche, Layouts, Zuordnungen und die Liste «In Ruhe lassen» bleiben.
+
+### Feinabstimmung
+
+| Untertab · Karte | Einstellung | Bereich (Standard) | Wirkung |
 |---|---|---|---|
-| Feinabstimmung Ziehen | Anzeigeverzögerung | 0–1000 ms (0) | Zonen erscheinen erst, wenn das Ziehen so lange dauert; kurze Züge bleiben ohne Aufblitzen. |
-| | Fenster nach dem Einrasten in den Vordergrund holen | aus | Ein per Regel, Hauptzone oder Kürzel gesetztes Fenster erhält den Fokus. |
+| Beim Ziehen · Feinabstimmung | Anzeigeverzögerung | 0–1000 ms (0) | Zonen erscheinen erst, wenn das Ziehen so lange dauert; kurze Züge bleiben ohne Aufblitzen. |
+| | Fenster nach dem Einrasten in den Vordergrund holen | aus | Ein per Zuordnung, Auffangzone oder Kürzel gesetztes Fenster erhält den Fokus. |
 | | Grösse beim Herausziehen wiederherstellen | aus | Ein aus der Zone gezogenes, nirgends abgelegtes Fenster bekommt seine frühere Grösse zurück. |
-| Overlay-Stil | Beschriftung | Nummer und Name / nur Nummer / nur Name | Inhalt der Beschriftungsfläche. |
+| Darstellung · Overlay-Stil | Beschriftung | Nummer und Name / nur Nummer / nur Name | Inhalt der Beschriftungsfläche. |
 | | Rahmenbreite, Eckenradius, Schriftgrösse | 1–6 px (1), 0–24 px (4), 10–24 pt (13) | Optik der Zonen im Overlay. |
-| | Farbe und Deckkraft der Hervorhebung | #RRGGBB oder leer, 10–90 % (36) | Die Zone unter dem Mauszeiger. |
-| Feinabstimmung Platzieren | Fenster mit fester Grösse | zentrieren / oben links / nicht anfassen | Dialoge, die keine Zone füllen können. |
+| | Hervorhebung | #RRGGBB oder leer, 10–90 % (36) | Farbe und Deckkraft der Zone unter dem Mauszeiger. |
+| Fenster merken · Feinabstimmung Platzieren | Fenster mit fester Grösse | zentrieren / oben links / nicht anfassen | Dialoge, die keine Zone füllen können. |
 | | Toleranz beim Nachmessen | 0–10 px (2) | Ab welcher Abweichung ein zweiter Anlauf und eine Meldung folgen. |
-| | Toleranz für «eingerastet» | 8–80 px (40) | Wie nah ein Fenster an den Zonenkanten liegen muss, damit Hauptzone und Layoutwechsel es in Ruhe lassen. |
-| | Neue Fenster in der Hauptzone auffangen | ein | Aus: die Hauptzone dient nur dem Layoutwechsel. |
+| | Toleranz für «eingerastet» | 8–80 px (40) | Wie nah ein Fenster an den Zonenkanten liegen muss, damit Auffangzone und Layoutwechsel es in Ruhe lassen. |
+| | Neue Fenster in der Auffangzone auffangen | ein | Aus: die Auffangzone dient nur dem Layoutwechsel. |
 | | Gemerkte Zone vor gemerkter Lage | ein | Aus: ein Fenster kehrt pixelgenau an seine letzte Lage zurück. |
 | | Maximierte Fenster maximiert wiederherstellen | ein | |
 | | Katalog gemerkter Positionen | 50–2000 (500) | Obergrenze des Positionsgedächtnisses. |
 | | Wartezeit vor dem Beurteilen neuer Fenster | 0–2000 ms (0) | Für Programme, die ihr Fenster spät fertig aufbauen. |
 | | Abstand zwischen Regelversuchen | 50–2000 ms (250) | |
 | Tastenkürzel | Zonenkürzel aktiv, Zusatztasten | ein; Ctrl + Shift / Ctrl + Alt / Alt + Shift / Ctrl + Win | Gilt für alle Zonenkürzel; der Not-Aus bleibt fest. `Ctrl + Alt` blockiert AltGr und wird in der Oberfläche mit einer Warnung angeboten. |
-| Schutz und Zeiten | Schutzschalter des Verschiebe-Hooks | 100–5000 Ereignisse je 10 s (400) | Darüber hält das Programm das Einrasten an. |
+| Fenster merken · Schutz und Zeiten | Schutzschalter des Verschiebe-Hooks | 100–5000 Ereignisse je 10 s (400) | Darüber hält das Programm das Einrasten an. |
 | | Wachhund für hängende Ziehvorgänge | 5–600 s (120) | Danach werden die Zonen eingezogen, was auch immer Windows meldet. |
 | | Versuche beim Zonen-Vollbild | 1–20 je Sitzung (5) | Danach behält ein Fenster, das sich wiederholt zurücksetzt, sein Monitorvollbild. |
 
-Jede Einstellung erklärt direkt in der Oberfläche Wirkung, Gültigkeitsbereich und Einschränkungen. Wie Titel, Beschriftungen und Hilfetexte dabei aufgebaut sind, steht verbindlich in [ui-richtlinien.md](ui-richtlinien.md).
+Wie Titel, Beschriftungen und Erklärungen dabei aufgebaut sind, steht verbindlich in [ui-richtlinien.md](ui-richtlinien.md).
 
 ## Installation
 
@@ -447,7 +452,7 @@ Die Tabelle zeigt die Voreinstellung `Ctrl + Shift`.
 | `Ctrl + Alt + Shift + F12` | Einrasten anhalten und wieder starten (Not-Aus). |
 | `Strg + Z` / `Strg + Y` | Im Layouteditor: Änderung zurücknehmen oder wiederherstellen. |
 
-Die Seite **Verhalten** listet dieselben Kürzel.
+Der Untertab **Tastenkürzel** der Seite **Verhalten** listet dieselben Kürzel.
 
 ## Not-Aus und Schutzschalter
 

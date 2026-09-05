@@ -1,0 +1,90 @@
+<Window x:Class="SnapZones.App.Views.AssignWindowDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:SnapZones.App.Controls"
+        xmlns:viewModels="clr-namespace:SnapZones.App.ViewModels"
+        Title="Fenster zuordnen"
+        Width="960" SizeToContent="Height" MinWidth="720"
+        FontSize="16" ShowInTaskbar="False" WindowStartupLocation="CenterOwner" ResizeMode="NoResize">
+    <Window.Resources>
+        <viewModels:EnumDisplayConverter x:Key="EnumDisplayConverter" />
+        <controls:ProgramIconConverter x:Key="ProgramIconConverter" />
+        <controls:ProgramInitialsConverter x:Key="ProgramInitialsConverter" />
+        <DataTemplate x:Key="EnumItemTemplate"><TextBlock Text="{Binding Converter={StaticResource EnumDisplayConverter}}" /></DataTemplate>
+        <DataTemplate x:Key="TargetLayoutItemTemplate">
+            <TextBlock><Run Text="{Binding UserFacingMonitorName, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding Name, Mode=OneWay}" /></TextBlock>
+        </DataTemplate>
+    </Window.Resources>
+    <Border Background="{DynamicResource SurfaceBrush}" Padding="24">
+        <Grid>
+            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
+            <Grid>
+                <TextBlock x:Name="TitleText" Text="Fenster zuordnen" FontFamily="Segoe UI Variable Display" FontSize="24" FontWeight="SemiBold" />
+                <Button Content="✕" Style="{StaticResource IconButton}" Width="36" MinHeight="36" HorizontalAlignment="Right" Click="Cancel_Click" IsCancel="True" BorderThickness="0" Background="Transparent" AutomationProperties.Name="Dialog schliessen" />
+            </Grid>
+            <TextBlock x:Name="HelpText" Grid.Row="1" Style="{StaticResource HelpText}" Margin="0,4,0,18"
+                       Text="Zieh ein laufendes Fenster in die Zone, in der es künftig landen soll. Die Zuordnung gilt sofort; Feinheiten kannst du danach anpassen." />
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions><ColumnDefinition Width="280" /><ColumnDefinition x:Name="TargetColumn" Width="16" /><ColumnDefinition x:Name="TargetContentColumn" Width="*" /></Grid.ColumnDefinitions>
+                <Border Style="{StaticResource FieldGroup}" Margin="0" Padding="12">
+                    <DockPanel LastChildFill="True">
+                        <TextBlock DockPanel.Dock="Top" Text="Laufende Fenster" Style="{StaticResource GroupTitle}" Margin="0,0,0,8" />
+                        <TextBox DockPanel.Dock="Top" x:Name="SearchText" MinHeight="36" FontSize="14" controls:Chrome.Placeholder="🔍 Suchen" TextChanged="Search_TextChanged" AutomationProperties.Name="Programme durchsuchen" />
+                        <Button DockPanel.Dock="Bottom" x:Name="BrowseButton" Content="Programmdatei wählen, die gerade nicht läuft …" Style="{StaticResource LinkButton}" Margin="0,10,0,0" HorizontalAlignment="Left" Click="Browse_Click"
+                                AutomationProperties.Name="Programmdatei wählen" />
+                        <ListBox x:Name="ProcessList" Margin="0,8,0,0" MinHeight="260" MaxHeight="360" ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 SelectionChanged="ProcessList_SelectionChanged" PreviewMouseLeftButtonDown="ProcessList_PreviewMouseLeftButtonDown"
+                                 PreviewMouseMove="ProcessList_PreviewMouseMove" MouseDoubleClick="ProcessList_MouseDoubleClick" AutomationProperties.Name="Laufende Programme">
+                            <ListBox.ItemContainerStyle>
+                                <Style TargetType="ListBoxItem" BasedOn="{StaticResource {x:Type ListBoxItem}}">
+                                    <Setter Property="Padding" Value="10,8" /><Setter Property="Margin" Value="0,0,0,2" />
+                                </Style>
+                            </ListBox.ItemContainerStyle>
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                        <Border Width="26" Height="26" CornerRadius="6" Background="{DynamicResource AccentSoftBrush}" VerticalAlignment="Center">
+                                            <Grid>
+                                                <TextBlock Text="{Binding DisplayName, Converter={StaticResource ProgramInitialsConverter}}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AccentStatusBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                <Image Source="{Binding ProcessPath, Converter={StaticResource ProgramIconConverter}}" Width="18" Height="18" />
+                                            </Grid>
+                                        </Border>
+                                        <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">
+                                            <TextBlock Text="{Binding DisplayName}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding WindowTitle}" FontSize="12" Foreground="{DynamicResource SubtleInkBrush}" TextTrimming="CharacterEllipsis" />
+                                        </StackPanel>
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </DockPanel>
+                </Border>
+                <StackPanel x:Name="TargetPanel" Grid.Column="2">
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                        <TextBlock Text="Ziel" Style="{StaticResource FieldLabel}" Margin="0,0,10,0" VerticalAlignment="Center" />
+                        <ComboBox x:Name="LayoutSelector" MinWidth="260" ItemTemplate="{StaticResource TargetLayoutItemTemplate}" SelectionChanged="LayoutSelector_SelectionChanged" AutomationProperties.Name="Ziellayout" />
+                    </StackPanel>
+                    <Border x:Name="MonitorFrame" Background="{DynamicResource MonitorFrameBrush}" CornerRadius="12" Padding="8" AllowDrop="True" DragOver="Zones_DragOver" DragLeave="Zones_DragLeave" Drop="Zones_Drop">
+                        <Grid x:Name="ZoneHost" Background="{DynamicResource MonitorScreenBrush}" MinHeight="240" SizeChanged="ZoneHost_SizeChanged" />
+                    </Border>
+                    <Border Style="{StaticResource FieldGroup}" Margin="0,12,0,0" Padding="12">
+                        <Grid>
+                            <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                            <TextBlock Text="Wann?" Style="{StaticResource FieldLabel}" Margin="0,0,12,0" VerticalAlignment="Center" />
+                            <ComboBox x:Name="EventSelector" Grid.Column="1" ItemTemplate="{StaticResource EnumItemTemplate}" AutomationProperties.Name="Ereignis der Zuordnung" />
+                            <Button x:Name="DetailsLink" Grid.Column="2" Content="Eingrenzen &amp; Feinheiten …" Style="{StaticResource LinkButton}" Margin="14,0,0,0" Click="Details_Click"
+                                    AutomationProperties.Name="Zuordnen und Detail öffnen" ToolTip="Legt die Zuordnung an und öffnet gleich das Detail für Titel, Fensterklasse und Feinheiten." />
+                        </Grid>
+                    </Border>
+                    <TextBlock x:Name="SelectionText" Style="{StaticResource HelpText}" Margin="0,10,0,0" Text="Wähle links ein Fenster und zieh es auf eine Zone – oder klicke eine Zone an." />
+                </StackPanel>
+            </Grid>
+            <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                <Button Content="Abbrechen" Click="Cancel_Click" MinWidth="130" AutomationProperties.Name="Abbrechen" />
+                <Button x:Name="ConfirmButton" Content="Zuordnen" Style="{StaticResource PrimaryButton}" Click="Confirm_Click" IsDefault="True" IsEnabled="False" MinWidth="130" Margin="10,0,0,0"
+                        AutomationProperties.Name="Zuordnung anlegen" />
+            </StackPanel>
+        </Grid>
+    </Border>
+</Window>

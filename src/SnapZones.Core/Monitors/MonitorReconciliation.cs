@@ -36,7 +36,7 @@ public static class MonitorReconciliation
         var order = configuration.MonitorOrder.ToList();
         var sets = configuration.MonitorSets.ToList();
 
-        foreach (var live in monitors)
+        foreach (var live in PseudoMonitors.RealOnly(monitors))
         {
             var identity = live.Identity;
             if (layouts.Any(layout => LayoutService.BelongsToMonitor(layout.Monitor, identity)))

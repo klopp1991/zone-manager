@@ -1,0 +1,119 @@
+<UserControl x:Class="SnapZones.App.Controls.ZoneValuesPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             FontSize="16">
+    <StackPanel>
+        <Grid>
+            <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+            <TextBlock x:Name="ZoneTitleText" Text="Zone" Style="{StaticResource SectionTitle}" VerticalAlignment="Center" />
+            <!-- Eine einzige Stelle schaltet die Einheit aller acht Messfelder um. -->
+            <Border Grid.Column="1" Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource ControlBorderBrush}"
+                    BorderThickness="1" CornerRadius="6" Padding="2" HorizontalAlignment="Right" VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal">
+                    <Button x:Name="ZoneUnitPercentButton" Tag="Percent" Content="%" Click="ZoneUnit_Click"
+                            Style="{StaticResource UnitSegment}" AutomationProperties.Name="Einheit Prozent für alle acht Werte"
+                            ToolTip="Alle acht Werte in Prozent der Monitorarbeitsfläche eingeben." />
+                    <Button x:Name="ZoneUnitPixelButton" Tag="Pixels" Content="px" Click="ZoneUnit_Click"
+                            Style="{StaticResource UnitSegment}" Margin="2,0,0,0" AutomationProperties.Name="Einheit Pixel für alle acht Werte"
+                            ToolTip="Alle acht Werte in Bildschirmpixeln eingeben." />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <TextBlock Text="Name" Style="{StaticResource FieldLabel}" Margin="0,16,0,6" />
+        <TextBox x:Name="ZoneNameText" AutomationProperties.Name="Zonenname"
+                 VerticalContentAlignment="Center" TextChanged="ZoneName_TextChanged" />
+
+        <StackPanel Orientation="Horizontal" Margin="0,16,0,8">
+            <TextBlock Text="Position und Grösse" Style="{StaticResource GroupTitle}" Margin="0" VerticalAlignment="Center" />
+            <Button x:Name="ZonePositionInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Position und Grösse"
+                    ToolTip="X und Y bestimmen die linke obere Ecke der Zone, Breite und Höhe ihre Grösse. Beispiel: X 50, Breite 50 ist die rechte Hälfte. Die Einheit stellst du oben um; sie gilt für alle acht Werte, auch die Randabstände. Erlaubt sind 0 bis 100 % beziehungsweise die Monitorgrösse in Pixel." />
+        </StackPanel>
+        <Border x:Name="ZonePositionGroupBorder" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1" CornerRadius="6" Padding="10">
+            <UniformGrid Columns="2">
+                <StackPanel Margin="0,0,6,0">
+                    <TextBlock Text="X" Style="{StaticResource HelpText}" Margin="0,0,0,4" />
+                    <TextBox x:Name="ZonePositionXText" Tag="PositionAndSize" MinWidth="110" MinHeight="36" FontFamily="Cascadia Mono" FontSize="15"
+                             VerticalContentAlignment="Center" TextAlignment="Right"
+                             AutomationProperties.Name="X-Position" TextChanged="ZoneField_TextChanged"
+                             GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
+                </StackPanel>
+                <StackPanel Margin="6,0,0,0">
+                    <TextBlock Text="Y" Style="{StaticResource HelpText}" Margin="0,0,0,4" />
+                    <TextBox x:Name="ZonePositionYText" Tag="PositionAndSize" MinWidth="110" MinHeight="36" FontFamily="Cascadia Mono" FontSize="15"
+                             VerticalContentAlignment="Center" TextAlignment="Right"
+                             AutomationProperties.Name="Y-Position" TextChanged="ZoneField_TextChanged"
+                             GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
+                </StackPanel>
+                <StackPanel Margin="0,10,6,0">
+                    <TextBlock Text="Breite" Style="{StaticResource HelpText}" Margin="0,0,0,4" />
+                    <TextBox x:Name="ZoneWidthText" Tag="PositionAndSize" MinWidth="110" MinHeight="36" FontFamily="Cascadia Mono" FontSize="15"
+                             VerticalContentAlignment="Center" TextAlignment="Right"
+                             AutomationProperties.Name="Breite" TextChanged="ZoneField_TextChanged"
+                             GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
+                </StackPanel>
+                <StackPanel Margin="6,10,0,0">
+                    <TextBlock Text="Höhe" Style="{StaticResource HelpText}" Margin="0,0,0,4" />
+                    <TextBox x:Name="ZoneHeightText" Tag="PositionAndSize" MinWidth="110" MinHeight="36" FontFamily="Cascadia Mono" FontSize="15"
+                             VerticalContentAlignment="Center" TextAlignment="Right"
+                             AutomationProperties.Name="Höhe" TextChanged="ZoneField_TextChanged"
+                             GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
+                </StackPanel>
+            </UniformGrid>
+        </Border>
+
+        <Expander x:Name="MarginsExpander" Margin="0,12,0,0" Expanded="MarginsExpander_Expanded">
+            <Expander.Header>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Abstände zum Rand" Style="{StaticResource GroupTitle}" VerticalAlignment="Center" />
+                    <TextBlock x:Name="MarginsSummaryText" Foreground="{DynamicResource SubtleInkBrush}" FontSize="13" FontFamily="Cascadia Mono"
+                               Margin="10,0,0,0" VerticalAlignment="Center" />
+                    <Button x:Name="ZoneMarginsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Randabständen"
+                            ToolTip="Die vier Werte beschreiben dieselbe Zone wie Position und Grösse, nur von den Rändern aus gemessen: wie weit die Zone links, oben, rechts und unten vom Monitorrand entfernt ist. Praktisch, wenn eine Zone bis auf einen festen Rand den Monitor füllen soll. Die Einheit stellst du oben um." />
+                </StackPanel>
+            </Expander.Header>
+            <Border x:Name="ZoneMarginsGroupBorder" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="1" CornerRadius="6" Padding="10" Margin="-18,0,0,0">
+                <UniformGrid Columns="2">
+                    <StackPanel Margin="0,0,6,0">
+                        <TextBlock Text="Links" Style="{StaticResource HelpText}" Margin="0,0,0,4" />
+                        <TextBox x:Name="ZoneMarginLeftText" Tag="Margins" MinWidth="110" MinHeight="36" FontFamily="Cascadia Mono" FontSize="15"
+                                 VerticalContentAlignment="Center" TextAlignment="Right"
+                                 AutomationProperties.Name="Abstand links" TextChanged="ZoneField_TextChanged"
+                                 GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
+                    </StackPanel>
+                    <StackPanel Margin="6,0,0,0">
+                        <TextBlock Text="Oben" Style="{StaticResource HelpText}" Margin="0,0,0,4" />
+                        <TextBox x:Name="ZoneMarginTopText" Tag="Margins" MinWidth="110" MinHeight="36" FontFamily="Cascadia Mono" FontSize="15"
+                                 VerticalContentAlignment="Center" TextAlignment="Right"
+                                 AutomationProperties.Name="Abstand oben" TextChanged="ZoneField_TextChanged"
+                                 GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
+                    </StackPanel>
+                    <StackPanel Margin="0,10,6,0">
+                        <TextBlock Text="Rechts" Style="{StaticResource HelpText}" Margin="0,0,0,4" />
+                        <TextBox x:Name="ZoneMarginRightText" Tag="Margins" MinWidth="110" MinHeight="36" FontFamily="Cascadia Mono" FontSize="15"
+                                 VerticalContentAlignment="Center" TextAlignment="Right"
+                                 AutomationProperties.Name="Abstand rechts" TextChanged="ZoneField_TextChanged"
+                                 GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
+                    </StackPanel>
+                    <StackPanel Margin="6,10,0,0">
+                        <TextBlock Text="Unten" Style="{StaticResource HelpText}" Margin="0,0,0,4" />
+                        <TextBox x:Name="ZoneMarginBottomText" Tag="Margins" MinWidth="110" MinHeight="36" FontFamily="Cascadia Mono" FontSize="15"
+                                 VerticalContentAlignment="Center" TextAlignment="Right"
+                                 AutomationProperties.Name="Abstand unten" TextChanged="ZoneField_TextChanged"
+                                 GotKeyboardFocus="ZoneField_GotKeyboardFocus" KeyDown="ZoneField_KeyDown" />
+                    </StackPanel>
+                </UniformGrid>
+            </Border>
+        </Expander>
+        <TextBlock x:Name="ZoneInputErrorText" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="0,8,0,0" FontSize="14" />
+
+        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+            <CheckBox x:Name="MainZoneCheckBox" Content="Auffangzone" FontWeight="SemiBold" Click="MainZone_Click"
+                      AutomationProperties.Name="Ausgewählte Zone als Auffangzone festlegen oder Markierung aufheben" />
+            <Button x:Name="MainZoneInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Auffangzone"
+                    ToolTip="Hier landen neue Fenster, die keine Zuordnung und keine gemerkte Position haben und auf keiner Zone des aktiven Layouts liegen. Beispiel: ein frisch installiertes Programm öffnet sich zum ersten Mal – statt irgendwo auf dem Bildschirm erscheint es in der Auffangzone. Jedes Layout darf eine Auffangzone tragen; wirksam ist die des ersten Monitors der Reihenfolge, dessen aktives Layout eine hat. Ohne Auffangzone bleiben neue Fenster dort, wo Windows sie hinsetzt." />
+        </StackPanel>
+        <TextBlock x:Name="MainZoneStateText" Style="{StaticResource HelpText}" Margin="0,4,0,0" />
+        <TextBlock x:Name="ValidationText" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="0,10,0,0" FontSize="14" />
+    </StackPanel>
+</UserControl>

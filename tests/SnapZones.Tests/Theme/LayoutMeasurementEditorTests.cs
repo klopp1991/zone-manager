@@ -18,33 +18,25 @@ public sealed class LayoutMeasurementEditorTests
     {
         WpfThemeHost.Invoke(() =>
         {
-            var window = CreateWindow();
+            var (_, panel) = CreateWindow();
             var fieldNames = new[]
             {
                 "ZonePositionXText", "ZonePositionYText", "ZoneWidthText", "ZoneHeightText",
                 "ZoneMarginLeftText", "ZoneMarginTopText", "ZoneMarginRightText", "ZoneMarginBottomText"
             };
-            var retiredUnitButtons = new[]
-            {
-                "ZonePositionXUnitButton", "ZonePositionYUnitButton", "ZoneWidthUnitButton", "ZoneHeightUnitButton",
-                "ZoneMarginLeftUnitButton", "ZoneMarginTopUnitButton", "ZoneMarginRightUnitButton", "ZoneMarginBottomUnitButton"
-            };
 
-            Assert.All(fieldNames, name => Assert.IsType<TextBox>(window.FindName(name)));
+            Assert.All(fieldNames, name => Assert.IsType<TextBox>(panel.FindName(name)));
 
             // Die Einheit wird an einer einzigen Stelle umgeschaltet und gilt fuer alle acht Felder.
-            Assert.All(retiredUnitButtons, name => Assert.Null(window.FindName(name)));
-            var percent = Assert.IsType<Button>(window.FindName("ZoneUnitPercentButton"));
-            var pixels = Assert.IsType<Button>(window.FindName("ZoneUnitPixelButton"));
+            var percent = Assert.IsType<Button>(panel.FindName("ZoneUnitPercentButton"));
+            var pixels = Assert.IsType<Button>(panel.FindName("ZoneUnitPixelButton"));
 
             Assert.Equal("%", percent.Content);
             Assert.Equal("px", pixels.Content);
             Assert.Contains("Prozent", AutomationProperties.GetName(percent));
             Assert.Contains("Pixel", AutomationProperties.GetName(pixels));
-            Assert.Same(window.FindResource("UnitSegmentActive"), percent.Style);
-            Assert.Same(window.FindResource("UnitSegment"), pixels.Style);
-            Assert.Null(window.FindName("ZoneUnitCombo"));
-            Assert.Null(window.FindName("ZoneDefinitionCombo"));
+            Assert.Same(panel.FindResource("UnitSegmentActive"), percent.Style);
+            Assert.Same(panel.FindResource("UnitSegment"), pixels.Style);
         });
     }
 
@@ -53,7 +45,7 @@ public sealed class LayoutMeasurementEditorTests
     {
         WpfThemeHost.Invoke(() =>
         {
-            var window = CreateWindow();
+            var (_, panel) = CreateWindow();
             var fieldNames = new[]
             {
                 "ZonePositionXText", "ZonePositionYText", "ZoneWidthText", "ZoneHeightText",
@@ -62,7 +54,7 @@ public sealed class LayoutMeasurementEditorTests
 
             Assert.All(fieldNames, name =>
             {
-                var field = Assert.IsType<TextBox>(window.FindName(name));
+                var field = Assert.IsType<TextBox>(panel.FindName(name));
                 Assert.True(field.MinWidth >= 110d, $"{name} ist zu schmal fuer sechsstellige Pixelwerte.");
             });
         });
@@ -73,16 +65,17 @@ public sealed class LayoutMeasurementEditorTests
     {
         WpfThemeHost.Invoke(() =>
         {
-            var window = CreateWindow();
+            var (_, panel) = CreateWindow();
 
-            Assert.Equal("0", Assert.IsType<TextBox>(window.FindName("ZonePositionXText")).Text);
-            Assert.Equal("0", Assert.IsType<TextBox>(window.FindName("ZonePositionYText")).Text);
-            Assert.Equal("100", Assert.IsType<TextBox>(window.FindName("ZoneWidthText")).Text);
-            Assert.Equal("100", Assert.IsType<TextBox>(window.FindName("ZoneHeightText")).Text);
-            Assert.Equal("0", Assert.IsType<TextBox>(window.FindName("ZoneMarginLeftText")).Text);
-            Assert.Equal("0", Assert.IsType<TextBox>(window.FindName("ZoneMarginTopText")).Text);
-            Assert.Equal("0", Assert.IsType<TextBox>(window.FindName("ZoneMarginRightText")).Text);
-            Assert.Equal("0", Assert.IsType<TextBox>(window.FindName("ZoneMarginBottomText")).Text);
+            Assert.Equal("0", Assert.IsType<TextBox>(panel.FindName("ZonePositionXText")).Text);
+            Assert.Equal("0", Assert.IsType<TextBox>(panel.FindName("ZonePositionYText")).Text);
+            Assert.Equal("100", Assert.IsType<TextBox>(panel.FindName("ZoneWidthText")).Text);
+            Assert.Equal("100", Assert.IsType<TextBox>(panel.FindName("ZoneHeightText")).Text);
+            Assert.Equal("0", Assert.IsType<TextBox>(panel.FindName("ZoneMarginLeftText")).Text);
+            Assert.Equal("0", Assert.IsType<TextBox>(panel.FindName("ZoneMarginTopText")).Text);
+            Assert.Equal("0", Assert.IsType<TextBox>(panel.FindName("ZoneMarginRightText")).Text);
+            Assert.Equal("0", Assert.IsType<TextBox>(panel.FindName("ZoneMarginBottomText")).Text);
+            Assert.Equal("0 · 0 · 0 · 0", Assert.IsType<TextBlock>(panel.FindName("MarginsSummaryText")).Text);
         });
     }
 
@@ -91,21 +84,21 @@ public sealed class LayoutMeasurementEditorTests
     {
         WpfThemeHost.Invoke(() =>
         {
-            var window = CreateWindow();
+            var (window, panel) = CreateWindow();
             var editor = Assert.IsType<LayoutEditorViewModel>(
                 Assert.IsType<MainViewModel>(window.DataContext).Editor);
             var selectedZoneId = Assert.IsType<Guid>(editor.SelectedZone?.Id);
 
             editor.MoveOrResizeZone(selectedZoneId, new NormalizedRect(0.1, 0.2, 0.3, 0.4));
 
-            Assert.Equal("10", Assert.IsType<TextBox>(window.FindName("ZonePositionXText")).Text);
-            Assert.Equal("20", Assert.IsType<TextBox>(window.FindName("ZonePositionYText")).Text);
-            Assert.Equal("30", Assert.IsType<TextBox>(window.FindName("ZoneWidthText")).Text);
-            Assert.Equal("40", Assert.IsType<TextBox>(window.FindName("ZoneHeightText")).Text);
-            Assert.Equal("10", Assert.IsType<TextBox>(window.FindName("ZoneMarginLeftText")).Text);
-            Assert.Equal("20", Assert.IsType<TextBox>(window.FindName("ZoneMarginTopText")).Text);
-            Assert.Equal("60", Assert.IsType<TextBox>(window.FindName("ZoneMarginRightText")).Text);
-            Assert.Equal("40", Assert.IsType<TextBox>(window.FindName("ZoneMarginBottomText")).Text);
+            Assert.Equal("10", Assert.IsType<TextBox>(panel.FindName("ZonePositionXText")).Text);
+            Assert.Equal("20", Assert.IsType<TextBox>(panel.FindName("ZonePositionYText")).Text);
+            Assert.Equal("30", Assert.IsType<TextBox>(panel.FindName("ZoneWidthText")).Text);
+            Assert.Equal("40", Assert.IsType<TextBox>(panel.FindName("ZoneHeightText")).Text);
+            Assert.Equal("10", Assert.IsType<TextBox>(panel.FindName("ZoneMarginLeftText")).Text);
+            Assert.Equal("20", Assert.IsType<TextBox>(panel.FindName("ZoneMarginTopText")).Text);
+            Assert.Equal("60", Assert.IsType<TextBox>(panel.FindName("ZoneMarginRightText")).Text);
+            Assert.Equal("40", Assert.IsType<TextBox>(panel.FindName("ZoneMarginBottomText")).Text);
         });
     }
 
@@ -114,13 +107,13 @@ public sealed class LayoutMeasurementEditorTests
     {
         WpfThemeHost.Invoke(() =>
         {
-            var window = CreateWindow();
-            var positionX = Assert.IsType<TextBox>(window.FindName("ZonePositionXText"));
-            var pixelSwitch = Assert.IsType<Button>(window.FindName("ZoneUnitPixelButton"));
-            var percentSwitch = Assert.IsType<Button>(window.FindName("ZoneUnitPercentButton"));
-            var positionY = Assert.IsType<TextBox>(window.FindName("ZonePositionYText"));
-            var width = Assert.IsType<TextBox>(window.FindName("ZoneWidthText"));
-            var height = Assert.IsType<TextBox>(window.FindName("ZoneHeightText"));
+            var (window, panel) = CreateWindow();
+            var positionX = Assert.IsType<TextBox>(panel.FindName("ZonePositionXText"));
+            var pixelSwitch = Assert.IsType<Button>(panel.FindName("ZoneUnitPixelButton"));
+            var percentSwitch = Assert.IsType<Button>(panel.FindName("ZoneUnitPercentButton"));
+            var positionY = Assert.IsType<TextBox>(panel.FindName("ZonePositionYText"));
+            var width = Assert.IsType<TextBox>(panel.FindName("ZoneWidthText"));
+            var height = Assert.IsType<TextBox>(panel.FindName("ZoneHeightText"));
 
             pixelSwitch.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
             positionX.Text = "320";
@@ -128,10 +121,10 @@ public sealed class LayoutMeasurementEditorTests
             width.Text = "50";
             height.Text = "50";
             var editor = Assert.IsType<LayoutEditorViewModel>(Assert.IsType<MainViewModel>(window.DataContext).Editor);
-            Assert.Same(window.FindResource("UnitSegmentActive"), pixelSwitch.Style);
-            Assert.Same(window.FindResource("UnitSegment"), percentSwitch.Style);
+            Assert.Same(panel.FindResource("UnitSegmentActive"), pixelSwitch.Style);
+            Assert.Same(panel.FindResource("UnitSegment"), percentSwitch.Style);
             Assert.Equal(new NormalizedRect(0.1, 10d / 1080d, 50d / 3200d, 50d / 1080d), editor.SelectedZone?.Bounds);
-            Assert.Equal("2830", Assert.IsType<TextBox>(window.FindName("ZoneMarginRightText")).Text);
+            Assert.Equal("2830", Assert.IsType<TextBox>(panel.FindName("ZoneMarginRightText")).Text);
         });
     }
 
@@ -140,10 +133,10 @@ public sealed class LayoutMeasurementEditorTests
     {
         WpfThemeHost.Invoke(() =>
         {
-            var window = CreateWindow();
-            var name = Assert.IsType<TextBox>(window.FindName("ZoneNameText"));
+            var (window, panel) = CreateWindow();
+            var name = Assert.IsType<TextBox>(panel.FindName("ZoneNameText"));
             var canvas = Assert.IsType<LayoutCanvas>(window.FindName("EditorCanvas"));
-            var width = Assert.IsType<TextBox>(window.FindName("ZoneWidthText"));
+            var width = Assert.IsType<TextBox>(panel.FindName("ZoneWidthText"));
             var editor = Assert.IsType<LayoutEditorViewModel>(
                 Assert.IsType<MainViewModel>(window.DataContext).Editor);
             var originalBounds = editor.SelectedZone?.Bounds;
@@ -158,7 +151,26 @@ public sealed class LayoutMeasurementEditorTests
         });
     }
 
-    private static MainWindow CreateWindow()
+    [Fact]
+    public void The_value_panel_can_be_hidden_and_the_choice_is_stored_as_a_setting()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var (window, _) = CreateWindow();
+            var viewModel = Assert.IsType<MainViewModel>(window.DataContext);
+            var host = Assert.IsType<Border>(window.FindName("ZoneValuesHost"));
+            var toggle = Assert.IsType<Button>(window.FindName("ToggleValuePanelButton"));
+
+            Assert.Equal(Visibility.Visible, host.Visibility);
+            toggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+
+            Assert.Equal(Visibility.Collapsed, host.Visibility);
+            Assert.False(viewModel.Configuration.Settings.EditorValuePanelOpen);
+            Assert.Equal("‹ Werte einblenden", toggle.Content);
+        });
+    }
+
+    private static (MainWindow Window, ZoneValuesPanel Panel) CreateWindow()
     {
         var identity = new MonitorIdentity("MONITOR", "DISPLAY1", "Testmonitor");
         var monitor = new LiveMonitor(
@@ -176,6 +188,6 @@ public sealed class LayoutMeasurementEditorTests
             [new MonitorLayout(identity, 3200, 1080, [zone])]);
         var window = new MainWindow();
         window.AttachViewModel(new MainViewModel(configuration, [monitor]));
-        return window;
+        return (window, Assert.IsType<ZoneValuesPanel>(window.FindName("ZoneValues")));
     }
 }

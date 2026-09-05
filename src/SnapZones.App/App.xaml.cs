@@ -269,7 +269,8 @@ public partial class App : System.Windows.Application
             startupService,
             log,
             UpdateStagingDirectory,
-            eventArgs.Args);
+            eventArgs.Args,
+            new ConfigurationBackupCatalog(appData));
         SessionEnding += (_, _) => controller?.PrepareForSessionEnd();
         singleInstance.ActivationRequested += () =>
         {

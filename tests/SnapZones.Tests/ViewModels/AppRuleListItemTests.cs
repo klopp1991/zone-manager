@@ -22,7 +22,7 @@ public sealed class AppRuleListItemTests
         var viewModel = new AppRuleEditorViewModel([rule], configuration.Layouts);
 
         var item = Assert.Single(viewModel.RuleItems);
-        Assert.Equal("Ziellayout fehlt – Regel pausiert", item.Warning);
+        Assert.Equal("Ziellayout fehlt – Zuordnung pausiert", item.Warning);
         Assert.True(item.HasWarning);
         Assert.Same(item, viewModel.SelectedRuleItem);
     }
@@ -34,7 +34,7 @@ public sealed class AppRuleListItemTests
         var rule = Rule(configuration.Layouts[0].Id, Guid.NewGuid());
         var viewModel = new AppRuleEditorViewModel([rule], configuration.Layouts);
 
-        Assert.Equal("Zielzone fehlt – Regel pausiert", Assert.Single(viewModel.RuleItems).Warning);
+        Assert.Equal("Zielzone fehlt – Zuordnung pausiert", Assert.Single(viewModel.RuleItems).Warning);
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public sealed class AppRuleListItemTests
 
         viewModel.RefreshTargets([configuration.Layouts[0]]);
 
-        Assert.Equal("Ziellayout fehlt – Regel pausiert", Assert.Single(viewModel.RuleItems).Warning);
+        Assert.Equal("Ziellayout fehlt – Zuordnung pausiert", Assert.Single(viewModel.RuleItems).Warning);
     }
 
     [Fact]

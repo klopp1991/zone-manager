@@ -74,39 +74,39 @@ public sealed class CertificateCardPresentationTests
     }
 
     [Fact]
-    public void The_card_shows_one_button_and_both_status_lines()
+    public void The_program_page_shows_the_state_and_the_wizard_holds_the_single_button()
     {
         WpfThemeHost.Invoke(() =>
         {
             var window = new MainWindow();
-            window.AttachViewModel(new MainViewModel(ConfigurationSamples.TwoLayouts(), []));
+            var viewModel = new MainViewModel(ConfigurationSamples.TwoLayouts(), []);
+            window.AttachViewModel(viewModel);
 
-            var action = Assert.IsType<Button>(window.FindName("CertificateActionButton"));
             var state = Assert.IsType<TextBlock>(window.FindName("CertificateStateText"));
             var certificate = Assert.IsType<TextBlock>(window.FindName("CertificateStatusText"));
             var helper = Assert.IsType<TextBlock>(window.FindName("HelperStatusText"));
-
+            Assert.IsType<Button>(window.FindName("HelperWizardButton"));
             Assert.Null(window.FindName("InstallCertificateButton"));
             Assert.Null(window.FindName("RemoveCertificateButton"));
+            Assert.Null(window.FindName("CertificateActionButton"));
 
+            Assert.Equal("CertificateStateLabel", state.GetBindingExpression(TextBlock.TextProperty)!.ParentBinding.Path.Path);
+            Assert.Equal("CertificateStatus", certificate.GetBindingExpression(TextBlock.TextProperty)!.ParentBinding.Path.Path);
+            Assert.Equal("HelperStatus", helper.GetBindingExpression(TextBlock.TextProperty)!.ParentBinding.Path.Path);
+
+            // Der Assistent fuehrt in drei Schritten zur einen Schaltflaeche, deren Beschriftung dem Zustand folgt.
+            var wizard = new HelperWizardWindow(viewModel);
+            Assert.Equal(1, wizard.Step);
+            var action = Assert.IsType<Button>(wizard.FindName("CertificateActionButton"));
             Assert.Equal(
                 "CertificateActionLabel",
                 action.GetBindingExpression(ContentControl.ContentProperty)!.ParentBinding.Path.Path);
             Assert.Equal(
-                "CertificateStateLabel",
-                state.GetBindingExpression(TextBlock.TextProperty)!.ParentBinding.Path.Path);
-            Assert.Equal(
-                "CertificateStatus",
-                certificate.GetBindingExpression(TextBlock.TextProperty)!.ParentBinding.Path.Path);
-            Assert.Equal(
-                "HelperStatus",
-                helper.GetBindingExpression(TextBlock.TextProperty)!.ParentBinding.Path.Path);
-
-            // Auch der vorgelesene Name folgt der Beschriftung, statt eine der beiden Richtungen
-            // fest zu behaupten.
-            Assert.Equal(
                 "CertificateActionLabel",
                 action.GetBindingExpression(AutomationProperties.NameProperty)!.ParentBinding.Path.Path);
+            var text = string.Join("\n", UiTree.LogicalDescendants<TextBlock>(wizard).Select(block => block.Text));
+            Assert.Contains("Was du dafür in Kauf nimmst", text, StringComparison.Ordinal);
+            Assert.Contains("Voraussetzungen", text, StringComparison.Ordinal);
         });
     }
 
