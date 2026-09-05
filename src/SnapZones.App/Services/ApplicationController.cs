@@ -81,6 +81,14 @@ public sealed class ApplicationController : IDisposable
     private readonly ElevationEscalation elevation;
     private readonly SigningCertificateService certificates = new();
     private readonly HelperChannel? helper;
+    private readonly string updateStagingDirectory;
+    private readonly IReadOnlyList<string> startupArguments;
+    private readonly HookRecoveryPolicy hookRecovery = HookRecoveryPolicy.Default;
+    private readonly DispatcherTimer hookResumeTimer;
+    private readonly object environmentGate = new();
+    private PlacementEnvironment? cachedEnvironment;
+    private SnapConfiguration? cachedEnvironmentConfiguration;
+    private IReadOnlyList<LiveMonitor>? cachedEnvironmentMonitors;
     private bool disposed;
 
     public ApplicationController(
@@ -92,7 +100,9 @@ public sealed class ApplicationController : IDisposable
         IReadOnlyList<LiveMonitor> monitors,
         IMonitorService monitorService,
         IStartupService startupService,
-        FileLog log)
+        FileLog log,
+        string updateStagingDirectory,
+        IReadOnlyList<string> startupArguments)
     {
         this.window = window;
         this.viewModel = viewModel;
@@ -100,6 +110,8 @@ public sealed class ApplicationController : IDisposable
         this.monitorService = monitorService;
         this.startupService = startupService;
         this.log = log;
+        this.updateStagingDirectory = updateStagingDirectory ?? throw new ArgumentNullException(nameof(updateStagingDirectory));
+        this.startupArguments = startupArguments ?? throw new ArgumentNullException(nameof(startupArguments));
         saveCoordinator = new ConfigurationSaveCoordinator(repository);
         exitSaveCoordinator = new ExitSaveCoordinator(saveCoordinator);
         saveCoordinator.SaveFinished += SaveFinished;
@@ -132,7 +144,8 @@ public sealed class ApplicationController : IDisposable
             (handle, bounds) => windowService.Fill(handle, bounds),
             handle => windowService.InspectRuleCandidate(handle, Environment.ProcessId)?.Identity,
             () => BuildPlacementEnvironment(configuration),
-            message => log.Write("DEBUG", message));
+            message => log.Write("DEBUG", message),
+            notice: (level, message) => log.Write(level, message));
         appRuleCoordinator = new AppRuleCoordinator(
             () => configuration,
             () => this.monitors,
@@ -159,6 +172,7 @@ public sealed class ApplicationController : IDisposable
         updates = new UpdateCoordinator(
             () => viewModel.ProductVersion,
             () => Environment.ProcessPath,
+            () => this.updateStagingDirectory,
             log.Write);
         viewModel.SaveRequested += SaveRequested;
         viewModel.ForgetWindowPositionsRequested += ForgetWindowPositions;
@@ -195,7 +209,16 @@ public sealed class ApplicationController : IDisposable
         moveHook.EmergencyStopped += reason => EmergencyStop(reason);
         appRuleHook.RuleEvent += AppRuleHook_RuleEvent;
         appRuleHook.EmergencyStopped += reason => EmergencyStop($"App-Regel-Hook gestoppt: {reason}");
-        placementHook.EmergencyStopped += reason => EmergencyStop($"Fensterplatzierungs-Hook gestoppt: {reason}");
+        placementHook.EmergencyStopped += HandlePlacementHookStopped;
+        hookResumeTimer = new DispatcherTimer(DispatcherPriority.Normal, window.Dispatcher);
+        hookResumeTimer.Tick += (_, _) =>
+        {
+            hookResumeTimer.Stop();
+            if (emergencyStopped && !shuttingDown)
+            {
+                ResumeSnapping();
+            }
+        };
         // Das Zonen-Vollbild haengt an denselben Fensterereignissen wie das Positionsgedaechtnis; ein
         // eigener Hook waere ein zweites Abonnement auf dieselben Meldungen.
         placementHook.EventReceived += zoneFullscreen.Handle;
@@ -311,6 +334,65 @@ public sealed class ApplicationController : IDisposable
         log.Write("INFO", "Einrasten nach Not-Aus oder Sicherheitsstopp wieder aktiviert.");
     }
 
+    /// <summary>
+    /// Der Fensterplatzierungs-Hook hat sich abgeschaltet. Nach der Ereignisgrenze laeuft er nach kurzer
+    /// Ruhe von selbst wieder an; nach einem Fehler oder bei gehaeuften Stopps bleibt es beim
+    /// Sicherheitsstopp, den der Anwender von Hand aufhebt.
+    /// </summary>
+    private void HandlePlacementHookStopped(string reason)
+    {
+        var resumeAfter = hookRecovery.Decide(reason, DateTimeOffset.UtcNow);
+        if (resumeAfter is { } delay)
+        {
+            EmergencyStop(
+                $"Fensterplatzierungs-Hook gestoppt: {reason} Das Einrasten läuft in {delay.TotalSeconds:0} Sekunden von selbst weiter.");
+            hookResumeTimer.Interval = delay;
+            hookResumeTimer.Start();
+            return;
+        }
+
+        EmergencyStop($"Fensterplatzierungs-Hook gestoppt: {reason}");
+    }
+
+    /// <summary>
+    /// Legt vor einem Neustart in eine ersetzte Programmdatei alles still und speichert. Wirft nicht:
+    /// was sich nicht speichern liess, steht im Protokoll, der Neustart findet trotzdem statt.
+    /// </summary>
+    public async Task PrepareForExecutableChangeAsync()
+    {
+        shuttingDown = true;
+        hookResumeTimer.Stop();
+        QuiesceForShutdown();
+        var result = await exitSaveCoordinator.TryPrepareForShutdownAsync(
+            viewModel.Save,
+            ShutdownSaveTimeout,
+            placementEngine.FlushAsync);
+        if (!result.IsSaved)
+        {
+            log.Write(
+                "ERROR",
+                $"Vor dem Neustart konnte nicht vollständig gespeichert werden: {result.Describe()}",
+                result.Failure);
+        }
+    }
+
+    /// <summary>
+    /// Startet einen Nachfolger aus der genannten Programmdatei und beendet danach den eigenen Prozess.
+    /// Der Nachfolger wartet auf das Ende dieses Prozesses, bevor er die Einzelinstanz beansprucht.
+    /// </summary>
+    private void StartSuccessorAndExit(string executablePath)
+    {
+        viewModel.Save();
+        var arguments = StartupArguments.ForSuccessor(startupArguments, Environment.ProcessId, hidden: !window.IsVisible);
+        if (ProcessRestart.TryStart(executablePath, arguments, log.Write))
+        {
+            RequestExit();
+            return;
+        }
+
+        viewModel.StatusMessage = $"{System.IO.Path.GetFileName(executablePath)} liess sich nicht starten. Einzelheiten stehen im Protokoll.";
+    }
+
     public void Dispose()
     {
         if (disposed)
@@ -320,6 +402,7 @@ public sealed class ApplicationController : IDisposable
 
         disposed = true;
         allowClose = true;
+        hookResumeTimer.Stop();
         monitorWatcher.Changed -= HandleMonitorsChanged;
         monitorWatcher.Dispose();
         cursorTimer.Stop();
@@ -715,9 +798,9 @@ public sealed class ApplicationController : IDisposable
         viewModel.UpdateStatus = "Update wird geladen \u2026";
         try
         {
-            var result = await updates.InstallAsync(CancellationToken.None);
+            var result = await updates.StageAsync(CancellationToken.None);
             viewModel.UpdateStatus = result.Message;
-            if (result.Status != UpdateInstallStatus.Applied)
+            if (result.Status != UpdateInstallStatus.Staged)
             {
                 return;
             }
@@ -729,19 +812,19 @@ public sealed class ApplicationController : IDisposable
             viewModel.IsUpdateBusy = false;
         }
 
-        // Erst speichern, dann den neuen Stand starten, dann selbst enden. Zwei Staende duerfen nie
-        // gleichzeitig laufen.
+        // Erst speichern, dann die Uebernahme starten, dann selbst enden. Die laufende Programmdatei
+        // bleibt bis dahin unangetastet; der Uebernahmeprozess wartet auf das Ende dieses Prozesses.
         viewModel.Save();
         await saveCoordinator.FlushAsync(CancellationToken.None);
         await placementEngine.FlushAsync(CancellationToken.None);
-        if (updates.TryRestart())
+        if (updates.TryLaunchApply())
         {
             RequestExit();
             return;
         }
 
         viewModel.StatusMessage =
-            "Die neue Version liegt bereit, liess sich aber nicht starten. Beim nächsten Start wird sie verwendet.";
+            "Die neue Version liegt bereit, die Übernahme liess sich aber nicht starten. Einzelheiten stehen im Protokoll.";
     }
 
     /// <summary>
@@ -758,9 +841,11 @@ public sealed class ApplicationController : IDisposable
             return;
         }
 
+        // Der erhoehte Nachfolger wartet auf das Ende dieses Prozesses; ohne diese Wartezeit fand er die
+        // Einzelinstanz noch besetzt, aktivierte sie und beendete sich — der Neustart blieb dann aus.
         var result = elevation.Offer(
             Environment.ProcessPath ?? string.Empty,
-            Environment.GetCommandLineArgs().Skip(1).ToArray());
+            StartupArguments.ForSuccessor(startupArguments, Environment.ProcessId, hidden: !window.IsVisible));
         switch (result.Status)
         {
             case ElevationEscalationStatus.Restarting:
@@ -814,16 +899,60 @@ public sealed class ApplicationController : IDisposable
             TaskScheduler.Default);
     }
 
+    /// <summary>
+    /// Zertifikat einrichten oder entfernen schreibt in den Zertifikatspeicher der Maschine und braucht
+    /// Administratorrechte. Laeuft das Programm gewoehnlich berechtigt, uebernimmt ein erhoehter
+    /// Hilfsprozess derselben Programmdatei die Aktion; Windows fragt dafuer einmal nach. Bis zum
+    /// 04.09.2026 lief die Aktion auch dann im eigenen Prozess und scheiterte mit «Zugriff verweigert».
+    /// </summary>
     private void InstallSigningCertificate()
     {
-        var helperPath = HelperChannel.ResolvePath(Environment.ProcessPath ?? string.Empty);
+        if (ElevationState.IsAdministrator())
+        {
+            var helperPath = HelperChannel.ResolvePath(Environment.ProcessPath ?? string.Empty);
+            _ = RunCertificateActionAsync(
+                "Zertifikat wird eingerichtet …",
+                () => certificates.Install(helperPath, TimeProvider.System.GetUtcNow()));
+            return;
+        }
+
         _ = RunCertificateActionAsync(
-            "Zertifikat wird eingerichtet …",
-            () => certificates.Install(helperPath, TimeProvider.System.GetUtcNow()));
+            "Zertifikat wird eingerichtet; Windows fragt nach Administratorrechten …",
+            () => RunCertificateCommandElevated(
+                StartupArguments.InstallCertificate,
+                "Das Zertifikat ist eingerichtet und der Fensterhelfer signiert."));
     }
 
-    private void RemoveSigningCertificate() =>
-        _ = RunCertificateActionAsync("Zertifikat wird entfernt …", certificates.Remove);
+    private void RemoveSigningCertificate()
+    {
+        if (ElevationState.IsAdministrator())
+        {
+            _ = RunCertificateActionAsync("Zertifikat wird entfernt …", certificates.Remove);
+            return;
+        }
+
+        _ = RunCertificateActionAsync(
+            "Zertifikat wird entfernt; Windows fragt nach Administratorrechten …",
+            () => RunCertificateCommandElevated(
+                StartupArguments.RemoveCertificate,
+                "Das Zertifikat wurde entfernt."));
+    }
+
+    private CertificateActionResult RunCertificateCommandElevated(string argument, string successMessage)
+    {
+        var result = new ElevatedSelfInvocation(Environment.ProcessPath ?? string.Empty)
+            .Run([argument], TimeSpan.FromMinutes(3));
+        if (result.Succeeded)
+        {
+            return new CertificateActionResult(true, successMessage);
+        }
+
+        return new CertificateActionResult(
+            false,
+            result.Status == ElevatedRunStatus.Completed
+                ? "Die Zertifikatsaktion ist im erhöhten Hilfsprozess fehlgeschlagen. Einzelheiten stehen im Protokoll."
+                : result.Message ?? "Die Zertifikatsaktion ist fehlgeschlagen.");
+    }
 
     /// <summary>
     /// Fuehrt eine Zertifikatsaktion im Hintergrund aus. Beide rufen PowerShell auf und warten bis zu
@@ -876,7 +1005,25 @@ public sealed class ApplicationController : IDisposable
         };
     }
 
+    /// <summary>
+    /// Die Installation schreibt nach «Programme» und in HKEY_LOCAL_MACHINE. Laeuft das Programm
+    /// gewoehnlich berechtigt, erledigt das ein erhoehter Hilfsprozess derselben Programmdatei; das
+    /// installierte Programm startet danach dieser Prozess, damit es nicht die Administratorrechte des
+    /// Hilfsprozesses erbt. Bis zum 04.09.2026 lief die Installation auch ohne Rechte im eigenen Prozess
+    /// und scheiterte mit «Zugriff verweigert».
+    /// </summary>
     private void InstallToProgramFiles()
+    {
+        if (ElevationState.IsAdministrator())
+        {
+            InstallToProgramFilesInProcess();
+            return;
+        }
+
+        _ = InstallToProgramFilesElevatedAsync();
+    }
+
+    private void InstallToProgramFilesInProcess()
     {
         var (exitCode, message, startPath) = SetupRunner.Run(
             SetupRunner.Mode.Install,
@@ -893,24 +1040,46 @@ public sealed class ApplicationController : IDisposable
         }
 
         // Der installierte Stand uebernimmt; zwei Staende duerfen nie gleichzeitig laufen.
-        viewModel.Save();
+        StartSuccessorAndExit(startPath);
+    }
+
+    private async Task InstallToProgramFilesElevatedAsync()
+    {
+        if (!viewModel.CanInstall)
+        {
+            return;
+        }
+
+        var processPath = Environment.ProcessPath ?? string.Empty;
+        viewModel.CanInstall = false;
+        viewModel.StatusMessage = "Installation läuft; Windows fragt nach Administratorrechten …";
+        ElevatedRunResult result;
         try
         {
-            using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = startPath,
-                WorkingDirectory = System.IO.Path.GetDirectoryName(startPath) ?? AppContext.BaseDirectory,
-                UseShellExecute = true
-            });
-            if (process is not null)
-            {
-                RequestExit();
-            }
+            result = await new ElevatedSelfInvocation(processPath).RunAsync(
+                [SetupRunner.InstallArgument, SetupRunner.SilentArgument, StartupArguments.NoLaunch],
+                TimeSpan.FromMinutes(5));
         }
-        catch (Exception exception)
+        finally
         {
-            log.Write("WARN", "Der Start aus dem Installationsverzeichnis ist fehlgeschlagen.", exception);
+            PublishInstallationStatus();
         }
+
+        if (!result.Succeeded)
+        {
+            var message = result.Status == ElevatedRunStatus.Completed
+                ? "Die Installation ist fehlgeschlagen. Einzelheiten stehen im Protokoll."
+                : result.Message ?? "Die Installation ist fehlgeschlagen.";
+            viewModel.StatusMessage = message;
+            log.Write("WARN", message);
+            return;
+        }
+
+        var installedPath = InstallationService.CreatePlan(processPath).TargetPath;
+        var success = $"Installiert nach {System.IO.Path.GetDirectoryName(installedPath)}. Das Programm wird von dort gestartet.";
+        viewModel.StatusMessage = success;
+        log.Write("INFO", success);
+        StartSuccessorAndExit(installedPath);
     }
 
     private void ForgetWindowPositions()
@@ -1090,7 +1259,39 @@ public sealed class ApplicationController : IDisposable
         return result;
     }
 
+    /// <summary>
+    /// Die Platzierungsumgebung wird je Konfigurations- und Monitorstand nur einmal gebaut. Sie wird bei
+    /// jedem Fensterereignis abgefragt — beim Ziehen Dutzende Male je Sekunde —, und bis zum 05.09.2026
+    /// wurden dabei jedes Mal alle Zonen neu in Pixel umgerechnet. Konfiguration und Monitorliste sind
+    /// unveraenderlich; eine neue Instanz bedeutet eine Aenderung.
+    /// </summary>
     private PlacementEnvironment BuildPlacementEnvironment(SnapConfiguration currentConfiguration)
+    {
+        var currentMonitors = monitors;
+        lock (environmentGate)
+        {
+            if (cachedEnvironment is { } cached &&
+                ReferenceEquals(cachedEnvironmentConfiguration, currentConfiguration) &&
+                ReferenceEquals(cachedEnvironmentMonitors, currentMonitors))
+            {
+                return cached;
+            }
+        }
+
+        var built = BuildPlacementEnvironmentCore(currentConfiguration, currentMonitors);
+        lock (environmentGate)
+        {
+            cachedEnvironment = built;
+            cachedEnvironmentConfiguration = currentConfiguration;
+            cachedEnvironmentMonitors = currentMonitors;
+        }
+
+        return built;
+    }
+
+    private static PlacementEnvironment BuildPlacementEnvironmentCore(
+        SnapConfiguration currentConfiguration,
+        IReadOnlyList<LiveMonitor> monitors)
     {
         var metrics = new LayoutMetrics(
             currentConfiguration.Settings.EffectiveOuterMargins,
@@ -1622,6 +1823,12 @@ public sealed class ApplicationController : IDisposable
         }
 
         allowClose = true;
+        if (System.Windows.Application.Current is App application)
+        {
+            application.ShutdownSafely();
+            return;
+        }
+
         System.Windows.Application.Current.Shutdown();
     }
 }

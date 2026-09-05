@@ -180,9 +180,15 @@ verschlucken — auf einer Schweizer Tastatur `@`, `#` und `|`, auf einer deutsc
 - **Alles bleibt lokal.** Einstellungen liegen unter `%APPDATA%\SnapZones\settings.json`, daneben die
   fünf letzten Sicherungen. Export und Import schreiben und lesen eine einzige JSON-Datei.
 - **Ein Schutzschalter** hält das Einrasten an, wenn Windows ungewöhnlich viele Fensterereignisse meldet
-  oder ein Rückruf fehlschlägt; die Statuszeile sagt jederzeit, woran man ist.
+  oder ein Rückruf fehlschlägt; die Statuszeile sagt jederzeit, woran man ist. Ein Stopp wegen blosser
+  Last hebt sich nach zehn Sekunden von selbst wieder auf.
 - **Updates** werden nur über HTTPS aus der Release-Ablage dieses Projekts geladen und an Herkunft,
   Grösse und SHA-256-Prüfsumme geprüft. Eine Veröffentlichung ohne Prüfsummendatei wird abgelehnt.
+  Übernommen wird die neue Version erst, nachdem die laufende beendet ist; die eigene Programmdatei wird
+  nie unter dem laufenden Programm ausgetauscht.
+- **Die eigene Programmdatei bleibt unter Beobachtung.** Wird sie von aussen ersetzt — etwa durch einen
+  Build —, speichert das Programm und startet in die neue Datei hinüber, statt beim nächsten Nachladen
+  abzustürzen.
 
 Das Programm ist **nicht** digital signiert. Windows kann deshalb beim ersten Start eine
 SmartScreen-Warnung zeigen. Wem das nicht genügt, der baut es aus diesen Quellen selbst.

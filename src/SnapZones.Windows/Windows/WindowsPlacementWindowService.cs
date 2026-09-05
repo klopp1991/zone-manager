@@ -1,5 +1,6 @@
 using System.IO;
 using System.Runtime.InteropServices;
+using SnapZones.Core.Fullscreen;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Placement;
 using SnapZones.Windows.Native;
@@ -74,6 +75,12 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
             // der Benutzer sie fuer eine Regel oder einen Ausschluss auswaehlen koennen muss. Ob das
             // Programm es von sich aus anfassen darf, steht daneben und wird beim Platzieren geprueft.
             var automaticRejection = AutomaticPlacement.Evaluate(classification.AutomaticPlacementTraits);
+
+            // Ein rahmenloses Fenster ueber dem ganzen Monitor ist ein Vollbild; sein Rechteck ist kein
+            // Ort, den jemand gewaehlt hat.
+            var isFullscreen = !classification.HasCaption &&
+                placement.ShowCommand != ShowMaximized &&
+                ZoneFullscreen.CoversMonitor(classification.Bounds, ToPixelRect(monitorInfo.Monitor));
             return new PlacementWindowSnapshot(
                 windowHandle,
                 identity,
@@ -83,7 +90,8 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
                 placement.ShowCommand == ShowMaximized,
                 IsMinimized(placement.ShowCommand),
                 processPath is null ? null : Path.GetFullPath(processPath),
-                automaticRejection);
+                automaticRejection,
+                isFullscreen);
         }
         catch (Exception exception) when (exception is InvalidOperationException or ArgumentException or OverflowException or IOException)
         {

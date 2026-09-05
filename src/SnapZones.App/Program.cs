@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.IO;
-using System.Security.Principal;
 using SnapZones.Core.Models;
 using SnapZones.App.Services;
 
@@ -21,7 +20,7 @@ internal static class Program
         var elevationResult = ElevationStartupService.EnsureElevation(
             Environment.ProcessPath ?? throw new InvalidOperationException("Der Programmpfad fehlt."),
             arguments,
-            IsAdministrator(),
+            ElevationState.IsAdministrator(),
             ElevationPreference.Read(configurationDirectory),
             startInfo =>
             {
@@ -53,11 +52,5 @@ internal static class Program
         var application = new App();
         application.InitializeComponent();
         application.Run();
-    }
-
-    private static bool IsAdministrator()
-    {
-        using var identity = WindowsIdentity.GetCurrent();
-        return new WindowsPrincipal(identity).IsInRole(WindowsBuiltInRole.Administrator);
     }
 }

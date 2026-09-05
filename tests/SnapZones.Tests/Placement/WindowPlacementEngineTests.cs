@@ -198,6 +198,25 @@ public sealed class WindowPlacementEngineTests
     }
 
     [Fact]
+    public async Task A_window_in_fullscreen_keeps_its_remembered_zone_instead_of_the_monitor_rectangle()
+    {
+        // Ein Browser im Vollbild nimmt den ganzen Monitor ein. Dieses Rechteck darf den Katalog nicht
+        // ueberschreiben, sonst erscheint das Fenster beim naechsten Start monitorfuellend statt in
+        // seiner Zone.
+        using var harness = Harness(mainZoneId: RightZoneId);
+        harness.WindowService.Add(Window(17, LeftZoneBounds));
+        harness.Engine.Start();
+        await harness.EndMoveAsync(17);
+
+        harness.WindowService.Add(Window(17, new PixelRect(0, 0, 1920, 1080)) with { IsFullscreen = true });
+        await harness.EndMoveAsync(17);
+
+        var entry = Assert.Single(harness.Engine.Catalog.Entries);
+        Assert.Equal(LeftZoneBounds, entry.NormalBoundsPixels);
+        Assert.Equal(LeftZoneId, entry.ZoneId);
+    }
+
+    [Fact]
     public async Task With_remembering_switched_off_the_main_zone_still_catches_new_windows()
     {
         // Die Hauptzone haengt nicht am Positionskatalog: wer das Merken abschaltet, verliert sie nicht.

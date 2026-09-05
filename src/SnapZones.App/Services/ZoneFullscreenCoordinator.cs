@@ -38,21 +38,30 @@ public sealed class ZoneFullscreenCoordinator
     private readonly Func<nint, AppWindowIdentity?> identityReader;
     private readonly Func<PlacementEnvironment> environmentFactory;
     private readonly Action<string> log;
+    private readonly Action<string, string> notice;
     private readonly TimeProvider timeProvider;
 
+    /// <param name="log">Die ausführliche Spur je Ereignis; erscheint nur mit <c>--verbose</c>.</param>
+    /// <param name="notice">
+    /// Meldungen mit Stufe, die auch ohne <c>--verbose</c> im Protokoll stehen: ein Fenster, das sich
+    /// nicht setzen liess, oder das erschöpfte Korrekturbudget. Ohne sie war von aussen nicht zu
+    /// erkennen, warum ein Vollbild nicht in seiner Zone blieb.
+    /// </param>
     public ZoneFullscreenCoordinator(
         IFullscreenWindowReader reader,
         Func<nint, PixelRect, PlacementOutcome> fill,
         Func<nint, AppWindowIdentity?> identityReader,
         Func<PlacementEnvironment> environmentFactory,
         Action<string> log,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        Action<string, string>? notice = null)
     {
         this.reader = reader ?? throw new ArgumentNullException(nameof(reader));
         this.fill = fill ?? throw new ArgumentNullException(nameof(fill));
         this.identityReader = identityReader ?? throw new ArgumentNullException(nameof(identityReader));
         this.environmentFactory = environmentFactory ?? throw new ArgumentNullException(nameof(environmentFactory));
         this.log = log ?? throw new ArgumentNullException(nameof(log));
+        this.notice = notice ?? ((_, message) => this.log(message));
         this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
@@ -181,7 +190,7 @@ public sealed class ZoneFullscreenCoordinator
 
             if (isNew)
             {
-                log($"Zonen-Vollbild für 0x{windowHandle:X}: {reason}");
+                notice("WARN", $"Zonen-Vollbild für 0x{windowHandle:X}: {reason}");
             }
         }
         else
@@ -215,7 +224,7 @@ public sealed class ZoneFullscreenCoordinator
         var outcome = fill(windowHandle, decision.Bounds);
         if (outcome.Succeeded)
         {
-            log($"Zonen-Vollbild für 0x{windowHandle:X} auf {decision.Bounds} gesetzt.");
+            notice("INFO", $"Zonen-Vollbild für 0x{windowHandle:X} auf {decision.Bounds} gesetzt.");
             return;
         }
 
@@ -227,7 +236,7 @@ public sealed class ZoneFullscreenCoordinator
             tracker.CorrectionFailed(windowHandle);
         }
 
-        log($"Zonen-Vollbild für 0x{windowHandle:X} nicht gesetzt: {outcome.Rejection}");
+        notice("WARN", $"Zonen-Vollbild für 0x{windowHandle:X} nicht gesetzt: {outcome.Rejection}");
     }
 
     /// <summary>

@@ -6,7 +6,12 @@ namespace SnapZones.Core.Updates;
 
 public enum UpdateInstallStatus
 {
+    /// <summary>Die neue Version liegt vollständig geprüft im Bereitstellungsverzeichnis.</summary>
+    Staged,
+
+    /// <summary>Die neue Version liegt an der Stelle der bisherigen Programmdatei.</summary>
     Applied,
+
     Refused,
     DownloadFailed,
     ReplaceFailed
@@ -15,24 +20,45 @@ public enum UpdateInstallStatus
 public sealed record UpdateInstallResult(UpdateInstallStatus Status, string Message);
 
 /// <summary>
-/// Lädt eine Veröffentlichung herunter und setzt sie an die Stelle der laufenden Programmdatei.
+/// Lädt eine Veröffentlichung herunter und setzt sie an die Stelle der bisherigen Programmdatei.
 ///
+/// <para>
+/// Der Ablauf hat zwei Hälften, die in zwei verschiedenen Prozessen laufen. Die laufende Anwendung
+/// <b>stellt bereit</b> (<see cref="StageAsync"/>): sie lädt Programmdatei und Fensterhelfer in ein
+/// eigenes Verzeichnis und prüft beide an Grösse und Prüfsumme. Die bereitgestellte Programmdatei wird
+/// dann als eigener Prozess gestartet, wartet, bis die alte Anwendung beendet ist, und <b>übernimmt</b>
+/// (<see cref="Apply"/>): erst dann wird die bisherige Programmdatei beiseitegeschoben und die neue an
+/// ihren Platz gelegt.
+/// </para>
+///
+/// <para>
+/// Diese Reihenfolge ist zwingend. Eine Single-File-Anwendung lädt viele ihrer Bausteine erst bei
+/// Bedarf aus der eigenen Programmdatei nach — und zwar über deren Pfad. Wird die Datei unter dem
+/// laufenden Prozess weggeschoben, scheitert jedes spätere Nachladen mit einer
+/// <c>FileNotFoundException</c>, meist Minuten später an einer scheinbar unbeteiligten Stelle. Bis zum
+/// 04.09.2026 wurde die laufende Datei sofort nach dem Download ersetzt; die Abstürze folgten beim
+/// Beenden, beim ersten Fehlerdialog und bei der nächsten Updatesuche.
+/// </para>
+///
+/// <para>
 /// Windows lässt eine laufende Programmdatei nicht überschreiben, wohl aber umbenennen. Der Austausch
-/// geht deshalb in drei Schritten: die neue Datei landet zuerst daneben, dann wird die laufende
+/// geht deshalb in drei Schritten: die neue Datei landet zuerst daneben, dann wird die bisherige
 /// beiseitegeschoben, dann die neue an ihren Platz gelegt. Bricht ein Schritt ab, wird der vorherige
-/// Zustand wiederhergestellt — es darf nie eine halb ersetzte Programmdatei zurückbleiben.
+/// Zustand wiederhergestellt — es darf nie eine halb ersetzte Programmdatei zurückbleiben. Bringt die
+/// Veröffentlichung den Fensterhelfer mit, wird er im selben Zug ersetzt: erst der Helfer, dann die
+/// Programmdatei. Scheitert der zweite Schritt, wandert auch der Helfer zurück.
+/// </para>
 ///
-/// Bringt die Veröffentlichung den Fensterhelfer mit, wird er im selben Zug ersetzt: erst der Helfer,
-/// dann die Programmdatei. Scheitert der zweite Schritt, wandert auch der Helfer zurück — sonst liefe
-/// eine alte Anwendung gegen einen neuen Helfer, also genau die Paarung, die dieser Ablauf verhindern
-/// soll.
-///
-/// Die beiseitegeschobene Datei bleibt liegen, bis der laufende Prozess endet; erst danach lässt sie
-/// sich löschen. <see cref="RemoveSupersededFiles"/> räumt sie beim nächsten Start weg.
+/// <para>
+/// Beiseitegeschobene Dateien und das Bereitstellungsverzeichnis räumt der nächste Start weg
+/// (<see cref="RemoveSupersededFiles"/>, <see cref="CleanStagingDirectory"/>). Was sich nicht löschen
+/// lässt, bleibt liegen und stört nicht.
+/// </para>
 /// </summary>
 public sealed class UpdateInstaller
 {
     private const string SupersededMarker = ".previous.";
+    private const string DownloadSuffix = ".download";
     private readonly Func<HttpClient> clientFactory;
 
     public UpdateInstaller(Func<HttpClient>? clientFactory = null)
@@ -40,12 +66,16 @@ public sealed class UpdateInstaller
         this.clientFactory = clientFactory ?? (() => new HttpClient { Timeout = TimeSpan.FromMinutes(10) });
     }
 
-    public async Task<UpdateInstallResult> InstallAsync(
-        string executablePath,
+    /// <summary>
+    /// Lädt Programmdatei und, sofern vorhanden, Fensterhelfer der Veröffentlichung in das
+    /// Bereitstellungsverzeichnis. Die laufende Programmdatei bleibt unangetastet.
+    /// </summary>
+    public async Task<UpdateInstallResult> StageAsync(
+        string stagingDirectory,
         ReleaseDescription release,
         CancellationToken cancellationToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(executablePath);
+        ArgumentException.ThrowIfNullOrWhiteSpace(stagingDirectory);
         ArgumentNullException.ThrowIfNull(release);
 
         if (!UpdateCheck.IsAcceptableDownload(release, out var rejection))
@@ -53,43 +83,101 @@ public sealed class UpdateInstaller
             return new UpdateInstallResult(UpdateInstallStatus.Refused, rejection);
         }
 
-        var downloadPath = executablePath + ".download";
+        try
+        {
+            // Reste einer frueheren, nie uebernommenen Bereitstellung duerfen nicht mit den neuen Dateien
+            // vermischt werden.
+            CleanStagingDirectory(stagingDirectory);
+            Directory.CreateDirectory(stagingDirectory);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return new UpdateInstallResult(
+                UpdateInstallStatus.DownloadFailed,
+                $"Das Bereitstellungsverzeichnis liess sich nicht anlegen: {exception.Message}");
+        }
+
+        var stagedExecutable = BuildStagedExecutablePath(stagingDirectory);
         if (await FetchAsync(
                 release.DownloadUrl,
                 release.SizeInBytes,
                 release.ChecksumUrl!,
-                downloadPath,
+                stagedExecutable,
                 cancellationToken).ConfigureAwait(false) is { } failure)
         {
             return failure;
         }
 
-        // Der Fensterhelfer wird vor dem Austausch vollstaendig geladen und geprueft. Erst wenn beide
-        // Dateien fertig danebenliegen, wird etwas ersetzt.
-        string? helperPath = null;
-        string? helperDownloadPath = null;
         if (UpdateCheck.HasHelper(release))
         {
-            helperPath = BuildHelperPath(executablePath);
-            helperDownloadPath = helperPath + ".download";
+            var stagedHelper = BuildStagedHelperPath(stagingDirectory);
             if (await FetchAsync(
                     release.HelperUrl!,
                     release.HelperSizeInBytes,
                     release.HelperChecksumUrl!,
-                    helperDownloadPath,
+                    stagedHelper,
                     cancellationToken).ConfigureAwait(false) is { } helperFailure)
             {
-                TryDelete(downloadPath);
+                TryDelete(stagedExecutable);
                 return helperFailure;
             }
         }
 
-        return ReplaceAll(
-            executablePath,
-            downloadPath,
-            helperPath,
-            helperDownloadPath,
-            TimeProvider.System.GetUtcNow());
+        return new UpdateInstallResult(
+            UpdateInstallStatus.Staged,
+            "Die neue Version liegt bereit. Sie wird nach dem Beenden übernommen und gestartet.");
+    }
+
+    /// <summary>
+    /// Legt die bereitgestellten Dateien an die Stelle der bisherigen. Läuft im Prozess der neuen
+    /// Programmdatei, nachdem die alte Anwendung beendet ist. Die bereitgestellten Dateien werden
+    /// kopiert, nicht verschoben: die Programmdatei, aus der dieser Prozess läuft, darf nicht unter ihm
+    /// weggeschoben werden.
+    /// </summary>
+    public static UpdateInstallResult Apply(
+        string stagingDirectory,
+        string targetExecutablePath,
+        DateTimeOffset now)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(stagingDirectory);
+        ArgumentException.ThrowIfNullOrWhiteSpace(targetExecutablePath);
+
+        var stagedExecutable = BuildStagedExecutablePath(stagingDirectory);
+        if (!File.Exists(stagedExecutable))
+        {
+            return new UpdateInstallResult(
+                UpdateInstallStatus.DownloadFailed,
+                "Die bereitgestellte Programmdatei ist nicht mehr vorhanden.");
+        }
+
+        var download = targetExecutablePath + DownloadSuffix;
+        var stagedHelper = BuildStagedHelperPath(stagingDirectory);
+        string? helperPath = null;
+        string? helperDownload = null;
+        try
+        {
+            File.Copy(stagedExecutable, download, overwrite: true);
+            if (File.Exists(stagedHelper))
+            {
+                helperPath = BuildHelperPath(targetExecutablePath);
+                helperDownload = helperPath + DownloadSuffix;
+                File.Copy(stagedHelper, helperDownload, overwrite: true);
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
+        {
+            TryDelete(download);
+            if (helperDownload is not null)
+            {
+                TryDelete(helperDownload);
+            }
+
+            return new UpdateInstallResult(
+                UpdateInstallStatus.ReplaceFailed,
+                $"Die neue Version liess sich nicht neben die Programmdatei legen: {exception.Message}");
+        }
+
+        return ReplaceAll(targetExecutablePath, download, helperPath, helperDownload, now);
     }
 
     /// <summary>Der Fensterhelfer liegt neben der Programmdatei.</summary>
@@ -101,9 +189,49 @@ public sealed class UpdateInstaller
             InstallationPlan.HelperName);
     }
 
+    public static string BuildStagedExecutablePath(string stagingDirectory) =>
+        Path.Combine(stagingDirectory, InstallationPlan.ExecutableName);
+
+    public static string BuildStagedHelperPath(string stagingDirectory) =>
+        Path.Combine(stagingDirectory, InstallationPlan.HelperName);
+
+    /// <summary>
+    /// Entfernt das Bereitstellungsverzeichnis samt Inhalt. Liefert <c>true</c>, wenn danach nichts mehr
+    /// davon übrig ist. Läuft gerade die bereitgestellte Programmdatei — etwa während sie das Update
+    /// übernimmt —, lässt sie sich nicht löschen und bleibt bis zum nächsten Start liegen.
+    /// </summary>
+    public static bool CleanStagingDirectory(string stagingDirectory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(stagingDirectory);
+        if (!Directory.Exists(stagingDirectory))
+        {
+            return true;
+        }
+
+        var clean = true;
+        foreach (var file in Directory.EnumerateFiles(stagingDirectory))
+        {
+            clean &= TryDelete(file);
+        }
+
+        if (clean)
+        {
+            try
+            {
+                Directory.Delete(stagingDirectory);
+            }
+            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            {
+                clean = false;
+            }
+        }
+
+        return clean;
+    }
+
     /// <summary>
     /// Lädt eine Datei der Veröffentlichung und prüft sie an Grösse und Prüfsumme. Gibt <c>null</c>
-    /// zurück, wenn die Datei einwandfrei danebenliegt, sonst den Grund des Abbruchs; die halbe Datei
+    /// zurück, wenn die Datei einwandfrei am Ziel liegt, sonst den Grund des Abbruchs; die halbe Datei
     /// ist dann bereits entfernt.
     /// </summary>
     private async Task<UpdateInstallResult?> FetchAsync(
@@ -191,7 +319,7 @@ public sealed class UpdateInstaller
     }
 
     /// <summary>
-    /// Legt die geladene Datei an die Stelle der laufenden. Der Zeitpunkt wird hereingereicht, damit der
+    /// Legt die geladene Datei an die Stelle der bisherigen. Der Zeitpunkt wird hereingereicht, damit der
     /// Name der beiseitegeschobenen Datei prüfbar bleibt.
     /// </summary>
     public static UpdateInstallResult Replace(
@@ -276,7 +404,7 @@ public sealed class UpdateInstaller
             supersededPathIfMoved = moved ? supersededPath : null;
             return new UpdateInstallResult(
                 UpdateInstallStatus.Applied,
-                "Die neue Version liegt bereit und wird beim Neustart verwendet.");
+                "Die neue Version liegt an ihrem Platz.");
         }
         catch (Exception exception)
         {
@@ -357,12 +485,13 @@ public sealed class UpdateInstaller
                 File.Delete(path);
                 return true;
             }
+
+            return true;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
+            return false;
         }
-
-        return false;
     }
 
     private static void TryMoveBack(string from, string to)

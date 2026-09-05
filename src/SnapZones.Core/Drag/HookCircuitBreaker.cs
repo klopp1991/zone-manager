@@ -2,6 +2,12 @@ namespace SnapZones.Core.Drag;
 
 public sealed class HookCircuitBreaker
 {
+    /// <summary>
+    /// Der Grund, den ein Schutzschalter nennt, wenn die Ereignisgrenze und nicht ein Fehler ihn
+    /// ausgelöst hat. Der Aufrufer unterscheidet daran, ob ein Wiederanlauf von selbst erlaubt ist.
+    /// </summary>
+    public const string RateLimitReason = "Die Ereignisgrenze wurde überschritten.";
+
     private readonly int maximumEvents;
     private readonly TimeSpan window;
     private readonly Queue<DateTimeOffset> events = new();
@@ -27,6 +33,10 @@ public sealed class HookCircuitBreaker
 
     /// <summary>Die eingestellte Grenze, fuer Anzeige und Vergleich.</summary>
     public int MaximumEvents => maximumEvents;
+
+    /// <summary>Ob ein Grund die Ereignisgrenze nennt und nicht einen Fehler.</summary>
+    public static bool IsRateLimit(string? reason) =>
+        reason is not null && reason.Contains(RateLimitReason, StringComparison.Ordinal);
 
     public bool RecordEvent(DateTimeOffset timestamp)
     {
@@ -64,7 +74,7 @@ public sealed class HookCircuitBreaker
     {
         IsTripped = true;
         Reason = exception is null
-            ? "Die Ereignisgrenze wurde überschritten."
+            ? RateLimitReason
             : $"Der Hook wurde nach einem Fehler deaktiviert: {exception.Message}";
     }
 }

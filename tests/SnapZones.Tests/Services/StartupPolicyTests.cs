@@ -29,4 +29,14 @@ public sealed class StartupPolicyTests
 
         Assert.Equal(StartupDisposition.StartHidden, disposition);
     }
+
+    [Fact]
+    public void An_exit_request_asks_the_running_instance_to_stop_and_never_starts_anything()
+    {
+        // Ein Build tauscht die Programmdatei erst aus, wenn die laufende Instanz beendet ist; dafuer
+        // bittet er sie ueber --exit. Laeuft keine, ist die Bitte erfuellt.
+        Assert.Equal(StartupDisposition.StopRunningInstance, StartupPolicy.Decide(["--exit"], isPrimary: false));
+        Assert.Equal(StartupDisposition.ExitDuplicate, StartupPolicy.Decide(["--EXIT"], isPrimary: true));
+        Assert.Equal(StartupDisposition.StopRunningInstance, StartupPolicy.Decide(["--autostart", "--exit"], isPrimary: false));
+    }
 }

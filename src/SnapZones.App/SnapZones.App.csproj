@@ -54,9 +54,11 @@
              Targets="Restore;Publish"
              BuildInParallel="false"
              Properties="Configuration=$(Configuration);RuntimeIdentifier=win-x64;PublishDir=$(RootPublishDirectory)" />
+    <!--
+      Das Skript beendet eine laufende Instanz, tauscht Programmdatei und Fensterhelfer aus und startet
+      die Instanz danach neu. Der Helfer wird nicht getrennt kopiert: er darf erst ersetzt werden, wenn
+      keine Instanz mehr laeuft, die ihn benutzt.
+    -->
     <Exec Command="powershell -NoProfile -ExecutionPolicy Bypass -File &quot;$(RootPublishScript)&quot; -PublishedExecutablePath &quot;$(RootPublishDirectory)ZoneManager.exe&quot; -RootExecutablePath &quot;$(RootExecutablePath)&quot;" />
-    <Copy SourceFiles="$(RootPublishDirectory)ZoneManager.Helper.exe"
-          DestinationFolder="$([System.IO.Path]::GetDirectoryName('$(RootExecutablePath)'))"
-          Condition="Exists('$(RootPublishDirectory)ZoneManager.Helper.exe')" />
   </Target>
 </Project>

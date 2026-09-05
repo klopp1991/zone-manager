@@ -4,8 +4,10 @@ public sealed class SingleInstanceService : IDisposable
 {
     private readonly Mutex mutex;
     private readonly EventWaitHandle activationEvent;
+    private readonly EventWaitHandle exitEvent;
     private readonly SynchronizationContext synchronizationContext;
     private RegisteredWaitHandle? listenerRegistration;
+    private RegisteredWaitHandle? exitListenerRegistration;
     private bool ownsMutex;
     private int disposed;
 
@@ -14,9 +16,18 @@ public sealed class SingleInstanceService : IDisposable
         this.synchronizationContext = synchronizationContext;
         mutex = new Mutex(initiallyOwned: true, $"Local\\{name}.Mutex", out ownsMutex);
         activationEvent = new EventWaitHandle(false, EventResetMode.AutoReset, $"Local\\{name}.Activate");
+        exitEvent = new EventWaitHandle(false, EventResetMode.AutoReset, $"Local\\{name}.Exit");
     }
 
+    /// <summary>Eine zweite Instanz wurde gestartet und möchte das Fenster sehen.</summary>
     public event Action? ActivationRequested;
+
+    /// <summary>
+    /// Eine zweite Instanz wurde mit <c>--exit</c> gestartet und bittet um ein geordnetes Beenden. So
+    /// tauscht ein Build oder ein Skript die Programmdatei aus, ohne sie unter dem laufenden Prozess
+    /// wegzuziehen.
+    /// </summary>
+    public event Action? ExitRequested;
 
     public bool IsPrimary => ownsMutex;
 
@@ -34,6 +45,12 @@ public sealed class SingleInstanceService : IDisposable
             this,
             Timeout.Infinite,
             executeOnlyOnce: false);
+        exitListenerRegistration ??= ThreadPool.RegisterWaitForSingleObject(
+            exitEvent,
+            static (state, _) => ((SingleInstanceService)state!).HandleExit(),
+            this,
+            Timeout.Infinite,
+            executeOnlyOnce: false);
     }
 
     public void NotifyPrimary()
@@ -41,6 +58,14 @@ public sealed class SingleInstanceService : IDisposable
         if (!ownsMutex)
         {
             activationEvent.Set();
+        }
+    }
+
+    public void NotifyPrimaryExit()
+    {
+        if (!ownsMutex)
+        {
+            exitEvent.Set();
         }
     }
 
@@ -53,7 +78,10 @@ public sealed class SingleInstanceService : IDisposable
 
         listenerRegistration?.Unregister(null);
         listenerRegistration = null;
+        exitListenerRegistration?.Unregister(null);
+        exitListenerRegistration = null;
         activationEvent.Dispose();
+        exitEvent.Dispose();
         if (ownsMutex)
         {
             mutex.ReleaseMutex();
@@ -70,15 +98,27 @@ public sealed class SingleInstanceService : IDisposable
         }
 
         synchronizationContext.Post(
-            static state => ((SingleInstanceService)state!).RaiseActivationRequested(),
+            static state => ((SingleInstanceService)state!).Raise(((SingleInstanceService)state!).ActivationRequested),
             this);
     }
 
-    private void RaiseActivationRequested()
+    private void HandleExit()
+    {
+        if (Volatile.Read(ref disposed) != 0)
+        {
+            return;
+        }
+
+        synchronizationContext.Post(
+            static state => ((SingleInstanceService)state!).Raise(((SingleInstanceService)state!).ExitRequested),
+            this);
+    }
+
+    private void Raise(Action? handler)
     {
         if (Volatile.Read(ref disposed) == 0)
         {
-            ActivationRequested?.Invoke();
+            handler?.Invoke();
         }
     }
 }

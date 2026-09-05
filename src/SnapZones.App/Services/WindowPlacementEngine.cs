@@ -833,6 +833,16 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             return Task.CompletedTask;
         }
 
+        // Ein Fenster im Vollbild nimmt den ganzen Monitor ein; dieses Rechteck ist kein Ort, den jemand
+        // gewaehlt hat. Bis zum 05.09.2026 kam es in den Katalog, und ein Browser, der im Vollbild
+        // geschlossen wurde, erschien beim naechsten Start monitorfuellend statt in seiner Zone. Der
+        // vorherige Eintrag bleibt stehen.
+        if (snapshot.IsFullscreen)
+        {
+            log($"Fenster 0x{snapshot.WindowHandle:X} ({snapshot.Identity.ApplicationKey}) im Vollbild: Position wird nicht gemerkt.");
+            return Task.CompletedTask;
+        }
+
         if (!environment.Configuration.Settings.RememberWindowPositions)
         {
             return Task.CompletedTask;

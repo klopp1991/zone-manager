@@ -161,7 +161,9 @@ Zurückgelegt wird ein Fenster nur beim Erscheinen; ein blosser Fokuswechsel ver
 das gerade von Hand irgendwohin gestellt wurde. Erkannt wird ein Fenster an Programm, Fensterklasse und
 Fensterart, nicht am Titel. Mehrere Fenster
 desselben Programms teilen sich deshalb einen Eintrag. Ausgeschlossene Fenster kommen gar nicht erst in den
-Katalog.
+Katalog. Ein Fenster im Vollbild — rahmenlos über dem ganzen Monitor — wird nicht gemerkt; sein Eintrag
+bleibt auf dem Stand vor dem Vollbild, damit ein Browser, der im Vollbild geschlossen wurde, beim
+nächsten Start in seiner Zone erscheint und nicht monitorfüllend.
 
 Unter **Verhalten** lässt sich das Merken abschalten und die Anzahl der gemerkten Positionen ablesen;
 **Gemerkte Positionen verwerfen** löscht sämtliche Einträge. Ausgeschaltet bleiben bestehende Einträge
@@ -200,7 +202,9 @@ als Vollbild und wird in die Zone zurückgesetzt; erst wenn der Rahmen zurück i
 verlassen. Ein misslungenes Setzen lässt die gemerkte Zone ebenfalls stehen, damit der nächste Rückfall
 wieder dorthin führt. Damit daraus kein Dauerkampf wird, ist die Zahl der Versuche je Vollbildsitzung
 begrenzt (erweiterte Einstellung **Versuche beim Zonen-Vollbild**, Vorgabe 5). Ist sie erreicht, behält
-das Fenster sein Monitorvollbild, und der Grund steht im Protokoll. Nach fünf Sekunden ohne Korrektur
+das Fenster sein Monitorvollbild, und der Grund steht als WARN im Protokoll — ebenso jedes Setzen, das
+Windows abgelehnt hat, und als INFO jedes gelungene. Diese Zeilen erscheinen auch ohne `--verbose`; nur die
+Spur je Fensterereignis bleibt dem ausführlichen Protokoll vorbehalten. Nach fünf Sekunden ohne Korrektur
 beginnt die Zählung von vorn.
 
 Beim Setzen weicht der Weg an zwei Stellen vom gewöhnlichen Einrasten ab, beide am laufenden System
@@ -315,8 +319,12 @@ Verzeichnis von Hand.
 Es gibt bewusst kein getrenntes Setup-Programm: es müsste die 66 MB grosse Programmdatei ein zweites Mal
 enthalten und die Auslieferung verdoppeln. Installieren und Entfernen sind deshalb Modi derselben Datei.
 
-Beides schreibt nach `%ProgramFiles%` und in `HKEY_LOCAL_MACHINE` und verlangt darum Administratorrechte,
-die das Programm im Normalbetrieb ohnehin besitzt.
+Beides schreibt nach `%ProgramFiles%` und in `HKEY_LOCAL_MACHINE` und verlangt darum Administratorrechte.
+Läuft das Programm gewöhnlich berechtigt — die Voreinstellung, siehe [Rechte](#rechte) —, erledigt die
+Installation ein zweiter, erhöhter Prozess derselben Programmdatei (`--install --silent --no-launch`);
+Windows fragt dafür einmal nach. Das installierte Programm startet anschliessend der gewöhnlich
+berechtigte Prozess, damit es nicht die Administratorrechte des Hilfsprozesses erbt. Ist das Programm
+bereits erhöht, läuft die Installation direkt.
 
 ## Updates
 
@@ -334,11 +342,21 @@ Heruntergeladen wird nur über HTTPS aus der Release-Ablage des Projekts; ein Ve
 wird abgelehnt. Die geladene Datei muss ausserdem genau die angekündigte Grösse haben, sonst wird sie
 verworfen — eine abgebrochene Übertragung sieht sonst wie eine vollständige Datei aus.
 
-Der Austausch geht in drei Schritten, weil Windows eine laufende Programmdatei nicht überschreiben lässt:
-die neue Datei landet zuerst daneben, dann wird die laufende als `ZoneManager.exe.previous.<Zeitstempel>`
-beiseitegeschoben, dann die neue an ihren Platz gelegt. Scheitert der zweite Schritt, kommt die alte Datei
-zurück; es bleibt nie eine halb ersetzte Programmdatei liegen. Beim nächsten Start werden die
-beiseitegeschobenen Dateien gelöscht.
+Der Austausch geht in zwei Hälften, die in zwei Prozessen laufen. Die laufende Anwendung lädt
+Programmdatei und Fensterhelfer nach `%LOCALAPPDATA%\SnapZones\updates` und prüft beide; ihre eigene
+Programmdatei fasst sie dabei nicht an. Dann startet sie die bereitgestellte Datei im Übernahmemodus
+(`--apply-update <Programmdatei> --wait-for-pid <Prozess>`) und beendet sich. Der neue Prozess wartet
+auf ihr Ende, schiebt die bisherige Datei als `ZoneManager.exe.previous.<Zeitstempel>` beiseite, legt die
+neue an ihren Platz und startet sie von dort. Liegt das Programm unter `%ProgramFiles%`, holt sich der
+Übernahmeprozess dafür einmal Administratorrechte. Scheitert die Übernahme, kommt die alte Datei zurück
+und wird gestartet; es bleibt nie eine halb ersetzte Programmdatei liegen. Beim nächsten Start werden
+die beiseitegeschobenen Dateien und das Bereitstellungsverzeichnis gelöscht.
+
+Diese Reihenfolge ist zwingend. Die Einzeldatei lädt viele ihrer Bausteine erst bei Bedarf über den Pfad
+der eigenen Programmdatei nach. Wird sie unter dem laufenden Prozess weggeschoben, scheitert jedes
+spätere Nachladen mit einer `FileNotFoundException` — beim Beenden, beim ersten Fehlerdialog, bei der
+nächsten Updatesuche. Bis zum 04.09.2026 wurde die laufende Datei sofort nach dem Download ersetzt, und
+genau so endete das Programm mehrfach.
 
 Ohne digitale Signatur kann das Programm die geladene Datei nur an Herkunft und Grösse prüfen, nicht an
 einer Signatur. Wer das nicht will, lädt Releases von Hand herunter und lässt die Suche ausgeschaltet.
@@ -406,8 +424,11 @@ exportierbar. Ein Restrisiko bleibt. Das Zertifikat gilt zudem nur auf diesem Re
 sich das Programm damit nicht.
 
 Das Einrichten und das Entfernen verlangen einmalig Administratorrechte, weil sie in den Zertifikatspeicher
-der lokalen Maschine schreiben. Gearbeitet wird über die Windows-eigene PowerShell
-(`New-SelfSignedCertificate`, `Set-AuthenticodeSignature`); ein externes Werkzeug wird nicht gebraucht.
+der lokalen Maschine schreiben. Läuft das Programm gewöhnlich berechtigt, übernimmt ein zweiter, erhöhter
+Prozess derselben Programmdatei die Aktion (`--install-certificate` beziehungsweise
+`--remove-certificate`); Windows fragt dafür einmal nach, und das Ergebnis steht danach in der Karte und
+im Protokoll. Gearbeitet wird über die Windows-eigene PowerShell (`New-SelfSignedCertificate`,
+`Set-AuthenticodeSignature`); ein externes Werkzeug wird nicht gebraucht.
 
 **Entfernen** nimmt das Zertifikat aus allen drei Speichern. Der Helfer startet danach nicht mehr, und das
 Programm fragt bei Bedarf wieder nach eigenen Administratorrechten.
@@ -436,6 +457,13 @@ keinen Windows-Dienst und keine Code-Injektion; ein Schutzschalter stoppt die Sn
 oder ungewöhnlich vielen Hook-Ereignissen (400 Verschiebe-Ereignisse in zehn Sekunden). Der Diagnosemodus läuft
 bewusst ohne Elevation.
 
+Der Hook für Positionsgedächtnis und Zonen-Vollbild hört jede Lageänderung jedes Fensters und erreicht
+seine Grenze (2000 Ereignisse in zehn Sekunden) auch bei harmloser Last, etwa einem zügig gezogenen Fenster
+neben laufenden Animationen. Ein Stopp wegen dieser Grenze hebt sich nach zehn Sekunden von selbst wieder
+auf, die Statuszeile nennt die Wartezeit. Erst beim vierten Stopp innerhalb von fünf Minuten bleibt das
+Einrasten pausiert — dann ist es keine Last mehr, sondern eine Rückkopplung. Ein Stopp nach einem Fehler
+wird nie von selbst aufgehoben.
+
 Der Zustand ist immer sichtbar: die Statuszeile am unteren Fensterrand zeigt «Einrasten aktiv», «Kein aktives
 Layout» oder «Einrasten pausiert», daneben die letzte Meldung des Programms (Speicherfehler, Namenskonflikte,
 pausierte Regeln). Das Infobereichsmenü nennt denselben Zustand. Ist das Einrasten pausiert, schalten die
@@ -447,6 +475,10 @@ der Hotkey es wieder ein; ein Neustart ist dafür nicht mehr nötig.
 Das Schliessen des Fensters blendet die Anwendung nur in den Infobereich aus. Beendet wird sie über **Rechtsklick auf das Infobereichssymbol → Beenden**.
 
 Beim Beenden werden zuerst Hooks, Zeitgeber und die Platzierungs-Engine stillgelegt, damit keine neue Arbeit mehr anfällt; anschliessend werden Einstellungen und Fensterplatzierungen gespeichert. Für diesen Abschluss gilt eine Zeitgrenze von fünf Sekunden. Lässt sich in dieser Zeit nicht vollständig speichern, meldet ein Hinweisfenster die Ursache und fragt, ob trotzdem beendet werden soll — die Anwendung bleibt nie ohne sichtbare Begründung geöffnet.
+
+Scheitert danach das Herunterfahren von WPF selbst — das geschieht, wenn die Programmdatei nicht mehr am Platz liegt und WPF dafür noch Bausteine nachladen will —, räumt das Programm Hooks, Infobereichssymbol und Einzelinstanz von Hand auf und beendet den Prozess direkt. Bis zum 02.09.2026 blieb es in diesem Fall mit der Meldung «Das Beenden ist fehlgeschlagen» im Infobereich stehen.
+
+Eine zweite Instanz, die mit `--exit` gestartet wird, bittet die laufende um genau dieses geordnete Beenden und endet selbst sofort. So tauscht der Build die Programmdatei aus, ohne sie unter dem laufenden Prozess wegzuziehen.
 
 ## Diagnose
 
@@ -463,6 +495,15 @@ gesichert, und ein Hinweisfenster nennt Ursache und Protokollpfad; Folgefehler w
 gezählt statt erneut behandelt.
 
 Die Diagnose liest Konfigurationsstatus, Monitore, DPI und Autostartstatus. Sie registriert keinen Fenster-Hook und verändert weder Einstellungen noch Registry.
+
+Alle drei Sekunden prüft das Programm, ob seine eigene Programmdatei noch unverändert am Platz liegt. Die
+Einzeldatei lädt Bausteine erst bei Bedarf über diesen Pfad nach; wird sie ersetzt oder entfernt — durch
+einen Build, ein Kopieren von Hand, ein fremdes Update —, scheitert von da an jedes Nachladen. Bestätigt
+sich der Austausch in zwei Prüfungen nacheinander, speichert das Programm, legt alles still und startet in
+die neue Datei hinüber (`--wait-for-pid` lässt den Nachfolger auf das Ende des Vorgängers warten); fehlt
+die Datei ganz, beendet es sich nach dem Speichern. Beides steht als WARN im Protokoll. Am 03. und
+04.09.2026 endete das Programm dreimal mit einer `FileNotFoundException` für eine .NET-Assembly, jeweils
+Minuten nach einem Build — der Fall, den diese Prüfung seither abfängt.
 
 Holt das [Zonen-Vollbild](#zonen-vollbild) ein bestimmtes Programm nicht zurück, zeigt
 
@@ -521,7 +562,7 @@ erscheinen. Weiter lässt sich die Datei nicht verkleinern: `PublishTrimmed` ist
 und der Self-contained-Publish liefert die Windows-Desktop-Laufzeit unabhängig davon vollständig mit —
 gemessen kostet ein zusätzlicher Verweis auf Windows Forms in der komprimierten Einzeldatei sechs Bytes.
 
-Auch ein normaler `dotnet build` oder Build in Visual Studio veröffentlicht nach erfolgreicher Kompilierung automatisch eine selbständige `win-x64`-Einzeldatei als `ZoneManager.exe` direkt ins Rootverzeichnis. Eine dort noch laufende Vorgängerversion wird atomar ersetzt und bis zu ihrem Prozessende als ignorierte Sicherungsdatei beibehalten.
+Auch ein normaler `dotnet build` oder Build in Visual Studio veröffentlicht nach erfolgreicher Kompilierung automatisch eine selbständige `win-x64`-Einzeldatei als `ZoneManager.exe` direkt ins Rootverzeichnis. Läuft daraus gerade eine Instanz, bittet `scripts\install-root-executable.ps1` sie über `--exit` um ein geordnetes Beenden, wartet bis zu 30 Sekunden, tauscht dann Programmdatei und Fensterhelfer aus und startet die Instanz mit dem neuen Stand im Infobereich neu. Beendet sie sich nicht, wird die Datei trotzdem ersetzt; die Instanz erkennt den Austausch dann selbst (siehe [Diagnose](#diagnose)) und startet sich neu. Die weggeschobene Vorgängerdatei bleibt bis zum nächsten Start als ignorierte Sicherungsdatei liegen.
 
 Dieser Schritt kostet bei jedem Build einen vollständigen Self-contained-Publish. Für schnelle Zwischenbuilds und in Prüfläufen, die die Root-EXE separat erzeugen, lässt er sich mit `-p:SkipRootExecutablePublish=true` überspringen; `scripts\verify-root-build.ps1` prüft den impliziten Weg gezielt in einem Wegwerfverzeichnis unter `work\`.
 
