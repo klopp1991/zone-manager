@@ -1008,9 +1008,16 @@
                             <!-- Fenster merken -->
                             <TabItem Header="Fenster merken" Style="{StaticResource SubTabItem}">
                                 <StackPanel>
+                                    <Border Style="{StaticResource SectionCard}" Padding="20,14">
+                                        <StackPanel>
+                                            <TextBlock Text="Vollbild und Videos in einer Zone" Style="{StaticResource GroupTitle}" />
+                                            <TextBlock Style="{StaticResource HelpText}" TextWrapping="Wrap"
+                                                       Text="Vollbild verwendet den ganzen Monitor und wird nicht in eine Zone gezwungen. Soll ein Programm sein Vollbild in einer Zone haben, kennzeichne die Zone im Layouteditor als virtuellen Monitor; sie bekommt dann einen eigenen Monitor in Zonengrösse. Vor einem Zonenkürzel den Vollbildmodus im jeweiligen Programm beenden. Die zuvor gemerkte Fensterposition bleibt beim Vollbild erhalten." />
+                                        </StackPanel>
+                                    </Border>
                                     <Border Style="{StaticResource SectionCard}" Padding="20,6">
                                         <StackPanel>
-                                            <Border Style="{StaticResource SettingRow}">
+                                            <Border Style="{StaticResource SettingRowLast}">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="280" /></Grid.ColumnDefinitions>
                                                     <StackPanel>
@@ -1025,15 +1032,6 @@
                                                         </StackPanel>
                                                     </StackPanel>
                                                     <CheckBox x:Name="RememberWindowPositionsCheckBox" Grid.Column="1" Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Settings.RememberWindowPositions}" AutomationProperties.Name="Fensterpositionen merken" />
-                                                </Grid>
-                                            </Border>
-                                            <Border Style="{StaticResource SettingRowLast}">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="280" /></Grid.ColumnDefinitions>
-                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="Vollbild in der Zone halten" Style="{StaticResource SettingLabel}" />
-                                                        <Button x:Name="ZoneFullscreenInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Vollbild in der Zone halten"
-                                                                ToolTip="Schaltest du z. B. ein YouTube-Video auf Vollbild, füllt es nur die Zone, in der sein Fenster lag – der Rest des Bildschirms bleibt frei. Der Player merkt davon nichts und legt seine Bedienelemente auf die kleinere Fläche aus. Gilt nur für Fenster, die vorher in einer Zone lagen; ein frei abgelegtes Fenster geht weiterhin auf den ganzen Monitor. Spiele im Exklusivvollbild erreicht es nicht: deren Bildschirmmodus vergibt der Grafiktreiber." /></StackPanel>
-                                                    <CheckBox x:Name="ZoneFullscreenCheckBox" Grid.Column="1" Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Settings.ZoneFullscreen}" AutomationProperties.Name="Vollbild in der Zone halten" />
                                                 </Grid>
                                             </Border>
                                         </StackPanel>
@@ -1136,22 +1134,13 @@
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"><TextBox Style="{StaticResource NumberField}" Text="{Binding Settings.MoveHookEventLimit}" AutomationProperties.Name="Ereignisgrenze des Schutzschalters in zehn Sekunden" /><TextBlock Text="Ereignisse" Style="{StaticResource UnitLabel}" /></StackPanel>
                                                 </Grid>
                                             </Border>
-                                            <Border Style="{StaticResource SettingRow}">
+                                            <Border Style="{StaticResource SettingRowLast}">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="280" /></Grid.ColumnDefinitions>
                                                     <StackPanel Orientation="Horizontal"><TextBlock Text="Wachhund für hängende Ziehvorgänge" Style="{StaticResource SettingLabel}" />
                                                         <Button x:Name="WatchdogInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Wachhund für hängende Ziehvorgänge"
                                                                 ToolTip="Bleibt das Endereignis eines Ziehvorgangs aus, zieht das Programm die Zonen nach dieser Zeit ein, was auch immer Windows meldet. Wer Fenster sehr lange gedrückt hält, erhöht den Wert. Zulässig sind 5 bis 600 Sekunden, Voreinstellung 120." /></StackPanel>
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"><TextBox Style="{StaticResource NumberField}" Text="{Binding Settings.DragWatchdogSeconds}" AutomationProperties.Name="Wachhund für Ziehvorgänge in Sekunden" /><TextBlock Text="s" Style="{StaticResource UnitLabel}" /></StackPanel>
-                                                </Grid>
-                                            </Border>
-                                            <Border Style="{StaticResource SettingRowLast}">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="280" /></Grid.ColumnDefinitions>
-                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="Versuche beim Zonen-Vollbild" Style="{StaticResource SettingLabel}" />
-                                                        <Button x:Name="ZoneFullscreenCorrectionsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Versuche beim Zonen-Vollbild"
-                                                                ToolTip="So oft wird ein Fenster je Vollbildsitzung in seine Zone zurückgeholt, bevor das Programm es aufgibt und ihm den ganzen Monitor lässt. Mehrere Versuche sind nötig, weil manche Player ihr Fenster nach dem Umschalten noch einmal selbst setzen; die Grenze verhindert einen Dauerkampf. Zulässig sind 1 bis 20, Voreinstellung 5." /></StackPanel>
-                                                    <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"><TextBox Style="{StaticResource NumberField}" Text="{Binding Settings.ZoneFullscreenMaxCorrections}" AutomationProperties.Name="Versuche beim Zonen-Vollbild je Sitzung" /><TextBlock Text="Versuche" Style="{StaticResource UnitLabel}" /></StackPanel>
                                                 </Grid>
                                             </Border>
                                         </StackPanel>

@@ -51,8 +51,6 @@ public sealed class SettingsViewModel : ViewModelBase
     private double highlightOpacityPercent;
     private int moveHookEventLimit;
     private int dragWatchdogSeconds;
-    private bool zoneFullscreen;
-    private int zoneFullscreenMaxCorrections;
 
     public SettingsViewModel(AppSettings settings)
     {
@@ -265,20 +263,6 @@ public sealed class SettingsViewModel : ViewModelBase
         set => SetProperty(ref restoreSizeWhenLeavingZone, value);
     }
 
-    /// <summary>Ob das Vollbild eines eingerasteten Fensters auf seine Zone begrenzt wird.</summary>
-    public bool ZoneFullscreen
-    {
-        get => zoneFullscreen;
-        set => SetProperty(ref zoneFullscreen, value);
-    }
-
-    /// <summary>Wie oft ein Fenster je Vollbildsitzung in seine Zone zurueckgeholt wird; 1 bis 20.</summary>
-    public int ZoneFullscreenMaxCorrections
-    {
-        get => zoneFullscreenMaxCorrections;
-        set => SetProperty(ref zoneFullscreenMaxCorrections, Math.Clamp(value, 1, 20));
-    }
-
     public FixedSizeWindowPlacement FixedSizeWindowPlacement
     {
         get => fixedSizeWindowPlacement;
@@ -468,9 +452,7 @@ public sealed class SettingsViewModel : ViewModelBase
         HighlightColor: HighlightColor,
         HighlightOpacity: HighlightOpacityPercent / 100d,
         MoveHookEventLimit: MoveHookEventLimit,
-        DragWatchdogSeconds: DragWatchdogSeconds,
-        ZoneFullscreen: ZoneFullscreen,
-        ZoneFullscreenMaxCorrections: ZoneFullscreenMaxCorrections);
+        DragWatchdogSeconds: DragWatchdogSeconds);
 
     public void Apply(AppSettings settings)
     {
@@ -515,8 +497,6 @@ public sealed class SettingsViewModel : ViewModelBase
         HighlightOpacityPercent = settings.HighlightOpacity * 100d;
         MoveHookEventLimit = settings.MoveHookEventLimit;
         DragWatchdogSeconds = settings.DragWatchdogSeconds;
-        ZoneFullscreen = settings.ZoneFullscreen;
-        ZoneFullscreenMaxCorrections = settings.ZoneFullscreenMaxCorrections;
     }
 
     /// <summary>

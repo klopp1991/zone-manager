@@ -229,11 +229,6 @@ public static class ConfigurationDiff
             return newer.RememberWindowPositions ? "Fensterpositionen merken eingeschaltet" : "Fensterpositionen merken ausgeschaltet";
         }
 
-        if (older.ZoneFullscreen != newer.ZoneFullscreen)
-        {
-            return newer.ZoneFullscreen ? "Vollbild in der Zone eingeschaltet" : "Vollbild in der Zone ausgeschaltet";
-        }
-
         if (older.OverlayScope != newer.OverlayScope || older.TriggerMode != newer.TriggerMode || older.ShowZoneNames != newer.ShowZoneNames)
         {
             return "Verhalten beim Ziehen geändert";

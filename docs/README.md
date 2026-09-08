@@ -4,7 +4,7 @@ Zone Manager erstellt frei bearbeitbare Fensterbereiche pro Monitor. Sobald mind
 
 ## Schnellstart
 
-1. `ZoneManager.exe` starten und die Windows-UAC-Abfrage bestätigen. Die Datei kommt entweder aus dem neuesten [Release](https://github.com/klopp1991/zone-manager/releases/latest) oder entsteht im Rootverzeichnis, sobald das Projekt gebaut wird.
+1. `ZoneManager.exe` starten. Standardmässig sind keine Administratorrechte erforderlich; nur für entsprechend geschützte Fenster kann später eine UAC-Abfrage nötig werden. Die Datei kommt entweder aus dem neuesten [Release](https://github.com/klopp1991/zone-manager/releases/latest) oder entsteht im Rootverzeichnis, sobald das Projekt gebaut wird.
 2. Die **Übersicht** zeigt jeden Monitor mit seinem aktiven Layout. Ein Klick auf einen Monitor öffnet **Zonen & Layouts**; dort steht ein Tab je Layout, **+ Neu** legt ein leeres, ein Vorlagen- oder ein dupliziertes Layout an.
 3. Die vorhandenen Zonen anpassen und mit **+ Zone** die grösste freie Fläche belegen – im Fenster oder mit **Auf dem Monitor zeichnen** in echter Grösse direkt auf dem Bildschirm.
 4. Zonen ziehen, über acht Griffe skalieren oder im Werte-Panel als Zahlen eingeben – wahlweise über Position und Grösse oder über die vier Randabstände. Die **Masseinheit** wird einmal pro Panel auf Prozent oder Pixel gestellt und gilt für alle acht Felder.
@@ -154,6 +154,17 @@ eindeutig. Jede Ablehnung steht mit ihrer Begründung im Protokoll.
 
 ## Gemerkte Fensterpositionen
 
+### Vollbild und Videos in einer Zone
+
+Vollbild belegt den ganzen Monitor; Zone Manager holt es nicht in eine Zone zurück. Wer Vollbild in einer
+Zone will, kennzeichnet die Zone als virtuellen Monitor, siehe [Vollbildzonen](#vollbildzonen). Vor einem
+Zonenkürzel den Vollbildmodus im jeweiligen Programm beenden.
+Monitorfüllendes Vollbild überschreibt die zuvor gemerkte Fensterposition nicht und wird weder von
+Zuordnungen noch vom Wiederherstellen in eine Zone gezogen. Der Zustand wird auch nach einer
+konfigurierten Verzögerung erneut geprüft; inzwischen minimierte Fenster werden von Regeln nicht geöffnet.
+
+### Wiederherstellen
+
 Sobald die Snap-Funktion aktiv ist, merkt sich die Anwendung für jedes platzierte Fenster den Monitor, die
 Zone und das Fensterrechteck und stellt diesen Stand beim nächsten Öffnen desselben Fensters wieder her.
 Ändert sich die Auflösung, wird die gemerkte Lage anteilig umgerechnet. Der Katalog fasst höchstens 500
@@ -279,7 +290,7 @@ Die Einstellungen sind auf zwei Seiten verteilt: **Verhalten** mit den Untertabs
 
 **Abstände**: Abstand zum Bildschirmrand (links, oben, rechts, unten in Pixel), Abstand zwischen Zonen und Andocken im Editor in ganzen Prozent. Aussen- und Zonenabstand gelten für Vorschau **und** Fenster: ein Fenster landet genau auf der Fläche, die das Overlay zeigt, auch über Zuordnungen, Auffangzone und Layoutwechsel. Neben jedem Prozentregler steht der abgeleitete Pixelwert als `≙ n px`.
 
-**Fenster merken**: **Fensterpositionen merken** schaltet den Positionskatalog ein und aus; darunter stehen die Anzahl der Einträge und der Verweis **alle verwerfen** (mit Rückgängig). Siehe [Gemerkte Fensterpositionen](#gemerkte-fensterpositionen). **Vollbild in der Zone halten** begrenzt das Vollbild eines eingerasteten Fensters auf seine Zone; ausgeschaltet, siehe Zonen-Vollbild. Darunter die Karten **Feinabstimmung Platzieren** und **Schutz und Zeiten**, siehe Tabelle.
+**Fenster merken**: **Fensterpositionen merken** schaltet den Positionskatalog ein und aus; darunter stehen die Anzahl der Einträge und der Verweis **alle verwerfen** (mit Rückgängig). Siehe [Gemerkte Fensterpositionen](#gemerkte-fensterpositionen). Darunter die Karten **Feinabstimmung Platzieren** und **Schutz und Zeiten**, siehe Tabelle.
 
 **Tastenkürzel**: Zonenkürzel aktiv, Zusatztasten mit AltGr-Warnung bei `Ctrl + Alt`, und die Tabelle aller Kürzel.
 
@@ -307,7 +318,6 @@ Die Einstellungen sind auf zwei Seiten verteilt: **Verhalten** mit den Untertabs
 | Tastenkürzel | Zonenkürzel aktiv, Zusatztasten | ein; Ctrl + Shift / Ctrl + Alt / Alt + Shift / Ctrl + Win | Gilt für alle Zonenkürzel; der Not-Aus bleibt fest. `Ctrl + Alt` blockiert AltGr und wird in der Oberfläche mit einer Warnung angeboten. |
 | Fenster merken · Schutz und Zeiten | Schutzschalter des Verschiebe-Hooks | 100–5000 Ereignisse je 10 s (400) | Darüber hält das Programm das Einrasten an. |
 | | Wachhund für hängende Ziehvorgänge | 5–600 s (120) | Danach werden die Zonen eingezogen, was auch immer Windows meldet. |
-| | Versuche beim Zonen-Vollbild | 1–20 je Sitzung (5) | Danach behält ein Fenster, das sich wiederholt zurücksetzt, sein Monitorvollbild. |
 
 Wie Titel, Beschriftungen und Erklärungen dabei aufgebaut sind, steht verbindlich in [ui-richtlinien.md](ui-richtlinien.md).
 
@@ -474,7 +484,7 @@ keinen Windows-Dienst und keine Code-Injektion; ein Schutzschalter stoppt die Sn
 oder ungewöhnlich vielen Hook-Ereignissen (400 Verschiebe-Ereignisse in zehn Sekunden). Der Diagnosemodus läuft
 bewusst ohne Elevation.
 
-Der Hook für Positionsgedächtnis und Zonen-Vollbild hört jede Lageänderung jedes Fensters und erreicht
+Der Hook für das Positionsgedächtnis hört jede Lageänderung jedes Fensters und erreicht
 seine Grenze (2000 Ereignisse in zehn Sekunden) auch bei harmloser Last, etwa einem zügig gezogenen Fenster
 neben laufenden Animationen. Ein Stopp wegen dieser Grenze hebt sich nach zehn Sekunden von selbst wieder
 auf, die Statuszeile nennt die Wartezeit. Erst beim vierten Stopp innerhalb von fünf Minuten bleibt das
@@ -521,17 +531,6 @@ die neue Datei hinüber (`--wait-for-pid` lässt den Nachfolger auf das Ende des
 die Datei ganz, beendet es sich nach dem Speichern. Beides steht als WARN im Protokoll. Am 03. und
 04.09.2026 endete das Programm dreimal mit einer `FileNotFoundException` für eine .NET-Assembly, jeweils
 Minuten nach einem Build — der Fall, den diese Prüfung seither abfängt.
-
-Holt das Zonen-Vollbild ein bestimmtes Programm nicht zurück, zeigt
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File scripts\measure-fullscreen-window.ps1
-```
-
-bei geöffnetem Vollbild, wie dessen Fenster tatsächlich aussieht: Rechteck, Monitorfläche, ob Windows es als
-maximiert führt und welche Stile es trägt. Erscheint das Fenster dort gar nicht, fordert das Programm ein
-Exklusivvollbild an und ist von aussen nicht erreichbar. Das Skript liest ausschliesslich; es startet,
-schliesst und verschiebt nichts.
 
 ## Einschränkungen
 

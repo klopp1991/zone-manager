@@ -1,6 +1,5 @@
 using System.IO;
 using System.Runtime.InteropServices;
-using SnapZones.Core.Fullscreen;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Placement;
 using SnapZones.Windows.Native;
@@ -78,9 +77,9 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
 
             // Ein rahmenloses Fenster ueber dem ganzen Monitor ist ein Vollbild; sein Rechteck ist kein
             // Ort, den jemand gewaehlt hat.
-            var isFullscreen = !classification.HasCaption &&
-                placement.ShowCommand != ShowMaximized &&
-                ZoneFullscreen.CoversMonitor(classification.Bounds, ToPixelRect(monitorInfo.Monitor));
+            var isFullscreen = MonitorCoverage.IsFullscreen(
+                classification.Bounds, ToPixelRect(monitorInfo.Monitor), classification.HasCaption,
+                IsMinimized(placement.ShowCommand), placement.ShowCommand == ShowMaximized);
             return new PlacementWindowSnapshot(
                 windowHandle,
                 identity,
@@ -114,6 +113,12 @@ public sealed class WindowsPlacementWindowService : IPlacementWindowService
                 normalBounds.Height < 1 ||
                 !TryReadEligibleWindow(windowHandle, excludedProcessId: -1, out _))
             {
+                return false;
+            }
+
+            if (User32.IsIconic(windowHandle) || WindowEligibility.IsFullscreen(windowHandle))
+            {
+                trace?.Invoke($"Fenster 0x{windowHandle:X}: Vollbild oder minimiertes Fenster bleibt unverändert.");
                 return false;
             }
 

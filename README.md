@@ -81,21 +81,17 @@ Toleranzen beim Nachmessen, Umgang mit Fenstern fester Grösse, Katalogumfang, S
 Jeder Wert hat einen sicheren Standard, einen begrenzten Bereich und ein **?**, das beim Darüberfahren
 erklärt, was er tut. Löschen fragt nicht nach, sondern bietet sechs Sekunden lang **Rückgängig**.
 
-### Vollbild, das in der Zone bleibt
+### Vollbildzonen
 
-Ein Video auf Twitch oder YouTube im Vollbild nimmt sonst den ganzen Monitor. Mit **Vollbild in der Zone
-halten** füllt es nur die Zone, in der sein Fenster liegt — der Rest des Bildschirms bleibt frei für alles
-andere.
+Eine Zone kann ein **virtueller Monitor** sein. Ein Fenster, das dorthin kommt, läuft auf einem eigenen
+Monitor in genau der Grösse der Zone, und Zone Manager spiegelt dessen Bild in die Zone. Das Programm
+darf sein Vollbild einschalten und füllt trotzdem nur die Zone — ein Film aus der eigenen Plex-Mediathek
+neben dem Browser, ein Spiel neben dem Chat. Die Maus wird übergeben, nicht nachgebaut: in der Zone
+springt der echte Zeiger auf den virtuellen Monitor, am Rand kommt er zurück, `Strg+Alt+Q` holt ihn sofort.
 
-Der Player merkt davon nichts: er bleibt in seinem Vollbildmodus und legt Bedienelemente und Bildgrösse auf
-die kleinere Fläche aus, so wie er es auf einem kleineren Bildschirm täte. Möglich ist das, weil ein Browser
-im Vollbild kein Exklusivbild anfordert, sondern sein Fenster randlos über den Monitor legt — und ein Fenster
-lässt sich setzen, auch gegen den Widerstand des Programms, das sich sonst auf die Monitorfläche
-zurückklemmt.
-
-Angefasst wird nur, was vorher in einer Zone lag. Ein frei abgelegtes Fenster geht weiterhin auf den ganzen
-Monitor, ein Ausschluss gilt auch hier, und ein Programm, das sich wiederholt zurücksetzt, bekommt nach
-einigen Versuchen seinen Willen statt in einen Dauerkampf zu geraten.
+Dafür bringt das Programm den Anzeigetreiber «Virtual Display Driver» mit (freie Software, signiert von der
+SignPath Foundation); die Installation nach «Programme» richtet ihn ein. Kopiergeschützte Streams wie
+Netflix bleiben im Spiegel schwarz, das ist so gewollt.
 
 ### Fenster zuordnen
 
@@ -188,9 +184,9 @@ SmartScreen-Warnung zeigen. Wem das nicht genügt, der baut es aus diesen Quelle
 - Zonen sind Rechtecke; nicht rechteckige Zonen und virtuelle Desktops gibt es nicht.
 - Zwei baugleiche Monitore ohne Seriennummer in der EDID lassen sich nach einem Umstecken nicht
   auseinanderhalten.
-- Das Zonen-Vollbild erreicht keine Spiele im Exklusivvollbild: diesen Bildschirmmodus vergibt der
-  Grafiktreiber und nicht der Fenstermanager. Browser, Videoplayer und Spiele im randlosen Fenster
-  liegen dagegen als gewöhnliches Fenster vor und lassen sich setzen.
+- Ein Fenster im Vollbild wird nicht in seine Zone geholt: es nimmt den ganzen Monitor ein wie sonst
+  auch. Wer Vollbild in einer Zone will, kennzeichnet sie als Vollbildzone (siehe oben); dort bleiben
+  kopiergeschützte Streams wie Netflix schwarz.
 - Eigene Zonen lassen sich nicht in das native Windows-Snap-Popup einhängen — dafür gibt es keine
   dokumentierte Schnittstelle. Zone Manager bringt sein eigenes Overlay mit.
 - Die Oberfläche ist einsprachig deutsch.

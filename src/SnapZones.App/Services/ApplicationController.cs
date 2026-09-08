@@ -41,8 +41,6 @@ public sealed class ApplicationController : IDisposable
     private readonly AppRuleCoordinator appRuleCoordinator;
     private readonly WindowPlacementSaveCoordinator placementSaveCoordinator;
     private readonly WindowPlacementEngine placementEngine;
-    private readonly ZoneFullscreenCoordinator zoneFullscreen;
-    private readonly DispatcherTimer zoneFullscreenTimer;
     private readonly VirtualZoneCoordinator virtualZones;
     private readonly IGlobalHotkeyService hotkeys;
     private readonly IWindowService windowService;
@@ -143,13 +141,6 @@ public sealed class ApplicationController : IDisposable
             () => BuildPlacementEnvironment(configuration),
             Environment.ProcessId,
             message => log.Write("DEBUG", message));
-        zoneFullscreen = new ZoneFullscreenCoordinator(
-            new WindowsFullscreenWindowReader(),
-            (handle, bounds) => windowService.Fill(handle, bounds),
-            handle => windowService.InspectRuleCandidate(handle, Environment.ProcessId)?.Identity,
-            () => BuildPlacementEnvironment(configuration),
-            message => log.Write("DEBUG", message),
-            notice: (level, message) => log.Write(level, message));
         appRuleCoordinator = new AppRuleCoordinator(
             () => configuration,
             () => this.monitors,
@@ -240,16 +231,7 @@ public sealed class ApplicationController : IDisposable
                 ResumeSnapping();
             }
         };
-        // Das Zonen-Vollbild haengt an denselben Fensterereignissen wie das Positionsgedaechtnis; ein
-        // eigener Hook waere ein zweites Abonnement auf dieselben Meldungen.
-        placementHook.EventReceived += zoneFullscreen.Handle;
         placementHook.EventReceived += virtualZones.Handle;
-        zoneFullscreenTimer = new DispatcherTimer(DispatcherPriority.Background, window.Dispatcher)
-        {
-            Interval = TimeSpan.FromMilliseconds(250)
-        };
-        zoneFullscreenTimer.Tick += (_, _) => zoneFullscreen.Poll();
-        zoneFullscreenTimer.Start();
         hotkeys.ZoneHotkeyPressed += HandleZoneHotkey;
         window.PreviewActiveLayoutsRequested += PreviewActiveLayouts;
         previewTimer = new DispatcherTimer(DispatcherPriority.Normal, window.Dispatcher)
@@ -442,11 +424,9 @@ public sealed class ApplicationController : IDisposable
         appRuleCoordinator.Dispose();
         appRuleHook.Dispose();
         placementEngine.Stop();
-        placementHook.EventReceived -= zoneFullscreen.Handle;
         placementHook.EventReceived -= virtualZones.Handle;
         // Vor dem Hook-Abbau, damit der Zeiger-Hook und der virtuelle Monitor sicher weg sind.
         virtualZones.Dispose();
-        zoneFullscreenTimer.Stop();
         placementHook.Dispose();
         overlays.Dispose();
         previewTimer.Stop();
@@ -1302,9 +1282,6 @@ public sealed class ApplicationController : IDisposable
         appRuleCoordinator.CancelPending();
         appRuleHook.Disable();
         placementEngine.Stop();
-        // Der Koordinator merkt sich Flaechen in Bildschirmkoordinaten; nach geaenderten Zonen zeigen
-        // die auf Stellen, die es so nicht mehr gibt.
-        zoneFullscreen.Reset();
         var targets = BuildTargets(newConfiguration);
         overlays.UpdateTargets(targets);
         ApplyFineTuning(newConfiguration.Settings);

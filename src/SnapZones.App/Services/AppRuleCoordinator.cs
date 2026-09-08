@@ -16,7 +16,8 @@ public enum AppRuleExecutionStatus
     TargetMissing,
     WindowsRejected,
     Cancelled,
-    Excluded
+    Excluded,
+    WindowStateProtected
 }
 
 public sealed record AppRuleExecutionResult(AppRuleExecutionStatus Status, Guid? RuleId = null);
@@ -214,6 +215,12 @@ public sealed class AppRuleCoordinator : IDisposable
                 !AppRuleMatcher.Matches(rule, currentCandidate.Identity))
             {
                 return new AppRuleExecutionResult(AppRuleExecutionStatus.CandidateUnavailable, ruleId);
+            }
+
+            // Der Zustand kann sich waehrend der Regelverzoegerung oder zwischen Wiederholungen aendern.
+            if (currentCandidate.IsFullscreen || currentCandidate.IsMinimized)
+            {
+                return new AppRuleExecutionResult(AppRuleExecutionStatus.WindowStateProtected, ruleId);
             }
 
             // Der Ausschluss wird unmittelbar vor dem Platzieren erneut geprueft, weil zwischen Auswahl

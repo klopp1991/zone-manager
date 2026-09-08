@@ -114,12 +114,17 @@ internal sealed class FakePlacementWindowService : IPlacementWindowService
 
     public bool PlacementSucceeds { get; set; } = true;
 
+    public Action? OnInspect { get; set; }
+
     public void Add(PlacementWindowSnapshot snapshot) => windows[snapshot.WindowHandle] = snapshot;
 
     public void Remove(nint windowHandle) => windows.Remove(windowHandle);
 
-    public PlacementWindowSnapshot? Inspect(nint windowHandle, int excludedProcessId) =>
-        windows.TryGetValue(windowHandle, out var snapshot) ? snapshot : null;
+    public PlacementWindowSnapshot? Inspect(nint windowHandle, int excludedProcessId)
+    {
+        OnInspect?.Invoke();
+        return windows.TryGetValue(windowHandle, out var snapshot) ? snapshot : null;
+    }
 
     public bool TryPlace(nint windowHandle, PixelRect normalBounds, bool maximize)
     {

@@ -16,9 +16,12 @@ outputs/
 # scripts/publish-release.ps1 als Release-Anhänge erzeugt
 /ZoneManager.exe
 /ZoneManager.exe.new
+/ZoneManager.exe.new.*
+/.zonemanager-install.lock
 /ZoneManager.exe.previous.*
 /ZoneManager.exe.sha256
 /ZoneManager.Helper.exe
 /ZoneManager.Helper.exe.new
+/ZoneManager.Helper.exe.new.*
 /ZoneManager.Helper.exe.previous.*
 /ZoneManager.Helper.exe.sha256

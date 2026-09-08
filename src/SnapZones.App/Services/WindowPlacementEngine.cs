@@ -554,6 +554,11 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         }
 
         SetCachedSnapshot(windowHandle, state, snapshot);
+        if (snapshot.IsFullscreen)
+        {
+            return;
+        }
+
         var environment = environmentFactory();
         // Dieselbe Ableitung wie beim Einrasten per Maus: aktiv ist die Snap-Funktion genau dann, wenn
         // mindestens ein Layout aktiv ist. Frueher hing dieser Pfad an einem eigenen, nie gesetzten
@@ -1104,6 +1109,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         var currentSnapshot = windowService.Inspect(windowHandle, ownProcessId);
         if (currentSnapshot is null ||
             currentSnapshot.IsMinimized ||
+            currentSnapshot.IsFullscreen ||
             currentSnapshot.Identity != expectedIdentity)
         {
             return;
@@ -1144,6 +1150,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             var revalidatedSnapshot = windowService.Inspect(windowHandle, ownProcessId);
             if (revalidatedSnapshot is null ||
                 revalidatedSnapshot.IsMinimized ||
+                revalidatedSnapshot.IsFullscreen ||
                 revalidatedSnapshot.Identity != expectedIdentity)
             {
                 return;

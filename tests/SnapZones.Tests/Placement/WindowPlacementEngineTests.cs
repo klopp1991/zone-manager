@@ -15,6 +15,42 @@ namespace SnapZones.Tests.Placement;
 /// </summary>
 public sealed class WindowPlacementEngineTests
 {
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public async Task Fullscreen_is_protected_at_every_inspection_before_restoring(int fullscreenFromInspection)
+    {
+        using var harness = Harness(mainZoneId: RightZoneId, catalog: Catalog(LeftZoneBounds));
+        harness.WindowService.Add(Window(17, Stray));
+        var inspections = 0;
+        harness.WindowService.OnInspect = () =>
+        {
+            if (++inspections >= fullscreenFromInspection)
+            {
+                harness.WindowService.Add(Window(17, new PixelRect(0, 0, 1920, 1080)) with { IsFullscreen = true });
+            }
+        };
+        harness.Engine.Start();
+
+        await harness.ShowWindowAsync(17);
+
+        Assert.Empty(harness.WindowService.Placements);
+        Assert.Equal(LeftZoneBounds, Assert.Single(harness.Engine.Catalog.Entries).NormalBoundsPixels);
+    }
+
+    [Fact]
+    public async Task A_fullscreen_window_without_history_is_not_caught_by_the_main_zone()
+    {
+        using var harness = Harness(mainZoneId: RightZoneId);
+        harness.WindowService.Add(Window(17, new PixelRect(0, 0, 1920, 1080)) with { IsFullscreen = true });
+        harness.Engine.Start();
+
+        await harness.ShowWindowAsync(17);
+
+        Assert.Empty(harness.WindowService.Placements);
+    }
+
     private static readonly Guid LayoutId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid LeftZoneId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
     private static readonly Guid RightZoneId = Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb");

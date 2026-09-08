@@ -226,6 +226,32 @@ internal static class WindowEligibility
             : null;
     }
 
+    /// <summary>
+    /// Erkennt monitorfuellendes Vollbild auch dann, wenn das Fenster als rahmenloses Popup sonst
+    /// nicht klassifiziert wird. Vor jedem nativen Platzieren wird der aktuelle Zustand gelesen.
+    /// </summary>
+    internal static bool IsFullscreen(nint window)
+    {
+        if (window == 0 ||
+            !DefaultStyleReader.TryRead(window, StyleIndex, out var style) ||
+            (style & CaptionStyle) == CaptionStyle ||
+            !User32.GetWindowRect(window, out var rectangle))
+        {
+            return false;
+        }
+
+        var monitor = User32.MonitorFromWindow(window, User32.MonitorDefaultToNearest);
+        var info = new MonitorInfoEx
+        {
+            Size = (uint)Marshal.SizeOf<MonitorInfoEx>(),
+            DeviceName = string.Empty
+        };
+        return monitor != 0 && User32.GetMonitorInfo(monitor, ref info) &&
+            MonitorCoverage.IsFullscreen(
+                ToPixelRect(rectangle), ToPixelRect(info.Monitor),
+                (style & CaptionStyle) == CaptionStyle, User32.IsIconic(window), User32.IsZoomed(window));
+    }
+
     public static string ReadWindowTitle(nint window)
     {
         var capacity = Math.Clamp(User32.GetWindowTextLength(window) + 1, 1, 32768);

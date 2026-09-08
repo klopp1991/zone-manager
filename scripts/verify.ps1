@@ -48,6 +48,8 @@ if ($LASTEXITCODE -ne 0) { throw 'Die win-x64-Laufzeitwiederherstellung des Fens
 dotnet test $solutionPath -c Release --no-restore -p:SkipRootExecutablePublish=true
 if ($LASTEXITCODE -ne 0) { throw 'Die Tests sind fehlgeschlagen.' }
 
+& (Join-Path $scriptDirectory 'test-root-installation.ps1')
+
 dotnet build $solutionPath -c Release --no-restore -p:SkipRootExecutablePublish=true
 if ($LASTEXITCODE -ne 0) { throw 'Der Release-Build ist fehlgeschlagen.' }
 

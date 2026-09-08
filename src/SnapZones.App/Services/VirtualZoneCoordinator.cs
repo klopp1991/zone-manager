@@ -260,7 +260,7 @@ public sealed class VirtualZoneCoordinator : IDisposable
                 return;
             }
 
-            var outcome = windowService.Fill(window, prepared.Bounds);
+            var outcome = windowService.Snap(window, prepared.Bounds);
             if (!outcome.Succeeded)
             {
                 SafeDetach(prepared.DeviceName);

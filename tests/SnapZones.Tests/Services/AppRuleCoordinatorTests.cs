@@ -11,6 +11,34 @@ namespace SnapZones.Tests.Services;
 
 public sealed class AppRuleCoordinatorTests
 {
+    [Theory]
+    [InlineData(AppRuleEvent.WindowCreated, false)]
+    [InlineData(AppRuleEvent.WindowFocused, false)]
+    [InlineData(AppRuleEvent.LayoutActivated, false)]
+    [InlineData(AppRuleEvent.WindowCreated, true)]
+    public async Task Rules_leave_fullscreen_and_minimized_windows_untouched(AppRuleEvent eventType, bool minimized)
+    {
+        var configuration = WithRule(ConfigurationSamples.TwoLayouts(), delayMilliseconds: 100, retryCount: 3);
+        configuration = configuration with { AppRules = [configuration.AppRules[0] with { Event = eventType }] };
+        var window = Candidate();
+        var gateway = new FakeGateway(window, snapResults: [true])
+        {
+            CandidateAfterFirstInspection = window with { IsFullscreen = !minimized, IsMinimized = minimized }
+        };
+        using var coordinator = CreateCoordinator(configuration, gateway, []);
+
+        if (eventType == AppRuleEvent.LayoutActivated)
+        {
+            await coordinator.HandleLayoutActivatedAsync(configuration.Layouts[0].Id);
+        }
+        else
+        {
+            await coordinator.HandleAsync(eventType, window.WindowHandle);
+        }
+
+        Assert.Empty(gateway.SnappedBounds);
+    }
+
     [Fact]
     public async Task Handle_waits_rechecks_the_window_and_snaps_to_the_configured_zone()
     {
@@ -232,7 +260,7 @@ public sealed class AppRuleCoordinatorTests
                 : initialCandidate;
         }
 
-        public IReadOnlyList<WindowRuleCandidate> GetCandidates() => [initialCandidate];
+        public IReadOnlyList<WindowRuleCandidate> GetCandidates() => [Inspect(initialCandidate.WindowHandle)!];
 
         public bool TrySnap(nint windowHandle, PixelRect bounds)
         {

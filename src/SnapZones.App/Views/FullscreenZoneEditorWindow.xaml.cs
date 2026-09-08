@@ -21,6 +21,7 @@ public partial class FullscreenZoneEditorWindow : Window
     private readonly MainWindow owner;
     private readonly MainViewModel viewModel;
     private Guid? renamingZoneId;
+    private bool isClosed;
 
     public FullscreenZoneEditorWindow(MainWindow owner, MainViewModel viewModel)
     {
@@ -35,11 +36,29 @@ public partial class FullscreenZoneEditorWindow : Window
             Canvas.Focus();
         };
         viewModel.PropertyChanged += ViewModel_PropertyChanged;
-        Closed += (_, _) => viewModel.PropertyChanged -= ViewModel_PropertyChanged;
+        Closed += (_, _) =>
+        {
+            isClosed = true;
+            ValuesPopup.IsOpen = false;
+            viewModel.PropertyChanged -= ViewModel_PropertyChanged;
+        };
     }
 
     private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs eventArgs)
     {
+        if (eventArgs.PropertyName == nameof(MainViewModel.SelectedMonitor) &&
+            !isClosed && new WindowInteropHelper(this).Handle != 0)
+        {
+            // Ein Monitorwechsel beendet einen laufenden Zug vor dem Wechsel des Koordinatensystems.
+            Canvas.ReleaseMouseCapture();
+            viewModel.Editor?.EndInteractiveChange();
+            ValuesPopup.IsOpen = false;
+            renamingZoneId = null;
+            RenameOverlay.Visibility = Visibility.Collapsed;
+            PositionOnMonitor();
+        }
+
+        if (isClosed) return;
         if (eventArgs.PropertyName is nameof(MainViewModel.Editor) or nameof(MainViewModel.SelectedLayout))
         {
             RefreshFromEditor();
@@ -48,16 +67,27 @@ public partial class FullscreenZoneEditorWindow : Window
 
     private void PositionOnMonitor()
     {
-        var monitor = viewModel.SelectedMonitor?.Live;
-        if (monitor is null)
+        var selected = viewModel.SelectedMonitor;
+        var monitor = selected?.Live;
+        if (selected?.IsConnected != true || monitor is null ||
+            monitor.WorkArea.Width <= 0 || monitor.WorkArea.Height <= 0)
         {
+            viewModel.StatusMessage = "Der Monitor ist nicht mehr verfügbar; der Monitor-Editor wurde geschlossen.";
             Close();
             return;
         }
 
-        OverlayWindowNative.Position(
-            new WindowInteropHelper(this).Handle,
-            new PixelRect(monitor.WorkArea.X, monitor.WorkArea.Y, monitor.WorkArea.Width, monitor.WorkArea.Height));
+        try
+        {
+            OverlayWindowNative.Position(
+                new WindowInteropHelper(this).Handle,
+                new PixelRect(monitor.WorkArea.X, monitor.WorkArea.Y, monitor.WorkArea.Width, monitor.WorkArea.Height));
+        }
+        catch (System.ComponentModel.Win32Exception exception)
+        {
+            viewModel.StatusMessage = $"Der Monitor-Editor konnte nicht positioniert werden: {exception.Message}";
+            Close();
+        }
     }
 
     /// <summary>Zieht Zeichenflaeche, Titel und Werte-Panel auf den Stand des Editors.</summary>
