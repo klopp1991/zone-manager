@@ -6,9 +6,21 @@ public static class MonitorNaming
 {
     public const int MaximumCustomNameLength = 60;
 
+    /// <summary>
+    /// Der Schluessel, unter dem Name, Reihenfolge und Monitorkombination eines Monitors abgelegt sind.
+    /// Traegt die Hardwarekennung eine Seriennummer, bezeichnet sie genau dieses Geraet und ist der
+    /// Schluessel: sie ueberlebt Umstecken, Aufloesungswechsel und die von Windows bei jedem Start neu
+    /// vergebene Anzeigenummer. Erst ohne Seriennummer bleibt der Anzeigepfad die naechstbeste Wahl —
+    /// zwei baugleiche Monitore ohne Seriennummer sind sonst nicht zu unterscheiden.
+    /// </summary>
     public static string KeyFor(MonitorIdentity monitor)
     {
         ArgumentNullException.ThrowIfNull(monitor);
+        if (MonitorHardwareId.HasSerialNumber(monitor.HardwareId))
+        {
+            return $"hw:{MonitorHardwareId.Normalize(monitor.HardwareId)}";
+        }
+
         if (!string.IsNullOrWhiteSpace(monitor.StableId))
         {
             return $"stable:{monitor.StableId}";

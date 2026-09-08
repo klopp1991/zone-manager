@@ -255,9 +255,18 @@ public sealed class LayoutService
 
     public static bool BelongsToMonitor(MonitorIdentity first, MonitorIdentity second)
     {
-        // Die StableId ist der verlässliche Schlüssel. Der GDI-Gerätename (\\.\DISPLAYn)
+        // Die Hardwarekennung mit Seriennummer bezeichnet genau ein Gerät und bleibt gleich,
+        // wenn der Monitor an einem anderen Anschluss hängt oder mit anderer Auflösung läuft.
+        // Sie hat deshalb Vorrang vor dem Anzeigepfad, der den Anschluss mitführt.
+        if (MonitorHardwareId.HasSerialNumber(first.HardwareId) &&
+            MonitorHardwareId.HasSerialNumber(second.HardwareId))
+        {
+            return EqualsIgnoreCase(first.HardwareId, second.HardwareId);
+        }
+
+        // Der Anzeigepfad ist die nächstbeste Kennung. Der GDI-Gerätename (\\.\DISPLAYn)
         // wird von Windows neu vergeben und darf nur als Notnagel dienen, wenn mindestens
-        // eine Seite keine StableId besitzt – sonst greifen zwei verschiedene Monitore
+        // eine Seite keinen Anzeigepfad besitzt – sonst greifen zwei verschiedene Monitore
         // auf dieselben Layouts zu.
         if (HasStableId(first) && HasStableId(second))
         {

@@ -43,4 +43,18 @@ public static partial class MonitorHardwareId
         var separator = hardwareId.IndexOf('#');
         return separator < 0 ? hardwareId : hardwareId[..separator];
     }
+
+    /// <summary>
+    /// Ob die Kennung eine Seriennummer traegt und damit genau ein Geraet bezeichnet. Nur dann darf sie
+    /// als Identitaet dienen: ohne Seriennummer waeren zwei baugleiche Monitore nicht zu unterscheiden.
+    /// </summary>
+    public static bool HasSerialNumber(string? hardwareId) =>
+        !string.IsNullOrWhiteSpace(hardwareId) &&
+        hardwareId.IndexOf('#') is var separator &&
+        separator > 0 &&
+        separator < hardwareId.Length - 1;
+
+    /// <summary>Die Kennung in einheitlicher Schreibweise, damit Schluessel vergleichbar bleiben.</summary>
+    public static string Normalize(string? hardwareId) =>
+        (hardwareId ?? string.Empty).Trim().ToUpperInvariant();
 }

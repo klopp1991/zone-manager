@@ -243,14 +243,16 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
                 ? layout with { Monitor = layout.Monitor with { HardwareId = MonitorHardwareId.FromDevicePath(layout.Monitor.StableId) } }
                 : layout)
             .ToArray();
-        return upgraded with
+        // Schema 8: Name, Reihenfolge und Monitorkombination haengen an der Hardwarekennung statt am
+        // Anzeigepfad. Siehe <see cref="MonitorKeyMigration"/>.
+        return MonitorKeyMigration.Apply(upgraded with
         {
             Layouts = layouts,
             MonitorOrder = upgraded.MonitorOrder ?? [],
             AppRules = upgraded.AppRules ?? [],
             AppExclusions = upgraded.AppExclusions ?? [],
             MonitorSets = MonitorSets.Prune(upgraded.MonitorSets, layouts)
-        };
+        });
     }
 
     private static SnapConfiguration UpgradeSchema(SnapConfiguration configuration)
@@ -260,7 +262,7 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
             return configuration;
         }
 
-        if (configuration.SchemaVersion == 6)
+        if (configuration.SchemaVersion is 6 or 7)
         {
             return configuration with { SchemaVersion = SnapConfiguration.CurrentSchemaVersion };
         }
@@ -430,10 +432,7 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
         }
     }
 
-    private static string MonitorKey(MonitorLayout layout) =>
-        !string.IsNullOrWhiteSpace(layout.Monitor.StableId)
-            ? $"stable:{layout.Monitor.StableId}"
-            : $"device:{layout.Monitor.DeviceName}";
+    private static string MonitorKey(MonitorLayout layout) => MonitorNaming.KeyFor(layout.Monitor);
 
     private static void ValidateSettings(AppSettings settings)
     {

@@ -6,17 +6,24 @@ namespace SnapZones.Core.Models;
 public sealed record SnapConfiguration
 {
     /// <summary>
+    /// Schema 8 (08.09.2026): Name, Reihenfolge und Monitorkombination haengen an der Hardwarekennung
+    /// des Monitors statt an seinem Anzeigepfad. Der Anzeigepfad enthaelt Grafikkarte und Anschluss;
+    /// nach einem Umstecken galt derselbe Monitor als neuer, verlor seinen Namen und trat unter der von
+    /// Windows neu vergebenen Anzeigenummer wieder auf.
+    ///
+    /// <para>
     /// Schema 7 (03.09.2026): die Zonenkuerzel liegen auf Strg + Umschalt statt auf Strg + Alt, weil
     /// Windows AltGr intern als Strg + Alt liefert und ein solches Kuerzel jedes AltGr-Zeichen auf
     /// derselben Taste schluckt. Der Uebergang stellt einen bestehenden Stand einmalig um; wer danach
     /// bewusst Strg + Alt waehlt, behaelt es.
+    /// </para>
     ///
     /// <para>
     /// Schema 6 (02.09.2026): Monitore tragen eine Hardwarekennung aus der EDID, und je
     /// Monitorkombination wird die zuletzt aktive Layoutauswahl gemerkt.
     /// </para>
     /// </summary>
-    public const int CurrentSchemaVersion = 7;
+    public const int CurrentSchemaVersion = 8;
 
     /// <summary>Ab diesem Schema ist die Wahl der Zusatztasten die des Benutzers und wird nicht mehr angetastet.</summary>
     public const int ZoneHotkeyModifierMigrationSchemaVersion = 7;

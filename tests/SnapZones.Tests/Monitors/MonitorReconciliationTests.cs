@@ -88,6 +88,31 @@ public sealed class MonitorReconciliationTests
         Assert.Contains(result.Notices, notice => notice.Contains("bereinigt", StringComparison.Ordinal));
     }
 
+    /// <summary>
+    /// Ein an der Seriennummer erkannter Monitor fuehrt Anzeigepfad und Geraetename nach. Ohne das
+    /// blieb der Eintrag am alten Anschluss haengen: derselbe Monitor tauchte ein zweites Mal auf,
+    /// unter der von Windows neu vergebenen Anzeigenummer und ohne seinen Namen.
+    /// </summary>
+    [Fact]
+    public void A_monitor_known_by_its_serial_number_follows_the_current_port()
+    {
+        const string serial = "GSM9EB9#602NTSUJC086";
+        var configuration = ConfigurationOn(new MonitorIdentity(OldPath, @"\\.\DISPLAY1", "LG ULTRAFINE", serial));
+        var live = Live(new MonitorIdentity(NewPath, @"\\.\DISPLAY6", "LG ULTRAFINE", serial));
+
+        var result = MonitorReconciliation.Reconcile(configuration, [live]);
+
+        Assert.All(result.Configuration.Layouts, layout =>
+        {
+            Assert.Equal(NewPath, layout.Monitor.StableId);
+            Assert.Equal(@"\\.\DISPLAY6", layout.Monitor.DeviceName);
+            Assert.Equal(serial, layout.Monitor.HardwareId);
+        });
+
+        // Der Wechsel des Anschlusses ist kein Ereignis, ueber das jemand unterrichtet werden muesste.
+        Assert.DoesNotContain(result.Notices, notice => notice.Contains("übernommen", StringComparison.Ordinal));
+    }
+
     [Fact]
     public void Hardware_id_is_derived_from_the_device_path()
     {

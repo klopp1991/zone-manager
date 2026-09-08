@@ -118,9 +118,30 @@ public static class MonitorReconciliation
                 continue;
             }
 
+            // Wurde der Monitor an seiner Seriennummer erkannt, ist die Identitaet zweifelsfrei: der
+            // gespeicherte Anzeigepfad und Geraetename duerfen dem aktuellen Anschluss folgen. Ohne
+            // dieses Nachfuehren blieb der Eintrag am alten Anschluss haengen und derselbe Monitor
+            // erschien nach dem Umstecken ein zweites Mal.
+            var monitor = layout.Monitor;
+            if (MonitorHardwareId.HasSerialNumber(monitor.HardwareId) &&
+                MonitorHardwareId.HasSerialNumber(live.Identity.HardwareId))
+            {
+                layouts[index] = layout with
+                {
+                    Monitor = live.Identity,
+                    SavedWidth = live.WorkArea.Width,
+                    SavedHeight = live.WorkArea.Height
+                };
+                if (layout.SavedWidth != live.WorkArea.Width || layout.SavedHeight != live.WorkArea.Height)
+                {
+                    sizeChanged = true;
+                }
+
+                continue;
+            }
+
             // Die Kennung aus der EDID (mit Seriennummer) ersetzt eine nur aus dem Anzeigepfad
             // abgeleitete (nur Modell); ein anderes Modell wuerde nie ueberschrieben.
-            var monitor = layout.Monitor;
             var liveHardwareId = live.Identity.HardwareId;
             if (!string.IsNullOrWhiteSpace(liveHardwareId) &&
                 !string.Equals(monitor.HardwareId, liveHardwareId, StringComparison.OrdinalIgnoreCase) &&
