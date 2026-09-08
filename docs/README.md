@@ -324,6 +324,14 @@ Verzeichnis von Hand.
 Es gibt bewusst kein getrenntes Setup-Programm: es müsste die 66 MB grosse Programmdatei ein zweites Mal
 enthalten und die Auslieferung verdoppeln. Installieren und Entfernen sind deshalb Modi derselben Datei.
 
+Die Installation richtet ausserdem den Anzeigetreiber für [Vollbildzonen](#vollbildzonen) ein, die Deinstallation
+entfernt ihn samt virtuellem Monitor wieder. Der Treiber ist der «Virtual Display Driver»
+(github.com/VirtualDrivers/Virtual-Display-Driver, MIT-Lizenz, signiert von der SignPath Foundation); er
+reist in der Programmdatei mit und wird nicht heruntergeladen. Unter **Programm → Anzeigetreiber für
+Vollbildzonen** lässt er sich auch einzeln einrichten oder entfernen, etwa nach einer älteren Installation;
+dasselbe leisten `ZoneManager.exe --install-display-driver` und `--remove-display-driver`. Ohne Treiber
+bleiben Vollbildzonen ausgeschaltet, alles andere läuft wie gewohnt.
+
 Beides schreibt nach `%ProgramFiles%` und in `HKEY_LOCAL_MACHINE` und verlangt darum Administratorrechte.
 Läuft das Programm gewöhnlich berechtigt — die Voreinstellung, siehe [Rechte](#rechte) —, erledigt die
 Installation ein zweiter, erhöhter Prozess derselben Programmdatei (`--install --silent --no-launch`);

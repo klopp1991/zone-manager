@@ -82,6 +82,7 @@ public static class SettingsSearchIndex
         Page("Updates", "Programm", NavigationPage.Program, "Aktualisierung Version suchen installieren"),
         Page("Administratorrechte", "Programm", NavigationPage.Program, "UAC Rechte erhöht Admin"),
         Page("Installation", "Programm", NavigationPage.Program, "Programme installieren Startmenü"),
+        Page("Anzeigetreiber für Vollbildzonen", "Programm", NavigationPage.Program, "virtueller Monitor Treiber Vollbild Zone installieren entfernen"),
         Page("Sicherung", "Programm", NavigationPage.Program, "Export Import Backup JSON"),
         Page("Frühere Stände", "Programm", NavigationPage.Program, "Sicherung wiederherstellen Backup zurück"),
         Page("Fensterhelfer ohne Administratorrechte", "Programm", NavigationPage.Program, "Zertifikat uiAccess Helfer Assistent"),

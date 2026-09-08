@@ -171,3 +171,13 @@ internal struct TokenMandatoryLabelNative
 {
     public SidAndAttributesNative Label;
 }
+
+/// <summary>SP_DEVINFO_DATA: ein Geraet in einer SetupAPI-Geraeteliste.</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct SpDevInfoData
+{
+    public uint Size;
+    public Guid ClassGuid;
+    public uint DevInst;
+    public nint Reserved;
+}

@@ -184,6 +184,8 @@ public sealed class ApplicationController : IDisposable
         viewModel.InstallRequested += InstallToProgramFiles;
         viewModel.CertificateInstallRequested += InstallSigningCertificate;
         viewModel.CertificateRemoveRequested += RemoveSigningCertificate;
+        viewModel.DisplayDriverInstallRequested += InstallDisplayDriver;
+        viewModel.DisplayDriverRemoveRequested += RemoveDisplayDriver;
         viewModel.ResumeSnappingRequested += ResumeSnapping;
 
         // Der Helfer wird nur angelegt, wenn seine Datei ueberhaupt neben dem Programm liegt. Gestartet
@@ -201,12 +203,14 @@ public sealed class ApplicationController : IDisposable
 
         PublishInstallationStatus();
         PublishCertificateStatus();
+        PublishDisplayDriverStatus();
         placementEngine.CatalogChanged += PublishRememberedWindowCount;
         viewModel.RememberedWindowCount = placementEngine.Catalog.Entries.Count;
         window.ExportConfigurationRequested += ExportConfigurationAsync;
         window.ImportConfigurationRequested += ImportConfigurationAsync;
         window.IdentifyMonitorsRequested += IdentifyMonitors;
         window.SettingsPageOpened += PublishCertificateStatus;
+        window.SettingsPageOpened += PublishDisplayDriverStatus;
         viewModel.BackupsRefreshRequested += RefreshBackups;
         viewModel.RestoreBackupRequested += RestoreBackup;
         moveHook.MoveStarted += MoveStarted;
@@ -438,6 +442,7 @@ public sealed class ApplicationController : IDisposable
         window.ImportConfigurationRequested -= ImportConfigurationAsync;
         window.IdentifyMonitorsRequested -= IdentifyMonitors;
         window.SettingsPageOpened -= PublishCertificateStatus;
+        window.SettingsPageOpened -= PublishDisplayDriverStatus;
         viewModel.BackupsRefreshRequested -= RefreshBackups;
         viewModel.RestoreBackupRequested -= RestoreBackup;
     }
@@ -989,6 +994,92 @@ public sealed class ApplicationController : IDisposable
         {
             viewModel.IsCertificateBusy = false;
             PublishCertificateStatus();
+        }
+    }
+
+    /// <summary>
+    /// Fuehrt den Stand des Anzeigetreibers fuer Vollbildzonen in den Einstellungen nach. Das Lesen
+    /// braucht keine Rechte; installiert und entfernt wird im erhoehten Hilfsprozess.
+    /// </summary>
+    private void PublishDisplayDriverStatus()
+    {
+        var status = VirtualDisplayDriverService.ReadStatus();
+        viewModel.IsDisplayDriverInstalled = status.Ready;
+        viewModel.DisplayDriverStatus = status switch
+        {
+            { Ready: true } => "Eingerichtet. Zonen lassen sich als virtueller Monitor kennzeichnen.",
+            { DevicePresent: true } => "Der Treiber läuft, aber seine Modeliste fehlt. Entfernen und erneut installieren.",
+            { DriverStored: true } => "Das Treiberpaket liegt in der Treiberablage, das Gerät fehlt. Installieren legt es an.",
+            _ => "Nicht eingerichtet. Ohne den Treiber bleiben Vollbildzonen ausgeschaltet."
+        };
+    }
+
+    private void InstallDisplayDriver()
+    {
+        if (ElevationState.IsAdministrator())
+        {
+            _ = RunDisplayDriverActionAsync("Anzeigetreiber wird installiert …", DisplayDriverSetup.Install);
+            return;
+        }
+
+        _ = RunDisplayDriverActionAsync(
+            "Anzeigetreiber wird installiert; Windows fragt nach Administratorrechten …",
+            () => RunDisplayDriverCommandElevated(StartupArguments.InstallDisplayDriver, "Der Anzeigetreiber ist installiert."));
+    }
+
+    private void RemoveDisplayDriver()
+    {
+        if (ElevationState.IsAdministrator())
+        {
+            _ = RunDisplayDriverActionAsync("Anzeigetreiber wird entfernt …", DisplayDriverSetup.Remove);
+            return;
+        }
+
+        _ = RunDisplayDriverActionAsync(
+            "Anzeigetreiber wird entfernt; Windows fragt nach Administratorrechten …",
+            () => RunDisplayDriverCommandElevated(StartupArguments.RemoveDisplayDriver, "Der Anzeigetreiber wurde entfernt."));
+    }
+
+    private DriverActionResult RunDisplayDriverCommandElevated(string argument, string successMessage)
+    {
+        var result = new ElevatedSelfInvocation(Environment.ProcessPath ?? string.Empty)
+            .Run([argument], TimeSpan.FromMinutes(3));
+        if (result.Succeeded)
+        {
+            return new DriverActionResult(DriverActionOutcome.Done, successMessage);
+        }
+
+        return new DriverActionResult(
+            DriverActionOutcome.Failed,
+            result.Status == ElevatedRunStatus.Completed
+                ? "Die Treiberaktion ist im erhöhten Hilfsprozess fehlgeschlagen. Einzelheiten stehen im Protokoll."
+                : result.Message ?? "Die Treiberaktion ist fehlgeschlagen.");
+    }
+
+    private async Task RunDisplayDriverActionAsync(string pendingMessage, Func<DriverActionResult> action)
+    {
+        if (viewModel.IsDisplayDriverBusy)
+        {
+            return;
+        }
+
+        viewModel.IsDisplayDriverBusy = true;
+        viewModel.StatusMessage = pendingMessage;
+        try
+        {
+            var result = await Task.Run(action);
+            viewModel.StatusMessage = result.Message;
+            log.Write(result.Successful ? "INFO" : "ERROR", result.Message);
+        }
+        catch (Exception exception)
+        {
+            log.Write("ERROR", "Die Treiberaktion ist fehlgeschlagen.", exception);
+            viewModel.StatusMessage = $"Treiberaktion fehlgeschlagen: {exception.Message}";
+        }
+        finally
+        {
+            viewModel.IsDisplayDriverBusy = false;
+            PublishDisplayDriverStatus();
         }
     }
 

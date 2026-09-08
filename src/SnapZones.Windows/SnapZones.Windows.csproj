@@ -11,4 +11,12 @@
   <ItemGroup>
     <ProjectReference Include="..\SnapZones.Core\SnapZones.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!--
+      Der Anzeigetreiber «Virtual Display Driver» (MIT-Lizenz, signiert von der SignPath Foundation)
+      reist in der Programmdatei mit und wird bei der Installation in einen Ordner entpackt, weil die
+      INF-Datei fuer die Treiberinstallation auf der Platte liegen muss.
+    -->
+    <EmbeddedResource Include="Drivers\VirtualDisplayDriver\*" LogicalName="VirtualDisplayDriver/%(Filename)%(Extension)" />
+  </ItemGroup>
 </Project>

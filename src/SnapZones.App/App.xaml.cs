@@ -102,6 +102,19 @@ public partial class App : System.Windows.Application
     }
 
     /// <summary>
+    /// Die Modi <c>--install-display-driver</c> und <c>--remove-display-driver</c>: der Anzeigetreiber
+    /// für Vollbildzonen wird im erhöhten Hilfsprozess eingerichtet oder entfernt.
+    /// </summary>
+    private void RunDisplayDriverCommand(bool install)
+    {
+        var result = install ? DisplayDriverSetup.Install() : DisplayDriverSetup.Remove();
+        log?.Write(
+            result.Successful ? "INFO" : "ERROR",
+            $"{(install ? "Anzeigetreiber installieren" : "Anzeigetreiber entfernen")} im erhöhten Hilfsprozess: {result.Message}");
+        Shutdown(result.Successful ? 0 : 1);
+    }
+
+    /// <summary>
     /// Der Modus <c>--apply-update</c>: dieser Prozess läuft aus der bereitgestellten Programmdatei,
     /// legt sie an die Stelle der bisherigen und startet sie von dort.
     /// </summary>
@@ -201,6 +214,18 @@ public partial class App : System.Windows.Application
         if (StartupArguments.Contains(eventArgs.Args, StartupArguments.RemoveCertificate))
         {
             RunCertificateCommand(install: false);
+            return;
+        }
+
+        if (StartupArguments.Contains(eventArgs.Args, StartupArguments.InstallDisplayDriver))
+        {
+            RunDisplayDriverCommand(install: true);
+            return;
+        }
+
+        if (StartupArguments.Contains(eventArgs.Args, StartupArguments.RemoveDisplayDriver))
+        {
+            RunDisplayDriverCommand(install: false);
             return;
         }
 

@@ -1,4 +1,5 @@
 using SnapZones.Core.Setup;
+using SnapZones.Windows.Displays;
 using SnapZones.Windows.Setup;
 
 namespace SnapZones.App.Services;
@@ -55,17 +56,33 @@ public static class SetupRunner
 
         if (mode == Mode.Uninstall)
         {
+            // Der Anzeigetreiber fuer Vollbildzonen geht mit dem Programm; sonst bliebe ein
+            // Geistermonitor in den Anzeigeeinstellungen zurueck.
+            var driverRemoval = DisplayDriverSetup.Remove();
             var removal = service.Uninstall();
-            return (removal.Outcome == RemovalOutcome.Failed ? 1 : 0, removal.Message, null);
+            var message = driverRemoval.Outcome == DriverActionOutcome.AlreadyDone
+                ? removal.Message
+                : removal.Message + " " + driverRemoval.Message;
+            return (removal.Outcome == RemovalOutcome.Failed ? 1 : 0, message, null);
         }
 
         var plan = InstallationService.CreatePlan(sourcePath);
         var result = service.Install(plan, version);
+        if (result.Outcome == InstallationOutcome.Failed)
+        {
+            return (1, result.Message, null);
+        }
+
+        // Die Treiberinstallation ist der zweite Schritt desselben erhoehten Prozesses; eine zweite
+        // UAC-Abfrage gibt es dafuer nicht. Schlaegt sie fehl, bleibt die Programminstallation gueltig.
+        var driver = DisplayDriverSetup.Install();
+        var combined = driver.Outcome == DriverActionOutcome.AlreadyDone
+            ? result.Message
+            : result.Message + " " + driver.Message;
         return result.Outcome switch
         {
-            InstallationOutcome.Failed => (1, result.Message, null),
-            InstallationOutcome.AlreadyCurrent => (0, result.Message, null),
-            _ => (0, result.Message + " Das Programm wird von dort gestartet.", result.InstalledPath)
+            InstallationOutcome.AlreadyCurrent => (0, combined, null),
+            _ => (0, combined + " Das Programm wird von dort gestartet.", result.InstalledPath)
         };
     }
 

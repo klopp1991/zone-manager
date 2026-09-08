@@ -28,6 +28,9 @@ public sealed class MainViewModel : ViewModelBase
     private string helperStatus = string.Empty;
     private bool isCertificateInstalled;
     private bool isCertificateBusy;
+    private string displayDriverStatus = string.Empty;
+    private bool isDisplayDriverInstalled;
+    private bool isDisplayDriverBusy;
     private bool suppressPersistence;
     private SnappingState snappingState = SnappingState.NoActiveLayout;
     private string? pauseReason;
@@ -74,6 +77,12 @@ public sealed class MainViewModel : ViewModelBase
 
     /// <summary>Bittet darum, das eigene Zertifikat wieder zu entfernen.</summary>
     public event Action? CertificateRemoveRequested;
+
+    /// <summary>Bittet darum, den Anzeigetreiber für Vollbildzonen zu installieren.</summary>
+    public event Action? DisplayDriverInstallRequested;
+
+    /// <summary>Bittet darum, den Anzeigetreiber für Vollbildzonen zu entfernen.</summary>
+    public event Action? DisplayDriverRemoveRequested;
 
     /// <summary>Bittet darum, das Einrasten nach einem Not-Aus oder Sicherheitsstopp wieder einzuschalten.</summary>
     public event Action? ResumeSnappingRequested;
@@ -376,6 +385,52 @@ public sealed class MainViewModel : ViewModelBase
     public void InstallCertificate() => CertificateInstallRequested?.Invoke();
 
     public void RemoveCertificate() => CertificateRemoveRequested?.Invoke();
+
+    /// <summary>Ob der Anzeigetreiber für Vollbildzonen eingerichtet ist, im Klartext.</summary>
+    public string DisplayDriverStatus
+    {
+        get => displayDriverStatus;
+        set => SetProperty(ref displayDriverStatus, value);
+    }
+
+    /// <summary>Ob der Anzeigetreiber eingerichtet ist; danach richtet sich, welche Schaltfläche greift.</summary>
+    public bool IsDisplayDriverInstalled
+    {
+        get => isDisplayDriverInstalled;
+        set
+        {
+            if (SetProperty(ref isDisplayDriverInstalled, value))
+            {
+                OnPropertyChanged(nameof(CanInstallDisplayDriver));
+                OnPropertyChanged(nameof(CanRemoveDisplayDriver));
+            }
+        }
+    }
+
+    /// <summary>
+    /// Ob gerade installiert oder entfernt wird. Beides läuft im erhöhten Hilfsprozess und dauert
+    /// Sekunden; die Schaltflächen sind solange gesperrt, damit kein zweiter Lauf parallel startet.
+    /// </summary>
+    public bool IsDisplayDriverBusy
+    {
+        get => isDisplayDriverBusy;
+        set
+        {
+            if (SetProperty(ref isDisplayDriverBusy, value))
+            {
+                OnPropertyChanged(nameof(CanInstallDisplayDriver));
+                OnPropertyChanged(nameof(CanRemoveDisplayDriver));
+            }
+        }
+    }
+
+    public bool CanInstallDisplayDriver => !isDisplayDriverBusy && !isDisplayDriverInstalled;
+
+    public bool CanRemoveDisplayDriver => !isDisplayDriverBusy && isDisplayDriverInstalled;
+
+    public void InstallDisplayDriver() => DisplayDriverInstallRequested?.Invoke();
+
+    public void RemoveDisplayDriver() => DisplayDriverRemoveRequested?.Invoke();
 
     /// <summary>
     /// Führt aus, was der Zustand gerade vorsieht. Die Oberfläche zeigt nur eine Schaltfläche; welche

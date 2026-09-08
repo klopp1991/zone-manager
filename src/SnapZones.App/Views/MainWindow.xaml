@@ -1284,6 +1284,21 @@
                                 <Border Style="{StaticResource SettingRow}">
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                                        <StackPanel>
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Anzeigetreiber für Vollbildzonen" Style="{StaticResource SettingLabel}" />
+                                                <Button x:Name="DisplayDriverInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Anzeigetreiber"
+                                                        ToolTip="Eine Zone kann ein eigener Monitor sein: ein Fenster darin darf sein Vollbild einschalten und füllt trotzdem nur die Zone, weil es aus seiner Sicht auf einem ganzen Monitor läuft – etwa ein Film in Plex neben dem Browser. Dafür braucht Windows den Anzeigetreiber «Virtual Display Driver» (freie Software, signiert von der SignPath Foundation). Die Installation nach «Programme» richtet ihn mit ein; hier lässt er sich einzeln einrichten oder entfernen, Windows fragt dabei einmal nach Administratorrechten. Ohne Treiber bleiben Vollbildzonen ausgeschaltet, alles andere geht wie gewohnt." /></StackPanel>
+                                            <TextBlock x:Name="DisplayDriverStatusText" Text="{Binding DisplayDriverStatus}" Style="{StaticResource HelpText}" Margin="0,4,0,0" AutomationProperties.Name="Zustand des Anzeigetreibers" />
+                                        </StackPanel>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
+                                            <Button x:Name="InstallDisplayDriverButton" Content="Treiber installieren" Click="InstallDisplayDriver_Click" IsEnabled="{Binding CanInstallDisplayDriver}" AutomationProperties.Name="Anzeigetreiber installieren" />
+                                            <Button x:Name="RemoveDisplayDriverButton" Content="Treiber entfernen" Click="RemoveDisplayDriver_Click" Margin="8,0,0,0" IsEnabled="{Binding CanRemoveDisplayDriver}" AutomationProperties.Name="Anzeigetreiber entfernen" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                                <Border Style="{StaticResource SettingRow}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                         <StackPanel Orientation="Horizontal"><TextBlock Text="Sicherung" Style="{StaticResource SettingLabel}" />
                                             <Button x:Name="BackupInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zur Sicherung"
                                                     ToolTip="Eine JSON-Datei mit allen Layouts, Zuordnungen und Einstellungen. Exportieren schreibt sie, etwa um sie auf einen zweiten Rechner mitzunehmen. Importieren prüft die Datei vollständig, zeigt den Ersetzungsumfang und sichert den bisherigen Stand unmittelbar vor der bestätigten Übernahme." /></StackPanel>
