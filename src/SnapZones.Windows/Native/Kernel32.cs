@@ -42,4 +42,7 @@ internal static class Kernel32
         public uint FileIndexHigh;
         public uint FileIndexLow;
     }
+
+    [DllImport("kernel32.dll", EntryPoint = "GetModuleHandleW", CharSet = CharSet.Unicode)]
+    internal static extern nint GetModuleHandle(string? moduleName);
 }

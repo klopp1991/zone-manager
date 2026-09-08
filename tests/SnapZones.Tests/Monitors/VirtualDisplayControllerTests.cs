@@ -10,6 +10,7 @@ namespace SnapZones.Tests.Monitors;
 /// laufen deshalb nur, wenn der Treiber installiert ist und <c>ZONEMANAGER_VDD_TESTS=1</c> gesetzt
 /// ist — sonst wuerde jeder Testlauf den Bildschirmaufbau des Rechners umbauen.
 /// </summary>
+[Collection("VirtualDisplay")]
 public sealed class VirtualDisplayControllerTests
 {
     [Fact]

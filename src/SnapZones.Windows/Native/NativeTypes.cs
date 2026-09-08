@@ -237,3 +237,14 @@ internal struct DisplayConfigSetDpiScaleNative
     public DisplayConfigDeviceInfoHeader Header;
     public int ScaleRelative;
 }
+
+/// <summary>MSLLHOOKSTRUCT: die Zeigerposition einer Mausnachricht im Hook auf unterster Ebene, unbeschnitten.</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct MouseLowLevelHookStruct
+{
+    public PointNative Point;
+    public uint MouseData;
+    public uint Flags;
+    public uint Time;
+    public nint ExtraInfo;
+}
