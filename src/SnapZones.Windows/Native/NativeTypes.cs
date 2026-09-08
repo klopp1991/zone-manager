@@ -181,3 +181,59 @@ internal struct SpDevInfoData
     public uint DevInst;
     public nint Reserved;
 }
+
+/// <summary>DEVMODEW, beschraenkt auf die Anzeigefelder; 220 Bytes wie in der Windows-Kopfdatei.</summary>
+[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+internal struct DevModeNative
+{
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+    public string DeviceName;
+    public ushort SpecVersion;
+    public ushort DriverVersion;
+    public ushort Size;
+    public ushort DriverExtra;
+    public uint Fields;
+    public int PositionX;
+    public int PositionY;
+    public uint DisplayOrientation;
+    public uint DisplayFixedOutput;
+    public short Color;
+    public short Duplex;
+    public short YResolution;
+    public short TtOption;
+    public short Collate;
+    [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
+    public string FormName;
+    public ushort LogPixels;
+    public uint BitsPerPel;
+    public uint PelsWidth;
+    public uint PelsHeight;
+    public uint DisplayFlags;
+    public uint DisplayFrequency;
+    public uint IcmMethod;
+    public uint IcmIntent;
+    public uint MediaType;
+    public uint DitherType;
+    public uint Reserved1;
+    public uint Reserved2;
+    public uint PanningWidth;
+    public uint PanningHeight;
+}
+
+/// <summary>Antwort auf DISPLAYCONFIG_DEVICE_INFO_GET_DPI_SCALE: Stufen relativ zur empfohlenen.</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct DisplayConfigGetDpiScaleNative
+{
+    public DisplayConfigDeviceInfoHeader Header;
+    public int MinimumScaleRelative;
+    public int CurrentScaleRelative;
+    public int MaximumScaleRelative;
+}
+
+/// <summary>Anfrage DISPLAYCONFIG_DEVICE_INFO_SET_DPI_SCALE: die gewuenschte Stufe relativ zur empfohlenen.</summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct DisplayConfigSetDpiScaleNative
+{
+    public DisplayConfigDeviceInfoHeader Header;
+    public int ScaleRelative;
+}

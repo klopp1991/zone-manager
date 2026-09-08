@@ -3,7 +3,7 @@ using System.Text;
 
 namespace SnapZones.Windows.Native;
 
-internal static class User32
+internal static partial class User32
 {
     internal const uint WinEventOutOfContext = 0;
     internal const uint MonitorDefaultToNearest = 2;

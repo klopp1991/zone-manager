@@ -1,0 +1,78 @@
+using SnapZones.Core.Geometry;
+using SnapZones.Core.Monitors;
+using SnapZones.Windows.Displays;
+using Xunit;
+
+namespace SnapZones.Tests.Monitors;
+
+/// <summary>
+/// Der Controller liest ohne Rechte; anhaengen, skalieren und abhaengen veraendern den Desktop und
+/// laufen deshalb nur, wenn der Treiber installiert ist und <c>ZONEMANAGER_VDD_TESTS=1</c> gesetzt
+/// ist — sonst wuerde jeder Testlauf den Bildschirmaufbau des Rechners umbauen.
+/// </summary>
+public sealed class VirtualDisplayControllerTests
+{
+    [Fact]
+    public void Finding_the_virtual_monitor_never_throws()
+    {
+        var state = VirtualDisplayController.Find();
+
+        if (state is null)
+        {
+            Assert.False(VirtualDisplayDriverService.ReadStatus().DevicePresent);
+            return;
+        }
+
+        Assert.StartsWith(@"\\.\DISPLAY", state.DeviceName);
+        Assert.Equal(state.Attached, state.Mode is not null);
+    }
+
+    [Fact]
+    public void Attaching_in_zone_size_copies_the_scaling_and_detaches_again()
+    {
+        if (Environment.GetEnvironmentVariable("ZONEMANAGER_VDD_TESTS") != "1")
+        {
+            return;
+        }
+
+        var initial = VirtualDisplayController.Find();
+        if (initial is null || initial.Attached)
+        {
+            return;
+        }
+
+        var log = new List<string>();
+        var controller = new VirtualDisplayController((level, message) => log.Add($"{level} {message}"));
+        var mode = new VirtualDisplayMode(1920, 1080);
+        var modes = VirtualDisplayModes.Build([mode, new(2288, 1296)]);
+        Assert.True(controller.EnsureModes(modes, TimeSpan.FromSeconds(15)), string.Join("\n", log));
+
+        // Physische Pixel unabhaengig davon, ob der Testprozess DPI-bewusst ist.
+        var position = VirtualDisplayPlacement.ChoosePosition(VirtualDisplayController.AttachedDisplayBounds());
+        var device = VirtualDisplayController.Find()!.DeviceName;
+        var attach = controller.Attach(device, mode, position);
+        try
+        {
+            Assert.True(attach.Succeeded, attach.Message);
+            var attached = VirtualDisplayController.WaitForAttached(mode, TimeSpan.FromSeconds(5));
+            Assert.NotNull(attached);
+            Assert.Equal(new PixelRect(position.X, position.Y, 1920, 1080), attached.Bounds);
+
+            Assert.True(controller.TrySetScalePercent(attached.DeviceName, 150), string.Join("\n", log));
+            Assert.True(VirtualDisplayController.WaitForScalePercent(attached.DeviceName, 150, TimeSpan.FromSeconds(5)), "150 % wurde nicht uebernommen");
+
+            Assert.True(controller.TrySetScalePercent(attached.DeviceName, 100), string.Join("\n", log));
+            Assert.True(VirtualDisplayController.WaitForScalePercent(attached.DeviceName, 100, TimeSpan.FromSeconds(5)), "100 % wurde nicht uebernommen");
+        }
+        finally
+        {
+            var current = VirtualDisplayController.Find();
+            if (current is { Attached: true })
+            {
+                controller.Detach(current.DeviceName);
+            }
+        }
+
+        Assert.True(VirtualDisplayController.WaitForDetached(TimeSpan.FromSeconds(5)));
+    }
+}
