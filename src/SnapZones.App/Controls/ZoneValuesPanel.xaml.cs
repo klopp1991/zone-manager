@@ -86,6 +86,9 @@ public partial class ZoneValuesPanel : System.Windows.Controls.UserControl
             MainZoneCheckBox.IsEnabled = zone is not null;
             MainZoneCheckBox.IsChecked = editor?.IsSelectedZoneMainZone ?? false;
             MainZoneStateText.Text = editor?.MainZoneStateText ?? string.Empty;
+            VirtualMonitorCheckBox.IsEnabled = zone is not null;
+            VirtualMonitorCheckBox.IsChecked = editor?.IsSelectedZoneVirtualMonitor ?? false;
+            VirtualMonitorStateText.Text = editor?.VirtualMonitorStateText ?? string.Empty;
             ValidationText.Text = editor?.ValidationMessage ?? string.Empty;
             IsEnabled = editor is not null;
             UpdateUnitSegments();
@@ -142,6 +145,20 @@ public partial class ZoneValuesPanel : System.Windows.Controls.UserControl
         }
 
         editor.ToggleSelectedZoneAsMainZone();
+        Refresh();
+        ValuesApplied?.Invoke(this, EventArgs.Empty);
+    }
+
+    private void VirtualMonitor_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (editor?.SelectedZone is null)
+        {
+            return;
+        }
+
+        editor.ToggleSelectedZoneAsVirtualMonitor();
         Refresh();
         ValuesApplied?.Invoke(this, EventArgs.Empty);
     }

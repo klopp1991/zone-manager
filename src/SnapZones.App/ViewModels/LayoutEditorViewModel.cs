@@ -30,6 +30,16 @@ public sealed class LayoutEditorViewModel : ViewModelBase
     /// <summary>Ob die gerade ausgewählte Zone die Auffangzone ist.</summary>
     public bool IsSelectedZoneMainZone => SelectedZone is { } zone && session.MainZoneId == zone.Id;
 
+    /// <summary>Ob die gerade ausgewählte Zone ein virtueller Monitor (Vollbildzone) ist.</summary>
+    public bool IsSelectedZoneVirtualMonitor => SelectedZone is { IsVirtualMonitor: true };
+
+    /// <summary>Was fuer die ausgewaehlte Zone gilt, im Klartext und ohne Farbe.</summary>
+    public string VirtualMonitorStateText => SelectedZone is null
+        ? string.Empty
+        : IsSelectedZoneVirtualMonitor
+            ? "Fenster in dieser Zone laufen auf einem virtuellen Monitor in Zonengrösse; ihr Vollbild bleibt in der Zone."
+            : "Eine gewöhnliche Zone: Fenster werden nur auf ihre Fläche gesetzt.";
+
     /// <summary>Beschriftung der einen Schaltfläche; sie führt in beide Richtungen.</summary>
     public string MainZoneActionLabel => IsSelectedZoneMainZone
         ? "Auffangzone aufheben"
@@ -206,6 +216,19 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         }
 
         session.SetMainZone(IsSelectedZoneMainZone ? null : selectedZoneId);
+        NotifyStateChanged();
+        NotifyConfigurationChanged();
+    }
+
+    /// <summary>Macht die ausgewaehlte Zone zum virtuellen Monitor, oder hebt das Kennzeichen wieder auf.</summary>
+    public void ToggleSelectedZoneAsVirtualMonitor()
+    {
+        if (selectedZoneId is not Guid zoneId)
+        {
+            return;
+        }
+
+        session.SetVirtualMonitor(zoneId, !IsSelectedZoneVirtualMonitor);
         NotifyStateChanged();
         NotifyConfigurationChanged();
     }

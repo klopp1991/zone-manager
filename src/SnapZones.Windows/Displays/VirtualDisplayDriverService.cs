@@ -16,10 +16,17 @@ namespace SnapZones.Windows.Displays;
 /// <param name="DevicePresent">Der Geraeteknoten <c>Root\MttVDD</c> ist angelegt und laeuft.</param>
 /// <param name="DriverStored">Das Treiberpaket liegt in der Treiberablage von Windows.</param>
 /// <param name="ConfigurationPresent">Die Datei <c>vdd_settings.xml</c> mit der Modeliste liegt vor.</param>
-public sealed record VirtualDisplayDriverStatus(bool DevicePresent, bool DriverStored, bool ConfigurationPresent)
+/// <param name="ProblemCode">
+/// Der Problemcode des Geraeteknotens, 0 wenn er laeuft. Code 43 heisst: der Treiber hat sich
+/// verabschiedet und braucht einen Neustart des Geraets.
+/// </param>
+public sealed record VirtualDisplayDriverStatus(bool DevicePresent, bool DriverStored, bool ConfigurationPresent, uint ProblemCode = 0)
 {
-    /// <summary>Ob die Funktion benutzbar ist: Geraet da und Modeliste da.</summary>
-    public bool Ready => DevicePresent && ConfigurationPresent;
+    /// <summary>Ob das Geraet angelegt ist, aber Windows ein Problem meldet.</summary>
+    public bool Faulted => DevicePresent && ProblemCode != 0;
+
+    /// <summary>Ob die Funktion benutzbar ist: Geraet da, laeuft, Modeliste da.</summary>
+    public bool Ready => DevicePresent && !Faulted && ConfigurationPresent;
 
     /// <summary>Ob irgendetwas vom Treiber zurueckgeblieben ist, das ein Entfernen wegraeumen muss.</summary>
     public bool AnythingPresent => DevicePresent || DriverStored || ConfigurationPresent;
@@ -67,17 +74,63 @@ public sealed class VirtualDisplayDriverService
     /// <summary>Liest ohne Rechte, was vom Treiber vorhanden ist.</summary>
     public static VirtualDisplayDriverStatus ReadStatus()
     {
-        bool devicePresent;
+        var devicePresent = false;
+        uint problem = 0;
         try
         {
-            devicePresent = FindDevices(presentOnly: true).Count > 0;
+            var devices = FindDevices(presentOnly: true);
+            devicePresent = devices.Count > 0;
+            foreach (var device in devices)
+            {
+                if (CfgMgr32.CM_Get_DevNode_Status(out var status, out var code, device.DevInst, 0) == CfgMgr32.CrSuccess &&
+                    (status & CfgMgr32.DnHasProblem) != 0)
+                {
+                    problem = Math.Max(problem, code);
+                }
+            }
         }
         catch (Win32Exception)
         {
             devicePresent = false;
         }
 
-        return new VirtualDisplayDriverStatus(devicePresent, IsDriverStored(), File.Exists(SettingsPath));
+        return new VirtualDisplayDriverStatus(devicePresent, IsDriverStored(), File.Exists(SettingsPath), problem);
+    }
+
+    /// <summary>
+    /// Startet den Geraeteknoten neu (Administratorrechte). Der Treiber liest dabei die Modeliste neu
+    /// ein; das ist auch der Weg aus einem Fehlerzustand (Code 43). Der Befehl RELOAD_DRIVER ueber die
+    /// Pipe des Treibers taete dasselbe ohne Rechte, brachte den Treiber am 08.09.2026 aber nach rund
+    /// zehn Aufrufen zum Absturz und wird deshalb nicht benutzt.
+    /// </summary>
+    public DriverActionResult Restart()
+    {
+        IReadOnlyList<(string InstanceId, uint DevInst)> devices;
+        try
+        {
+            devices = FindDevices(presentOnly: true);
+        }
+        catch (Win32Exception exception)
+        {
+            return new DriverActionResult(DriverActionOutcome.Failed, $"Die Anzeigegeraete liessen sich nicht aufzaehlen: {exception.Message}");
+        }
+
+        if (devices.Count == 0)
+        {
+            return new DriverActionResult(DriverActionOutcome.Failed, "Der Anzeigetreiber ist nicht installiert.");
+        }
+
+        var stopwatch = Stopwatch.StartNew();
+        foreach (var device in devices)
+        {
+            var (exitCode, output) = RunPnpUtil($"/restart-device \"{device.InstanceId}\"");
+            if (exitCode != 0)
+            {
+                return new DriverActionResult(DriverActionOutcome.Failed, $"Der Anzeigetreiber liess sich nicht neu starten: {output}");
+            }
+        }
+
+        return new DriverActionResult(DriverActionOutcome.Done, $"Der Anzeigetreiber wurde neu gestartet ({stopwatch.Elapsed.TotalSeconds:0.0} s).");
     }
 
     /// <summary>
@@ -230,10 +283,9 @@ public sealed class VirtualDisplayDriverService
     {
         Directory.CreateDirectory(ConfigurationDirectory);
         GrantUsersModifyAccess(ConfigurationDirectory);
-        if (!File.Exists(SettingsPath))
-        {
-            File.WriteAllText(SettingsPath, initialSettingsXml, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
-        }
+        // Die Liste wird immer neu geschrieben: sie ist aus den Vollbildzonen des Benutzers gebaut,
+        // und ein Geraetestart liest sie ohnehin nur beim Anlegen des Knotens.
+        File.WriteAllText(SettingsPath, initialSettingsXml, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
 
         using var key = Registry.LocalMachine.CreateSubKey(RegistryKeyPath, writable: true);
         key.SetValue(RegistryPathValue, ConfigurationDirectory, RegistryValueKind.String);
@@ -325,7 +377,7 @@ public sealed class VirtualDisplayDriverService
         return removed;
     }
 
-    private static IReadOnlyList<string> FindDevices(bool presentOnly)
+    private static IReadOnlyList<(string InstanceId, uint DevInst)> FindDevices(bool presentOnly)
     {
         var set = SetupApi.SetupDiGetClassDevsW(ref displayClass, null, 0, presentOnly ? SetupApi.DigcfPresent : 0);
         if (set == SetupApi.InvalidHandleValue)
@@ -333,7 +385,7 @@ public sealed class VirtualDisplayDriverService
             throw new Win32Exception(Marshal.GetLastWin32Error(), "Die Anzeigegeraete liessen sich nicht aufzaehlen.");
         }
 
-        var result = new List<string>();
+        var result = new List<(string, uint)>();
         try
         {
             for (uint index = 0; ; index++)
@@ -351,7 +403,7 @@ public sealed class VirtualDisplayDriverService
 
                 var builder = new StringBuilder(512);
                 SetupApi.SetupDiGetDeviceInstanceIdW(set, ref data, builder, (uint)builder.Capacity, out _);
-                result.Add(builder.ToString());
+                result.Add((builder.ToString(), data.DevInst));
             }
         }
         finally

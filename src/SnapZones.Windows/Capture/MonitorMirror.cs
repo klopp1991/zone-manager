@@ -57,7 +57,7 @@ public sealed class MonitorMirror : IDisposable
     private readonly object gate = new();
     private readonly Action<string, string> log;
     private readonly nint targetWindow;
-    private readonly nint monitor;
+    private readonly Func<nint> resolveMonitor;
     private ID3D11Device? device;
     private ID3D11DeviceContext? context;
     private IDXGISwapChain1? swapChain;
@@ -70,24 +70,24 @@ public sealed class MonitorMirror : IDisposable
     private int targetWidth;
     private int targetHeight;
     private long frames;
+    private long totalFrames;
     private long statisticsStart;
     private bool lost;
     private bool disposed;
 
-    public MonitorMirror(nint targetWindow, int targetWidth, int targetHeight, nint monitor, Action<string, string>? log = null)
+    /// <param name="resolveMonitor">
+    /// Liefert das HMONITOR des aufzunehmenden Monitors, bei jedem Versuch neu: Windows vergibt nach
+    /// einem Anzeigewechsel neue Handles, und ein altes ergibt keine Aufnahme.
+    /// </param>
+    public MonitorMirror(nint targetWindow, int targetWidth, int targetHeight, Func<nint> resolveMonitor, Action<string, string>? log = null)
     {
         if (targetWindow == 0)
         {
             throw new ArgumentException("Das Zielfenster fehlt.", nameof(targetWindow));
         }
 
-        if (monitor == 0)
-        {
-            throw new ArgumentException("Der Monitor fehlt.", nameof(monitor));
-        }
-
         this.targetWindow = targetWindow;
-        this.monitor = monitor;
+        this.resolveMonitor = resolveMonitor ?? throw new ArgumentNullException(nameof(resolveMonitor));
         this.targetWidth = Math.Max(1, targetWidth);
         this.targetHeight = Math.Max(1, targetHeight);
         this.log = log ?? ((_, _) => { });
@@ -167,7 +167,7 @@ public sealed class MonitorMirror : IDisposable
             });
             backBuffer = swapChain.GetBuffer<ID3D11Texture2D>(0);
 
-            item = CreateItemForMonitor(monitor);
+            item = CreateItemWithRetries();
             item.Closed += (_, _) => RaiseLost("Der Monitor der Aufnahme ist verschwunden.");
             contentSize = item.Size;
             framePool = Direct3D11CaptureFramePool.CreateFreeThreaded(captureDevice, DirectXPixelFormat.B8G8R8A8UIntNormalized, 2, contentSize);
@@ -258,6 +258,36 @@ public sealed class MonitorMirror : IDisposable
         }
     }
 
+    /// <summary>
+    /// Ein frisch aufgeloestes HMONITOR kann trotzdem schon veraltet sein, solange Windows die
+    /// Monitorliste noch umbaut; dann meldet die Aufnahme E_INVALIDARG. Einige Anlaeufe mit Pause
+    /// genuegen, weil der Umbau nach wenigen hundert Millisekunden vorbei ist.
+    /// </summary>
+    private GraphicsCaptureItem CreateItemWithRetries()
+    {
+        Exception? last = null;
+        for (var attempt = 1; attempt <= 8; attempt++)
+        {
+            var monitor = resolveMonitor();
+            if (monitor != 0)
+            {
+                try
+                {
+                    return CreateItemForMonitor(monitor);
+                }
+                catch (Exception exception) when (exception is ArgumentException or COMException)
+                {
+                    last = exception;
+                    log("DEBUG", $"Aufnahmeziel fuer Monitor 0x{monitor:X} im {attempt}. Anlauf abgelehnt: {exception.Message}");
+                }
+            }
+
+            Thread.Sleep(250);
+        }
+
+        throw new InvalidOperationException("Der virtuelle Monitor liess sich nicht als Aufnahmeziel oeffnen.", last);
+    }
+
     private static GraphicsCaptureItem CreateItemForMonitor(nint monitor)
     {
         var interop = GraphicsCaptureItem.As<IGraphicsCaptureItemInterop>();
@@ -300,8 +330,10 @@ public sealed class MonitorMirror : IDisposable
                 var access = frame.Surface.As<IDirect3DDxgiInterfaceAccess>();
                 var iid = Texture2DInterfaceId;
                 using var texture = new ID3D11Texture2D(access.GetInterface(ref iid));
+                // CopyResource verlangt gleich grosse Texturen und tut sonst stillschweigend nichts —
+                // das Fenster blieb schwarz, als die Zone 2297x1297 und der Monitor 2296x1296 hatte.
                 var plan = MirrorGeometry.Plan(targetWidth, targetHeight, contentSize.Width, contentSize.Height);
-                if (plan.IsExact && plan.Width == contentSize.Width && plan.Height == contentSize.Height)
+                if (contentSize.Width == targetWidth && contentSize.Height == targetHeight)
                 {
                     context.CopyResource(backBuffer, texture);
                 }
@@ -318,15 +350,29 @@ public sealed class MonitorMirror : IDisposable
                         new Box(plan.SourceX, plan.SourceY, 0, plan.SourceX + plan.Width, plan.SourceY + plan.Height, 1));
                 }
 
-                swapChain.Present(1, PresentFlags.None);
-                Interlocked.Increment(ref frames);
+                var presented = swapChain.Present(1, PresentFlags.None);
+                if (presented.Failure)
+                {
+                    RaiseLost($"Der Spiegel konnte nicht praesentieren: 0x{presented.Code:X8}.");
+                    return;
+                }
+
+                if (Interlocked.Increment(ref frames) == 1 && totalFrames == 0)
+                {
+                    log("DEBUG", $"Erstes Bild des Spiegels nach {(Stopwatch.GetTimestamp() - statisticsStart) * 1000.0 / Stopwatch.Frequency:0} ms ({contentSize.Width}x{contentSize.Height}, Plan {plan}).");
+                }
+
+                totalFrames++;
             }
         }
-        catch (Exception exception) when (exception is COMException or SharpGen.Runtime.SharpGenException or ObjectDisposedException or InvalidOperationException)
+        catch (Exception exception)
         {
-            RaiseLost($"Der Spiegel hat die Aufnahme verloren: {exception.Message}");
+            RaiseLost($"Der Spiegel hat die Aufnahme verloren: {exception.GetType().Name}: {exception.Message}");
         }
     }
+
+    /// <summary>Alle Bilder seit dem Start, unabhaengig vom Ablesen der Statistik.</summary>
+    public long TotalFrames => totalFrames;
 
     private void RaiseLost(string reason)
     {

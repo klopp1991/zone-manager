@@ -62,6 +62,12 @@ public sealed class AppRuleCoordinator : IDisposable
     private CancellationTokenSource pending = new();
     private bool disposed;
 
+    /// <summary>
+    /// Wird nach jeder gelungenen Platzierung mit Fenster, Monitorkennung und Zone gerufen, damit eine
+    /// Vollbildzone das Fenster uebernehmen kann. Laeuft auf dem Thread der Regel, nicht auf dem UI-Thread.
+    /// </summary>
+    public Action<nint, string, Guid>? WindowPlaced { get; set; }
+
     public AppRuleCoordinator(
         Func<SnapConfiguration> configurationProvider,
         IReadOnlyList<LiveMonitor> monitors,
@@ -217,7 +223,7 @@ public sealed class AppRuleCoordinator : IDisposable
                 return new AppRuleExecutionResult(AppRuleExecutionStatus.Excluded, ruleId);
             }
 
-            if (!TryResolveTarget(configuration, rule, out var bounds, out var targetName))
+            if (!TryResolveTarget(configuration, rule, out var bounds, out var targetName, out var monitorStableId, out var zoneId))
             {
                 reportStatus?.Invoke($"App-Regel pausiert: Ziel für {rule.DisplayName} fehlt.");
                 return new AppRuleExecutionResult(AppRuleExecutionStatus.TargetMissing, ruleId);
@@ -227,6 +233,7 @@ public sealed class AppRuleCoordinator : IDisposable
             if (outcome.Succeeded)
             {
                 reportStatus?.Invoke($"App-Regel angewendet: {rule.DisplayName} → {targetName}");
+                WindowPlaced?.Invoke(currentCandidate.WindowHandle, monitorStableId, zoneId);
                 return new AppRuleExecutionResult(AppRuleExecutionStatus.Applied, ruleId);
             }
 
@@ -276,10 +283,14 @@ public sealed class AppRuleCoordinator : IDisposable
         SnapConfiguration configuration,
         AppRule rule,
         out PixelRect bounds,
-        out string targetName)
+        out string targetName,
+        out string monitorStableId,
+        out Guid zoneId)
     {
         bounds = default;
         targetName = string.Empty;
+        monitorStableId = string.Empty;
+        zoneId = Guid.Empty;
         var layout = configuration.Layouts.FirstOrDefault(candidate => candidate.Id == rule.TargetLayoutId);
         var zone = layout?.Zones.FirstOrDefault(candidate => candidate.Id == rule.TargetZoneId);
         var monitor = layout is null
@@ -296,6 +307,8 @@ public sealed class AppRuleCoordinator : IDisposable
             monitor.WorkArea,
             new LayoutMetrics(configuration.Settings.EffectiveOuterMargins, configuration.Settings.ZoneGap));
         targetName = $"{layout.Name} / {zone.Name}";
+        monitorStableId = monitor.Identity.StableId;
+        zoneId = zone.Id;
         return true;
     }
 

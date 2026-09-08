@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.IO;
-using System.IO.Pipes;
 using System.Runtime.InteropServices;
 using System.Text;
 using SnapZones.Core.Geometry;
@@ -46,8 +45,6 @@ public sealed record DisplayChangeResult(bool Succeeded, int Code)
 /// </summary>
 public sealed class VirtualDisplayController
 {
-    public const string PipeName = "MTTVirtualDisplayPipe";
-    private const string ReloadCommand = "RELOAD_DRIVER";
     private const uint QueryOnlyActivePaths = 0x00000002;
     private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(250);
     private static readonly UTF8Encoding Utf8WithoutBom = new(encoderShouldEmitUTF8Identifier: false);
@@ -88,6 +85,36 @@ public sealed class VirtualDisplayController
 
             return new VirtualDisplayState(device.DeviceName, attached, bounds, refreshRate, dpi);
         }
+    }
+
+    /// <summary>
+    /// Wartet, bis das HMONITOR des Monitors eine Ruhepause lang unveraendert bleibt. Nach dem Anhaengen
+    /// und nach einem Skalierungswechsel baut Windows die Monitorliste noch eine Weile um und vergibt
+    /// dabei neue Handles; eine Aufnahme auf einem alten Handle liefert kein Bild.
+    /// </summary>
+    public static nint WaitForStableMonitorHandle(string deviceName, TimeSpan quietPeriod, TimeSpan timeout)
+    {
+        var stopwatch = Stopwatch.StartNew();
+        var last = FindMonitorHandle(deviceName);
+        var unchangedSince = Stopwatch.GetTimestamp();
+        while (stopwatch.Elapsed < timeout)
+        {
+            Thread.Sleep(100);
+            var current = FindMonitorHandle(deviceName);
+            if (current != last)
+            {
+                last = current;
+                unchangedSince = Stopwatch.GetTimestamp();
+                continue;
+            }
+
+            if (current != 0 && Stopwatch.GetElapsedTime(unchangedSince) >= quietPeriod)
+            {
+                return current;
+            }
+        }
+
+        return last;
     }
 
     /// <summary>
@@ -166,78 +193,60 @@ public sealed class VirtualDisplayController
     }
 
     /// <summary>
-    /// Sorgt dafuer, dass der Treiber genau diese Modeliste anbietet: schreibt die Datei, wenn sie
-    /// abweicht, laesst den Treiber sie neu einlesen und wartet, bis der Monitor mit den Modi zurueck
-    /// ist. Liefert falsch, wenn der Treiber nicht antwortet oder die Modi nicht erscheinen.
+    /// Schreibt die Modeliste, wenn sie von der gespeicherten abweicht. Liefert wahr, wenn geschrieben
+    /// wurde — dann liest der Treiber sie erst nach einem Neustart des Geraets (Administratorrechte,
+    /// <see cref="VirtualDisplayDriverService.Restart"/>). Ein Neuladen ueber die Pipe des Treibers
+    /// braeuchte keine Rechte, brachte ihn am 08.09.2026 aber nach rund zehn Aufrufen zum Absturz.
     /// </summary>
-    public bool EnsureModes(IReadOnlyList<VirtualDisplayMode> modes, TimeSpan timeout)
+    public bool WriteModesIfChanged(IReadOnlyList<VirtualDisplayMode> modes)
     {
         ArgumentNullException.ThrowIfNull(modes);
         var xml = VirtualDisplayModes.ToSettingsXml(modes);
         var path = VirtualDisplayDriverService.SettingsPath;
-        string? existing = null;
         try
         {
-            existing = File.Exists(path) ? File.ReadAllText(path) : null;
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            log("WARN", $"Die Modeliste liess sich nicht lesen: {exception.Message}");
-        }
+            if (File.Exists(path) && File.ReadAllText(path) == xml)
+            {
+                return false;
+            }
 
-        var current = Find();
-        if (existing == xml && current is not null && ContainsAll(AvailableModes(current.DeviceName), modes))
-        {
-            return true;
-        }
-
-        try
-        {
             File.WriteAllText(path, xml, Utf8WithoutBom);
+            log("INFO", $"Modeliste des Anzeigetreibers mit {modes.Count} Modi geschrieben.");
+            return true;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             log("ERROR", $"Die Modeliste liess sich nicht schreiben: {exception.Message}");
             return false;
         }
+    }
 
-        if (!SendReload())
-        {
-            return false;
-        }
+    /// <summary>Ob der Monitor gerade alle diese Modi anbietet.</summary>
+    public static bool ModesAvailable(string deviceName, IReadOnlyList<VirtualDisplayMode> modes)
+    {
+        ArgumentNullException.ThrowIfNull(modes);
+        return ContainsAll(AvailableModes(deviceName), modes);
+    }
 
+    /// <summary>Wartet nach einem Geraeteneustart, bis der Monitor mit diesen Modi zurueck ist.</summary>
+    public static VirtualDisplayState? WaitForModes(IReadOnlyList<VirtualDisplayMode> modes, TimeSpan timeout)
+    {
+        ArgumentNullException.ThrowIfNull(modes);
         var stopwatch = Stopwatch.StartNew();
-        while (stopwatch.Elapsed < timeout)
+        while (true)
         {
-            Thread.Sleep(PollInterval);
             var state = Find();
             if (state is not null && ContainsAll(AvailableModes(state.DeviceName), modes))
             {
-                log("INFO", $"Der Anzeigetreiber bietet jetzt {modes.Count} Modi an ({stopwatch.Elapsed.TotalSeconds:0.0} s).");
-                return true;
+                return state;
             }
-        }
 
-        log("ERROR", "Der Anzeigetreiber hat die neue Modeliste nicht uebernommen.");
-        return false;
-    }
+            if (stopwatch.Elapsed >= timeout)
+            {
+                return null;
+            }
 
-    /// <summary>Bittet den Treiber ueber seine Named Pipe, die Einstellungen neu einzulesen.</summary>
-    public bool SendReload()
-    {
-        try
-        {
-            using var pipe = new NamedPipeClientStream(".", PipeName, PipeDirection.InOut);
-            pipe.Connect(2000);
-            var message = Encoding.Unicode.GetBytes(ReloadCommand);
-            pipe.Write(message, 0, message.Length);
-            pipe.Flush();
-            return true;
-        }
-        catch (Exception exception) when (exception is TimeoutException or IOException or UnauthorizedAccessException)
-        {
-            log("ERROR", $"Der Anzeigetreiber antwortet nicht auf seiner Pipe: {exception.Message}");
-            return false;
+            Thread.Sleep(PollInterval);
         }
     }
 

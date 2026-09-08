@@ -77,6 +77,13 @@ public static class ConfigurationDiff
                     return $"Layout «{layout.Name}»: Zone «{before.Name}» in «{after.Name}» umbenannt";
                 }
 
+                if (before.IsVirtualMonitor != after.IsVirtualMonitor)
+                {
+                    return after.IsVirtualMonitor
+                        ? $"Layout «{layout.Name}»: Zone «{after.Name}» als virtueller Monitor gekennzeichnet"
+                        : $"Layout «{layout.Name}»: Zone «{after.Name}» ist kein virtueller Monitor mehr";
+                }
+
                 if (before.Bounds != after.Bounds)
                 {
                     var grew = after.Bounds.Width * after.Bounds.Height > before.Bounds.Width * before.Bounds.Height;

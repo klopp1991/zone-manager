@@ -843,6 +843,15 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
             return Task.CompletedTask;
         }
 
+        // Ein Fenster in einer Vollbildzone liegt auf dem virtuellen Monitor, also ausserhalb jedes
+        // Monitors, den die Umgebung kennt. Auch dieses Rechteck ist kein gewaehlter Ort; ohne diese
+        // Pruefung fiele es auf den Hauptmonitor zurueck und erschiene beim naechsten Start dort.
+        if (!OverlapsAnyMonitor(snapshot.NormalBounds, environment.Monitors))
+        {
+            log($"Fenster 0x{snapshot.WindowHandle:X} ({snapshot.Identity.ApplicationKey}) liegt auf keinem Monitor: Position wird nicht gemerkt.");
+            return Task.CompletedTask;
+        }
+
         if (!environment.Configuration.Settings.RememberWindowPositions)
         {
             return Task.CompletedTask;
@@ -931,6 +940,22 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         return configuration.AppRules.Any(rule =>
             rule.Event == eventType &&
             AppRuleMatcher.Matches(rule, identity));
+    }
+
+    private static bool OverlapsAnyMonitor(PixelRect bounds, IReadOnlyList<PlacementMonitorTarget> monitors)
+    {
+        foreach (var monitor in monitors)
+        {
+            var area = monitor.MonitorBounds;
+            var right = Math.Min((long)bounds.X + bounds.Width, (long)area.X + area.Width);
+            var bottom = Math.Min((long)bounds.Y + bounds.Height, (long)area.Y + area.Height);
+            if (right > Math.Max(bounds.X, area.X) && bottom > Math.Max(bounds.Y, area.Y))
+            {
+                return true;
+            }
+        }
+
+        return monitors.Count == 0;
     }
 
     private static PlacementMonitorTarget? FindBestMonitor(

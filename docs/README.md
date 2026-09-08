@@ -178,65 +178,69 @@ Unter **Verhalten** lässt sich das Merken abschalten und die Anzahl der gemerkt
 erhalten, werden aber weder angewendet noch ergänzt. Einzelne Einträge lassen sich nicht ansehen oder
 gezielt löschen.
 
-## Zonen-Vollbild
+## Vollbildzonen
 
-Schaltet ein Fenster, das in einer Zone liegt, auf Vollbild, wird es auf die Fläche dieser Zone
-zurückgeholt statt auf den ganzen Monitor. Der Schalter **Vollbild in der Zone halten** steht unter
-**Verhalten** in der Karte **Vollbild** und ist ausgeschaltet, weil er das gewohnte Verhalten von Windows
-ändert.
+Eine Zone kann ein **virtueller Monitor** sein. Ein Fenster, das dorthin kommt — gezogen, per Tastenkürzel
+oder über eine Zuordnung —, läuft dann auf einem eigenen Monitor in genau der Grösse der Zone, und Zone
+Manager spiegelt dessen Bild in die Zone. Für das Programm ist das ein ganzer Bildschirm: es darf sein
+Vollbild einschalten und füllt trotzdem nur die Zone, weil es aus seiner Sicht den ganzen Monitor füllt.
+Es gibt nichts zurückzuholen und nichts zu bekämpfen. Der Anlass: ein Film aus der eigenen Plex-Mediathek
+neben dem Browser.
 
-Möglich ist das, weil ein Browser oder Videoplayer im Vollbild keinen Exklusivmodus der Grafikkarte
-anfordert, sondern sein Fenster randlos über die volle Monitorfläche legt. Das bleibt ein gewöhnliches
-Fenster und lässt sich setzen. Das Programm bleibt dabei in seinem Vollbildzustand: Twitch, YouTube und die
-üblichen Player legen Bild und Bedienelemente auf die kleinere Fläche aus, so wie sie es auf einem
-kleineren Bildschirm täten.
+Gekennzeichnet wird die Zone im Layouteditor mit **Virtueller Monitor** in den Zonenwerten. Das
+Kennzeichen wird wie alles andere gespeichert, ist rückgängig machbar und erscheint in der Übersicht der
+früheren Stände.
 
-Erkannt wird das Vollbild daran, dass das Fenster die **ganze** Monitorfläche einnimmt — nicht die
-Arbeitsfläche. Ein maximiertes Fenster endet an der Taskleiste und fällt damit von selbst heraus; ist die
-Taskleiste automatisch ausgeblendet, decken sich beide Flächen, weshalb zusätzlich geprüft wird, dass das
-Fenster nicht maximiert ist.
+Was beim Betreten passiert, in dieser Reihenfolge:
 
-Angefasst wird nur ein Fenster, das vorher in einer Zone eingerastet lag, gemessen mit derselben Toleranz
-wie beim Auffang in der Auffangzone. Ein über mehrere Zonen gezogenes Fenster kehrt in deren gemeinsame
-Fläche zurück. Was frei auf dem Bildschirm liegt, geht weiterhin auf den ganzen Monitor: ohne Zone gäbe es
-keinen Bezugspunkt, und das Programm würde Fenster an Stellen zwingen, die niemand gewählt hat. Ein
-Ausschluss gilt auch hier und ist wie überall stärker.
+1. Der virtuelle Monitor des Anzeigetreibers bekommt einen Anzeigemodus in Zonengrösse. Die Liste
+   seiner Modi entsteht aus allen Vollbildzonen der gespeicherten Layouts; die Installation schreibt
+   sie, und der Treiber liest sie beim Start seines Geräts. Bekommt eine Vollbildzone später eine
+   Grösse, die der Treiber noch nicht kennt, schreibt Zone Manager die Liste neu und startet das
+   Gerät des Treibers neu — Windows fragt dafür einmal nach Administratorrechten. Dasselbe geschieht,
+   wenn der Treiber einen Fehler meldet.
+2. Der Monitor wird rechts neben dem äussersten Monitor an den Desktop gehängt — Windows lässt keine
+   überlappenden Monitore zu, deshalb kann er nicht «hinter» der Zone liegen. Er übernimmt die
+   Skalierung des Monitors, auf dem die Zone liegt, damit Oberflächen in der Zone so gross sind wie
+   daneben.
+3. Das Fenster wird auf den virtuellen Monitor gelegt und füllt ihn.
+4. Ein randloses Fenster, das nie den Fokus nimmt, legt sich auf die Zone und zeigt den Monitor über
+   die Bildschirmaufnahme von Windows, ohne gelben Rahmen, mit Zeiger. Bewegt sich auf dem Monitor
+   nichts, wird auch nichts aufgenommen; der Spiegel kostet dann keine Grafikleistung.
+5. Der Zeiger wird übergeben, nicht nachgebaut: bewegst du die Maus in die Zone, springt der echte Zeiger
+   auf die entsprechende Stelle des virtuellen Monitors; am Rand des Monitors kommt er neben der Zone
+   auf derselben Seite zurück. Hover, Ziehen, Scrollen und Kontextmenüs stimmen deshalb von selbst.
+   **Strg+Alt+Q** holt den Zeiger sofort zurück. Über die rechte Desktopkante gelangt der Zeiger nicht
+   auf den virtuellen Monitor; er wird an die Kante zurückgesetzt.
 
-Setzt ein Programm sein Fenster nach dem Umschalten noch einmal selbst auf den Monitor, wird es erneut
-zurückgeholt. Das gilt auch für einen halben Rückfall: Chromium-Browser stellen bei jedem
-Aktivierungswechsel einen Teil ihrer Vollbildgrösse wieder her, oft nur die Breite, sobald ein anderes
-Fenster den Fokus bekommt. Solange dem Fenster Titelleiste und Griffrahmen fehlen, versteht es sich noch
-als Vollbild und wird in die Zone zurückgesetzt; erst wenn der Rahmen zurück ist, gilt das Vollbild als
-verlassen. Ein misslungenes Setzen lässt die gemerkte Zone ebenfalls stehen, damit der nächste Rückfall
-wieder dorthin führt. Damit daraus kein Dauerkampf wird, ist die Zahl der Versuche je Vollbildsitzung
-begrenzt (erweiterte Einstellung **Versuche beim Zonen-Vollbild**, Vorgabe 5). Ist sie erreicht, behält
-das Fenster sein Monitorvollbild, und der Grund steht als WARN im Protokoll — ebenso jedes Setzen, das
-Windows abgelehnt hat, und als INFO jedes gelungene. Diese Zeilen erscheinen auch ohne `--verbose`; nur die
-Spur je Fensterereignis bleibt dem ausführlichen Protokoll vorbehalten. Nach fünf Sekunden ohne Korrektur
-beginnt die Zählung von vorn.
+Verlässt das Fenster den virtuellen Monitor, wird es geschlossen oder ein anderes Fenster in dieselbe
+oder eine andere Vollbildzone gelegt, endet die Sitzung: Spiegel und Zeigerübergabe verschwinden, der
+Monitor wird abgehängt. Es gibt höchstens eine Sitzung gleichzeitig. Beim Beenden des Programms wird der
+Monitor abgehängt; nach einem harten Prozessende räumt der nächste Start einen noch hängenden Monitor
+weg. Der virtuelle Monitor erscheint nie in der Monitorliste, bekommt kein Layout und ist kein Ziel für
+Zuordnungen; die Position eines Fensters auf ihm wird nicht gemerkt.
 
-Beim Setzen weicht der Weg an zwei Stellen vom gewöhnlichen Einrasten ab, beide am laufenden System
-gemessen:
+Gemessen am 08.09.2026 auf einer RTX 4060 Ti: 32 bis 71 ms zwischen dem Bild auf dem virtuellen Monitor
+und dem Bild in der Zone, also zwei bis vier Bilder bei 60 Hz; ein bis drei Prozent Grafiklast für den
+Spiegel; Plex Desktop spielt mit Direct Play und eigenem Hardwaredecoder.
 
-1. **Die Grösse wird erzwungen.** Ein Fenster im Vollbild legt seinen Griffrahmen ab (`WS_THICKFRAME`
-   fehlt) und gälte sonst als Fenster fester Grösse, das nur in der Zone zentriert statt auf sie
-   gestreckt würde.
-2. **Das Fenster verliert sein Einspruchsrecht** (`SWP_NOSENDCHANGING`). Windows fragt ein Fenster vor
-   jeder Grössenänderung über `WM_WINDOWPOSCHANGING`, und das Fenster darf die vorgeschlagenen Werte
-   darin abändern. Genau das tut ein Browser im Vollbild: er klemmt sich auf die Monitorfläche zurück.
-   Ohne das Flag blieb die Platzierung wirkungslos, und das Nachmessen meldete eine «Mindestgrösse» in
-   Monitorgrösse — der Grund, aus dem der erste Anlauf des Zonen-Vollbilds bei Chromium-Browsern
-   scheiterte.
+Voraussetzung ist der Anzeigetreiber «Virtual Display Driver», den die [Installation](#installation)
+einrichtet; fehlt er, bleibt die Zone eine gewöhnliche Zone, und die Statuszeile nennt den Weg. Was
+nicht geht:
 
-Beides gilt ausschliesslich für das Zonen-Vollbild. Beim gewöhnlichen Einrasten behält ein Fenster sein
-Einspruchsrecht: dort ist eine gemeldete Mindestgrösse eine echte Eigenschaft, und sie zu übergehen
-hiesse, ein Fenster kleiner zu zwingen, als es sich zeichnen kann. Nachgemessen wird beim Zonen-Vollbild
-mit acht statt zwei Pixeln Toleranz: ein Vollbildfenster korrigiert seine Grösse nach dem Setzen gern um
-ein paar Pixel, und das ist kein Fehlschlag.
-
-Nicht erreichbar ist echtes Exklusivvollbild, wie es Spiele über DirectX anfordern — diesen Bildschirmmodus
-vergibt der Grafiktreiber. Spiele im randlosen Fenster liegen dagegen als gewöhnliches Fenster vor.
-
+- **Kopiergeschützte Inhalte bleiben schwarz.** Netflix, Disney+, Prime Video und die Streamingdienste in
+  Plex schützen ihr Bild vor jeder Aufnahme; der Spiegel zeigt dann Schwarz. Das ist so gewollt und wird
+  nicht umgangen. Die eigene Mediathek, YouTube, Twitch und Spiele sind nicht betroffen.
+- Der virtuelle Monitor ist für jedes andere Programm ein echter Monitor. Die Taskleiste erscheint auch
+  dort und damit im Spiegel, solange das Fenster nicht im Vollbild ist; andere Werkzeuge können
+  Fenster dorthin legen.
+- Der Treiber bietet höchstens hundert Anzeigemodi an. Mehr als hundert verschieden grosse Vollbildzonen
+  bekommen den nächstkleineren Modus, das Bild liegt dann mittig mit schmalem Rand. Eine Zone mit
+  ungerader Pixelzahl bekommt den nächsten geraden Modus; der Unterschied ist ein Pixel Rand.
+- Die Modeliste lässt sich nur mit einem Neustart des Treibergeräts ändern, also mit Administratorrechten.
+  Der Treiber böte dafür eine Schnittstelle ohne Rechte, stürzte damit aber nach etwa zehn Aufrufen ab;
+  sie wird nicht benutzt.
+- Programme, die den Zeiger einsperren (Spiele mit Raw Input), sind mit der Zeigerübergabe ungeprüft.
 ## Monitore
 
 Die Seite **Monitore** zeigt einen Monitor auf einmal: **‹** und **›** blättern («Monitor 1 von 2»), in der Mitte steht das aktive Layout als grosse Vorschau mit dem Verweis **Layout «…» · bearbeiten**. Darunter das Feld **Name** (leer stellt die automatische Bezeichnung «Monitor n» wieder her), **Auf Monitor zeigen** blendet den verwendeten Namen drei Sekunden lang auf jedem Bildschirm ein, **Reihenfolge ⌵** verschiebt den Monitor nach oben oder unten. Die Reihenfolge entscheidet, welche Auffangzone wirksam ist. Monitornamen werden bevorzugt aus dem aktiven Displaypfad und den EDID-Daten gelesen.
@@ -275,7 +279,7 @@ Die Einstellungen sind auf zwei Seiten verteilt: **Verhalten** mit den Untertabs
 
 **Abstände**: Abstand zum Bildschirmrand (links, oben, rechts, unten in Pixel), Abstand zwischen Zonen und Andocken im Editor in ganzen Prozent. Aussen- und Zonenabstand gelten für Vorschau **und** Fenster: ein Fenster landet genau auf der Fläche, die das Overlay zeigt, auch über Zuordnungen, Auffangzone und Layoutwechsel. Neben jedem Prozentregler steht der abgeleitete Pixelwert als `≙ n px`.
 
-**Fenster merken**: **Fensterpositionen merken** schaltet den Positionskatalog ein und aus; darunter stehen die Anzahl der Einträge und der Verweis **alle verwerfen** (mit Rückgängig). Siehe [Gemerkte Fensterpositionen](#gemerkte-fensterpositionen). **Vollbild in der Zone halten** begrenzt das Vollbild eines eingerasteten Fensters auf seine Zone; ausgeschaltet, siehe [Zonen-Vollbild](#zonen-vollbild). Darunter die Karten **Feinabstimmung Platzieren** und **Schutz und Zeiten**, siehe Tabelle.
+**Fenster merken**: **Fensterpositionen merken** schaltet den Positionskatalog ein und aus; darunter stehen die Anzahl der Einträge und der Verweis **alle verwerfen** (mit Rückgängig). Siehe [Gemerkte Fensterpositionen](#gemerkte-fensterpositionen). **Vollbild in der Zone halten** begrenzt das Vollbild eines eingerasteten Fensters auf seine Zone; ausgeschaltet, siehe Zonen-Vollbild. Darunter die Karten **Feinabstimmung Platzieren** und **Schutz und Zeiten**, siehe Tabelle.
 
 **Tastenkürzel**: Zonenkürzel aktiv, Zusatztasten mit AltGr-Warnung bei `Ctrl + Alt`, und die Tabelle aller Kürzel.
 
@@ -321,7 +325,7 @@ Entfernt wird es über «Apps und Features» wie jedes andere Programm, oder mit
 gehören dem Benutzer, und eine Neuinstallation soll sie wiederfinden. Wer sie loswerden will, löscht das
 Verzeichnis von Hand.
 
-Es gibt bewusst kein getrenntes Setup-Programm: es müsste die 66 MB grosse Programmdatei ein zweites Mal
+Es gibt bewusst kein getrenntes Setup-Programm: es müsste die 74 MB grosse Programmdatei ein zweites Mal
 enthalten und die Auslieferung verdoppeln. Installieren und Entfernen sind deshalb Modi derselben Datei.
 
 Die Installation richtet ausserdem den Anzeigetreiber für [Vollbildzonen](#vollbildzonen) ein, die Deinstallation
@@ -518,7 +522,7 @@ die Datei ganz, beendet es sich nach dem Speichern. Beides steht als WARN im Pro
 04.09.2026 endete das Programm dreimal mit einer `FileNotFoundException` für eine .NET-Assembly, jeweils
 Minuten nach einem Build — der Fall, den diese Prüfung seither abfängt.
 
-Holt das [Zonen-Vollbild](#zonen-vollbild) ein bestimmtes Programm nicht zurück, zeigt
+Holt das Zonen-Vollbild ein bestimmtes Programm nicht zurück, zeigt
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\measure-fullscreen-window.ps1
@@ -542,6 +546,7 @@ schliesst und verschiebt nichts.
 - Die gemerkten Fensterpositionen lassen sich nur gesamthaft verwerfen, nicht einzeln ansehen oder löschen.
 - Eigene Layouts können nicht über eine dokumentierte API in das native Windows-Snap-Popup eingefügt werden; die Anwendung verwendet ein eigenes Overlay.
 - Das Programm ist nicht digital signiert und kann beim ersten Start eine Windows-Sicherheitswarnung auslösen.
+- Vollbildzonen zeigen kopiergeschützte Streams (Netflix, Disney+, Prime Video) schwarz, weil Windows deren Bild vor jeder Aufnahme schützt; die Bildschirmaufnahme ohne Rahmen gibt es ab Windows 11 22H2.
 
 ## Version und Releases
 
@@ -551,7 +556,7 @@ Die Version folgt dem Schema `YYYY.MMDD.NN`. `NN` beginnt an jedem Tag bei `01` 
 
 `scripts\publish-release.ps1` führt den vollständigen Weg aus: Version schreiben, `scripts\verify.ps1` ausführen, `Directory.Build.props` committen, Tag `v<Version>` setzen, Commit und Tag pushen und das GitHub-Release mit `ZoneManager.exe` als Anhang erstellen. Das Skript arbeitet nur auf `main` und nur bei sauberem Arbeitsbaum und reicht `-SkipDpiCheck` an den Prüflauf durch; ohne angemeldetes GitHub CLI oder `GH_TOKEN` endet es nach dem Push und nennt den Befehl für das Release.
 
-Die EXE wird bewusst nicht versioniert, sondern nur an Releases angehängt: Sie ist ein reproduzierbares Build-Artefakt von rund 66 MB, das die Repository-Historie sonst mit jeder Auslieferung dauerhaft vergrössern würde.
+Die EXE wird bewusst nicht versioniert, sondern nur an Releases angehängt: Sie ist ein reproduzierbares Build-Artefakt von rund 74 MB, das die Repository-Historie sonst mit jeder Auslieferung dauerhaft vergrössern würde. Rund sieben MB davon entfallen seit den Vollbildzonen auf die Windows-Laufzeitprojektion für die Bildschirmaufnahme und den eingebetteten Anzeigetreiber.
 
 ## Entwicklung und Prüfung
 

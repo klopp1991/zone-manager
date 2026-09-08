@@ -114,6 +114,13 @@
                     ToolTip="Hier landen neue Fenster, die keine Zuordnung und keine gemerkte Position haben und auf keiner Zone des aktiven Layouts liegen. Beispiel: ein frisch installiertes Programm öffnet sich zum ersten Mal – statt irgendwo auf dem Bildschirm erscheint es in der Auffangzone. Jedes Layout darf eine Auffangzone tragen; wirksam ist die des ersten Monitors der Reihenfolge, dessen aktives Layout eine hat. Ohne Auffangzone bleiben neue Fenster dort, wo Windows sie hinsetzt." />
         </StackPanel>
         <TextBlock x:Name="MainZoneStateText" Style="{StaticResource HelpText}" Margin="0,4,0,0" />
+        <StackPanel Orientation="Horizontal" Margin="0,14,0,0">
+            <CheckBox x:Name="VirtualMonitorCheckBox" Content="Virtueller Monitor" FontWeight="SemiBold" Click="VirtualMonitor_Click"
+                      AutomationProperties.Name="Ausgewählte Zone als virtuellen Monitor kennzeichnen oder Kennzeichen aufheben" />
+            <Button x:Name="VirtualMonitorInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum virtuellen Monitor"
+                    ToolTip="Ein Fenster in dieser Zone bekommt einen eigenen Monitor in Zonengrösse: Zone Manager hängt den virtuellen Monitor des Anzeigetreibers an, legt das Fenster dorthin, übernimmt die Skalierung deines Monitors und spiegelt das Bild in die Zone. Das Programm darf sein Vollbild einschalten und füllt trotzdem nur die Zone – etwa ein Film in Plex neben dem Browser. Bewegst du die Maus in die Zone, springt der Zeiger auf den virtuellen Monitor; am Rand kommt er zurück, Strg+Alt+Q holt ihn sofort. Braucht den Anzeigetreiber unter Programm; ohne ihn ist die Zone eine gewöhnliche Zone. Kopiergeschützte Streams wie Netflix bleiben im Spiegel schwarz." />
+        </StackPanel>
+        <TextBlock x:Name="VirtualMonitorStateText" Style="{StaticResource HelpText}" Margin="0,4,0,0" />
         <TextBlock x:Name="ValidationText" Foreground="{DynamicResource DangerBrush}" TextWrapping="Wrap" Margin="0,10,0,0" FontSize="14" />
     </StackPanel>
 </UserControl>

@@ -43,6 +43,7 @@ public sealed class ApplicationController : IDisposable
     private readonly WindowPlacementEngine placementEngine;
     private readonly ZoneFullscreenCoordinator zoneFullscreen;
     private readonly DispatcherTimer zoneFullscreenTimer;
+    private readonly VirtualZoneCoordinator virtualZones;
     private readonly IGlobalHotkeyService hotkeys;
     private readonly IWindowService windowService;
     private readonly OverlayManager overlays;
@@ -154,6 +155,17 @@ public sealed class ApplicationController : IDisposable
             () => this.monitors,
             new WindowServiceAppRuleGateway(windowService, Environment.ProcessId),
             reportStatus: message => _ = window.Dispatcher.InvokeAsync(() => viewModel.StatusMessage = message));
+        virtualZones = new VirtualZoneCoordinator(
+            windowService,
+            () => configuration,
+            () => BuildTargets(configuration),
+            window.Dispatcher,
+            (level, message, exception) => log.Write(level, message, exception),
+            message => viewModel.StatusMessage = message,
+            RestartDisplayDriverAsync);
+        // Regeln platzieren auf ihrem eigenen Thread; die Vollbildzone gehoert auf den UI-Thread.
+        appRuleCoordinator.WindowPlaced = (handle, monitorStableId, zoneId) =>
+            _ = window.Dispatcher.InvokeAsync(() => virtualZones.TryEnter(handle, monitorStableId, zoneId));
         hotkeys = new GlobalHotkeyService();
         cursorTimer = new DispatcherTimer(DispatcherPriority.Input, window.Dispatcher)
         {
@@ -231,6 +243,7 @@ public sealed class ApplicationController : IDisposable
         // Das Zonen-Vollbild haengt an denselben Fensterereignissen wie das Positionsgedaechtnis; ein
         // eigener Hook waere ein zweites Abonnement auf dieselben Meldungen.
         placementHook.EventReceived += zoneFullscreen.Handle;
+        placementHook.EventReceived += virtualZones.Handle;
         zoneFullscreenTimer = new DispatcherTimer(DispatcherPriority.Background, window.Dispatcher)
         {
             Interval = TimeSpan.FromMilliseconds(250)
@@ -280,6 +293,8 @@ public sealed class ApplicationController : IDisposable
         // die fuer diese Monitorkombination gemerkten Layouts aktivieren.
         ReconcileMonitors(announce: false);
         Reconfigure(configuration);
+        // Nach einem harten Prozessende kann der virtuelle Monitor noch am Desktop haengen.
+        virtualZones.CleanUpOrphan();
 
         // Eine vom letzten Update beiseitegeschobene Programmdatei laesst sich erst loeschen, wenn der
         // Prozess, der sie belegte, geendet hat. Der naechste Start ist der erste Zeitpunkt dafuer.
@@ -428,6 +443,9 @@ public sealed class ApplicationController : IDisposable
         appRuleHook.Dispose();
         placementEngine.Stop();
         placementHook.EventReceived -= zoneFullscreen.Handle;
+        placementHook.EventReceived -= virtualZones.Handle;
+        // Vor dem Hook-Abbau, damit der Zeiger-Hook und der virtuelle Monitor sicher weg sind.
+        virtualZones.Dispose();
         zoneFullscreenTimer.Stop();
         placementHook.Dispose();
         overlays.Dispose();
@@ -1008,6 +1026,7 @@ public sealed class ApplicationController : IDisposable
         viewModel.DisplayDriverStatus = status switch
         {
             { Ready: true } => "Eingerichtet. Zonen lassen sich als virtueller Monitor kennzeichnen.",
+            { Faulted: true } => $"Der Treiber meldet Windows-Fehlercode {status.ProblemCode}. Die nächste Vollbildzone startet ihn neu; sonst hilft Entfernen und erneut installieren.",
             { DevicePresent: true } => "Der Treiber läuft, aber seine Modeliste fehlt. Entfernen und erneut installieren.",
             { DriverStored: true } => "Das Treiberpaket liegt in der Treiberablage, das Gerät fehlt. Installieren legt es an.",
             _ => "Nicht eingerichtet. Ohne den Treiber bleiben Vollbildzonen ausgeschaltet."
@@ -1038,6 +1057,21 @@ public sealed class ApplicationController : IDisposable
         _ = RunDisplayDriverActionAsync(
             "Anzeigetreiber wird entfernt; Windows fragt nach Administratorrechten …",
             () => RunDisplayDriverCommandElevated(StartupArguments.RemoveDisplayDriver, "Der Anzeigetreiber wurde entfernt."));
+    }
+
+    /// <summary>
+    /// Startet das Geraet des Anzeigetreibers neu: im eigenen Prozess, wenn er erhoeht laeuft, sonst
+    /// ueber den erhoehten Hilfsprozess. Gebraucht von der Vollbildzone, wenn die Modeliste neu ist
+    /// oder der Treiber einen Fehler meldet.
+    /// </summary>
+    private async Task<bool> RestartDisplayDriverAsync()
+    {
+        var result = ElevationState.IsAdministrator()
+            ? await Task.Run(DisplayDriverSetup.Restart)
+            : await Task.Run(() => RunDisplayDriverCommandElevated(StartupArguments.RestartDisplayDriver, "Der Anzeigetreiber wurde neu gestartet."));
+        log.Write(result.Successful ? "INFO" : "ERROR", result.Message);
+        PublishDisplayDriverStatus();
+        return result.Successful;
     }
 
     private DriverActionResult RunDisplayDriverCommandElevated(string argument, string successMessage)
@@ -1332,6 +1366,8 @@ public sealed class ApplicationController : IDisposable
         }
 
         tray.Update(newConfiguration);
+        // Nach dem Zonenaufbau: eine laufende Vollbildzone folgt ihrer Zone oder endet mit ihr.
+        virtualZones.Reconfigure();
     }
 
     private void AppRuleHook_RuleEvent(AppRuleEvent eventType, nint windowHandle) =>
@@ -1749,6 +1785,11 @@ public sealed class ApplicationController : IDisposable
                     fill.MonitorId,
                     fill.PartMonitorId));
                 ReportPlacement(fill.WindowHandle, result, "Fenster wurde in einen Teilmonitor eingerastet.");
+                if (result?.Status == PartMonitorCommandStatus.Successful && result.Placement is { } filled)
+                {
+                    virtualZones.TryEnter(fill.WindowHandle, filled.MonitorId, filled.PartMonitorId);
+                }
+
                 break;
         }
     }
@@ -1836,6 +1877,7 @@ public sealed class ApplicationController : IDisposable
         if (result.Status == PartMonitorCommandStatus.Successful && result.Placement is { } placement)
         {
             viewModel.StatusMessage = $"Fenster in Zone {ZoneNumberOf(placement)} gesetzt.";
+            virtualZones.TryEnter(foreground.Handle, placement.MonitorId, placement.PartMonitorId);
         }
     }
 

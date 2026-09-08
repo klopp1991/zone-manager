@@ -129,6 +129,19 @@ public sealed class LayoutEditorSession
         mainZoneId = zoneId;
     }
 
+    /// <summary>Kennzeichnet eine Zone als virtuellen Monitor oder hebt das Kennzeichen auf.</summary>
+    public void SetVirtualMonitor(Guid zoneId, bool isVirtualMonitor)
+    {
+        var index = FindIndex(zoneId);
+        if (zones[index].IsVirtualMonitor == isVirtualMonitor)
+        {
+            return;
+        }
+
+        Remember();
+        zones[index] = zones[index] with { IsVirtualMonitor = isVirtualMonitor };
+    }
+
     public void DeleteZone(Guid zoneId)
     {
         if (zones.All(zone => zone.Id != zoneId))

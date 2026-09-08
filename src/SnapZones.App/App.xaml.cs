@@ -105,12 +105,17 @@ public partial class App : System.Windows.Application
     /// Die Modi <c>--install-display-driver</c> und <c>--remove-display-driver</c>: der Anzeigetreiber
     /// für Vollbildzonen wird im erhöhten Hilfsprozess eingerichtet oder entfernt.
     /// </summary>
-    private void RunDisplayDriverCommand(bool install)
+    private void RunDisplayDriverCommand(DisplayDriverAction action)
     {
-        var result = install ? DisplayDriverSetup.Install() : DisplayDriverSetup.Remove();
+        var result = action switch
+        {
+            DisplayDriverAction.Install => DisplayDriverSetup.Install(),
+            DisplayDriverAction.Remove => DisplayDriverSetup.Remove(),
+            _ => DisplayDriverSetup.Restart()
+        };
         log?.Write(
             result.Successful ? "INFO" : "ERROR",
-            $"{(install ? "Anzeigetreiber installieren" : "Anzeigetreiber entfernen")} im erhöhten Hilfsprozess: {result.Message}");
+            $"Anzeigetreiber {action switch { DisplayDriverAction.Install => "installieren", DisplayDriverAction.Remove => "entfernen", _ => "neu starten" }} im erhöhten Hilfsprozess: {result.Message}");
         Shutdown(result.Successful ? 0 : 1);
     }
 
@@ -219,13 +224,19 @@ public partial class App : System.Windows.Application
 
         if (StartupArguments.Contains(eventArgs.Args, StartupArguments.InstallDisplayDriver))
         {
-            RunDisplayDriverCommand(install: true);
+            RunDisplayDriverCommand(DisplayDriverAction.Install);
             return;
         }
 
         if (StartupArguments.Contains(eventArgs.Args, StartupArguments.RemoveDisplayDriver))
         {
-            RunDisplayDriverCommand(install: false);
+            RunDisplayDriverCommand(DisplayDriverAction.Remove);
+            return;
+        }
+
+        if (StartupArguments.Contains(eventArgs.Args, StartupArguments.RestartDisplayDriver))
+        {
+            RunDisplayDriverCommand(DisplayDriverAction.Restart);
             return;
         }
 

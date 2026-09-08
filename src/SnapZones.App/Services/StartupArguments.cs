@@ -40,6 +40,12 @@ public static class StartupArguments
     public const string RemoveDisplayDriver = "--remove-display-driver";
 
     /// <summary>
+    /// Startet das Gerät des Anzeigetreibers neu, damit es die Modeliste neu einliest oder aus einem
+    /// Fehlerzustand zurückkommt; läuft ohne Oberfläche und endet danach.
+    /// </summary>
+    public const string RestartDisplayDriver = "--restart-display-driver";
+
+    /// <summary>
     /// Nach einer Installation nicht das installierte Programm starten. Nötig, wenn die Installation
     /// in einem erhöhten Hilfsprozess läuft: ein von dort gestartetes Programm liefe ebenfalls erhöht.
     /// </summary>

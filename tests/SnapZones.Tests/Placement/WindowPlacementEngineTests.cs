@@ -217,6 +217,25 @@ public sealed class WindowPlacementEngineTests
     }
 
     [Fact]
+    public async Task A_window_on_the_virtual_monitor_outside_every_real_monitor_keeps_its_remembered_zone()
+    {
+        // In einer Vollbildzone liegt das Fenster auf dem virtuellen Monitor rechts neben dem Desktop.
+        // Dieses Rechteck darf nicht in den Katalog: es fiele auf den Hauptmonitor zurueck, und das
+        // Fenster erschiene beim naechsten Start ausserhalb jedes Bildschirms.
+        using var harness = Harness(mainZoneId: RightZoneId);
+        harness.WindowService.Add(Window(17, LeftZoneBounds));
+        harness.Engine.Start();
+        await harness.EndMoveAsync(17);
+
+        harness.WindowService.Add(Window(17, new PixelRect(6144, 0, 2288, 1296)));
+        await harness.EndMoveAsync(17);
+
+        var entry = Assert.Single(harness.Engine.Catalog.Entries);
+        Assert.Equal(LeftZoneBounds, entry.NormalBoundsPixels);
+        Assert.Equal(LeftZoneId, entry.ZoneId);
+    }
+
+    [Fact]
     public async Task With_remembering_switched_off_the_main_zone_still_catches_new_windows()
     {
         // Die Hauptzone haengt nicht am Positionskatalog: wer das Merken abschaltet, verliert sie nicht.
