@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using SnapZones.App.Controls;
 using SnapZones.Core.Editor;
 using SnapZones.Core.Layouts;
 using SnapZones.Core.Models;
@@ -38,6 +39,13 @@ public sealed class MainViewModel : ViewModelBase
     private string toastText = string.Empty;
     private Action? toastUndo;
     private bool isToastVisible;
+    private bool isElevated;
+    private bool isGitHubConnected;
+    private string gitHubAccountName = string.Empty;
+    private string lastExportedText = "Noch nie exportiert.";
+    private string logFileSummary = string.Empty;
+    private string logFolderPath = string.Empty;
+    private string settingsFolderPath = string.Empty;
 
     public MainViewModel(SnapConfiguration configuration, IReadOnlyList<LiveMonitor> monitors)
     {
@@ -223,6 +231,7 @@ public sealed class MainViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(RememberedWindowSummary));
                 OnPropertyChanged(nameof(HasRememberedWindows));
+                OnPropertyChanged(nameof(RememberedWindowCountText));
             }
         }
     }
@@ -345,6 +354,9 @@ public sealed class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(CertificateActionLabel));
                 OnPropertyChanged(nameof(CertificateActionHint));
                 OnPropertyChanged(nameof(CertificateStateLabel));
+                OnPropertyChanged(nameof(HelperChipState));
+                OnPropertyChanged(nameof(HelperChipText));
+                OnPropertyChanged(nameof(HelperSetupLabel));
             }
         }
     }
@@ -403,6 +415,10 @@ public sealed class MainViewModel : ViewModelBase
             {
                 OnPropertyChanged(nameof(CanInstallDisplayDriver));
                 OnPropertyChanged(nameof(CanRemoveDisplayDriver));
+                OnPropertyChanged(nameof(DisplayDriverChipState));
+                OnPropertyChanged(nameof(DisplayDriverChipText));
+                OnPropertyChanged(nameof(DisplayDriverHint));
+                OnPropertyChanged(nameof(HasFullscreenZoneWithoutDriver));
             }
         }
     }
@@ -612,6 +628,295 @@ public sealed class MainViewModel : ViewModelBase
     public string LayoutCountText => LayoutCount.ToString();
     public string RuleCountText => RuleCount.ToString();
     public string ExclusionCountText => ExclusionCount.ToString();
+    public string RememberedWindowCountText => rememberedWindowCount.ToString();
+
+    // ----------------------------------------------------------------------------------------------
+    // Status-Chips: jede Systemsache zeigt ihren Zustand in der eigenen Zeile, mit Punkt und Wort.
+    // Die Farbe traegt den Zustand nie allein.
+    // ----------------------------------------------------------------------------------------------
+
+    /// <summary>Ob das Programm gerade mit Administratorrechten laeuft.</summary>
+    public bool IsElevated
+    {
+        get => isElevated;
+        set
+        {
+            if (SetProperty(ref isElevated, value))
+            {
+                OnPropertyChanged(nameof(ElevationChipState));
+                OnPropertyChanged(nameof(ElevationChipText));
+                OnPropertyChanged(nameof(ElevationHint));
+                OnPropertyChanged(nameof(CanReleaseElevation));
+            }
+        }
+    }
+
+    public StatusChipState ElevationChipState => isElevated ? StatusChipState.Good : StatusChipState.Warning;
+
+    public string ElevationChipText => isElevated ? "Aktiv" : "Eingeschränkt";
+
+    /// <summary>Was die Rechtelage im Alltag bedeutet, in Laiensprache.</summary>
+    public string ElevationHint => isElevated
+        ? "Auch Fenster mit höheren Rechten – etwa der Taskmanager – lassen sich einrasten."
+        : "Fenster mit höheren Rechten – etwa der Taskmanager – lassen sich nicht einrasten.";
+
+    public bool CanReleaseElevation => isElevated;
+
+    /// <summary>Bittet darum, das Programm ohne Administratorrechte neu zu starten.</summary>
+    public event Action? ReleaseElevationRequested;
+
+    public void ReleaseElevation() => ReleaseElevationRequested?.Invoke();
+
+    public StatusChipState StartupChipState =>
+        Settings.StartWithWindows ? StatusChipState.Good : StatusChipState.Neutral;
+
+    public string StartupChipText => Settings.StartWithWindows ? "Aktiv" : "Aus";
+
+    public string StartupHint => Settings.StartWithWindows
+        ? "Startet bei der Anmeldung und wartet im Infobereich."
+        : "Zone Manager musst du nach dem Anmelden selbst starten.";
+
+    public StatusChipState HelperChipState =>
+        isCertificateInstalled ? StatusChipState.Good : StatusChipState.Neutral;
+
+    public string HelperChipText => isCertificateInstalled ? "Eingerichtet" : "Nicht eingerichtet";
+
+    public string HelperSetupLabel => isCertificateInstalled ? "Neu einrichten …" : "Einrichten …";
+
+    public StatusChipState DisplayDriverChipState =>
+        isDisplayDriverInstalled ? StatusChipState.Good : StatusChipState.Warning;
+
+    public string DisplayDriverChipText => isDisplayDriverInstalled ? "Installiert" : "Nicht installiert";
+
+    public string DisplayDriverHint => isDisplayDriverInstalled
+        ? "Eine Zone kann ein eigener Bildschirm sein; ein Video darin bleibt beim Vollbild in seiner Zone."
+        : "Ohne ihn füllt ein Video im Vollbild immer den ganzen Monitor.";
+
+    /// <summary>Bittet darum, Treiberstand und virtuelle Bildschirme nachzusehen.</summary>
+    public event Action? DisplayDriverCheckRequested;
+
+    public void CheckDisplayDriver() => DisplayDriverCheckRequested?.Invoke();
+
+    /// <summary>
+    /// Ob irgendein Layout eine Vollbildzone traegt, ohne dass der Treiber da waere. Erst dann erscheint
+    /// der Warnhinweis mit dem Verweis auf «System &amp; Rechte».
+    /// </summary>
+    public bool HasFullscreenZoneWithoutDriver =>
+        !isDisplayDriverInstalled &&
+        layoutService.Configuration.Layouts.Any(layout => layout.Zones.Any(zone => zone.IsFullscreenZone));
+
+    // ----------------------------------------------------------------------------------------------
+    // Update-Quelle: das private Repository des Projekts, verbunden ueber den Gerätecode von GitHub.
+    // ----------------------------------------------------------------------------------------------
+
+    /// <summary>Ob ein GitHub-Konto mit Zugriff auf das Repository hinterlegt ist.</summary>
+    public bool IsGitHubConnected
+    {
+        get => isGitHubConnected;
+        set
+        {
+            if (SetProperty(ref isGitHubConnected, value))
+            {
+                OnPropertyChanged(nameof(UpdateSourceChipState));
+                OnPropertyChanged(nameof(UpdateSourceChipText));
+                OnPropertyChanged(nameof(UpdateSourceHint));
+                OnPropertyChanged(nameof(UpdateSourceActionLabel));
+            }
+        }
+    }
+
+    /// <summary>Der Kontoname, unter dem die Verbindung steht.</summary>
+    public string GitHubAccountName
+    {
+        get => gitHubAccountName;
+        set
+        {
+            if (SetProperty(ref gitHubAccountName, value))
+            {
+                OnPropertyChanged(nameof(UpdateSourceHint));
+            }
+        }
+    }
+
+    public StatusChipState UpdateSourceChipState =>
+        isGitHubConnected ? StatusChipState.Good : StatusChipState.Warning;
+
+    public string UpdateSourceChipText => isGitHubConnected ? "Verbunden" : "Nicht verbunden";
+
+    public string UpdateSourceHint => isGitHubConnected
+        ? $"GitHub · {UpdateSourceRepository} · als «{gitHubAccountName}»"
+        : $"GitHub · {UpdateSourceRepository} – privat, Verbindung nötig";
+
+    public string UpdateSourceActionLabel => isGitHubConnected ? "Verbindung trennen" : "Mit GitHub verbinden …";
+
+    /// <summary>Das Repository, aus dem die Veroeffentlichungen kommen.</summary>
+    public const string UpdateSourceRepository = "klopp1991/zone-manager";
+
+    /// <summary>Bittet darum, den Gerätecode-Dialog zu oeffnen oder die Verbindung zu trennen.</summary>
+    public event Action? UpdateSourceActionRequested;
+
+    public void ToggleUpdateSource() => UpdateSourceActionRequested?.Invoke();
+
+    // ----------------------------------------------------------------------------------------------
+    // Sicherung, Protokoll und Einstellungsdatei.
+    // ----------------------------------------------------------------------------------------------
+
+    /// <summary>Wann zuletzt exportiert wurde, im Klartext.</summary>
+    public string LastExportedText
+    {
+        get => lastExportedText;
+        set => SetProperty(ref lastExportedText, value);
+    }
+
+    /// <summary>Groesse und Zweck der Protokolldatei, im Klartext.</summary>
+    public string LogFileSummary
+    {
+        get => logFileSummary;
+        set => SetProperty(ref logFileSummary, value);
+    }
+
+    /// <summary>Der Ordner der Protokolldatei; steht nur im ToolTip.</summary>
+    public string LogFolderPath
+    {
+        get => logFolderPath;
+        set => SetProperty(ref logFolderPath, value);
+    }
+
+    /// <summary>Der Ordner der Einstellungsdatei; steht nur im ToolTip.</summary>
+    public string SettingsFolderPath
+    {
+        get => settingsFolderPath;
+        set => SetProperty(ref settingsFolderPath, value);
+    }
+
+    /// <summary>Bittet darum, den Ordner der Protokolldatei zu oeffnen.</summary>
+    public event Action? OpenLogFolderRequested;
+
+    /// <summary>Bittet darum, die Protokolldatei zu leeren.</summary>
+    public event Action? ClearLogRequested;
+
+    /// <summary>Bittet darum, den Ordner der Einstellungsdatei zu oeffnen.</summary>
+    public event Action? OpenSettingsFolderRequested;
+
+    /// <summary>Bittet darum, die Diagnose laufen zu lassen.</summary>
+    public event Action? DiagnosticsRequested;
+
+    public void OpenLogFolder() => OpenLogFolderRequested?.Invoke();
+
+    public void ClearLog() => ClearLogRequested?.Invoke();
+
+    public void OpenSettingsFolder() => OpenSettingsFolderRequested?.Invoke();
+
+    public void RunDiagnostics() => DiagnosticsRequested?.Invoke();
+
+    // ----------------------------------------------------------------------------------------------
+    // Reihenfolge von Monitoren und Layouts. Sie gilt ueberall: Tabs, Auswahllisten, Infobereich.
+    // ----------------------------------------------------------------------------------------------
+
+    public bool CanMoveMonitorLeft => selectedMonitor is not null && Monitors.IndexOf(selectedMonitor) > 0;
+
+    public bool CanMoveMonitorRight =>
+        selectedMonitor is not null && Monitors.IndexOf(selectedMonitor) < Monitors.Count - 1;
+
+    public void MoveMonitorLeft() => MoveSelectedMonitor(-1);
+
+    public void MoveMonitorRight() => MoveSelectedMonitor(1);
+
+    public bool CanMoveLayoutLeft => selectedLayout is not null && Layouts.IndexOf(selectedLayout) > 0;
+
+    public bool CanMoveLayoutRight =>
+        selectedLayout is not null && Layouts.IndexOf(selectedLayout) < Layouts.Count - 1;
+
+    public void MoveLayoutLeft() => MoveLayout(-1);
+
+    public void MoveLayoutRight() => MoveLayout(1);
+
+    /// <summary>Zusammenfassung fuer die Monitorseite: wie viele Monitore gerade haengen.</summary>
+    public string MonitorConnectionSummary
+    {
+        get
+        {
+            var connected = Monitors.Count(choice => choice.IsConnected);
+            return connected == 1 ? "Angeschlossen: 1 Monitor" : $"Angeschlossen: {connected} Monitore";
+        }
+    }
+
+    /// <summary>Schiebt ein Layout per Ziehen an die Stelle eines anderen.</summary>
+    public void MoveLayoutTo(Guid layoutId, Guid targetLayoutId)
+    {
+        if (layoutId == targetLayoutId)
+        {
+            return;
+        }
+
+        StoreValidDraft();
+        layoutService.MoveLayout(layoutId, targetLayoutId);
+        RefreshLayouts(selectedLayout?.Id);
+        NotifyOrderCommands();
+        StatusMessage = "Layoutreihenfolge geändert";
+        RequestPersistence();
+    }
+
+    /// <summary>Schiebt einen Monitor per Ziehen an die Stelle eines anderen.</summary>
+    public void MoveMonitorTo(MonitorChoice moved, MonitorChoice target)
+    {
+        ArgumentNullException.ThrowIfNull(moved);
+        ArgumentNullException.ThrowIfNull(target);
+        var from = Monitors.IndexOf(moved);
+        var to = Monitors.IndexOf(target);
+        if (from < 0 || to < 0 || from == to)
+        {
+            return;
+        }
+
+        var reordered = Monitors.Select(choice => choice.Live.Identity).ToList();
+        var identity = reordered[from];
+        reordered.RemoveAt(from);
+        reordered.Insert(to, identity);
+        layoutService.UpdateMonitorOrder(reordered);
+        RefreshMonitors(moved.Live.Identity, selectedLayout?.Id);
+        NotifyOrderCommands();
+        StatusMessage = "Monitorreihenfolge geändert";
+        RequestPersistence();
+    }
+
+    /// <summary>
+    /// Schiebt das gewaehlte Layout innerhalb seines Monitors um eine Stelle. Die Reihenfolge steckt in
+    /// der Layoutliste der Konfiguration und wirkt damit ueberall gleich – Tabs, Auswahllisten und
+    /// Infobereich lesen dieselbe Liste.
+    /// </summary>
+    public void MoveLayout(int offset)
+    {
+        if (selectedLayout is null || offset == 0)
+        {
+            return;
+        }
+
+        var index = Layouts.IndexOf(selectedLayout);
+        var target = index + offset;
+        if (index < 0 || target < 0 || target >= Layouts.Count)
+        {
+            return;
+        }
+
+        StoreValidDraft();
+        layoutService.MoveLayout(selectedLayout.Id, Layouts[target].Id);
+        var keepId = selectedLayout.Id;
+        RefreshLayouts(keepId);
+        NotifyOrderCommands();
+        RequestPersistence();
+    }
+
+    /// <summary>Meldet, dass sich die Verschiebbarkeit von Monitor oder Layout geaendert haben kann.</summary>
+    private void NotifyOrderCommands()
+    {
+        OnPropertyChanged(nameof(CanMoveMonitorLeft));
+        OnPropertyChanged(nameof(CanMoveMonitorRight));
+        OnPropertyChanged(nameof(CanMoveLayoutLeft));
+        OnPropertyChanged(nameof(CanMoveLayoutRight));
+        OnPropertyChanged(nameof(CanSelectPreviousMonitor));
+        OnPropertyChanged(nameof(CanSelectNextMonitor));
+    }
 
     public void Save()
     {
@@ -1007,6 +1312,13 @@ public sealed class MainViewModel : ViewModelBase
             return;
         }
 
+        if (eventArgs.PropertyName == nameof(SettingsViewModel.StartWithWindows))
+        {
+            OnPropertyChanged(nameof(StartupChipState));
+            OnPropertyChanged(nameof(StartupChipText));
+            OnPropertyChanged(nameof(StartupHint));
+        }
+
         var settings = Settings.CreateSettings();
         if (!IsValidOverlayColor(settings.OverlayColor))
         {
@@ -1083,6 +1395,7 @@ public sealed class MainViewModel : ViewModelBase
         (reordered[currentIndex], reordered[targetIndex]) = (reordered[targetIndex], reordered[currentIndex]);
         layoutService.UpdateMonitorOrder(reordered);
         RefreshMonitors(selectedMonitor.Live.Identity, selectedLayout?.Id);
+        NotifyOrderCommands();
         StatusMessage = "Monitorreihenfolge geändert";
         RequestPersistence();
     }
@@ -1113,6 +1426,9 @@ public sealed class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(LayoutCountText));
         OnPropertyChanged(nameof(RuleCountText));
         OnPropertyChanged(nameof(ExclusionCountText));
+        OnPropertyChanged(nameof(RememberedWindowCountText));
+        OnPropertyChanged(nameof(HasFullscreenZoneWithoutDriver));
+        OnPropertyChanged(nameof(MonitorConnectionSummary));
     }
 
     private static bool IsTransientStatus(string value) =>

@@ -235,6 +235,32 @@ public sealed class LayoutService
     /// <summary>Die gerade gueltige Startzone, oder <c>null</c>. Siehe <see cref="StartZone.Resolve"/>.</summary>
     public StartZoneTarget? ResolveStartZone() => StartZone.Resolve(Configuration);
 
+    /// <summary>
+    /// Tauscht zwei Layouts in der Layoutliste. Die Liste ist die einzige Quelle der Layoutreihenfolge;
+    /// Tabs, Auswahllisten und das Menue im Infobereich lesen sie alle. Beide Layouts muessen zum selben
+    /// Monitor gehoeren, sonst wuerde ein Tausch die Reihenfolge eines fremden Monitors mitverschieben.
+    /// </summary>
+    public void MoveLayout(Guid layoutId, Guid targetLayoutId)
+    {
+        if (layoutId == targetLayoutId)
+        {
+            return;
+        }
+
+        var moved = Find(layoutId);
+        var target = Find(targetLayoutId);
+        if (!BelongsToMonitor(moved.Monitor, target.Monitor))
+        {
+            throw new InvalidOperationException("Layouts lassen sich nur innerhalb ihres Monitors umsortieren.");
+        }
+
+        var layouts = Configuration.Layouts.ToArray();
+        var from = Array.FindIndex(layouts, layout => layout.Id == layoutId);
+        var to = Array.FindIndex(layouts, layout => layout.Id == targetLayoutId);
+        (layouts[from], layouts[to]) = (layouts[to], layouts[from]);
+        Configuration = Configuration with { Layouts = layouts };
+    }
+
     public void UpdateSettings(AppSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);

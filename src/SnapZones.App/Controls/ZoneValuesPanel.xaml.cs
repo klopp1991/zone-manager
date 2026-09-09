@@ -23,6 +23,7 @@ public partial class ZoneValuesPanel : System.Windows.Controls.UserControl
     private ZoneInputGroup activeZoneInputGroup = ZoneInputGroup.PositionAndSize;
     private int monitorWidth = 1;
     private int monitorHeight = 1;
+    private bool isFullscreenDriverMissing;
 
     public ZoneValuesPanel()
     {
@@ -32,6 +33,28 @@ public partial class ZoneValuesPanel : System.Windows.Controls.UserControl
 
     /// <summary>Der Aufrufer hat die Zone geaendert; Zeichenflaeche und Panel muessen nachziehen.</summary>
     public event EventHandler? ValuesApplied;
+
+    /// <summary>«Jetzt einrichten» im Warnhinweis: der Aufrufer soll auf «System &amp; Rechte» wechseln.</summary>
+    public event EventHandler? FullscreenZoneSetupRequested;
+
+    /// <summary>
+    /// Ob der Vollbildzonen-Treiber fehlt. Ist er weg und die Zone traegt das Kennzeichen, erscheint
+    /// direkt unter dem Kaestchen ein Warnhinweis; blockiert wird nichts.
+    /// </summary>
+    public bool IsFullscreenDriverMissing
+    {
+        get => isFullscreenDriverMissing;
+        set
+        {
+            if (isFullscreenDriverMissing == value)
+            {
+                return;
+            }
+
+            isFullscreenDriverMissing = value;
+            UpdateFullscreenDriverWarning();
+        }
+    }
 
     /// <summary>Die aktuelle Einheit aller acht Felder.</summary>
     public MeasurementUnit Unit => zoneInputUnit;
@@ -83,14 +106,16 @@ public partial class ZoneValuesPanel : System.Windows.Controls.UserControl
                 MarginsSummaryText.Text = string.Empty;
             }
 
-            StartZoneCheckBox.IsEnabled = zone is not null;
             StartZoneCheckBox.IsChecked = editor?.IsSelectedZoneStartZone ?? false;
             StartZoneStateText.Text = editor?.StartZoneStateText ?? string.Empty;
-            VirtualMonitorCheckBox.IsEnabled = zone is not null;
-            VirtualMonitorCheckBox.IsChecked = editor?.IsSelectedZoneVirtualMonitor ?? false;
-            VirtualMonitorStateText.Text = editor?.VirtualMonitorStateText ?? string.Empty;
+            FullscreenZoneCheckBox.IsChecked = editor?.IsSelectedZoneFullscreenZone ?? false;
+            FullscreenZoneStateText.Text = editor?.FullscreenZoneStateText ?? string.Empty;
             ValidationText.Text = editor?.ValidationMessage ?? string.Empty;
-            IsEnabled = editor is not null;
+            // Ohne gewaehlte Zone bleibt das Panel sichtbar und zeigt statt der Felder den Platzhalter.
+            var hasZone = editor is not null && zone is not null;
+            EmptyState.Visibility = hasZone ? Visibility.Collapsed : Visibility.Visible;
+            ZoneState.Visibility = hasZone ? Visibility.Visible : Visibility.Collapsed;
+            UpdateFullscreenDriverWarning();
             UpdateUnitSegments();
             UpdateZoneInputGroupPresentation();
         }
@@ -128,13 +153,6 @@ public partial class ZoneValuesPanel : System.Windows.Controls.UserControl
         Refresh();
     }
 
-    private void MarginsExpander_Expanded(object sender, RoutedEventArgs eventArgs)
-    {
-        _ = sender;
-        _ = eventArgs;
-        SetActiveZoneInputGroup(ZoneInputGroup.Margins);
-    }
-
     private void StartZone_Click(object sender, RoutedEventArgs eventArgs)
     {
         _ = sender;
@@ -149,7 +167,7 @@ public partial class ZoneValuesPanel : System.Windows.Controls.UserControl
         ValuesApplied?.Invoke(this, EventArgs.Empty);
     }
 
-    private void VirtualMonitor_Click(object sender, RoutedEventArgs eventArgs)
+    private void FullscreenZone_Click(object sender, RoutedEventArgs eventArgs)
     {
         _ = sender;
         _ = eventArgs;
@@ -158,10 +176,24 @@ public partial class ZoneValuesPanel : System.Windows.Controls.UserControl
             return;
         }
 
-        editor.ToggleSelectedZoneAsVirtualMonitor();
+        editor.ToggleSelectedZoneAsFullscreenZone();
         Refresh();
         ValuesApplied?.Invoke(this, EventArgs.Empty);
     }
+
+    private void FullscreenDriverSetup_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        FullscreenZoneSetupRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>Der Hinweis erscheint nur, wenn diese Zone eine Vollbildzone ist und der Treiber fehlt.</summary>
+    private void UpdateFullscreenDriverWarning() =>
+        FullscreenDriverWarning.Visibility =
+            isFullscreenDriverMissing && (editor?.IsSelectedZoneFullscreenZone ?? false)
+                ? Visibility.Visible
+                : Visibility.Collapsed;
 
     private void ZoneField_TextChanged(object sender, TextChangedEventArgs eventArgs)
     {

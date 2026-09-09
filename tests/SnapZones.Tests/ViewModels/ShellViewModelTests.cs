@@ -8,7 +8,7 @@ using Xunit;
 namespace SnapZones.Tests.ViewModels;
 
 /// <summary>
-/// Die Bausteine der Oberflaeche v2 im Hauptmodell: Suche, Rueckgaengig-Toast, Zeitpunkt der letzten
+/// Die Bausteine der Oberflaeche im Hauptmodell: Suche, Rueckgaengig-Toast, Zeitpunkt der letzten
 /// Speicherung, Loeschen und Wiederherstellen eines Layouts, Verbinden zweier Zonen.
 /// </summary>
 public sealed class ShellViewModelTests
@@ -16,9 +16,9 @@ public sealed class ShellViewModelTests
     [Fact]
     public void The_search_index_finds_settings_by_label_path_and_synonym()
     {
-        Assert.Contains(SettingsSearchIndex.Search("Deckkraft"), result => result.Label == "Deckkraft der Zonen" && result.BehaviourTab == 1);
-        Assert.Contains(SettingsSearchIndex.Search("Darstellung"), result => result.Page == NavigationPage.Behaviour);
-        Assert.Contains(SettingsSearchIndex.Search("dunkel"), result => result.Label.StartsWith("Erscheinungsbild", StringComparison.Ordinal) && result.Page == NavigationPage.Program);
+        Assert.Contains(SettingsSearchIndex.Search("Deckkraft"), result => result.Label == "Deckkraft" && result.Page == NavigationPage.Appearance);
+        Assert.Contains(SettingsSearchIndex.Search("Watchdog"), result => result.TuningSection == SettingsSearchIndex.TuningSectionName && result.Page == NavigationPage.Drag);
+        Assert.Contains(SettingsSearchIndex.Search("dunkel"), result => result.Label.StartsWith("Erscheinungsbild", StringComparison.Ordinal) && result.Page == NavigationPage.Startup);
         Assert.Contains(SettingsSearchIndex.Search("Startzone"), result => result.Label == "Startzone");
         Assert.Empty(SettingsSearchIndex.Search("   "));
         Assert.Empty(SettingsSearchIndex.Search("xyzzy"));

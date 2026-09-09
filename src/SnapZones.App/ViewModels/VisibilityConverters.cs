@@ -82,12 +82,20 @@ public sealed class NullToVisibilityConverter : IValueConverter
 /// <summary>Wahr, wenn zwei gebundene Werte gleich sind – etwa die Kennung eines Tabs und die des bearbeiteten Layouts.</summary>
 public sealed class EqualityConverter : IMultiValueConverter
 {
+    /// <summary>
+    /// Liefert normalerweise <c>true</c>/<c>false</c>. Mit dem Parameter «Visibility» liefert er
+    /// stattdessen <see cref="Visibility.Visible"/> beziehungsweise <see cref="Visibility.Collapsed"/> –
+    /// so laesst sich derselbe Vergleich fuer eine Sichtbarkeit verwenden, ohne einen zweiten Konverter
+    /// dahinterzuschalten.
+    /// </summary>
     public object Convert(object[] values, Type targetType, object? parameter, CultureInfo culture)
     {
         _ = targetType;
-        _ = parameter;
         _ = culture;
-        return values.Length == 2 && values[0] is not null && Equals(values[0], values[1]);
+        var equal = values.Length == 2 && values[0] is not null && Equals(values[0], values[1]);
+        return parameter is string text && string.Equals(text, "Visibility", StringComparison.Ordinal)
+            ? equal ? Visibility.Visible : Visibility.Collapsed
+            : equal;
     }
 
     public object[] ConvertBack(object value, Type[] targetTypes, object? parameter, CultureInfo culture) =>

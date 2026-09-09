@@ -10,6 +10,8 @@ public sealed class LayoutEditorViewModel : ViewModelBase
     private readonly int monitorWidth;
     private readonly int monitorHeight;
     private Guid? selectedZoneId;
+    private string lastActionLabel = string.Empty;
+    private string redoLabel = string.Empty;
 
     public LayoutEditorViewModel(MonitorLayout layout)
     {
@@ -31,13 +33,13 @@ public sealed class LayoutEditorViewModel : ViewModelBase
     public bool IsSelectedZoneStartZone => SelectedZone is { } zone && session.StartZoneId == zone.Id;
 
     /// <summary>Ob die gerade ausgewählte Zone ein virtueller Monitor (Vollbildzone) ist.</summary>
-    public bool IsSelectedZoneVirtualMonitor => SelectedZone is { IsFullscreenZone: true };
+    public bool IsSelectedZoneFullscreenZone => SelectedZone is { IsFullscreenZone: true };
 
     /// <summary>Was fuer die ausgewaehlte Zone gilt, im Klartext und ohne Farbe.</summary>
-    public string VirtualMonitorStateText => SelectedZone is null
+    public string FullscreenZoneStateText => SelectedZone is null
         ? string.Empty
-        : IsSelectedZoneVirtualMonitor
-            ? "Fenster in dieser Zone laufen auf einem virtuellen Monitor in Zonengrösse; ihr Vollbild bleibt in der Zone."
+        : IsSelectedZoneFullscreenZone
+            ? "Die Zone gilt als eigener Bildschirm; ein Video darin bleibt beim Vollbild in seiner Zone."
             : "Eine gewöhnliche Zone: Fenster werden nur auf ihre Fläche gesetzt.";
 
     /// <summary>Beschriftung der einen Schaltfläche; sie führt in beide Richtungen.</summary>
@@ -55,6 +57,15 @@ public sealed class LayoutEditorViewModel : ViewModelBase
     public bool IsValid => session.Validation.IsValid;
     public bool CanUndo => session.CanUndo;
     public bool CanRedo => session.CanRedo;
+
+    /// <summary>
+    /// Was ein Klick auf ↶ zurueckneh­men wuerde, in wenigen Worten – etwa «Zone 3 verkleinert». Leer,
+    /// solange nichts zurueckzunehmen ist. Der Text steht auf der Layout-Flaeche neben den Pfeilen.
+    /// </summary>
+    public string UndoLabel => session.CanUndo ? lastActionLabel : string.Empty;
+
+    /// <summary>Was ein Klick auf ↷ wiederherstellen wuerde. Leer, solange nichts wiederherzustellen ist.</summary>
+    public string RedoLabel => session.CanRedo ? redoLabel : string.Empty;
     public bool CanSave => IsDirty && session.Validation.IsValid;
     public string ValidationMessage => session.Validation.IsValid
         ? string.Empty
@@ -81,6 +92,7 @@ public sealed class LayoutEditorViewModel : ViewModelBase
 
         var zone = session.AddZone($"Zone {Zones.Count + 1}", freeArea);
         selectedZoneId = zone.Id;
+        RecordAction("Zone hinzugefügt");
         NotifyStateChanged();
         NotifyConfigurationChanged();
         return true;
@@ -95,6 +107,7 @@ public sealed class LayoutEditorViewModel : ViewModelBase
 
         session.DeleteZone(selectedZoneId.Value);
         selectedZoneId = Zones.FirstOrDefault()?.Id;
+        RecordAction("Zone entfernt");
         NotifyStateChanged();
         NotifyConfigurationChanged();
     }
@@ -103,6 +116,7 @@ public sealed class LayoutEditorViewModel : ViewModelBase
     {
         session.ReplaceZones(LayoutTemplates.Create(template));
         selectedZoneId = Zones[0].Id;
+        RecordAction("Vorlage übernommen");
         NotifyStateChanged();
         NotifyConfigurationChanged();
     }
@@ -145,6 +159,7 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         var bounds = ZoneEditorGeometry.FromPositionAndSize(
             left, top, width, height, monitorWidth, monitorHeight);
         session.UpdateZone(selectedZoneId.Value, name, bounds);
+        RecordAction("Zone geändert");
         NotifyStateChanged();
         NotifyConfigurationChanged();
     }
@@ -190,6 +205,7 @@ public sealed class LayoutEditorViewModel : ViewModelBase
     {
         session.MoveZone(zoneId, bounds);
         selectedZoneId = zoneId;
+        RecordAction("Zone geändert");
         NotifyStateChanged();
         NotifyConfigurationChanged();
     }
@@ -200,6 +216,7 @@ public sealed class LayoutEditorViewModel : ViewModelBase
     {
         session.MoveZones(changedBounds);
         selectedZoneId = selectedZone;
+        RecordAction("Zone geändert");
         NotifyStateChanged();
         NotifyConfigurationChanged();
     }
@@ -216,19 +233,21 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         }
 
         session.SetStartZone(IsSelectedZoneStartZone ? null : selectedZoneId);
+        RecordAction("Startzone geändert");
         NotifyStateChanged();
         NotifyConfigurationChanged();
     }
 
     /// <summary>Macht die ausgewaehlte Zone zum virtuellen Monitor, oder hebt das Kennzeichen wieder auf.</summary>
-    public void ToggleSelectedZoneAsVirtualMonitor()
+    public void ToggleSelectedZoneAsFullscreenZone()
     {
         if (selectedZoneId is not Guid zoneId)
         {
             return;
         }
 
-        session.SetVirtualMonitor(zoneId, !IsSelectedZoneVirtualMonitor);
+        session.SetVirtualMonitor(zoneId, !IsSelectedZoneFullscreenZone);
+        RecordAction("Vollbildzone geändert");
         NotifyStateChanged();
         NotifyConfigurationChanged();
     }
@@ -239,6 +258,7 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         ArgumentNullException.ThrowIfNull(zones);
         session.ReplaceZones(zones);
         selectedZoneId = Zones.FirstOrDefault()?.Id;
+        RecordAction("Zonen ersetzt");
         NotifyStateChanged();
         NotifyConfigurationChanged();
     }
@@ -257,6 +277,7 @@ public sealed class LayoutEditorViewModel : ViewModelBase
             selectedZoneId = Zones.FirstOrDefault()?.Id;
         }
 
+        RecordAction("Zone entfernt");
         NotifyStateChanged();
         NotifyConfigurationChanged();
         return true;
@@ -271,6 +292,7 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         }
 
         session.SetStartZone(session.StartZoneId == zoneId ? null : zoneId);
+        RecordAction("Startzone geändert");
         NotifyStateChanged();
         NotifyConfigurationChanged();
     }
@@ -284,6 +306,7 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         }
 
         session.UpdateZone(zoneId, name, zone.Bounds);
+        RecordAction("Zone umbenannt");
         NotifyStateChanged();
         NotifyConfigurationChanged();
     }
@@ -332,6 +355,7 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         }
 
         selectedZoneId = merged.Id;
+        RecordAction("Zonen verbunden");
         NotifyStateChanged();
         NotifyConfigurationChanged();
         return true;
@@ -355,6 +379,7 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         }
 
         session.UpdateZone(selectedZoneId.Value, name, selectedZone.Bounds);
+        RecordAction("Zone umbenannt");
         NotifyStateChanged();
         NotifyConfigurationChanged();
     }
@@ -363,6 +388,7 @@ public sealed class LayoutEditorViewModel : ViewModelBase
     {
         session.Reset();
         selectedZoneId = Zones.FirstOrDefault()?.Id;
+        RecordAction("Entwurf verworfen");
         NotifyStateChanged();
         NotifyConfigurationChanged();
     }
@@ -377,9 +403,43 @@ public sealed class LayoutEditorViewModel : ViewModelBase
     }
 
     /// <summary>Nimmt die letzte Aenderung zurueck; die Auswahl bleibt, wenn es die Zone noch gibt.</summary>
-    public bool Undo() => Travel(session.Undo);
+    public bool Undo()
+    {
+        var undone = lastActionLabel;
+        if (!Travel(session.Undo))
+        {
+            return false;
+        }
 
-    public bool Redo() => Travel(session.Redo);
+        redoLabel = undone;
+        lastActionLabel = string.Empty;
+        NotifyStateChanged();
+        return true;
+    }
+
+    public bool Redo()
+    {
+        var redone = redoLabel;
+        if (!Travel(session.Redo))
+        {
+            return false;
+        }
+
+        lastActionLabel = redone;
+        redoLabel = string.Empty;
+        NotifyStateChanged();
+        return true;
+    }
+
+    /// <summary>
+    /// Haelt fest, was zuletzt geschehen ist. Der Text steht auf der Layout-Flaeche neben ↶ und sagt,
+    /// was ein Klick zuruecknehmen wuerde; ein neuer Schritt macht die Wiederherstellung hinfaellig.
+    /// </summary>
+    private void RecordAction(string label)
+    {
+        lastActionLabel = label;
+        redoLabel = string.Empty;
+    }
 
     private bool Travel(Func<bool> step)
     {
@@ -412,6 +472,8 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsValid));
         OnPropertyChanged(nameof(CanUndo));
         OnPropertyChanged(nameof(CanRedo));
+        OnPropertyChanged(nameof(UndoLabel));
+        OnPropertyChanged(nameof(RedoLabel));
         OnPropertyChanged(nameof(CanSave));
         OnPropertyChanged(nameof(ValidationMessage));
     }

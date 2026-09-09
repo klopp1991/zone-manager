@@ -34,6 +34,9 @@ public sealed record MonitorChoice(
 
     public string DisplayName => $"{UserFacingName} · {DetailsText}";
 
+    /// <summary>Der Zusatz hinter der Aufloesung im Monitor-Tab; leer, solange der Monitor haengt.</summary>
+    public string ConnectionSuffix => IsConnected ? string.Empty : " · nicht angeschlossen";
+
     /// <summary>Die Windows-Skalierung in Prozent, aus der gemeldeten DPI.</summary>
     public int ScalePercent => (int)Math.Round(Live.DpiX / 96d * 100);
 

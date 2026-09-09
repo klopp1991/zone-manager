@@ -296,11 +296,14 @@
     <ControlTemplate x:Key="TabControlTemplate" TargetType="TabControl">
         <Grid SnapsToDevicePixels="True">
             <Grid.ColumnDefinitions><ColumnDefinition Width="220" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
-            <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
+            <Border Grid.Column="0" Background="{DynamicResource SurfaceRaisedBrush}" BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
                 <DockPanel Margin="8,12,8,10" LastChildFill="True">
                     <ContentPresenter DockPanel.Dock="Top" Margin="0,0,0,6"
                                       Content="{Binding Path=(controls:Chrome.SidebarHeader), RelativeSource={RelativeSource TemplatedParent}}" />
-                    <TabPanel IsItemsHost="True" Background="Transparent" KeyboardNavigation.TabIndex="1" VerticalAlignment="Top" />
+                    <!-- Scrollbar, damit die vierzehn Eintraege auch auf kleinen Bildschirmen erreichbar bleiben. -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                        <TabPanel IsItemsHost="True" Background="Transparent" KeyboardNavigation.TabIndex="1" VerticalAlignment="Top" />
+                    </ScrollViewer>
                 </DockPanel>
             </Border>
             <Border Grid.Column="1" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
@@ -312,8 +315,8 @@
     <ControlTemplate x:Key="TabItemTemplate" TargetType="TabItem">
         <StackPanel>
             <TextBlock x:Name="GroupCaption" Text="{Binding Path=(controls:Chrome.Group), RelativeSource={RelativeSource TemplatedParent}}"
-                       FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource SubtleInkBrush}"
-                       Margin="12,14,12,4" Visibility="Collapsed">
+                       FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource MutedBrush}"
+                       Margin="12,12,3,12" Visibility="Collapsed">
                 <TextBlock.LayoutTransform><ScaleTransform ScaleX="1" ScaleY="1" /></TextBlock.LayoutTransform>
             </TextBlock>
             <Border x:Name="HeaderBorder" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
@@ -349,35 +352,6 @@
                 <Setter TargetName="HeaderBorder" Property="BorderThickness" Value="2" />
             </Trigger>
             <Trigger Property="IsEnabled" Value="False"><Setter Property="Foreground" Value="{DynamicResource DisabledInkBrush}" /></Trigger>
-        </ControlTemplate.Triggers>
-    </ControlTemplate>
-
-    <!-- Untertabs (Verhalten): eine Reihe oben, aktiver Tab mit 2 px Akzentlinie an der Unterkante. -->
-    <ControlTemplate x:Key="SubTabControlTemplate" TargetType="TabControl">
-        <Grid SnapsToDevicePixels="True">
-            <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /></Grid.RowDefinitions>
-            <Border BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1" Margin="0,0,0,16">
-                <TabPanel IsItemsHost="True" Background="Transparent" KeyboardNavigation.TabIndex="1" />
-            </Border>
-            <ContentPresenter Grid.Row="1" x:Name="PART_SelectedContentHost" ContentSource="SelectedContent" />
-        </Grid>
-    </ControlTemplate>
-
-    <ControlTemplate x:Key="SubTabItemTemplate" TargetType="TabItem">
-        <Border x:Name="HeaderBorder" Background="Transparent" Padding="14,8" Margin="0,0,0,-1" SnapsToDevicePixels="True">
-            <Grid>
-                <ContentPresenter ContentSource="Header" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                <Border x:Name="ActiveLine" Height="2" Background="{DynamicResource AccentBrush}" VerticalAlignment="Bottom" Margin="0,0,0,-8" Visibility="Hidden" />
-                <Border x:Name="FocusBorder" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="2" CornerRadius="4" Margin="-4" Visibility="Collapsed" />
-            </Grid>
-        </Border>
-        <ControlTemplate.Triggers>
-            <Trigger Property="IsMouseOver" Value="True"><Setter Property="Foreground" Value="{DynamicResource InkBrush}" /></Trigger>
-            <Trigger Property="IsSelected" Value="True">
-                <Setter TargetName="ActiveLine" Property="Visibility" Value="Visible" />
-                <Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
-            </Trigger>
-            <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="FocusBorder" Property="Visibility" Value="Visible" /></Trigger>
         </ControlTemplate.Triggers>
     </ControlTemplate>
 
@@ -676,19 +650,10 @@
         <Setter Property="Template" Value="{StaticResource TabControlTemplate}" />
     </Style>
     <Style TargetType="TabItem">
-        <Setter Property="Padding" Value="12,9" /><Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Padding" Value="7,12" /><Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Foreground" Value="{DynamicResource InkBrush}" /><Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" /><Setter Property="FocusVisualStyle" Value="{x:Null}" />
         <Setter Property="Template" Value="{StaticResource TabItemTemplate}" />
-    </Style>
-    <Style x:Key="SubTabControl" TargetType="TabControl">
-        <Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" />
-        <Setter Property="Template" Value="{StaticResource SubTabControlTemplate}" />
-    </Style>
-    <Style x:Key="SubTabItem" TargetType="TabItem">
-        <Setter Property="FontWeight" Value="SemiBold" /><Setter Property="FontSize" Value="16" />
-        <Setter Property="Foreground" Value="{DynamicResource SubtleInkBrush}" /><Setter Property="Background" Value="Transparent" />
-        <Setter Property="FocusVisualStyle" Value="{x:Null}" /><Setter Property="Template" Value="{StaticResource SubTabItemTemplate}" />
     </Style>
     <Style TargetType="Expander">
         <Setter Property="Foreground" Value="{DynamicResource InkBrush}" /><Setter Property="Background" Value="Transparent" />

@@ -14,7 +14,7 @@ namespace SnapZones.Tests.Theme;
 public sealed class MainWindowNavigationTests
 {
     [Fact]
-    public void Main_window_groups_the_seven_pages_and_opens_the_overview()
+    public void Main_window_groups_the_fourteen_pages_and_opens_zones_and_layouts()
     {
         WpfThemeHost.Invoke(() =>
         {
@@ -24,15 +24,40 @@ public sealed class MainWindowNavigationTests
             var pages = tabs.Items.OfType<TabItem>().ToArray();
 
             Assert.Equal(
-                ["Übersicht", "Monitore", "Zonen & Layouts", "Fenster zuordnen", "In Ruhe lassen", "Verhalten", "Programm"],
+                [
+                    "Zonen & Layouts", "Monitore", "Fenster zuordnen", "In Ruhe lassen",
+                    "Ziehen & Einrasten", "Aussehen der Zonen", "Abstände & Raster", "Fenster merken",
+                    "Vollbild & Videos", "Tastenkürzel",
+                    "Aussehen & Start", "Sicherung & Stände", "System & Rechte", "Über Zone Manager"
+                ],
                 pages.Select(item => item.Header?.ToString() ?? string.Empty).ToArray());
-            Assert.Equal("Übersicht", Assert.IsType<TabItem>(tabs.SelectedItem).Header);
+            Assert.Equal("Zonen & Layouts", Assert.IsType<TabItem>(tabs.SelectedItem).Header);
 
             // Drei Gruppen: die Ueberschrift haengt am ersten Eintrag jeder Gruppe.
-            Assert.Equal("ÜBERSICHT", Chrome.GetGroup(pages[0]));
-            Assert.Equal("EINRICHTEN", Chrome.GetGroup(pages[1]));
-            Assert.Equal("EINSTELLUNGEN", Chrome.GetGroup(pages[5]));
-            Assert.Equal(string.Empty, Chrome.GetGroup(pages[2]));
+            Assert.Equal("EINRICHTEN", Chrome.GetGroup(pages[0]));
+            Assert.Equal("VERHALTEN", Chrome.GetGroup(pages[4]));
+            Assert.Equal("PROGRAMM", Chrome.GetGroup(pages[10]));
+            Assert.Equal(string.Empty, Chrome.GetGroup(pages[1]));
+        });
+    }
+
+    [Fact]
+    public void No_page_carries_a_title_or_a_width_limit()
+    {
+        WpfThemeHost.Invoke(() =>
+        {
+            var window = new MainWindow();
+            var tabs = Assert.Single(Assert.IsType<Grid>(window.Content).Children.OfType<TabControl>());
+
+            foreach (var page in tabs.Items.OfType<TabItem>())
+            {
+                Assert.DoesNotContain(
+                    UiTree.LogicalDescendants<TextBlock>(page),
+                    text => text.Style == Application.Current.Resources["PageTitle"]);
+                Assert.DoesNotContain(
+                    UiTree.LogicalDescendants<Panel>(page),
+                    panel => !double.IsPositiveInfinity(panel.MaxWidth));
+            }
         });
     }
 
@@ -50,15 +75,15 @@ public sealed class MainWindowNavigationTests
             try
             {
                 window.UpdateLayout();
+                Assert.Equal("2", Chrome.GetBadge(pages[0]));
                 Assert.Equal("1", Chrome.GetBadge(pages[1]));
-                Assert.Equal("2", Chrome.GetBadge(pages[2]));
+                Assert.Equal("0", Chrome.GetBadge(pages[2]));
                 Assert.Equal("0", Chrome.GetBadge(pages[3]));
-                Assert.Equal("0", Chrome.GetBadge(pages[4]));
 
                 viewModel.AppExclusions.AddExclusion("notepad.exe");
                 window.UpdateLayout();
 
-                Assert.Equal("1", Chrome.GetBadge(pages[4]));
+                Assert.Equal("1", Chrome.GetBadge(pages[3]));
             }
             finally
             {
@@ -68,7 +93,7 @@ public sealed class MainWindowNavigationTests
     }
 
     [Fact]
-    public void The_search_navigates_to_the_page_and_sub_tab_and_clears_itself()
+    public void The_search_navigates_to_the_page_opens_its_tuning_and_clears_itself()
     {
         WpfThemeHost.Invoke(() =>
         {
@@ -77,17 +102,17 @@ public sealed class MainWindowNavigationTests
             window.AttachViewModel(viewModel);
             var tabs = Assert.Single(Assert.IsType<Grid>(window.Content).Children.OfType<TabControl>());
 
-            viewModel.SearchQuery = "Deckkraft";
+            viewModel.SearchQuery = "Wachhund";
 
             Assert.True(viewModel.HasSearchQuery);
-            var result = Assert.Single(viewModel.SearchResults, candidate => candidate.Label == "Deckkraft der Zonen");
-            Assert.Equal("Verhalten › Darstellung", result.Path);
+            var result = Assert.Single(viewModel.SearchResults);
+            Assert.Equal("Ziehen & Einrasten › Feinabstimmung", result.Path);
 
-            window.ShowPage(result.Page, result.BehaviourTab);
+            window.ShowPage(result.Page, result.TuningSection);
             viewModel.ClearSearch();
 
-            Assert.Equal("Verhalten", Assert.IsType<TabItem>(tabs.SelectedItem).Header);
-            Assert.Equal(1, viewModel.Settings.BehaviourTabIndex);
+            Assert.Equal("Ziehen & Einrasten", Assert.IsType<TabItem>(tabs.SelectedItem).Header);
+            Assert.True(Assert.IsType<TuningExpander>(window.FindName("DragTuning")).IsExpanded);
             Assert.Empty(viewModel.SearchResults);
 
             viewModel.SearchQuery = "xyzzy";

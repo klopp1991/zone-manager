@@ -53,7 +53,8 @@ public partial class MainWindow : Window
         this.pickOverlayColor = pickOverlayColor ?? PickOverlayColorWithDialog;
         InitializeComponent();
         VersionLabel.Text = ProductInfo.Version;
-        NavigationTabs.SelectedItem = OverviewTab;
+        AboutVersionText.Text = $"{ProductInfo.Version} · .NET 8 · Windows 10 ab 1809";
+        NavigationTabs.SelectedItem = LayoutsTab;
         NavigationTabs.SelectionChanged += NavigationTabs_SelectionChanged;
         toastTimer = new DispatcherTimer(DispatcherPriority.Normal, Dispatcher) { Interval = TimeSpan.FromSeconds(6) };
         toastTimer.Tick += (_, _) =>
@@ -79,7 +80,17 @@ public partial class MainWindow : Window
             return;
         }
 
-        if (eventArgs.AddedItems.Count > 0 && ReferenceEquals(eventArgs.AddedItems[0], ProgramTab))
+        if (eventArgs.AddedItems.Count == 0)
+        {
+            return;
+        }
+
+        var page = eventArgs.AddedItems[0];
+        if (ReferenceEquals(page, StartupTab) ||
+            ReferenceEquals(page, SystemTab) ||
+            ReferenceEquals(page, FullscreenTab) ||
+            ReferenceEquals(page, AboutTab) ||
+            ReferenceEquals(page, BackupTab))
         {
             SettingsPageOpened?.Invoke();
             viewModel?.RefreshBackups();
@@ -100,32 +111,68 @@ public partial class MainWindow : Window
         model.PropertyChanged += ViewModel_PropertyChanged;
         model.Settings.PropertyChanged += Settings_PropertyChanged;
         ObserveEditor(model.Editor);
-        ApplyValuePanelState();
         RefreshEditor();
         savedTextTimer.Start();
     }
 
-    /// <summary>Wechselt zu einer Seite; wird von Suche, Uebersicht und Infobereich benutzt.</summary>
-    public void ShowPage(NavigationPage page, int? behaviourTab = null)
+    /// <summary>Wechselt zu einer Seite; wird von Suche, Kopfzeile und Infobereich benutzt.</summary>
+    public void ShowPage(NavigationPage page, string? tuningSection = null)
     {
-        NavigationTabs.SelectedItem = page switch
+        var tab = page switch
         {
-            NavigationPage.Overview => OverviewTab,
-            NavigationPage.Monitors => MonitorsTab,
             NavigationPage.Layouts => LayoutsTab,
+            NavigationPage.Monitors => MonitorsTab,
             NavigationPage.Rules => RulesTab,
             NavigationPage.Exclusions => ExclusionsTab,
-            NavigationPage.Behaviour => BehaviourTab,
-            _ => ProgramTab
+            NavigationPage.Drag => DragTab,
+            NavigationPage.Appearance => AppearanceTab,
+            NavigationPage.Spacing => SpacingTab,
+            NavigationPage.Memory => MemoryTab,
+            NavigationPage.Fullscreen => FullscreenTab,
+            NavigationPage.Keys => KeysTab,
+            NavigationPage.Startup => StartupTab,
+            NavigationPage.Backup => BackupTab,
+            NavigationPage.System => SystemTab,
+            _ => AboutTab
         };
-        if (behaviourTab is { } index && viewModel is not null)
+        NavigationTabs.SelectedItem = tab;
+        if (tuningSection is not null)
         {
-            viewModel.Settings.BehaviourTabIndex = index;
+            ExpandTuning(tab);
         }
     }
 
-    /// <summary>Wechselt auf die Einstellungsseite; wird vom Infobereich aufgerufen.</summary>
-    public void ShowSettingsPage() => ShowPage(NavigationPage.Program);
+    /// <summary>
+    /// Klappt die Feinabstimmung einer Seite auf. Ein Suchtreffer, der dorthin fuehrt, waere sonst
+    /// unsichtbar; sonst bleibt der Abschnitt zu und merkt sich nichts ueber die Sitzung hinaus.
+    /// </summary>
+    private static void ExpandTuning(TabItem tab)
+    {
+        foreach (var expander in UiTuningSections(tab))
+        {
+            expander.IsExpanded = true;
+        }
+    }
+
+    private static IEnumerable<TuningExpander> UiTuningSections(DependencyObject root)
+    {
+        if (root is TuningExpander expander)
+        {
+            yield return expander;
+            yield break;
+        }
+
+        foreach (var child in System.Windows.LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
+        {
+            foreach (var found in UiTuningSections(child))
+            {
+                yield return found;
+            }
+        }
+    }
+
+    /// <summary>Wechselt auf «Aussehen &amp; Start»; wird vom Infobereich aufgerufen.</summary>
+    public void ShowSettingsPage() => ShowPage(NavigationPage.Startup);
 
     private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs eventArgs)
     {
@@ -155,12 +202,6 @@ public partial class MainWindow : Window
     private void Settings_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs eventArgs)
     {
         _ = sender;
-        if (eventArgs.PropertyName == nameof(SettingsViewModel.EditorValuePanelOpen))
-        {
-            ApplyValuePanelState();
-            return;
-        }
-
         if (eventArgs.PropertyName is nameof(SettingsViewModel.HighlightColor) or nameof(SettingsViewModel.OverlayColor))
         {
             RefreshHighlightPreview();
@@ -202,13 +243,13 @@ public partial class MainWindow : Window
 
     // ----------------------------------------------------------------- Navigation, Suche, Toast
 
-    private void ShowOverview_Click(object sender, RoutedEventArgs eventArgs) => ShowPage(NavigationPage.Overview);
+    private void ShowStartPage_Click(object sender, RoutedEventArgs eventArgs) => ShowPage(NavigationPage.Layouts);
 
     private void ShowRules_Click(object sender, RoutedEventArgs eventArgs) => ShowPage(NavigationPage.Rules);
 
     private void ShowExclusions_Click(object sender, RoutedEventArgs eventArgs) => ShowPage(NavigationPage.Exclusions);
 
-    private void ShowRemembered_Click(object sender, RoutedEventArgs eventArgs) => ShowPage(NavigationPage.Behaviour, 3);
+    private void ShowRemembered_Click(object sender, RoutedEventArgs eventArgs) => ShowPage(NavigationPage.Memory);
 
     private void SearchResult_Click(object sender, RoutedEventArgs eventArgs)
     {
@@ -221,7 +262,7 @@ public partial class MainWindow : Window
 
     private void NavigateTo(SettingsSearchResult result)
     {
-        ShowPage(result.Page, result.BehaviourTab);
+        ShowPage(result.Page, result.TuningSection);
         viewModel?.ClearSearch();
     }
 
@@ -263,38 +304,43 @@ public partial class MainWindow : Window
         viewModel?.DismissToast();
     }
 
-    // ----------------------------------------------------------------- Übersicht
+    private void PreviewZones_Click(object sender, RoutedEventArgs eventArgs) => PreviewActiveLayoutsRequested?.Invoke();
 
-    private void OverviewMonitor_Click(object sender, RoutedEventArgs eventArgs)
+    // ----------------------------------------------------------------- Monitore
+
+    private void MonitorTab_Click(object sender, RoutedEventArgs eventArgs)
     {
         _ = eventArgs;
         if (viewModel is not null && sender is FrameworkElement { DataContext: MonitorChoice choice })
         {
             viewModel.SelectedMonitor = choice;
-            ShowPage(NavigationPage.Layouts);
+            RefreshEditor();
         }
     }
 
-    private void OverviewLayout_SelectionChanged(object sender, SelectionChangedEventArgs eventArgs)
+    private void MoveMonitorLeft_Click(object sender, RoutedEventArgs eventArgs)
     {
-        _ = eventArgs;
-        if (viewModel is null ||
-            sender is not System.Windows.Controls.ComboBox { SelectedItem: MonitorLayout layout, DataContext: MonitorChoice choice } ||
-            layout.Id == choice.Layout.Id)
-        {
-            return;
-        }
-
-        viewModel.ActivateLayout(layout.Id);
+        eventArgs.Handled = true;
+        viewModel?.MoveMonitorLeft();
     }
 
-    private void PreviewZones_Click(object sender, RoutedEventArgs eventArgs) => PreviewActiveLayoutsRequested?.Invoke();
+    private void MoveMonitorRight_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        eventArgs.Handled = true;
+        viewModel?.MoveMonitorRight();
+    }
 
-    // ----------------------------------------------------------------- Monitore
+    private void MoveLayoutLeft_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        eventArgs.Handled = true;
+        viewModel?.MoveLayoutLeft();
+    }
 
-    private void PreviousMonitor_Click(object sender, RoutedEventArgs eventArgs) => viewModel?.SelectPreviousMonitor();
-
-    private void NextMonitor_Click(object sender, RoutedEventArgs eventArgs) => viewModel?.SelectNextMonitor();
+    private void MoveLayoutRight_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        eventArgs.Handled = true;
+        viewModel?.MoveLayoutRight();
+    }
 
     private void EditActiveLayout_Click(object sender, RoutedEventArgs eventArgs)
     {
@@ -304,17 +350,6 @@ public partial class MainWindow : Window
         }
 
         ShowPage(NavigationPage.Layouts);
-    }
-
-    private void MonitorOrder_Click(object sender, RoutedEventArgs eventArgs)
-    {
-        _ = eventArgs;
-        if (sender is System.Windows.Controls.Button { ContextMenu: { } menu } button)
-        {
-            menu.PlacementTarget = button;
-            menu.Placement = PlacementMode.Bottom;
-            menu.IsOpen = true;
-        }
     }
 
     private void MonitorName_LostFocus(object sender, RoutedEventArgs eventArgs)
@@ -360,10 +395,6 @@ public partial class MainWindow : Window
     }
 
     private void IdentifyMonitors_Click(object sender, RoutedEventArgs eventArgs) => IdentifyMonitorsRequested?.Invoke();
-
-    private void MoveMonitorUp_Click(object sender, RoutedEventArgs eventArgs) => viewModel?.MoveSelectedMonitorUp();
-
-    private void MoveMonitorDown_Click(object sender, RoutedEventArgs eventArgs) => viewModel?.MoveSelectedMonitorDown();
 
     private void OpenSystemSetting_Click(object sender, RoutedEventArgs eventArgs)
     {
@@ -579,21 +610,6 @@ public partial class MainWindow : Window
     {
         viewModel?.DuplicateSelectedLayout();
         RefreshEditor();
-    }
-
-    private void ToggleValuePanel_Click(object sender, RoutedEventArgs eventArgs)
-    {
-        if (viewModel is not null)
-        {
-            viewModel.Settings.EditorValuePanelOpen = !viewModel.Settings.EditorValuePanelOpen;
-        }
-    }
-
-    private void ApplyValuePanelState()
-    {
-        var open = viewModel?.Settings.EditorValuePanelOpen ?? true;
-        ZoneValuesHost.Visibility = open ? Visibility.Visible : Visibility.Collapsed;
-        ToggleValuePanelButton.Content = open ? "Werte ausblenden ›" : "‹ Werte einblenden";
     }
 
     private void TemplateMenu_Click(object sender, RoutedEventArgs eventArgs) => TemplatePopup.IsOpen = !TemplatePopup.IsOpen;
@@ -1340,6 +1356,205 @@ public partial class MainWindow : Window
         }
 
         viewModel.InstallUpdate();
+    }
+
+    // ----------------------------------------------------------------- Reihenfolge per Ziehen
+
+    private System.Windows.Point reorderStart;
+    private object? reorderItem;
+
+    private void LayoutTabs_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs eventArgs)
+    {
+        reorderStart = eventArgs.GetPosition(this);
+        reorderItem = ItemUnderMouse<MonitorLayout>(eventArgs);
+    }
+
+    private void LayoutTabs_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs eventArgs)
+    {
+        if (BeginReorderDrag(sender, eventArgs, reorderItem as MonitorLayout))
+        {
+            reorderItem = null;
+        }
+    }
+
+    private void LayoutTabs_DragOver(object sender, System.Windows.DragEventArgs eventArgs) =>
+        AllowReorderDrop<MonitorLayout>(eventArgs);
+
+    private void LayoutTabs_Drop(object sender, System.Windows.DragEventArgs eventArgs)
+    {
+        _ = sender;
+        if (viewModel is null ||
+            eventArgs.Data.GetData(typeof(MonitorLayout)) is not MonitorLayout moved ||
+            ItemUnderMouse<MonitorLayout>(eventArgs) is not { } target ||
+            moved.Id == target.Id)
+        {
+            return;
+        }
+
+        viewModel.MoveLayoutTo(moved.Id, target.Id);
+        eventArgs.Handled = true;
+    }
+
+    private void MonitorTabs_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs eventArgs)
+    {
+        reorderStart = eventArgs.GetPosition(this);
+        reorderItem = ItemUnderMouse<MonitorChoice>(eventArgs);
+    }
+
+    private void MonitorTabs_PreviewMouseMove(object sender, System.Windows.Input.MouseEventArgs eventArgs)
+    {
+        if (BeginReorderDrag(sender, eventArgs, reorderItem as MonitorChoice))
+        {
+            reorderItem = null;
+        }
+    }
+
+    private void MonitorTabs_DragOver(object sender, System.Windows.DragEventArgs eventArgs) =>
+        AllowReorderDrop<MonitorChoice>(eventArgs);
+
+    private void MonitorTabs_Drop(object sender, System.Windows.DragEventArgs eventArgs)
+    {
+        _ = sender;
+        if (viewModel is null ||
+            eventArgs.Data.GetData(typeof(MonitorChoice)) is not MonitorChoice moved ||
+            ItemUnderMouse<MonitorChoice>(eventArgs) is not { } target ||
+            ReferenceEquals(moved, target))
+        {
+            return;
+        }
+
+        viewModel.MoveMonitorTo(moved, target);
+        eventArgs.Handled = true;
+    }
+
+    /// <summary>
+    /// Startet ein Ziehen erst, wenn die Maus die Systemschwelle ueberschritten hat. Ohne das wuerde
+    /// jeder Klick auf einen Tab als Ziehen gelten und der Tabwechsel ausbleiben.
+    /// </summary>
+    private bool BeginReorderDrag<T>(object source, System.Windows.Input.MouseEventArgs eventArgs, T? item)
+        where T : class
+    {
+        if (item is null || eventArgs.LeftButton != MouseButtonState.Pressed)
+        {
+            return false;
+        }
+
+        var position = eventArgs.GetPosition(this);
+        if (Math.Abs(position.X - reorderStart.X) < SystemParameters.MinimumHorizontalDragDistance &&
+            Math.Abs(position.Y - reorderStart.Y) < SystemParameters.MinimumVerticalDragDistance)
+        {
+            return false;
+        }
+
+        System.Windows.DragDrop.DoDragDrop((DependencyObject)source, new System.Windows.DataObject(typeof(T), item), System.Windows.DragDropEffects.Move);
+        return true;
+    }
+
+    private static void AllowReorderDrop<T>(System.Windows.DragEventArgs eventArgs)
+    {
+        eventArgs.Effects = eventArgs.Data.GetDataPresent(typeof(T)) ? System.Windows.DragDropEffects.Move : System.Windows.DragDropEffects.None;
+        eventArgs.Handled = true;
+    }
+
+    private static T? ItemUnderMouse<T>(RoutedEventArgs eventArgs)
+        where T : class
+    {
+        var element = eventArgs.OriginalSource as DependencyObject;
+        while (element is not null)
+        {
+            if (element is FrameworkElement { DataContext: T item })
+            {
+                return item;
+            }
+
+            element = System.Windows.Media.VisualTreeHelper.GetParent(element);
+        }
+
+        return null;
+    }
+
+    // ----------------------------------------------------------------- System, Protokoll, Diagnose
+
+    private void CheckDisplayDriver_Click(object sender, RoutedEventArgs eventArgs) => viewModel?.CheckDisplayDriver();
+
+    private void RemoveCertificate_Click(object sender, RoutedEventArgs eventArgs) => viewModel?.RemoveCertificate();
+
+    private void ReleaseElevation_Click(object sender, RoutedEventArgs eventArgs) => viewModel?.ReleaseElevation();
+
+    private void RunDiagnostics_Click(object sender, RoutedEventArgs eventArgs) => viewModel?.RunDiagnostics();
+
+    private void OpenLogFolder_Click(object sender, RoutedEventArgs eventArgs) => viewModel?.OpenLogFolder();
+
+    private void OpenSettingsFolder_Click(object sender, RoutedEventArgs eventArgs) => viewModel?.OpenSettingsFolder();
+
+    private void ClearLog_Click(object sender, RoutedEventArgs eventArgs) => viewModel?.ClearLog();
+
+    private void UpdateSource_Click(object sender, RoutedEventArgs eventArgs) => viewModel?.ToggleUpdateSource();
+
+    private void OpenProjectPage_Click(object sender, RoutedEventArgs eventArgs) =>
+        OpenInBrowser($"https://github.com/{MainViewModel.UpdateSourceRepository}");
+
+    private void OpenLicense_Click(object sender, RoutedEventArgs eventArgs) =>
+        OpenInBrowser($"https://github.com/{MainViewModel.UpdateSourceRepository}/blob/main/LICENSE");
+
+    private void OpenInBrowser(string url)
+    {
+        try
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+        catch (Exception exception)
+        {
+            if (viewModel is not null)
+            {
+                viewModel.StatusMessage = $"Die Seite liess sich nicht öffnen: {exception.Message}";
+            }
+        }
+    }
+
+    // ----------------------------------------------------------------- Programme ohne Vollbildzone
+
+    private void FullscreenExclusionAdd_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        if (viewModel is null)
+        {
+            return;
+        }
+
+        try
+        {
+            var dialog = new AssignWindowDialog(viewModel, AssignWindowDialog.Mode.PickProgram) { Owner = this };
+            if (dialog.ShowDialog() == true && dialog.SelectedProcessName is { Length: > 0 } process)
+            {
+                viewModel.Settings.AddFullscreenExclusion(process);
+            }
+        }
+        catch (Exception exception)
+        {
+            viewModel.StatusMessage = $"Die laufenden Programme konnten nicht gelesen werden: {exception.Message}";
+        }
+    }
+
+    private void FullscreenExclusionRemove_Click(object sender, RoutedEventArgs eventArgs)
+    {
+        _ = eventArgs;
+        if (viewModel is not null && sender is FrameworkElement { DataContext: string program })
+        {
+            viewModel.Settings.RemoveFullscreenExclusion(program);
+            viewModel.ShowToast(
+                $"«{program}» bekommt wieder eine Vollbildzone.",
+                () => viewModel.Settings.AddFullscreenExclusion(program));
+        }
+    }
+
+    /// <summary>Der Verweis «Jetzt einrichten» aus dem Werte-Panel fuehrt auf «System &amp; Rechte».</summary>
+    private void ZoneValues_FullscreenZoneSetupRequested(object sender, EventArgs eventArgs)
+    {
+        _ = sender;
+        _ = eventArgs;
+        ShowPage(NavigationPage.System);
     }
 
     // ----------------------------------------------------------------- Farbwahl

@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using SnapZones.Core.Models;
 
 namespace SnapZones.App.ViewModels;
@@ -51,6 +52,9 @@ public sealed class SettingsViewModel : ViewModelBase
     private double highlightOpacityPercent;
     private int moveHookEventLimit;
     private int dragWatchdogSeconds;
+    private bool useFullscreenZones = true;
+    private bool closeToTray = true;
+    private EmergencyHotkey emergencyHotkey = EmergencyHotkey.ControlAltShiftF12;
 
     public SettingsViewModel(AppSettings settings)
     {
@@ -65,6 +69,49 @@ public sealed class SettingsViewModel : ViewModelBase
     public IReadOnlyList<FixedSizeWindowPlacement> FixedSizeWindowPlacements { get; } = Enum.GetValues<FixedSizeWindowPlacement>();
     public IReadOnlyList<ZoneHotkeyModifiers> ZoneHotkeyModifierChoices { get; } = Enum.GetValues<ZoneHotkeyModifiers>();
     public IReadOnlyList<OverlayLabelStyle> OverlayLabelStyles { get; } = Enum.GetValues<OverlayLabelStyle>();
+    public IReadOnlyList<EmergencyHotkey> EmergencyHotkeys { get; } = Enum.GetValues<EmergencyHotkey>();
+
+    /// <summary>
+    /// Programme, die in einer Vollbildzone trotzdem den ganzen Monitor bekommen. Die Liste haengt an
+    /// der Oberflaeche und wird bei jeder Aenderung mitgespeichert.
+    /// </summary>
+    public ObservableCollection<string> FullscreenZoneExcludedPrograms { get; } = [];
+
+    /// <summary>Ob Vollbildzonen ueberhaupt greifen. Ohne Treiber bleibt der Schalter wirkungslos.</summary>
+    public bool UseFullscreenZones
+    {
+        get => useFullscreenZones;
+        set => SetProperty(ref useFullscreenZones, value);
+    }
+
+    /// <summary>Ob das ✕ das Fenster nur weglegt, statt das Programm zu beenden.</summary>
+    public bool CloseToTray
+    {
+        get => closeToTray;
+        set => SetProperty(ref closeToTray, value);
+    }
+
+    /// <summary>Die Tastenkombination des Not-Aus.</summary>
+    public EmergencyHotkey EmergencyHotkey
+    {
+        get => emergencyHotkey;
+        set
+        {
+            if (SetProperty(ref emergencyHotkey, value))
+            {
+                OnPropertyChanged(nameof(EmergencyHotkeyLabel));
+            }
+        }
+    }
+
+    /// <summary>Der Not-Aus in Tastennamen, fuer die Tastenkappe auf der Seite «Tastenkürzel».</summary>
+    public string EmergencyHotkeyLabel => emergencyHotkey switch
+    {
+        EmergencyHotkey.ControlAltShiftF11 => "Ctrl + Alt + Shift + F11",
+        EmergencyHotkey.ControlAltShiftPause => "Ctrl + Alt + Shift + Pause",
+        EmergencyHotkey.Off => "kein Kürzel",
+        _ => "Ctrl + Alt + Shift + F12"
+    };
 
     public bool StartWithWindows
     {
@@ -452,7 +499,13 @@ public sealed class SettingsViewModel : ViewModelBase
         HighlightColor: HighlightColor,
         HighlightOpacity: HighlightOpacityPercent / 100d,
         MoveHookEventLimit: MoveHookEventLimit,
-        DragWatchdogSeconds: DragWatchdogSeconds);
+        DragWatchdogSeconds: DragWatchdogSeconds)
+    {
+        UseFullscreenZones = UseFullscreenZones,
+        CloseToTray = CloseToTray,
+        EmergencyHotkey = EmergencyHotkey,
+        FullscreenZoneExcludedPrograms = [.. FullscreenZoneExcludedPrograms]
+    };
 
     public void Apply(AppSettings settings)
     {
@@ -497,6 +550,53 @@ public sealed class SettingsViewModel : ViewModelBase
         HighlightOpacityPercent = settings.HighlightOpacity * 100d;
         MoveHookEventLimit = settings.MoveHookEventLimit;
         DragWatchdogSeconds = settings.DragWatchdogSeconds;
+        UseFullscreenZones = settings.UseFullscreenZones;
+        CloseToTray = settings.CloseToTray;
+        EmergencyHotkey = settings.EmergencyHotkey;
+        ReplaceFullscreenExclusions(settings.FullscreenZoneExcludedPrograms);
+    }
+
+    /// <summary>
+    /// Uebernimmt die Liste der Programme ohne Vollbildzone, ohne die Sammlung auszutauschen: die
+    /// Oberflaeche haengt daran und bekaeme sonst keine Aenderungsmeldung.
+    /// </summary>
+    private void ReplaceFullscreenExclusions(IReadOnlyList<string>? programs)
+    {
+        FullscreenZoneExcludedPrograms.Clear();
+        foreach (var program in programs ?? [])
+        {
+            FullscreenZoneExcludedPrograms.Add(program);
+        }
+
+        OnPropertyChanged(nameof(FullscreenZoneExcludedPrograms));
+    }
+
+    /// <summary>Traegt ein Programm ohne Vollbildzone ein; ein doppelter Eintrag wird uebergangen.</summary>
+    public void AddFullscreenExclusion(string program)
+    {
+        var trimmed = program?.Trim() ?? string.Empty;
+        if (trimmed.Length == 0 ||
+            FullscreenZoneExcludedPrograms.Any(existing => string.Equals(existing, trimmed, StringComparison.OrdinalIgnoreCase)))
+        {
+            return;
+        }
+
+        FullscreenZoneExcludedPrograms.Add(trimmed);
+        OnPropertyChanged(nameof(FullscreenZoneExcludedPrograms));
+    }
+
+    /// <summary>Nimmt ein Programm wieder aus der Liste.</summary>
+    public void RemoveFullscreenExclusion(string program)
+    {
+        var match = FullscreenZoneExcludedPrograms.FirstOrDefault(
+            existing => string.Equals(existing, program, StringComparison.OrdinalIgnoreCase));
+        if (match is null)
+        {
+            return;
+        }
+
+        FullscreenZoneExcludedPrograms.Remove(match);
+        OnPropertyChanged(nameof(FullscreenZoneExcludedPrograms));
     }
 
     /// <summary>
@@ -511,7 +611,10 @@ public sealed class SettingsViewModel : ViewModelBase
             StartWithWindows = StartWithWindows,
             ElevationMode = ElevationMode,
             CheckForUpdatesOnStart = CheckForUpdatesOnStart,
-            EditorValuePanelOpen = EditorValuePanelOpen
+            EditorValuePanelOpen = EditorValuePanelOpen,
+            UseFullscreenZones = UseFullscreenZones,
+            CloseToTray = CloseToTray,
+            FullscreenZoneExcludedPrograms = [.. FullscreenZoneExcludedPrograms]
         };
         Apply(defaults);
     }

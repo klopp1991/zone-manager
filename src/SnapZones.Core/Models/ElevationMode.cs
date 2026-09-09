@@ -10,15 +10,22 @@ namespace SnapZones.Core.Models;
 public enum ElevationMode
 {
     /// <summary>
+    /// Das Programm fragt nie nach Administratorrechten. Fenster höher berechtigter Programme lassen
+    /// sich dann nicht einrasten; alles andere geht wie gewohnt. Für Rechner, an denen eine Abfrage
+    /// grundsätzlich unerwünscht ist.
+    /// </summary>
+    Never = 2,
+
+    /// <summary>
     /// Voreinstellung. Das Programm startet mit gewöhnlichen Rechten und fragt erst dann nach, wenn es
     /// tatsächlich auf ein höher berechtigtes Fenster trifft. In den meisten Sitzungen erscheint gar
     /// keine Abfrage, und ein Fehler im Programm kann sich nicht zu Administratorrechten ausweiten.
     /// </summary>
-    WhenNeeded,
+    WhenNeeded = 0,
 
     /// <summary>
     /// Das bisherige Verhalten: jeder Start geht über die Windows-UAC-Abfrage. Wer täglich Fenster
     /// höher berechtigter Programme einrastet, spart sich damit die Nachfrage im Betrieb.
     /// </summary>
-    Always
+    Always = 1
 }
