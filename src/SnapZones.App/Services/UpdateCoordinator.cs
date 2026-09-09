@@ -134,11 +134,13 @@ public sealed class UpdateCoordinator
             return false;
         }
 
+        // Ohne Shell: die bereitgestellte Datei stammt aus dem Netz und die Shell legte für sie den
+        // Dialog «Datei öffnen - Sicherheitswarnung» vor. Siehe <see cref="ProcessRestart.BuildStartInfo"/>.
         var startInfo = new ProcessStartInfo
         {
             FileName = staged,
             WorkingDirectory = Path.GetDirectoryName(target) ?? AppContext.BaseDirectory,
-            UseShellExecute = true
+            UseShellExecute = false
         };
         startInfo.ArgumentList.Add(StartupArguments.ApplyUpdate);
         startInfo.ArgumentList.Add(target);

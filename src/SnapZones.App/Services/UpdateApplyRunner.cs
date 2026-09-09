@@ -122,12 +122,9 @@ public static class UpdateApplyRunner
     {
         try
         {
-            using var process = Process.Start(new ProcessStartInfo
-            {
-                FileName = executablePath,
-                WorkingDirectory = Path.GetDirectoryName(executablePath) ?? AppContext.BaseDirectory,
-                UseShellExecute = true
-            });
+            // Ohne Shell: sonst legt Windows für eine Programmdatei auf einem Netzlaufwerk den Dialog
+            // «Datei öffnen - Sicherheitswarnung» vor. Siehe <see cref="ProcessRestart.BuildStartInfo"/>.
+            using var process = Process.Start(ProcessRestart.BuildStartInfo(executablePath, []));
             return process is not null;
         }
         catch (Exception exception)

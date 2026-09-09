@@ -67,12 +67,9 @@ public partial class App : System.Windows.Application
         {
             try
             {
-                using var process = System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = path,
-                    WorkingDirectory = Path.GetDirectoryName(path) ?? AppContext.BaseDirectory,
-                    UseShellExecute = true
-                });
+                // Ohne Shell: sonst legt Windows für eine Programmdatei auf einem Netzlaufwerk den Dialog
+                // «Datei öffnen - Sicherheitswarnung» vor. Siehe <see cref="ProcessRestart.BuildStartInfo"/>.
+                using var process = System.Diagnostics.Process.Start(ProcessRestart.BuildStartInfo(path, []));
             }
             catch (Exception exception)
             {

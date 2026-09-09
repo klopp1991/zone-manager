@@ -48,6 +48,14 @@ public sealed class ElevatedSelfInvocation
         this.start = start ?? Process.Start;
     }
 
+    /// <summary>
+    /// Hier bleibt der Weg über die Shell: <c>Verb = "runas"</c> ist eine Shell-Anweisung, und ohne sie
+    /// gäbe es keine UAC-Abfrage. Der Preis: liegt das Programm auf einem Netzlaufwerk, legt die Shell
+    /// zuerst den Dialog «Datei öffnen - Sicherheitswarnung» vor. Anders als beim Neustart nach dem
+    /// Update ist das hinnehmbar — der Benutzer hat die Aufgabe eben angestossen, wartet auf die
+    /// UAC-Abfrage und sieht den Dialog. Dauerhaft loswerden lässt er sich nur ausserhalb des Programms,
+    /// indem die Freigabe in die Zone «Lokales Intranet» aufgenommen wird.
+    /// </summary>
     public static ProcessStartInfo BuildStartInfo(string executablePath, IEnumerable<string> arguments)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(executablePath);

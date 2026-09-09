@@ -64,6 +64,8 @@ public static class ElevationStartupService
                 "Der neu gestartete Prozess besitzt weiterhin keine Administratorrechte.");
         }
 
+        // Über die Shell, weil «runas» eine Shell-Anweisung ist; siehe
+        // <see cref="ElevatedSelfInvocation.BuildStartInfo"/>.
         var startInfo = new ProcessStartInfo
         {
             FileName = executablePath,
