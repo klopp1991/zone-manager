@@ -50,6 +50,10 @@ if ($LASTEXITCODE -ne 0) { throw 'Die Tests sind fehlgeschlagen.' }
 
 & (Join-Path $scriptDirectory 'test-root-installation.ps1')
 
+# Das Installationspaket selbst entsteht erst beim Release, seine Versionsabbildung wird aber hier
+# geprueft: sie kostet nichts und entscheidet darueber, ob Windows ein Update als solches erkennt.
+& (Join-Path $scriptDirectory 'test-installer-version.ps1')
+
 dotnet build $solutionPath -c Release --no-restore -p:SkipRootExecutablePublish=true
 if ($LASTEXITCODE -ne 0) { throw 'Der Release-Build ist fehlgeschlagen.' }
 

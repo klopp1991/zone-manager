@@ -335,8 +335,23 @@ Entfernt wird es über «Apps und Features» wie jedes andere Programm, oder mit
 gehören dem Benutzer, und eine Neuinstallation soll sie wiederfinden. Wer sie loswerden will, löscht das
 Verzeichnis von Hand.
 
-Es gibt bewusst kein getrenntes Setup-Programm: es müsste die 74 MB grosse Programmdatei ein zweites Mal
-enthalten und die Auslieferung verdoppeln. Installieren und Entfernen sind deshalb Modi derselben Datei.
+Seit dem 09.09.2026 liegt jedem Release zusätzlich ein Installationspaket bei,
+`ZoneManager-Setup-<Version>.msi`. Es ist der gewohnte Weg für alle, die ein Programm nicht aus einer
+einzelnen Datei starten wollen: Doppelklick, Lizenz, Zielverzeichnis, fertig. Das Paket legt
+Programmdatei und Fensterhelfer nach `%ProgramFiles%\ZoneManager` — dieselbe Stelle wie die Installation
+aus dem Programm heraus —, legt die Verknüpfung im Startmenü an und trägt Zone Manager in «Apps und
+Features» ein. Eine ältere Installation ersetzt es, statt sich danebenzustellen; einen Eintrag aus einer
+früheren Installation aus dem Programm heraus räumt es dabei weg, damit nicht zwei Einträge dasselbe
+Verzeichnis nennen. Für eine Installation ohne Rückfragen genügt
+`msiexec /i ZoneManager-Setup-<Version>.msi /qn`.
+
+Den Anzeigetreiber für [Vollbildzonen](#vollbildzonen) bringt das Paket **nicht** mit; er wird im Programm
+unter **Programm → Anzeigetreiber für Vollbildzonen** eingerichtet. Die Installation aus dem Programm
+heraus nimmt ihn dagegen gleich mit.
+
+Das Paket enthält dieselbe Programmdatei, die auch einzeln am Release hängt, und verdoppelt damit die
+Auslieferung — wer die Datei lieber ohne Installation nutzt, lädt weiterhin nur `ZoneManager.exe`.
+Installieren und Entfernen bleiben ausserdem Modi derselben Datei, damit beides ohne Paket möglich ist.
 
 Die Installation richtet ausserdem den Anzeigetreiber für [Vollbildzonen](#vollbildzonen) ein, die Deinstallation
 entfernt ihn samt virtuellem Monitor wieder. Der Treiber ist der «Virtual Display Driver»
@@ -584,3 +599,12 @@ Auch ein normaler `dotnet build` oder Build in Visual Studio veröffentlicht nac
 Dieser Schritt kostet bei jedem Build einen vollständigen Self-contained-Publish. Für schnelle Zwischenbuilds und in Prüfläufen, die die Root-EXE separat erzeugen, lässt er sich mit `-p:SkipRootExecutablePublish=true` überspringen; `scripts\verify-root-build.ps1` prüft den impliziten Weg gezielt in einem Wegwerfverzeichnis unter `work\`.
 
 Der Skripttest `scripts\test-set-version.ps1` läuft ausserhalb von `verify.ps1`, legt dafür ein temporäres Repository an und prüft das Versionsschema samt Tageswechsel und Tag-Erkennung.
+
+`scripts\build-installer.ps1` baut aus den fertigen Programmdateien das Installationspaket
+`outputs\ZoneManager-Setup-<Version>.msi`. Das Werkzeug dafür ist das WiX-Toolset, das als MSBuild-SDK
+aus NuGet kommt; installiert werden muss dafür nichts. Die Paketbeschreibung liegt unter `setup\`, und
+weil sie die veröffentlichte Programmdatei als Eingabe braucht, gehört sie bewusst nicht zur
+Projektmappe. Ein MSI trägt nur eine dreiteilige Version mit engen Grenzen, deshalb bildet das Skript
+`YYYY.MMDD.NN` auf `Jahr-2000 . Monat . Tag*100+NN` ab (2026.0909.02 wird zu 26.9.902); die Reihenfolge
+bleibt dabei erhalten, was Windows braucht, um eine vorhandene Installation als älter zu erkennen.
+`scripts\test-installer-version.ps1` prüft diese Abbildung.

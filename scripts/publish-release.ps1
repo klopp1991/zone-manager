@@ -9,9 +9,10 @@
       1. Arbeitsbaum muss sauber sein und auf dem Release-Branch stehen.
       2. scripts/set-version.ps1 schreibt die naechste Version des Tages.
       3. scripts/verify.ps1 baut, testet und erneuert die Root-EXE.
-      4. Directory.Build.props wird committet, der Tag v<Version> gesetzt und beides gepusht.
-      5. Das Release wird mit ZoneManager.exe, ZoneManager.Helper.exe und je einer Pruefsummendatei
-         als Anhaenge erstellt.
+      4. scripts/build-installer.ps1 packt daraus ZoneManager-Setup-<Version>.msi.
+      5. Directory.Build.props wird committet, der Tag v<Version> gesetzt und beides gepusht.
+      6. Das Release wird mit ZoneManager.exe, ZoneManager.Helper.exe, dem Installationspaket und je
+         einer Pruefsummendatei als Anhaenge erstellt.
 
     Der Fensterhelfer haengt mit am Release, weil das Programm ihn beim Update mit ersetzt; laege nur
     die Programmdatei bei, liefe nach einem Update eine neue Anwendung gegen einen alten Helfer.
@@ -95,6 +96,24 @@ if (-not (Test-Path -LiteralPath $helperPath -PathType Leaf)) {
     throw "ZoneManager.Helper.exe fehlt: $helperPath"
 }
 
+# Das Installationspaket entsteht aus genau den Dateien, die auch einzeln am Release haengen; es wird
+# vor dem Tag gebaut, damit ein Fehler dabei noch keinen Tag hinterlaesst.
+$installerOutput = & (Join-Path $scriptDirectory 'build-installer.ps1') `
+    -RepositoryPath $repositoryRoot `
+    -ExecutablePath $executablePath `
+    -HelperPath $helperPath `
+    -Version $version.DisplayVersion
+$installerOutput | Write-Host
+$installerLine = @($installerOutput | Where-Object { $_ -is [string] -and $_ -match '^INSTALLER_OK ' })
+if ($installerLine.Count -eq 0 -or $installerLine[-1] -notmatch '^INSTALLER_OK path=(.+?) version=') {
+    throw 'Das Installationspaket wurde nicht gebaut.'
+}
+
+$installerPath = $Matches[1]
+if (-not (Test-Path -LiteralPath $installerPath -PathType Leaf)) {
+    throw "Das Installationspaket fehlt: $installerPath"
+}
+
 Invoke-Git @('add', '--', 'Directory.Build.props') | Out-Null
 if ((Invoke-Git @('status', '--porcelain', '--', 'Directory.Build.props')).Length -gt 0) {
     Invoke-Git @('commit', '-m', "chore: Version $($version.DisplayVersion)") | Out-Null
@@ -133,7 +152,8 @@ function Write-Checksum {
 
 $checksumPath = Write-Checksum -Path $executablePath
 $helperChecksumPath = Write-Checksum -Path $helperPath
-$assets = @($executablePath, $checksumPath, $helperPath, $helperChecksumPath)
+$installerChecksumPath = Write-Checksum -Path $installerPath
+$assets = @($executablePath, $checksumPath, $helperPath, $helperChecksumPath, $installerPath, $installerChecksumPath)
 $assetQuoted = ($assets | ForEach-Object { """$_""" }) -join ' '
 
 $ghCommand = Get-Command gh -ErrorAction SilentlyContinue
@@ -141,7 +161,7 @@ if ($null -eq $ghCommand) {
     Write-Warning @"
 GitHub CLI (gh) ist nicht installiert. Commit und Tag sind gepusht; das Release fehlt noch.
 Nachholen: gh release create $($version.Tag) $assetQuoted --title "Zone Manager $($version.DisplayVersion)"
-oder auf github.com unter Releases den Tag $($version.Tag) waehlen und alle vier Dateien anhaengen.
+oder auf github.com unter Releases den Tag $($version.Tag) waehlen und alle sechs Dateien anhaengen.
 "@
     return
 }

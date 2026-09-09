@@ -1,0 +1,18 @@
+<!--
+  Baut das Installationspaket. Absichtlich nicht Teil von ZoneManager.sln: das Paket braucht die
+  fertig veroeffentlichte Programmdatei als Eingabe, die es beim Bauen der Projektmappe noch nicht
+  gibt. Gestartet wird es ueber scripts/build-installer.ps1, das alle Pfade mitgibt.
+-->
+<Project Sdk="WixToolset.Sdk/6.0.2">
+  <PropertyGroup>
+    <OutputName>ZoneManager-Setup</OutputName>
+    <OutputType>Package</OutputType>
+    <Platform>x64</Platform>
+    <Cultures>de-DE</Cultures>
+    <DefineConstants>ExecutablePath=$(ZoneManagerExecutablePath);HelperPath=$(ZoneManagerHelperPath);IconPath=$(ZoneManagerIconPath);LicenseRtfPath=$(ZoneManagerLicenseRtfPath);MsiVersion=$(ZoneManagerMsiVersion);DisplayVersion=$(ZoneManagerDisplayVersion)</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="WixToolset.UI.wixext" Version="6.0.2" />
+    <PackageReference Include="WixToolset.Util.wixext" Version="6.0.2" />
+  </ItemGroup>
+</Project>

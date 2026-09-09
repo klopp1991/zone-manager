@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Das Installationspaket fuer Zone Manager.
+
+  Es legt Programmdatei und Fensterhelfer nach «Programme\ZoneManager», dieselbe Stelle, an die sich
+  das Programm ueber den Schalter «install» auch selbst installiert, und traegt einen Eintrag in
+  «Apps und Features» sowie eine Verknuepfung im Startmenue ein. Benutzerdaten unter %APPDATA% bleiben
+  beim Entfernen stehen; sie gehoeren dem Benutzer, nicht dem Paket.
+
+  Der UpgradeCode bleibt fuer alle Zeit gleich: an ihm erkennt Windows eine vorhandene Installation und
+  ersetzt sie, statt eine zweite danebenzustellen.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+  <Package Name="Zone Manager"
+           Manufacturer="Sascha Krähenbühl"
+           Version="$(var.MsiVersion)"
+           UpgradeCode="6f2b1c84-9d3a-4f57-9a1e-7c0d5b8e42f3"
+           Scope="perMachine"
+           Language="1031"
+           Codepage="1252">
+    <SummaryInformation Description="Zone Manager $(var.DisplayVersion) — Fenster in Zonen einrasten" />
+
+    <!-- Eine aeltere Installation wird ersetzt; eine neuere bleibt unangetastet. -->
+    <MajorUpgrade DowngradeErrorMessage="Es ist bereits eine neuere Version von Zone Manager installiert." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Icon Id="ZoneManagerIcon" SourceFile="$(var.IconPath)" />
+    <Property Id="ARPPRODUCTICON" Value="ZoneManagerIcon" />
+    <!--
+      «Ändern» blendet die Oberflaeche des Installationsprogramms selbst aus, weil es nichts zu waehlen
+      gibt; «Reparieren» bleibt, weil ein MSI die fehlenden Dateien tatsaechlich wiederherstellen kann.
+    -->
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/klopp1991/zone-manager" />
+
+    <StandardDirectory Id="ProgramFiles6432Folder">
+      <Directory Id="INSTALLFOLDER" Name="ZoneManager" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder" />
+
+    <ComponentGroup Id="ProgramFiles" Directory="INSTALLFOLDER">
+      <Component Id="MainExecutable">
+        <File Id="ZoneManagerExe" Source="$(var.ExecutablePath)" Name="ZoneManager.exe" KeyPath="yes">
+          <Shortcut Id="StartMenuShortcut"
+                    Directory="ProgramMenuFolder"
+                    Name="Zone Manager"
+                    Description="Fenster in Zonen einrasten"
+                    Advertise="yes" />
+        </File>
+      </Component>
+
+      <!-- Ohne die Programmdatei hat der Fensterhelfer keinen Zweck; beide liegen nebeneinander. -->
+      <Component Id="WindowHelper">
+        <File Id="ZoneManagerHelperExe" Source="$(var.HelperPath)" Name="ZoneManager.Helper.exe" KeyPath="yes" />
+      </Component>
+
+      <!--
+        Wer sich das Programm frueher ueber den eigenen Schalter «install» installiert hat, hat
+        einen eigenen Eintrag in «Apps und Features». Er zeigt auf dasselbe Verzeichnis und stuende nach
+        dieser Installation ein zweites Mal daneben; deshalb wird er beim Installieren entfernt.
+      -->
+      <Component Id="Registration">
+        <RegistryValue Root="HKLM"
+                       Key="SOFTWARE\ZoneManager"
+                       Name="InstalledVersion"
+                       Value="$(var.DisplayVersion)"
+                       Type="string"
+                       KeyPath="yes" />
+        <RemoveRegistryKey Root="HKLM"
+                           Key="SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\ZoneManager"
+                           Action="removeOnInstall" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="Main" Title="Zone Manager" Level="1">
+      <ComponentGroupRef Id="ProgramFiles" />
+    </Feature>
+
+    <!--
+      Der Haken auf der letzten Seite startet das Programm. «Impersonate» ist entscheidend: ohne ihn
+      liefe Zone Manager mit den Rechten des Installationsdienstes weiter, also dauerhaft erhoeht.
+    -->
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Zone Manager jetzt starten" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+    <Property Id="WixShellExecTarget" Value="[#ZoneManagerExe]" />
+    <CustomAction Id="LaunchApplication"
+                  BinaryRef="Wix4UtilCA_X64"
+                  DllEntry="WixShellExec"
+                  Impersonate="yes"
+                  Return="ignore" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.LicenseRtfPath)" />
+
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <UI>
+      <Publish Dialog="ExitDialog"
+               Control="Finish"
+               Event="DoAction"
+               Value="LaunchApplication"
+               Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed" />
+    </UI>
+  </Package>
+</Wix>
