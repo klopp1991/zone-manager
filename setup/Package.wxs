@@ -21,8 +21,13 @@
            Codepage="1252">
     <SummaryInformation Description="Zone Manager $(var.DisplayVersion) — Fenster in Zonen einrasten" />
 
-    <!-- Eine aeltere Installation wird ersetzt; eine neuere bleibt unangetastet. -->
-    <MajorUpgrade DowngradeErrorMessage="Es ist bereits eine neuere Version von Zone Manager installiert." />
+    <!--
+      Eine aeltere Installation wird ersetzt, eine neuere bleibt unangetastet. «AllowSameVersionUpgrades»
+      deckt den Fall ab, dass ein Paket derselben Version neu gebaut wird: ohne den Schalter erkennt
+      Windows das bereits Installierte nicht als ersetzbar und stellte eine zweite Installation daneben.
+    -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="Es ist bereits eine neuere Version von Zone Manager installiert." />
     <MediaTemplate EmbedCab="yes" />
 
     <Icon Id="ZoneManagerIcon" SourceFile="$(var.IconPath)" />
@@ -40,13 +45,20 @@
 
     <ComponentGroup Id="ProgramFiles" Directory="INSTALLFOLDER">
       <Component Id="MainExecutable">
-        <File Id="ZoneManagerExe" Source="$(var.ExecutablePath)" Name="ZoneManager.exe" KeyPath="yes">
-          <Shortcut Id="StartMenuShortcut"
-                    Directory="ProgramMenuFolder"
-                    Name="Zone Manager"
-                    Description="Fenster in Zonen einrasten"
-                    Advertise="yes" />
-        </File>
+        <File Id="ZoneManagerExe" Source="$(var.ExecutablePath)" Name="ZoneManager.exe" KeyPath="yes" />
+        <!--
+          Eine gewoehnliche Verknuepfung mit echtem Ziel, keine angekuendigte. Eine angekuendigte
+          Verknuepfung traegt statt des Pfades nur den Namen des Funktionsumfangs; Windows nahm ihr Symbol
+          daraufhin aus dem Installationspaket statt aus der Programmdatei, fand dort keines und zeigte
+          ein leeres Blatt — in der Verknuepfung und, weil das Programm von dort startet, auch in der
+          Taskleiste. Ohne Symbolangabe liest die Shell es aus der Programmdatei, wo es liegt.
+        -->
+        <Shortcut Id="StartMenuShortcut"
+                  Directory="ProgramMenuFolder"
+                  Name="Zone Manager"
+                  Description="Fenster in Zonen einrasten"
+                  Target="[#ZoneManagerExe]"
+                  WorkingDirectory="INSTALLFOLDER" />
       </Component>
 
       <!-- Ohne die Programmdatei hat der Fensterhelfer keinen Zweck; beide liegen nebeneinander. -->
