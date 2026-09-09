@@ -47,6 +47,29 @@ $repositoryRoot = [System.IO.Path]::GetFullPath($RepositoryPath)
 $executablePath = Join-Path $repositoryRoot 'ZoneManager.exe'
 $helperPath = Join-Path $repositoryRoot 'ZoneManager.Helper.exe'
 
+$stepDurations = [ordered]@{}
+
+<#
+.SYNOPSIS
+    Fuehrt einen Schritt aus und haelt fest, wie lange er gedauert hat.
+
+.DESCRIPTION
+    Wie in verify.ps1: jede Zeile «STEP …» nennt die Dauer sofort, die Zeile «RELEASE_TIMING» am Ende
+    die Rangliste. Ohne Messung ist nicht zu sehen, wohin die Minuten eines Releases gehen.
+#>
+function Invoke-Step {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][scriptblock]$Action
+    )
+
+    $watch = [System.Diagnostics.Stopwatch]::StartNew()
+    & $Action
+    $watch.Stop()
+    $script:stepDurations[$Name] = $watch.Elapsed.TotalSeconds
+    Write-Host ('STEP {0} {1:n1}s' -f $Name, $watch.Elapsed.TotalSeconds)
+}
+
 function Invoke-Git {
     param([Parameter(Mandatory = $true)][string[]]$Arguments)
 
@@ -85,7 +108,7 @@ if ($SkipVerify) {
 else {
     # Die DPI-Pruefung startet die Oberflaeche und braucht eine bestaetigte UAC-Abfrage; ohne
     # interaktive Sitzung bleibt der Lauf daran stehen.
-    & (Join-Path $scriptDirectory 'verify.ps1') -SkipDpiCheck:$SkipDpiCheck
+    Invoke-Step 'prueflauf' { & (Join-Path $scriptDirectory 'verify.ps1') -SkipDpiCheck:$SkipDpiCheck }
 }
 
 if (-not (Test-Path -LiteralPath $executablePath -PathType Leaf)) {
@@ -98,11 +121,14 @@ if (-not (Test-Path -LiteralPath $helperPath -PathType Leaf)) {
 
 # Das Installationspaket entsteht aus genau den Dateien, die auch einzeln am Release haengen; es wird
 # vor dem Tag gebaut, damit ein Fehler dabei noch keinen Tag hinterlaesst.
-$installerOutput = & (Join-Path $scriptDirectory 'build-installer.ps1') `
-    -RepositoryPath $repositoryRoot `
-    -ExecutablePath $executablePath `
-    -HelperPath $helperPath `
-    -Version $version.DisplayVersion
+$installerOutput = $null
+Invoke-Step 'installationspaket' {
+    $script:installerOutput = & (Join-Path $scriptDirectory 'build-installer.ps1') `
+        -RepositoryPath $repositoryRoot `
+        -ExecutablePath $executablePath `
+        -HelperPath $helperPath `
+        -Version $version.DisplayVersion
+}
 $installerOutput | Write-Host
 $installerLine = @($installerOutput | Where-Object { $_ -is [string] -and $_ -match '^INSTALLER_OK ' })
 if ($installerLine.Count -eq 0 -or $installerLine[-1] -notmatch '^INSTALLER_OK path=(.+?) version=') {
@@ -126,8 +152,10 @@ if ($SkipPush) {
     return
 }
 
-Invoke-Git @('push', 'origin', $Branch) | Out-Null
-Invoke-Git @('push', 'origin', $version.Tag) | Out-Null
+Invoke-Step 'push' {
+    Invoke-Git @('push', 'origin', $Branch) | Out-Null
+    Invoke-Git @('push', 'origin', $version.Tag) | Out-Null
+}
 
 if ([string]::IsNullOrWhiteSpace($Notes)) {
     $previousTag = & git -C $repositoryRoot describe --tags --abbrev=0 "$($version.Tag)^" 2>$null
@@ -150,9 +178,15 @@ function Write-Checksum {
     return $checksumPath
 }
 
-$checksumPath = Write-Checksum -Path $executablePath
-$helperChecksumPath = Write-Checksum -Path $helperPath
-$installerChecksumPath = Write-Checksum -Path $installerPath
+$checksumPath = $null
+$helperChecksumPath = $null
+$installerChecksumPath = $null
+Invoke-Step 'pruefsummen' {
+    $script:checksumPath = Write-Checksum -Path $executablePath
+    $script:helperChecksumPath = Write-Checksum -Path $helperPath
+    $script:installerChecksumPath = Write-Checksum -Path $installerPath
+}
+
 $assets = @($executablePath, $checksumPath, $helperPath, $helperChecksumPath, $installerPath, $installerChecksumPath)
 $assetQuoted = ($assets | ForEach-Object { """$_""" }) -join ' '
 
@@ -178,18 +212,42 @@ gh release create $($version.Tag) $assetQuoted --title "Zone Manager $($version.
 }
 
 $notesFile = New-TemporaryFile
+$repositoryUrl = Invoke-Git @('config', '--get', 'remote.origin.url')
 try {
     Set-Content -LiteralPath $notesFile -Value $Notes -Encoding utf8NoBOM
-    & gh release create $version.Tag @assets `
-        --repo (Invoke-Git @('config', '--get', 'remote.origin.url')) `
-        --title "Zone Manager $($version.DisplayVersion)" `
-        --notes-file $notesFile
-    if ($LASTEXITCODE -ne 0) {
-        throw 'Das GitHub-Release konnte nicht erstellt werden.'
+    Invoke-Step 'release' {
+        & gh release create $version.Tag `
+            --repo $repositoryUrl `
+            --title "Zone Manager $($version.DisplayVersion)" `
+            --notes-file $notesFile
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Das GitHub-Release konnte nicht erstellt werden.'
+        }
+    }
+
+    # Die Anhaenge gehen gleichzeitig hoch. Nacheinander wartete jede Datei auf die vorige, obwohl die
+    # Leitung dabei nicht ausgelastet war; die drei grossen Dateien machen zusammen rund 150 MB aus.
+    Invoke-Step 'anhaenge' {
+        $uploads = foreach ($asset in $assets) {
+            Start-Process -FilePath 'gh' `
+                -ArgumentList @('release', 'upload', $version.Tag, $asset, '--repo', $repositoryUrl, '--clobber') `
+                -NoNewWindow -PassThru
+        }
+
+        $uploads | Wait-Process
+        $failed = @($uploads | Where-Object { $_.ExitCode -ne 0 })
+        if ($failed.Count -gt 0) {
+            throw "Das Hochladen von $($failed.Count) Anhang/Anhaengen ist fehlgeschlagen; erneut starten holt sie nach (gh release upload $($version.Tag) <Datei> --clobber)."
+        }
     }
 }
 finally {
     Remove-Item -LiteralPath $notesFile -Force -ErrorAction SilentlyContinue
 }
 
+$total = ($stepDurations.Values | Measure-Object -Sum).Sum
+$ranking = ($stepDurations.GetEnumerator() |
+    Sort-Object -Property Value -Descending |
+    ForEach-Object { '{0}={1:n1}s' -f $_.Key, $_.Value }) -join ' '
+Write-Host ("RELEASE_TIMING total={0:n1}s {1}" -f $total, $ranking)
 Write-Host "RELEASE_OK version=$($version.DisplayVersion) tag=$($version.Tag) assets=$(($assets | ForEach-Object { [System.IO.Path]::GetFileName($_) }) -join ',')"

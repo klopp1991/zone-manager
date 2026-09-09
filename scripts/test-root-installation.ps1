@@ -30,6 +30,57 @@ function Invoke-Install($Files) {
         -RootExecutablePath (Join-Path $Files.Target 'ZoneManager.exe') -ShutdownTimeoutSeconds 1 | Out-Null
 }
 
+<#
+.SYNOPSIS
+    Baut ein kleines Testprogramm, das eine laufende Instanz nachstellt.
+
+.DESCRIPTION
+    Windows PowerShell uebersetzt eine kleine .NET-Framework-EXE ohne Fenster. Sie wartet, bis sie
+    beendet wird. Mit -Obedient hoert sie auf die Bitte «--exit»: der zweite Aufruf derselben Datei
+    setzt ein benanntes Ereignis, worauf die wartende Instanz endet — genau der Weg, den
+    install-root-executable.ps1 nimmt. Ohne den Schalter ignoriert sie die Bitte.
+#>
+function New-Fixture([string]$Name, [switch]$Obedient) {
+    $destination = Join-Path $testRoot $Name
+    $builder = Join-Path $testRoot "build-$Name.ps1"
+    $body = if ($Obedient) {
+        @'
+        if (args.Length > 0 && args[0] == "--exit") {
+            try { System.Threading.EventWaitHandle.OpenExisting(Name).Set(); } catch { }
+            return;
+        }
+        using (var handle = new System.Threading.EventWaitHandle(false, System.Threading.EventResetMode.ManualReset, Name)) {
+            handle.WaitOne();
+        }
+'@
+    }
+    else {
+        @'
+        if (args.Length > 0 && args[0] == "--exit") return;
+        System.Threading.Thread.Sleep(System.Threading.Timeout.Infinite);
+'@
+    }
+
+    # Der Rumpf wird eingesetzt statt eingefuegt: eine Zeichenkette mit Ersetzung kommt ohne
+    # verschachtelte Here-Strings aus, und die enden sonst an der falschen Zeile.
+    $template = @'
+param([string]$Destination)
+$ErrorActionPreference = 'Stop'
+Add-Type -OutputType WindowsApplication -OutputAssembly $Destination -TypeDefinition @"
+public static class Fixture {
+    private const string Name = "Local\\ZoneManagerFixture";
+    public static void Main(string[] args) {
+__RUMPF__
+    }
+}
+"@
+'@
+    Set-Content -LiteralPath $builder -Value $template.Replace('__RUMPF__', $body) -Encoding UTF8
+    & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $builder -Destination $destination
+    if ($LASTEXITCODE -ne 0) { throw "Testprogramm konnte nicht erstellt werden: $Name" }
+    return $destination
+}
+
 function Test-Case([string]$Name, [scriptblock]$Action) {
     try { & $Action; $script:passed++; Write-Output "PASS $Name" }
     catch { $script:failures.Add("${Name}: $($_.Exception.Message)"); Write-Output "FAIL $Name" }
@@ -91,23 +142,7 @@ try {
 
     Test-Case 'Nicht beendete Instanz verhindert den Austausch' {
         $files = New-TestFiles 'running'
-        $fixture = Join-Path $testRoot 'fixture.exe'
-        $builder = Join-Path $testRoot 'build-fixture.ps1'
-        # Windows PowerShell baut eine kleine lokale .NET-Framework-EXE, die --exit absichtlich ignoriert.
-        @'
-param([string]$Destination)
-$ErrorActionPreference = 'Stop'
-Add-Type -OutputType WindowsApplication -OutputAssembly $Destination -TypeDefinition @"
-public static class Fixture {
-    public static void Main(string[] args) {
-        if (args.Length > 0 && args[0] == "--exit") return;
-        System.Threading.Thread.Sleep(System.Threading.Timeout.Infinite);
-    }
-}
-"@
-'@ | Set-Content -LiteralPath $builder -Encoding UTF8
-        & powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $builder -Destination $fixture
-        if ($LASTEXITCODE -ne 0) { throw 'Testprogramm konnte nicht erstellt werden.' }
+        $fixture = New-Fixture -Name 'fixture-stur.exe' -Obedient:$false
         $target = Join-Path $files.Target 'ZoneManager.exe'
         Copy-Item -LiteralPath $fixture -Destination $target -Force
         $before = (Get-FileHash -LiteralPath $target).Hash
@@ -130,6 +165,49 @@ public static class Fixture {
             # Ausschliesslich den selbst gestarteten Testprozess beenden.
             if (-not $process.HasExited) { $process.Kill(); $process.WaitForExit() }
             $process.Dispose()
+        }
+    }
+
+    <#
+      Der Gegenfall zum vorigen: eine Instanz, die auf «--exit» hoert, wird beendet und die Dateien
+      werden ersetzt. Der Fall prueft, dass die Bitte ueberhaupt ankommt. Am 09.09.2026 kam sie eine
+      Weile nicht an — der Start reichte die Schalter ueber eine Eigenschaft weiter, die es unter
+      Windows PowerShell nicht gibt, und der Fehler blieb eine blosse Warnung.
+    #>
+    Test-Case 'Eine Instanz, die auf die Bitte hoert, wird beendet' {
+        $files = New-TestFiles 'obedient'
+        $fixture = New-Fixture -Name 'fixture-hoerend.exe' -Obedient
+        $target = Join-Path $files.Target 'ZoneManager.exe'
+        Copy-Item -LiteralPath $fixture -Destination $target -Force
+        $startInfo = [Diagnostics.ProcessStartInfo]::new()
+        $startInfo.FileName = $target
+        $startInfo.UseShellExecute = $false
+        $startInfo.CreateNoWindow = $true
+        $process = [Diagnostics.Process]::Start($startInfo)
+        try {
+            # Die Instanz muss ihr Ereignis angelegt haben, bevor die Bitte es setzen kann.
+            $deadline = [DateTime]::UtcNow.AddSeconds(10)
+            while ([DateTime]::UtcNow -lt $deadline) {
+                try { [Threading.EventWaitHandle]::OpenExisting('Local\ZoneManagerFixture').Dispose(); break }
+                catch { Start-Sleep -Milliseconds 100 }
+            }
+
+            Invoke-Install $files
+            Assert-Value $true $process.WaitForExit(10000) 'Die Instanz hat sich nicht beendet.'
+            foreach ($name in @('ZoneManager.exe', 'ZoneManager.Helper.exe')) {
+                Assert-Value $true (Test-Path -LiteralPath (Join-Path $files.Target $name) -PathType Leaf) "Datei fehlt nach dem Austausch: $name"
+            }
+
+            Assert-Value 'new-ZoneManager.Helper.exe' ([IO.File]::ReadAllText((Join-Path $files.Target 'ZoneManager.Helper.exe'))) 'Der Helfer wurde nicht ersetzt.'
+        }
+        finally {
+            if (-not $process.HasExited) { $process.Kill(); $process.WaitForExit() }
+            $process.Dispose()
+            # Nach einem Austausch startet das Skript die zuvor beendete Instanz neu — hier also das
+            # Testprogramm. Beendet wird ausschliesslich, was aus dem Testverzeichnis laeuft.
+            Get-CimInstance Win32_Process -Filter "Name='ZoneManager.exe'" |
+                Where-Object { $_.ExecutablePath -eq $target } |
+                ForEach-Object { Stop-Process -Id $_.ProcessId -Force -Confirm:$false -ErrorAction SilentlyContinue }
         }
     }
 

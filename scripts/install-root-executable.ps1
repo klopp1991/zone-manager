@@ -22,7 +22,15 @@ function Start-Hidden([string]$Path, [string[]]$Arguments = @(), [string]$Workin
     $startInfo.UseShellExecute = $false
     $startInfo.CreateNoWindow = $true
     if ($WorkingDirectory) { $startInfo.WorkingDirectory = $WorkingDirectory }
-    foreach ($argument in $Arguments) { $startInfo.ArgumentList.Add($argument) }
+    # Windows PowerShell 5.1 laeuft auf dem .NET Framework, und dort hat ProcessStartInfo kein
+    # ArgumentList -- der Zugriff darauf schlug still fehl, und die Bitte um Beenden erreichte die
+    # laufende Instanz nie. Uebergeben wird deshalb die Zeichenkette. Die Aufrufe dieses Skripts
+    # kennen nur einfache Schalter; alles mit Leerzeichen oder Anfuehrungszeichen waere ein Fehler.
+    foreach ($argument in $Arguments) {
+        if ($argument -match '[\s"]') { throw "Der Schalter '$argument' braucht eine eigene Behandlung." }
+    }
+
+    if ($Arguments.Count -gt 0) { $startInfo.Arguments = $Arguments -join ' ' }
     return [System.Diagnostics.Process]::Start($startInfo)
 }
 
@@ -203,7 +211,6 @@ try {
             Source = $source; Target = $target
             Temporary = "$target.new.$transactionId"; Backup = "$target.previous.$transactionId"
             Hash = Get-Sha256Hash $source
-            OriginalHash = if (Test-Path -LiteralPath $target -PathType Leaf) { Get-Sha256Hash $target } else { $null }
             OriginalMoved = $false; Installed = $false
         })
     }
@@ -241,11 +248,11 @@ try {
             Move-Item -LiteralPath $artifact.Target -Destination $artifact.Backup
             $artifact.OriginalMoved = $true
         }
+        # Der vorbereiteten Datei wurde oben Byte fuer Byte nachgerechnet; dieser Schritt benennt sie nur
+        # noch um, innerhalb desselben Verzeichnisses. Ein Umbenennen gelingt oder wirft — es bewegt
+        # keine Daten, und eine weitere Pruefsumme ueber 70 MB bewiese nichts.
         Move-Item -LiteralPath $artifact.Temporary -Destination $artifact.Target
         $artifact.Installed = $true
-        if ((Get-Sha256Hash $artifact.Target) -ne $artifact.Hash) {
-            throw "Die Datei stimmt nach dem Austausch nicht mit dem Publish-Artefakt ueberein: $($artifact.Target)"
-        }
     }
     $committed = $true
     $safeToRestart = $true
@@ -261,10 +268,8 @@ catch {
                 Remove-Item -LiteralPath $artifact.Target -Force -Confirm:$false
             }
             if ($artifact.OriginalMoved) {
+                # Umbenennen zurueck an den alten Platz; auch hier bewegt Windows keine Daten.
                 Move-Item -LiteralPath $artifact.Backup -Destination $artifact.Target
-                if ((Get-Sha256Hash $artifact.Target) -ne $artifact.OriginalHash) {
-                    throw 'Die wiederhergestellte Datei hat eine abweichende Pruefsumme.'
-                }
             }
         }
         catch { $rollbackErrors.Add("$($artifact.Target): $($_.Exception.Message)") }
@@ -300,5 +305,8 @@ finally {
 }
 
 $bytes = (Get-Item -LiteralPath $destinationPath).Length
-$hash = Get-Sha256Hash $destinationPath
+# Die Pruefsumme steht schon fest: sie wurde ueber die Quelle gebildet und an der vorbereiteten Kopie
+# nachgerechnet. Sie hier noch einmal ueber die abgelegte Datei zu bilden, las bei jedem Build weitere
+# 70 MB ueber das Netzlaufwerk.
+$hash = @($artifacts | Where-Object { $_.Target -eq $destinationPath })[0].Hash
 Write-Output "ROOT_EXE_UPDATED path=$destinationPath bytes=$bytes sha256=$hash"

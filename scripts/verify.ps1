@@ -10,100 +10,99 @@ $projectRoot = [System.IO.Path]::GetFullPath((Join-Path $scriptDirectory '..'))
 $solutionPath = Join-Path $projectRoot 'ZoneManager.sln'
 $projectPath = Join-Path $projectRoot 'src\SnapZones.App\SnapZones.App.csproj'
 $helperProjectPath = Join-Path $projectRoot 'src\SnapZones.Helper\SnapZones.Helper.csproj'
-$outputPath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'outputs\ZoneManager-prototype'))
-$expectedOutputParent = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'outputs'))
+# Der Publish-Ordner des App-Projekts; derselbe Pfad steht als RootPublishDirectory in der Projektdatei.
+$publishDirectory = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'obj\root-publish\Release\win-x64'))
 $rootExecutablePath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'ZoneManager.exe'))
 $rootHelperPath = [System.IO.Path]::GetFullPath((Join-Path $projectRoot 'ZoneManager.Helper.exe'))
+$diagnosticPath = Join-Path $projectRoot 'outputs\zonemanager-diagnostics.json'
 $maximumExecutableBytes = 100000000
+$stepDurations = [ordered]@{}
 
-if (-not $outputPath.StartsWith($expectedOutputParent + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
-    throw 'Der Publish-Pfad liegt ausserhalb des Ausgabeordners.'
+<#
+.SYNOPSIS
+    Fuehrt einen Schritt aus und haelt fest, wie lange er gedauert hat.
+
+.DESCRIPTION
+    Der Lauf dauert Minuten, und ohne Messung ist nicht zu sehen, welcher Schritt sie verbraucht. Jede
+    Zeile «STEP …» nennt die Dauer sofort, die Zeile «VERIFY_TIMING» am Ende die Rangliste.
+#>
+function Invoke-Step {
+    param(
+        [Parameter(Mandatory = $true)][string]$Name,
+        [Parameter(Mandatory = $true)][scriptblock]$Action
+    )
+
+    $watch = [System.Diagnostics.Stopwatch]::StartNew()
+    & $Action
+    $watch.Stop()
+    $script:stepDurations[$Name] = $watch.Elapsed.TotalSeconds
+    Write-Output ('STEP {0} {1:n1}s' -f $Name, $watch.Elapsed.TotalSeconds)
 }
 
-if ([System.IO.Path]::GetFileName($outputPath) -ne 'ZoneManager-prototype') {
-    throw 'Der Publish-Zielordner ist unerwartet.'
+Invoke-Step 'restore' {
+    dotnet restore $solutionPath
+    if ($LASTEXITCODE -ne 0) { throw 'Die Paketwiederherstellung ist fehlgeschlagen.' }
+
+    dotnet restore $projectPath -r win-x64
+    if ($LASTEXITCODE -ne 0) { throw 'Die win-x64-Laufzeitwiederherstellung ist fehlgeschlagen.' }
+
+    dotnet restore $helperProjectPath -r win-x64
+    if ($LASTEXITCODE -ne 0) { throw 'Die win-x64-Laufzeitwiederherstellung des Fensterhelfers ist fehlgeschlagen.' }
 }
-
-if (Test-Path -LiteralPath $outputPath) {
-    Remove-Item -LiteralPath $outputPath -Recurse -Force
-}
-
-dotnet restore $solutionPath
-if ($LASTEXITCODE -ne 0) { throw 'Die Paketwiederherstellung ist fehlgeschlagen.' }
-
-dotnet restore $projectPath -r win-x64
-if ($LASTEXITCODE -ne 0) { throw 'Die win-x64-Laufzeitwiederherstellung ist fehlgeschlagen.' }
-
-dotnet restore $helperProjectPath -r win-x64
-if ($LASTEXITCODE -ne 0) { throw 'Die win-x64-Laufzeitwiederherstellung des Fensterhelfers ist fehlgeschlagen.' }
 
 # Die aufgerufenen Skripte melden Fehler ueber eine terminierende Ausnahme; $LASTEXITCODE bliebe hier
 # auf dem Wert des zuletzt gestarteten nativen Befehls stehen und waere deshalb keine gueltige Pruefung.
-& (Join-Path $scriptDirectory 'build-icon.ps1')
+Invoke-Step 'icon' { & (Join-Path $scriptDirectory 'build-icon.ps1') }
 
-# Test und Release-Build brauchen die Root-EXE nicht. Ohne diesen Schalter loest jeder Build des
-# App-Projekts einen vollstaendigen Self-contained-Publish aus; der Lauf wuerde die 72-MB-EXE
-# viermal statt einmal erzeugen. Die Root-EXE entsteht unten aus dem Publish-Artefakt, und
-# verify-root-build.ps1 prueft den impliziten Weg separat.
-dotnet test $solutionPath -c Release --no-restore -p:SkipRootExecutablePublish=true
-if ($LASTEXITCODE -ne 0) { throw 'Die Tests sind fehlgeschlagen.' }
+# Erst bauen, dann testen: mit «--no-build» uebersetzt «dotnet test» die Projektmappe nicht ein zweites
+# Mal. Beide Schritte brauchen die Root-EXE nicht; ohne den Schalter loeste jeder Build des App-Projekts
+# einen vollstaendigen Self-contained-Publish aus.
+Invoke-Step 'build' {
+    dotnet build $solutionPath -c Release --no-restore -p:SkipRootExecutablePublish=true
+    if ($LASTEXITCODE -ne 0) { throw 'Der Release-Build ist fehlgeschlagen.' }
+}
 
-& (Join-Path $scriptDirectory 'test-root-installation.ps1')
+Invoke-Step 'tests' {
+    dotnet test $solutionPath -c Release --no-restore --no-build -p:SkipRootExecutablePublish=true
+    if ($LASTEXITCODE -ne 0) { throw 'Die Tests sind fehlgeschlagen.' }
+}
+
+Invoke-Step 'installationstests' { & (Join-Path $scriptDirectory 'test-root-installation.ps1') }
 
 # Das Installationspaket selbst entsteht erst beim Release, seine Versionsabbildung wird aber hier
 # geprueft: sie kostet nichts und entscheidet darueber, ob Windows ein Update als solches erkennt.
-& (Join-Path $scriptDirectory 'test-installer-version.ps1')
+Invoke-Step 'installer-version' { & (Join-Path $scriptDirectory 'test-installer-version.ps1') }
 
-dotnet build $solutionPath -c Release --no-restore -p:SkipRootExecutablePublish=true
-if ($LASTEXITCODE -ne 0) { throw 'Der Release-Build ist fehlgeschlagen.' }
+<#
+.SYNOPSIS
+    Baut die auslieferbaren Dateien und legt sie ins Rootverzeichnis.
 
-& (Join-Path $scriptDirectory 'verify-root-build.ps1') -MaximumExecutableBytes $maximumExecutableBytes
+.DESCRIPTION
+    Ein gewoehnlicher Build des App-Projekts veroeffentlicht Programmdatei und Fensterhelfer als
+    selbstaendige Einzeldateien und laesst sie von install-root-executable.ps1 ins Rootverzeichnis
+    legen. Genau das passiert hier, mit denselben Dateien, die danach ins Release gehen.
 
-dotnet publish $projectPath -c Release -r win-x64 --self-contained true --no-restore -o $outputPath -p:SkipRootExecutablePublish=true
-if ($LASTEXITCODE -ne 0) { throw 'Der Publish ist fehlgeschlagen.' }
-
-# Der Fensterhelfer wird in denselben Ordner veroeffentlicht und danach ebenfalls ins Wurzelverzeichnis
-# gelegt. Ohne diesen Schritt bliebe neben einer frisch gebauten Programmdatei ein Helfer aus einem
-# frueheren Lauf liegen -- und genau dieser Stand ginge ins Release.
-dotnet publish $helperProjectPath -c Release -r win-x64 --no-restore -o $outputPath
-if ($LASTEXITCODE -ne 0) { throw 'Der Publish des Fensterhelfers ist fehlgeschlagen.' }
-
-$publishedExecutablePath = Join-Path $outputPath 'ZoneManager.exe'
-$publishedHelperPath = Join-Path $outputPath 'ZoneManager.Helper.exe'
-$diagnosticPath = Join-Path $projectRoot 'outputs\zonemanager-diagnostics.json'
-if (-not (Test-Path -LiteralPath $publishedExecutablePath -PathType Leaf)) {
-    throw 'ZoneManager.exe fehlt im Publish-Ordner.'
+    Bis zum 09.09.2026 lief dieser Publish dreimal je Prueflauf: einmal fuer eine Artefaktpruefung in
+    einem Wegwerfverzeichnis, einmal ausdruecklich nach outputs\ und einmal beim Kopieren ins
+    Rootverzeichnis. Jeder Durchgang erzeugte dieselben 70 MB und schob sie ueber das Netzlaufwerk;
+    zusammen waren das gut anderthalb Minuten fuer ein Ergebnis, das schon vorlag.
+#>
+Invoke-Step 'publish' {
+    dotnet build $projectPath -c Release --no-restore
+    if ($LASTEXITCODE -ne 0) { throw 'Der Publish ist fehlgeschlagen.' }
 }
 
-$publishedExecutableBytes = (Get-Item -LiteralPath $publishedExecutablePath).Length
-if ($publishedExecutableBytes -gt $maximumExecutableBytes) {
-    throw "Die veröffentlichte EXE ist mit $publishedExecutableBytes Bytes grösser als das erlaubte Maximum von $maximumExecutableBytes Bytes."
+foreach ($artifact in @(
+        @{ Path = $rootExecutablePath; Name = 'ZoneManager.exe' },
+        @{ Path = $rootHelperPath; Name = 'ZoneManager.Helper.exe' })) {
+    if (-not (Test-Path -LiteralPath $artifact.Path -PathType Leaf)) {
+        throw "$($artifact.Name) fehlt im Rootverzeichnis."
+    }
 }
 
-& (Join-Path $scriptDirectory 'install-root-executable.ps1') `
-    -PublishedExecutablePath $publishedExecutablePath `
-    -RootExecutablePath $rootExecutablePath
-if (-not (Test-Path -LiteralPath $rootExecutablePath -PathType Leaf)) {
-    throw 'ZoneManager.exe fehlt im Rootverzeichnis.'
-}
-
-if ((Get-FileHash -LiteralPath $publishedExecutablePath).Hash -ne (Get-FileHash -LiteralPath $rootExecutablePath).Hash) {
-    throw 'Die EXE im Rootverzeichnis stimmt nicht mit dem Publish-Artefakt ueberein.'
-}
-
-if (-not (Test-Path -LiteralPath $publishedHelperPath -PathType Leaf)) {
-    throw 'ZoneManager.Helper.exe fehlt im Publish-Ordner.'
-}
-
-& (Join-Path $scriptDirectory 'install-root-executable.ps1') `
-    -PublishedExecutablePath $publishedHelperPath `
-    -RootExecutablePath $rootHelperPath
-if (-not (Test-Path -LiteralPath $rootHelperPath -PathType Leaf)) {
-    throw 'ZoneManager.Helper.exe fehlt im Rootverzeichnis.'
-}
-
-if ((Get-FileHash -LiteralPath $publishedHelperPath).Hash -ne (Get-FileHash -LiteralPath $rootHelperPath).Hash) {
-    throw 'Der Fensterhelfer im Rootverzeichnis stimmt nicht mit dem Publish-Artefakt ueberein.'
+$rootExecutableBytes = (Get-Item -LiteralPath $rootExecutablePath).Length
+if ($rootExecutableBytes -gt $maximumExecutableBytes) {
+    throw "Die veröffentlichte EXE ist mit $rootExecutableBytes Bytes grösser als das erlaubte Maximum von $maximumExecutableBytes Bytes."
 }
 
 # In einer Fernsitzung zeigt Windows dem Prozess nur die Platzhalteranzeige der Sitzung; die echten
@@ -112,7 +111,8 @@ if ((Get-FileHash -LiteralPath $publishedHelperPath).Hash -ne (Get-FileHash -Lit
 Add-Type -AssemblyName System.Windows.Forms
 $remoteSession = [System.Windows.Forms.SystemInformation]::TerminalServerSession
 
-& $rootExecutablePath --diagnostics | Out-File -LiteralPath $diagnosticPath -Encoding utf8
+# Der Diagnoselauf beweist zugleich, dass die eben gebaute Einzeldatei selbstaendig laeuft.
+Invoke-Step 'diagnose' { & $rootExecutablePath --diagnostics | Out-File -LiteralPath $diagnosticPath -Encoding utf8 }
 $diagnosticExitCode = $LASTEXITCODE
 if ($diagnosticExitCode -ne 0 -and -not ($diagnosticExitCode -eq 2 -and $remoteSession)) {
     throw "Die Diagnose ist fehlgeschlagen (Rückgabewert $diagnosticExitCode)."
@@ -137,7 +137,8 @@ else {
 # Der unsichtbare Fensterrand wird an bereits offenen Fenstern gemessen, nicht angenommen. Ueberschreitet
 # er die Obergrenze aus WindowFrameCompensation, bricht die Messung ab: dann waeren sowohl der Ausgleich
 # beim Einrasten als auch die Toleranz, mit der MainZoneFallback ein eingerastetes Fenster erkennt, falsch.
-$frameOutput = & (Join-Path $scriptDirectory 'measure-window-frame.ps1')
+$frameOutput = $null
+Invoke-Step 'fensterrand' { $script:frameOutput = & (Join-Path $scriptDirectory 'measure-window-frame.ps1') }
 $frameOutput | Write-Output
 $frameLine = @($frameOutput | Where-Object { $_ -is [string] -and $_ -match '^FRAME_(OK|SKIPPED)' })
 $frameStatus = if ($frameLine.Count -gt 0 -and $frameLine[-1] -match '^FRAME_OK.*largest=(\d+)') {
@@ -147,6 +148,11 @@ else {
     'skipped'
 }
 
-$files = Get-ChildItem -LiteralPath $outputPath -File -Recurse
+$files = Get-ChildItem -LiteralPath $publishDirectory -File -Recurse
 $bytes = ($files | Measure-Object -Property Length -Sum).Sum
+$total = ($stepDurations.Values | Measure-Object -Sum).Sum
+$ranking = ($stepDurations.GetEnumerator() |
+    Sort-Object -Property Value -Descending |
+    ForEach-Object { '{0}={1:n1}s' -f $_.Key, $_.Value }) -join ' '
+Write-Output ("VERIFY_TIMING total={0:n1}s {1}" -f $total, $ranking)
 Write-Output "VERIFY_OK tests=passed rootBuild=passed dpi=$dpiStatus windowFrame=$frameStatus monitors=$(@($diagnostic.monitors).Count) startupLayouts=$($diagnostic.startupLayoutCount) files=$($files.Count) bytes=$bytes maximumExecutableBytes=$maximumExecutableBytes rootExe=$rootExecutablePath rootHelper=$rootHelperPath hookRegistered=false settingsChanged=false"
