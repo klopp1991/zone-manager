@@ -98,7 +98,10 @@ if (Test-Path -LiteralPath $msiPath) {
     Remove-Item -LiteralPath $msiPath -Force
 }
 
-dotnet build $projectPath -c Release `
+# Immer neu binden statt inkrementell: MSBuild hielt das Paket schon fuer aktuell, wenn allein die
+# Programmdatei neu entstanden war, und legte dann eine zwischengespeicherte Fassung ab. Ein Paket mit
+# veralteter Programmdatei faellt niemandem auf, bis es jemand installiert.
+dotnet build $projectPath -c Release -t:Rebuild `
     -p:ZoneManagerExecutablePath=$([System.IO.Path]::GetFullPath($ExecutablePath)) `
     -p:ZoneManagerHelperPath=$([System.IO.Path]::GetFullPath($HelperPath)) `
     -p:ZoneManagerIconPath=$iconPath `
@@ -114,5 +117,60 @@ if (-not (Test-Path -LiteralPath $built -PathType Leaf)) {
 }
 
 Move-Item -LiteralPath $built -Destination $msiPath -Force
+
+<#
+.SYNOPSIS
+    Prueft, dass im Paket wirklich die eben gebauten Dateien stecken.
+
+.DESCRIPTION
+    Die Dateitabelle eines MSI nennt jede enthaltene Datei mit ihrer Groesse. Verglichen wird sie mit
+    den Dateien, die diesem Lauf mitgegeben wurden. Der Grund ist ein Beinaheunfall vom 09.09.2026: ein
+    Paket wurde als «aktuell» uebersprungen und trug danach eine aeltere Programmdatei, ohne dass etwas
+    darauf hinwies.
+#>
+function Assert-PayloadMatches {
+    param(
+        [Parameter(Mandatory = $true)][string]$PackagePath,
+        [Parameter(Mandatory = $true)][hashtable]$ExpectedSizes
+    )
+
+    $installer = New-Object -ComObject WindowsInstaller.Installer
+    $database = $null
+    $view = $null
+    try {
+        $database = $installer.GetType().InvokeMember('OpenDatabase', 'InvokeMethod', $null, $installer, @($PackagePath, 0))
+        $view = $database.GetType().InvokeMember('OpenView', 'InvokeMethod', $null, $database, @('SELECT FileName, FileSize FROM File'))
+        $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null)
+        $found = @{}
+        while ($true) {
+            $record = $view.GetType().InvokeMember('Fetch', 'InvokeMethod', $null, $view, $null)
+            if (-not $record) { break }
+            # Kurzname|Langname, wenn der Name nicht ins alte 8.3-Schema passt.
+            $name = ($record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, @(1)) -split '\|')[-1]
+            $found[$name] = [long]$record.GetType().InvokeMember('StringData', 'GetProperty', $null, $record, @(2))
+        }
+
+        foreach ($name in $ExpectedSizes.Keys) {
+            if (-not $found.ContainsKey($name)) {
+                throw "Im Paket fehlt $name."
+            }
+
+            if ($found[$name] -ne $ExpectedSizes[$name]) {
+                throw "Im Paket steckt ein anderer Stand von ${name}: $($found[$name]) statt $($ExpectedSizes[$name]) Bytes."
+            }
+        }
+    }
+    finally {
+        foreach ($comObject in @($view, $database, $installer)) {
+            if ($null -ne $comObject) { [void][System.Runtime.InteropServices.Marshal]::FinalReleaseComObject($comObject) }
+        }
+    }
+}
+
+Assert-PayloadMatches -PackagePath $msiPath -ExpectedSizes @{
+    'ZoneManager.exe'        = (Get-Item -LiteralPath $ExecutablePath).Length
+    'ZoneManager.Helper.exe' = (Get-Item -LiteralPath $HelperPath).Length
+}
+
 $bytes = (Get-Item -LiteralPath $msiPath).Length
 Write-Output "INSTALLER_OK path=$msiPath version=$Version msiVersion=$msiVersion bytes=$bytes"

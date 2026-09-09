@@ -9,6 +9,16 @@
     <OutputType>Package</OutputType>
     <Platform>x64</Platform>
     <Cultures>de-DE</Cultures>
+    <!--
+      ICE43 und ICE57 verlangen fuer eine gewoehnliche (nicht angekuendigte) Verknuepfung einen
+      Registrierungswert unter HKEY_CURRENT_USER als Schluesselpfad. Die Regel gilt Verknuepfungen im
+      Startmenue eines Benutzers; dieses Paket installiert fuer alle Benutzer, legt die Verknuepfung ins
+      gemeinsame Startmenue und hat mit der Programmdatei einen Schluesselpfad, der ebenso fuer alle
+      gilt. Angekuendigte Verknuepfungen waeren die Alternative — sie zeigten am 09.09.2026 in der
+      Taskleiste ein leeres Blatt statt des Symbols.
+      ICE61 meldet die absichtliche Erlaubnis, ein Paket derselben Version zu ersetzen.
+    -->
+    <SuppressIces>ICE43;ICE57;ICE61</SuppressIces>
     <DefineConstants>ExecutablePath=$(ZoneManagerExecutablePath);HelperPath=$(ZoneManagerHelperPath);IconPath=$(ZoneManagerIconPath);LicenseRtfPath=$(ZoneManagerLicenseRtfPath);MsiVersion=$(ZoneManagerMsiVersion);DisplayVersion=$(ZoneManagerDisplayVersion)</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
