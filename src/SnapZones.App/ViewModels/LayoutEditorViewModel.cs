@@ -24,14 +24,14 @@ public sealed class LayoutEditorViewModel : ViewModelBase
     public IReadOnlyList<ZoneDefinition> Zones => session.Zones;
     public ZoneDefinition? SelectedZone => Zones.FirstOrDefault(zone => zone.Id == selectedZoneId);
 
-    /// <summary>Die Auffangzone dieses Layouts, falls es eine gibt.</summary>
-    public Guid? MainZoneId => session.MainZoneId;
+    /// <summary>Die Startzone dieses Layouts, falls es eine gibt.</summary>
+    public Guid? StartZoneId => session.StartZoneId;
 
-    /// <summary>Ob die gerade ausgewählte Zone die Auffangzone ist.</summary>
-    public bool IsSelectedZoneMainZone => SelectedZone is { } zone && session.MainZoneId == zone.Id;
+    /// <summary>Ob die gerade ausgewählte Zone die Startzone ist.</summary>
+    public bool IsSelectedZoneStartZone => SelectedZone is { } zone && session.StartZoneId == zone.Id;
 
     /// <summary>Ob die gerade ausgewählte Zone ein virtueller Monitor (Vollbildzone) ist.</summary>
-    public bool IsSelectedZoneVirtualMonitor => SelectedZone is { IsVirtualMonitor: true };
+    public bool IsSelectedZoneVirtualMonitor => SelectedZone is { IsFullscreenZone: true };
 
     /// <summary>Was fuer die ausgewaehlte Zone gilt, im Klartext und ohne Farbe.</summary>
     public string VirtualMonitorStateText => SelectedZone is null
@@ -41,16 +41,16 @@ public sealed class LayoutEditorViewModel : ViewModelBase
             : "Eine gewöhnliche Zone: Fenster werden nur auf ihre Fläche gesetzt.";
 
     /// <summary>Beschriftung der einen Schaltfläche; sie führt in beide Richtungen.</summary>
-    public string MainZoneActionLabel => IsSelectedZoneMainZone
-        ? "Auffangzone aufheben"
-        : "Als Auffangzone festlegen";
+    public string StartZoneActionLabel => IsSelectedZoneStartZone
+        ? "Startzone aufheben"
+        : "Als Startzone festlegen";
 
     /// <summary>Was in diesem Layout gilt, im Klartext und ohne Farbe.</summary>
-    public string MainZoneStateText => session.MainZoneId is null
-        ? "Keine Zone dieses Layouts ist Auffangzone."
-        : IsSelectedZoneMainZone
-            ? "Diese Zone ist die Auffangzone dieses Layouts."
-            : $"Auffangzone dieses Layouts ist «{Zones.First(zone => zone.Id == session.MainZoneId).Name}».";
+    public string StartZoneStateText => session.StartZoneId is null
+        ? "Keine Zone dieses Layouts ist Startzone."
+        : IsSelectedZoneStartZone
+            ? "Diese Zone ist die Startzone dieses Layouts."
+            : $"Startzone dieses Layouts ist «{Zones.First(zone => zone.Id == session.StartZoneId).Name}».";
     public bool IsDirty => session.IsDirty;
     public bool IsValid => session.Validation.IsValid;
     public bool CanUndo => session.CanUndo;
@@ -205,17 +205,17 @@ public sealed class LayoutEditorViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Macht die ausgewählte Zone zur Hauptzone dieses Layouts, oder hebt die Markierung wieder auf, wenn
+    /// Macht die ausgewählte Zone zur Startzone dieses Layouts, oder hebt die Markierung wieder auf, wenn
     /// sie es schon ist. Andere Layouts behalten ihre eigene Markierung.
     /// </summary>
-    public void ToggleSelectedZoneAsMainZone()
+    public void ToggleSelectedZoneAsStartZone()
     {
         if (selectedZoneId is null)
         {
             return;
         }
 
-        session.SetMainZone(IsSelectedZoneMainZone ? null : selectedZoneId);
+        session.SetStartZone(IsSelectedZoneStartZone ? null : selectedZoneId);
         NotifyStateChanged();
         NotifyConfigurationChanged();
     }
@@ -262,15 +262,15 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         return true;
     }
 
-    /// <summary>Macht eine Zone zur Auffangzone oder hebt die Markierung auf, wenn sie es schon ist.</summary>
-    public void ToggleMainZone(Guid zoneId)
+    /// <summary>Macht eine Zone zur Startzone oder hebt die Markierung auf, wenn sie es schon ist.</summary>
+    public void ToggleStartZone(Guid zoneId)
     {
         if (Zones.All(zone => zone.Id != zoneId))
         {
             return;
         }
 
-        session.SetMainZone(session.MainZoneId == zoneId ? null : zoneId);
+        session.SetStartZone(session.StartZoneId == zoneId ? null : zoneId);
         NotifyStateChanged();
         NotifyConfigurationChanged();
     }
@@ -326,9 +326,9 @@ public sealed class LayoutEditorViewModel : ViewModelBase
             .Select(candidate => candidate.Id == zoneId ? merged : candidate)
             .ToArray();
         session.ReplaceZones(replacement);
-        if (session.MainZoneId is null && (zone.Id == MainZoneId || neighbour.Id == MainZoneId))
+        if (session.StartZoneId is null && (zone.Id == StartZoneId || neighbour.Id == StartZoneId))
         {
-            session.SetMainZone(merged.Id);
+            session.SetStartZone(merged.Id);
         }
 
         selectedZoneId = merged.Id;
@@ -404,10 +404,10 @@ public sealed class LayoutEditorViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(Zones));
         OnPropertyChanged(nameof(SelectedZone));
-        OnPropertyChanged(nameof(MainZoneId));
-        OnPropertyChanged(nameof(IsSelectedZoneMainZone));
-        OnPropertyChanged(nameof(MainZoneActionLabel));
-        OnPropertyChanged(nameof(MainZoneStateText));
+        OnPropertyChanged(nameof(StartZoneId));
+        OnPropertyChanged(nameof(IsSelectedZoneStartZone));
+        OnPropertyChanged(nameof(StartZoneActionLabel));
+        OnPropertyChanged(nameof(StartZoneStateText));
         OnPropertyChanged(nameof(IsDirty));
         OnPropertyChanged(nameof(IsValid));
         OnPropertyChanged(nameof(CanUndo));

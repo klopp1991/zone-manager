@@ -25,8 +25,8 @@ public sealed class ZonePreview : FrameworkElement
         nameof(HighlightedZoneId), typeof(Guid?), typeof(ZonePreview),
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
-    public static readonly DependencyProperty MainZoneIdProperty = DependencyProperty.Register(
-        nameof(MainZoneId), typeof(Guid?), typeof(ZonePreview),
+    public static readonly DependencyProperty StartZoneIdProperty = DependencyProperty.Register(
+        nameof(StartZoneId), typeof(Guid?), typeof(ZonePreview),
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
     public static readonly DependencyProperty ShowLabelsProperty = DependencyProperty.Register(
@@ -95,10 +95,10 @@ public sealed class ZonePreview : FrameworkElement
         set => SetValue(HighlightedZoneIdProperty, value);
     }
 
-    public Guid? MainZoneId
+    public Guid? StartZoneId
     {
-        get => (Guid?)GetValue(MainZoneIdProperty);
-        set => SetValue(MainZoneIdProperty, value);
+        get => (Guid?)GetValue(StartZoneIdProperty);
+        set => SetValue(StartZoneIdProperty, value);
     }
 
     public bool ShowLabels

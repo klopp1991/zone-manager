@@ -149,7 +149,7 @@
                                             </Grid>
                                             <Button Style="{StaticResource CardButton}" Padding="0" BorderThickness="0" Background="Transparent" Click="OverviewMonitor_Click"
                                                     AutomationProperties.Name="{Binding UserFacingName, StringFormat=Zonen von {0} bearbeiten}">
-                                                <controls:ZonePreview Zones="{Binding Layout.Zones}" MainZoneId="{Binding Layout.MainZoneId}" AspectRatio="{Binding AspectRatio}"
+                                                <controls:ZonePreview Zones="{Binding Layout.Zones}" StartZoneId="{Binding Layout.StartZoneId}" AspectRatio="{Binding AspectRatio}"
                                                                       FrameRadius="8" FramePadding="5" LabelFontSize="12" MaxHeight="260" />
                                             </Button>
                                             <Grid Margin="0,14,0,0">
@@ -244,7 +244,7 @@
                                 </Grid>
                                 <TextBlock Text="{Binding SelectedMonitor.ConnectionNote}" Style="{StaticResource HelpText}" HorizontalAlignment="Center"
                                            Visibility="{Binding SelectedMonitor.ConnectionNote, Converter={StaticResource NotNullToVisibilityConverter}}" />
-                                <controls:ZonePreview x:Name="MonitorPreview" Zones="{Binding SelectedMonitor.Layout.Zones}" MainZoneId="{Binding SelectedMonitor.Layout.MainZoneId}"
+                                <controls:ZonePreview x:Name="MonitorPreview" Zones="{Binding SelectedMonitor.Layout.Zones}" StartZoneId="{Binding SelectedMonitor.Layout.StartZoneId}"
                                                       AspectRatio="{Binding SelectedMonitor.AspectRatio}" FrameRadius="12" FramePadding="8" LabelFontSize="14"
                                                       Margin="60,16,60,0" MaxHeight="360" />
                                 <Button x:Name="EditActiveLayoutLink" Style="{StaticResource LinkButton}" HorizontalAlignment="Right" Margin="0,6,60,0" Click="EditActiveLayout_Click"
@@ -822,7 +822,7 @@
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="280" /></Grid.ColumnDefinitions>
                                                     <StackPanel Orientation="Horizontal"><TextBlock Text="Fenster nach dem Einrasten in den Vordergrund holen" Style="{StaticResource SettingLabel}" />
                                                         <Button x:Name="ActivateAfterSnapInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Fenster nach dem Einrasten in den Vordergrund holen"
-                                                                ToolTip="Ein per Zuordnung, Auffangzone oder Tastenkürzel gesetztes Fenster wird sonst nicht aktiviert, damit dir nichts den Fokus wegnimmt. Eingeschaltet erhält es nach jedem Setzen den Fokus. Aus: das Fenster behält seinen Rang in der Fensterreihenfolge." /></StackPanel>
+                                                                ToolTip="Ein per Zuordnung, Startzone oder Tastenkürzel gesetztes Fenster wird sonst nicht aktiviert, damit dir nichts den Fokus wegnimmt. Eingeschaltet erhält es nach jedem Setzen den Fokus. Aus: das Fenster behält seinen Rang in der Fensterreihenfolge." /></StackPanel>
                                                     <CheckBox x:Name="ActivateAfterSnapSwitch" Grid.Column="1" Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Settings.ActivateWindowAfterSnap}" AutomationProperties.Name="Fenster nach dem Einrasten aktivieren" />
                                                 </Grid>
                                             </Border>
@@ -1062,17 +1062,17 @@
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="280" /></Grid.ColumnDefinitions>
                                                     <StackPanel Orientation="Horizontal"><TextBlock Text="Toleranz für «eingerastet»" Style="{StaticResource SettingLabel}" />
                                                         <Button x:Name="SnappedToleranceInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Toleranz für «eingerastet»"
-                                                                ToolTip="So nah müssen alle vier Kanten eines Fensters an den Zonenkanten liegen, damit es als eingerastet gilt und von Auffangzone und Layoutwechsel in Ruhe gelassen wird. Der unsichtbare Fensterrand von Windows macht bis zu 16 Pixel aus; 40 lässt Spielraum. Zulässig sind 8 bis 80." /></StackPanel>
+                                                                ToolTip="So nah müssen alle vier Kanten eines Fensters an den Zonenkanten liegen, damit es als eingerastet gilt und von Startzone und Layoutwechsel in Ruhe gelassen wird. Der unsichtbare Fensterrand von Windows macht bis zu 16 Pixel aus; 40 lässt Spielraum. Zulässig sind 8 bis 80." /></StackPanel>
                                                     <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"><TextBox Style="{StaticResource NumberField}" Text="{Binding Settings.SnappedTolerancePixels}" AutomationProperties.Name="Toleranz für eingerastete Fenster in Pixel" /><TextBlock Text="px" Style="{StaticResource UnitLabel}" /></StackPanel>
                                                 </Grid>
                                             </Border>
                                             <Border Style="{StaticResource SettingRow}">
                                                 <Grid>
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="280" /></Grid.ColumnDefinitions>
-                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="Neue Fenster in der Auffangzone auffangen" Style="{StaticResource SettingLabel}" />
-                                                        <Button x:Name="CatchNewWindowsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Neue Fenster in der Auffangzone auffangen"
-                                                                ToolTip="Ein neu erscheinendes Fenster ohne Zuordnung und ohne gemerkte Position landet in der Auffangzone, sofern eine festgelegt ist. Aus: es bleibt dort, wo Windows es hinsetzt; die Auffangzone dient dann nur noch dem Einsammeln beim Layoutwechsel." /></StackPanel>
-                                                    <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Settings.CatchNewWindowsInMainZone}" AutomationProperties.Name="Neue Fenster in der Auffangzone auffangen" />
+                                                    <StackPanel Orientation="Horizontal"><TextBlock Text="Neue Fenster in der Startzone auffangen" Style="{StaticResource SettingLabel}" />
+                                                        <Button x:Name="CatchNewWindowsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Neue Fenster in der Startzone auffangen"
+                                                                ToolTip="Ein neu erscheinendes Fenster ohne Zuordnung und ohne gemerkte Position landet in der Startzone, sofern eine festgelegt ist. Aus: es bleibt dort, wo Windows es hinsetzt; die Startzone dient dann nur noch dem Einsammeln beim Layoutwechsel." /></StackPanel>
+                                                    <CheckBox Grid.Column="1" Style="{StaticResource ToggleSwitch}" HorizontalAlignment="Right" IsChecked="{Binding Settings.CatchNewWindowsInStartZone}" AutomationProperties.Name="Neue Fenster in der Startzone auffangen" />
                                                 </Grid>
                                             </Border>
                                             <Border Style="{StaticResource SettingRow}">
@@ -1274,14 +1274,14 @@
                                     <Grid>
                                         <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                                         <StackPanel>
-                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Anzeigetreiber für Vollbildzonen" Style="{StaticResource SettingLabel}" />
-                                                <Button x:Name="DisplayDriverInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Anzeigetreiber"
-                                                        ToolTip="Eine Zone kann ein eigener Monitor sein: ein Fenster darin darf sein Vollbild einschalten und füllt trotzdem nur die Zone, weil es aus seiner Sicht auf einem ganzen Monitor läuft – etwa ein Film in Plex neben dem Browser. Dafür braucht Windows den Anzeigetreiber «Virtual Display Driver» (freie Software, signiert von der SignPath Foundation). Die Installation nach «Programme» richtet ihn mit ein; hier lässt er sich einzeln einrichten oder entfernen, Windows fragt dabei einmal nach Administratorrechten. Ohne Treiber bleiben Vollbildzonen ausgeschaltet, alles andere geht wie gewohnt." /></StackPanel>
-                                            <TextBlock x:Name="DisplayDriverStatusText" Text="{Binding DisplayDriverStatus}" Style="{StaticResource HelpText}" Margin="0,4,0,0" AutomationProperties.Name="Zustand des Anzeigetreibers" />
+                                            <StackPanel Orientation="Horizontal"><TextBlock Text="Vollbildzonen-Treiber" Style="{StaticResource SettingLabel}" />
+                                                <Button x:Name="DisplayDriverInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zum Vollbildzonen-Treiber"
+                                                        ToolTip="Eine Zone kann ein eigener Monitor sein: ein Fenster darin darf sein Vollbild einschalten und füllt trotzdem nur die Zone, weil es aus seiner Sicht auf einem ganzen Monitor läuft – etwa ein Film in Plex neben dem Browser. Dafür braucht Windows den Vollbildzonen-Treiber «Virtual Display Driver» (freie Software, signiert von der SignPath Foundation). Die Installation nach «Programme» richtet ihn mit ein; hier lässt er sich einzeln einrichten oder entfernen, Windows fragt dabei einmal nach Administratorrechten. Ohne Treiber bleiben Vollbildzonen ausgeschaltet, alles andere geht wie gewohnt." /></StackPanel>
+                                            <TextBlock x:Name="DisplayDriverStatusText" Text="{Binding DisplayDriverStatus}" Style="{StaticResource HelpText}" Margin="0,4,0,0" AutomationProperties.Name="Zustand des Vollbildzonen-Treibers" />
                                         </StackPanel>
                                         <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top">
-                                            <Button x:Name="InstallDisplayDriverButton" Content="Treiber installieren" Click="InstallDisplayDriver_Click" IsEnabled="{Binding CanInstallDisplayDriver}" AutomationProperties.Name="Anzeigetreiber installieren" />
-                                            <Button x:Name="RemoveDisplayDriverButton" Content="Treiber entfernen" Click="RemoveDisplayDriver_Click" Margin="8,0,0,0" IsEnabled="{Binding CanRemoveDisplayDriver}" AutomationProperties.Name="Anzeigetreiber entfernen" />
+                                            <Button x:Name="InstallDisplayDriverButton" Content="Treiber installieren" Click="InstallDisplayDriver_Click" IsEnabled="{Binding CanInstallDisplayDriver}" AutomationProperties.Name="Vollbildzonen-Treiber installieren" />
+                                            <Button x:Name="RemoveDisplayDriverButton" Content="Treiber entfernen" Click="RemoveDisplayDriver_Click" Margin="8,0,0,0" IsEnabled="{Binding CanRemoveDisplayDriver}" AutomationProperties.Name="Vollbildzonen-Treiber entfernen" />
                                         </StackPanel>
                                     </Grid>
                                 </Border>

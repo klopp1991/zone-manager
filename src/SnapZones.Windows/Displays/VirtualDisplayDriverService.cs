@@ -12,7 +12,7 @@ using SnapZones.Windows.Native;
 
 namespace SnapZones.Windows.Displays;
 
-/// <summary>Was vom Anzeigetreiber auf diesem Rechner vorhanden ist.</summary>
+/// <summary>Was vom Vollbildzonen-Treiber auf diesem Rechner vorhanden ist.</summary>
 /// <param name="DevicePresent">Der Geraeteknoten <c>Root\MttVDD</c> ist angelegt und laeuft.</param>
 /// <param name="DriverStored">Das Treiberpaket liegt in der Treiberablage von Windows.</param>
 /// <param name="ConfigurationPresent">Die Datei <c>vdd_settings.xml</c> mit der Modeliste liegt vor.</param>
@@ -45,7 +45,7 @@ public sealed record DriverActionResult(DriverActionOutcome Outcome, string Mess
 }
 
 /// <summary>
-/// Installiert den Anzeigetreiber «Virtual Display Driver», prueft sein Vorhandensein und entfernt ihn.
+/// Installiert den Vollbildzonen-Treiber «Virtual Display Driver», prueft sein Vorhandensein und entfernt ihn.
 ///
 /// <para>
 /// Installieren und Entfernen verlangen Administratorrechte; sie laufen im erhoehten Hilfsprozess der
@@ -117,7 +117,7 @@ public sealed class VirtualDisplayDriverService
 
         if (devices.Count == 0)
         {
-            return new DriverActionResult(DriverActionOutcome.Failed, "Der Anzeigetreiber ist nicht installiert.");
+            return new DriverActionResult(DriverActionOutcome.Failed, "Der Vollbildzonen-Treiber ist nicht installiert.");
         }
 
         var stopwatch = Stopwatch.StartNew();
@@ -126,11 +126,11 @@ public sealed class VirtualDisplayDriverService
             var (exitCode, output) = RunPnpUtil($"/restart-device \"{device.InstanceId}\"");
             if (exitCode != 0)
             {
-                return new DriverActionResult(DriverActionOutcome.Failed, $"Der Anzeigetreiber liess sich nicht neu starten: {output}");
+                return new DriverActionResult(DriverActionOutcome.Failed, $"Der Vollbildzonen-Treiber liess sich nicht neu starten: {output}");
             }
         }
 
-        return new DriverActionResult(DriverActionOutcome.Done, $"Der Anzeigetreiber wurde neu gestartet ({stopwatch.Elapsed.TotalSeconds:0.0} s).");
+        return new DriverActionResult(DriverActionOutcome.Done, $"Der Vollbildzonen-Treiber wurde neu gestartet ({stopwatch.Elapsed.TotalSeconds:0.0} s).");
     }
 
     /// <summary>
@@ -159,12 +159,12 @@ public sealed class VirtualDisplayDriverService
             var stopwatch = Stopwatch.StartNew();
             if (!NewDev.UpdateDriverForPlugAndPlayDevicesW(0, VirtualDisplay.AdapterHardwareId, infPath, NewDev.InstallFlagForce, out var rebootRequired))
             {
-                throw new Win32Exception(Marshal.GetLastWin32Error(), "Der Anzeigetreiber liess sich nicht einrichten.");
+                throw new Win32Exception(Marshal.GetLastWin32Error(), "Der Vollbildzonen-Treiber liess sich nicht einrichten.");
             }
 
             var message = created
-                ? $"Der Anzeigetreiber ist installiert ({stopwatch.Elapsed.TotalSeconds:0.0} s)."
-                : "Der Anzeigetreiber war schon angelegt und wurde erneuert.";
+                ? $"Der Vollbildzonen-Treiber ist installiert ({stopwatch.Elapsed.TotalSeconds:0.0} s)."
+                : "Der Vollbildzonen-Treiber war schon angelegt und wurde erneuert.";
             if (rebootRequired)
             {
                 message += " Windows verlangt einen Neustart.";
@@ -174,7 +174,7 @@ public sealed class VirtualDisplayDriverService
         }
         catch (Exception exception) when (exception is Win32Exception or IOException or UnauthorizedAccessException or System.Security.SecurityException)
         {
-            return new DriverActionResult(DriverActionOutcome.Failed, $"Der Anzeigetreiber liess sich nicht installieren: {exception.Message}");
+            return new DriverActionResult(DriverActionOutcome.Failed, $"Der Vollbildzonen-Treiber liess sich nicht installieren: {exception.Message}");
         }
     }
 
@@ -225,17 +225,17 @@ public sealed class VirtualDisplayDriverService
 
         if (!status.AnythingPresent && removedDevices == 0)
         {
-            return new DriverActionResult(DriverActionOutcome.AlreadyDone, "Es ist kein Anzeigetreiber installiert.");
+            return new DriverActionResult(DriverActionOutcome.AlreadyDone, "Es ist kein Vollbildzonen-Treiber installiert.");
         }
 
         return problems.Count == 0
-            ? new DriverActionResult(DriverActionOutcome.Done, "Der Anzeigetreiber wurde entfernt.")
-            : new DriverActionResult(DriverActionOutcome.Failed, "Der Anzeigetreiber wurde nur teilweise entfernt. " + string.Join(" ", problems));
+            ? new DriverActionResult(DriverActionOutcome.Done, "Der Vollbildzonen-Treiber wurde entfernt.")
+            : new DriverActionResult(DriverActionOutcome.Failed, "Der Vollbildzonen-Treiber wurde nur teilweise entfernt. " + string.Join(" ", problems));
     }
 
     /// <summary>
     /// Die veroeffentlichten Namen (<c>oemNN.inf</c>) aller Treiberpakete in der Ablage, deren
-    /// Originalname der INF des Anzeigetreibers entspricht. Liest die Ausgabe von
+    /// Originalname der INF des Vollbildzonen-Treibers entspricht. Liest die Ausgabe von
     /// <c>pnputil /enum-drivers</c>, die je nach Sprache anders beschriftet ist.
     /// </summary>
     public static IReadOnlyList<string> PublishedInfNames()

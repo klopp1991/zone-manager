@@ -10,7 +10,7 @@ namespace SnapZones.Tests.Placement;
 
 /// <summary>
 /// Das Platzierungs-Modul am gestellten Fenstersatz. Geprüft wird die vollständige Zuordnungskette beim
-/// Erscheinen eines Fensters — Regel, gemerkte Position, Hauptzone —, dazu Ausschlüsse und der
+/// Erscheinen eines Fensters — Regel, gemerkte Position, Startzone —, dazu Ausschlüsse und der
 /// abschaltbare Positionskatalog.
 /// </summary>
 public sealed class WindowPlacementEngineTests
@@ -21,7 +21,7 @@ public sealed class WindowPlacementEngineTests
     [InlineData(3)]
     public async Task Fullscreen_is_protected_at_every_inspection_before_restoring(int fullscreenFromInspection)
     {
-        using var harness = Harness(mainZoneId: RightZoneId, catalog: Catalog(LeftZoneBounds));
+        using var harness = Harness(startZoneId: RightZoneId, catalog: Catalog(LeftZoneBounds));
         harness.WindowService.Add(Window(17, Stray));
         var inspections = 0;
         harness.WindowService.OnInspect = () =>
@@ -42,7 +42,7 @@ public sealed class WindowPlacementEngineTests
     [Fact]
     public async Task A_fullscreen_window_without_history_is_not_caught_by_the_main_zone()
     {
-        using var harness = Harness(mainZoneId: RightZoneId);
+        using var harness = Harness(startZoneId: RightZoneId);
         harness.WindowService.Add(Window(17, new PixelRect(0, 0, 1920, 1080)) with { IsFullscreen = true });
         harness.Engine.Start();
 
@@ -62,7 +62,7 @@ public sealed class WindowPlacementEngineTests
     [Fact]
     public async Task A_new_window_without_any_assignment_lands_in_the_main_zone()
     {
-        using var harness = Harness(mainZoneId: RightZoneId);
+        using var harness = Harness(startZoneId: RightZoneId);
         harness.WindowService.Add(Window(17, Stray));
         harness.Engine.Start();
 
@@ -76,7 +76,7 @@ public sealed class WindowPlacementEngineTests
     [Fact]
     public async Task A_new_window_already_snapped_to_a_zone_is_not_moved()
     {
-        using var harness = Harness(mainZoneId: RightZoneId);
+        using var harness = Harness(startZoneId: RightZoneId);
         harness.WindowService.Add(Window(17, LeftZoneBounds));
         harness.Engine.Start();
 
@@ -88,7 +88,7 @@ public sealed class WindowPlacementEngineTests
     [Fact]
     public async Task A_maximized_window_keeps_its_size()
     {
-        using var harness = Harness(mainZoneId: RightZoneId);
+        using var harness = Harness(startZoneId: RightZoneId);
         harness.WindowService.Add(Window(17, Stray) with { IsMaximized = true });
         harness.Engine.Start();
 
@@ -100,7 +100,7 @@ public sealed class WindowPlacementEngineTests
     [Fact]
     public async Task Without_a_main_zone_a_new_window_is_left_where_windows_put_it()
     {
-        using var harness = Harness(mainZoneId: null);
+        using var harness = Harness(startZoneId: null);
         harness.WindowService.Add(Window(17, Stray));
         harness.Engine.Start();
 
@@ -113,7 +113,7 @@ public sealed class WindowPlacementEngineTests
     public async Task A_remembered_position_wins_over_the_main_zone()
     {
         var remembered = new PixelRect(120, 80, 640, 480);
-        using var harness = Harness(mainZoneId: RightZoneId, catalog: Catalog(remembered));
+        using var harness = Harness(startZoneId: RightZoneId, catalog: Catalog(remembered));
         harness.WindowService.Add(Window(17, Stray));
         harness.Engine.Start();
 
@@ -125,7 +125,7 @@ public sealed class WindowPlacementEngineTests
     [Fact]
     public async Task A_configured_rule_wins_over_the_main_zone()
     {
-        using var harness = Harness(mainZoneId: RightZoneId);
+        using var harness = Harness(startZoneId: RightZoneId);
         harness.Configuration = harness.Configuration with
         {
             AppRules =
@@ -150,14 +150,14 @@ public sealed class WindowPlacementEngineTests
         await harness.ShowWindowAsync(17);
 
         // Die Regel selbst wird vom Regel-Koordinator ausgefuehrt; das Platzierungs-Modul haelt
-        // sich hier vollstaendig heraus, statt das Fenster vorher in die Hauptzone zu ziehen.
+        // sich hier vollstaendig heraus, statt das Fenster vorher in die Startzone zu ziehen.
         Assert.Empty(harness.WindowService.Placements);
     }
 
     [Fact]
     public async Task An_excluded_window_is_neither_placed_nor_remembered()
     {
-        using var harness = Harness(mainZoneId: RightZoneId);
+        using var harness = Harness(startZoneId: RightZoneId);
         harness.Configuration = harness.Configuration with
         {
             AppExclusions = [new AppExclusion(Guid.NewGuid(), "editor.exe", null, null, true)]
@@ -175,7 +175,7 @@ public sealed class WindowPlacementEngineTests
     [Fact]
     public async Task A_disabled_exclusion_leaves_the_main_zone_in_charge()
     {
-        using var harness = Harness(mainZoneId: RightZoneId);
+        using var harness = Harness(startZoneId: RightZoneId);
         harness.Configuration = harness.Configuration with
         {
             AppExclusions = [new AppExclusion(Guid.NewGuid(), "editor.exe", null, null, false)]
@@ -191,7 +191,7 @@ public sealed class WindowPlacementEngineTests
     [Fact]
     public async Task Without_an_active_layout_nothing_happens_at_all()
     {
-        using var harness = Harness(mainZoneId: RightZoneId);
+        using var harness = Harness(startZoneId: RightZoneId);
         harness.Configuration = harness.Configuration with
         {
             Layouts = harness.Configuration.Layouts.Select(layout => layout with { IsActive = false }).ToArray()
@@ -209,7 +209,7 @@ public sealed class WindowPlacementEngineTests
     [Fact]
     public async Task A_focus_change_never_moves_a_window()
     {
-        using var harness = Harness(mainZoneId: RightZoneId);
+        using var harness = Harness(startZoneId: RightZoneId);
         harness.WindowService.Add(Window(17, Stray));
         harness.Engine.Start();
 
@@ -221,7 +221,7 @@ public sealed class WindowPlacementEngineTests
     [Fact]
     public async Task A_placed_window_is_taken_into_the_catalogue()
     {
-        using var harness = Harness(mainZoneId: RightZoneId);
+        using var harness = Harness(startZoneId: RightZoneId);
         harness.WindowService.Add(Window(17, LeftZoneBounds));
         harness.Engine.Start();
 
@@ -239,7 +239,7 @@ public sealed class WindowPlacementEngineTests
         // Ein Browser im Vollbild nimmt den ganzen Monitor ein. Dieses Rechteck darf den Katalog nicht
         // ueberschreiben, sonst erscheint das Fenster beim naechsten Start monitorfuellend statt in
         // seiner Zone.
-        using var harness = Harness(mainZoneId: RightZoneId);
+        using var harness = Harness(startZoneId: RightZoneId);
         harness.WindowService.Add(Window(17, LeftZoneBounds));
         harness.Engine.Start();
         await harness.EndMoveAsync(17);
@@ -258,7 +258,7 @@ public sealed class WindowPlacementEngineTests
         // In einer Vollbildzone liegt das Fenster auf dem virtuellen Monitor rechts neben dem Desktop.
         // Dieses Rechteck darf nicht in den Katalog: es fiele auf den Hauptmonitor zurueck, und das
         // Fenster erschiene beim naechsten Start ausserhalb jedes Bildschirms.
-        using var harness = Harness(mainZoneId: RightZoneId);
+        using var harness = Harness(startZoneId: RightZoneId);
         harness.WindowService.Add(Window(17, LeftZoneBounds));
         harness.Engine.Start();
         await harness.EndMoveAsync(17);
@@ -274,8 +274,8 @@ public sealed class WindowPlacementEngineTests
     [Fact]
     public async Task With_remembering_switched_off_the_main_zone_still_catches_new_windows()
     {
-        // Die Hauptzone haengt nicht am Positionskatalog: wer das Merken abschaltet, verliert sie nicht.
-        using var harness = Harness(mainZoneId: RightZoneId);
+        // Die Startzone haengt nicht am Positionskatalog: wer das Merken abschaltet, verliert sie nicht.
+        using var harness = Harness(startZoneId: RightZoneId);
         harness.Configuration = harness.Configuration with
         {
             Settings = harness.Configuration.Settings with { RememberWindowPositions = false }
@@ -294,7 +294,7 @@ public sealed class WindowPlacementEngineTests
     public async Task With_remembering_switched_off_a_stored_entry_is_not_applied()
     {
         var remembered = new PixelRect(120, 80, 640, 480);
-        using var harness = Harness(mainZoneId: null, catalog: Catalog(remembered));
+        using var harness = Harness(startZoneId: null, catalog: Catalog(remembered));
         harness.Configuration = harness.Configuration with
         {
             Settings = harness.Configuration.Settings with { RememberWindowPositions = false }
@@ -312,7 +312,7 @@ public sealed class WindowPlacementEngineTests
     [Fact]
     public async Task Forgetting_everything_empties_the_catalogue_and_writes_it_out()
     {
-        using var harness = Harness(mainZoneId: null, catalog: Catalog(new PixelRect(120, 80, 640, 480)));
+        using var harness = Harness(startZoneId: null, catalog: Catalog(new PixelRect(120, 80, 640, 480)));
         harness.Engine.Start();
 
         harness.Engine.ForgetAll();
@@ -323,7 +323,7 @@ public sealed class WindowPlacementEngineTests
         Assert.Empty(harness.Repository.Latest.Entries);
     }
 
-    private static PlacementEngineHarness Harness(Guid? mainZoneId, WindowPlacementCatalog? catalog = null)
+    private static PlacementEngineHarness Harness(Guid? startZoneId, WindowPlacementCatalog? catalog = null)
     {
         var zones = new ZoneDefinition[]
         {
@@ -340,7 +340,7 @@ public sealed class WindowPlacementEngineTests
                     Id = LayoutId,
                     Name = "Arbeit",
                     IsActive = true,
-                    MainZoneId = mainZoneId
+                    StartZoneId = startZoneId
                 }
             ]);
 
@@ -372,7 +372,7 @@ public sealed class WindowPlacementEngineTests
     {
         // Ein Kontextmenue oder ein Dialog erscheint wie jedes andere Fenster; die Begruendung aus
         // AutomaticPlacement haengt an der Aufnahme und haelt den Auffang zurueck.
-        using var harness = Harness(mainZoneId: RightZoneId);
+        using var harness = Harness(startZoneId: RightZoneId);
         harness.WindowService.Add(Window(17, Stray) with
         {
             AutomaticPlacementRejection = AutomaticPlacementRejection.TransientClass
@@ -388,7 +388,7 @@ public sealed class WindowPlacementEngineTests
     public async Task A_dialog_is_not_restored_to_its_remembered_position_either()
     {
         var remembered = new PixelRect(120, 80, 640, 480);
-        using var harness = Harness(mainZoneId: RightZoneId, catalog: Catalog(remembered));
+        using var harness = Harness(startZoneId: RightZoneId, catalog: Catalog(remembered));
         harness.WindowService.Add(Window(17, Stray) with
         {
             AutomaticPlacementRejection = AutomaticPlacementRejection.NoMaximizeBox

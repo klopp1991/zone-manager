@@ -78,10 +78,10 @@ public sealed class MainViewModel : ViewModelBase
     /// <summary>Bittet darum, das eigene Zertifikat wieder zu entfernen.</summary>
     public event Action? CertificateRemoveRequested;
 
-    /// <summary>Bittet darum, den Anzeigetreiber für Vollbildzonen zu installieren.</summary>
+    /// <summary>Bittet darum, den Vollbildzonen-Treiber zu installieren.</summary>
     public event Action? DisplayDriverInstallRequested;
 
-    /// <summary>Bittet darum, den Anzeigetreiber für Vollbildzonen zu entfernen.</summary>
+    /// <summary>Bittet darum, den Vollbildzonen-Treiber zu entfernen.</summary>
     public event Action? DisplayDriverRemoveRequested;
 
     /// <summary>Bittet darum, das Einrasten nach einem Not-Aus oder Sicherheitsstopp wieder einzuschalten.</summary>
@@ -386,14 +386,14 @@ public sealed class MainViewModel : ViewModelBase
 
     public void RemoveCertificate() => CertificateRemoveRequested?.Invoke();
 
-    /// <summary>Ob der Anzeigetreiber für Vollbildzonen eingerichtet ist, im Klartext.</summary>
+    /// <summary>Ob der Vollbildzonen-Treiber eingerichtet ist, im Klartext.</summary>
     public string DisplayDriverStatus
     {
         get => displayDriverStatus;
         set => SetProperty(ref displayDriverStatus, value);
     }
 
-    /// <summary>Ob der Anzeigetreiber eingerichtet ist; danach richtet sich, welche Schaltfläche greift.</summary>
+    /// <summary>Ob der Vollbildzonen-Treiber eingerichtet ist; danach richtet sich, welche Schaltfläche greift.</summary>
     public bool IsDisplayDriverInstalled
     {
         get => isDisplayDriverInstalled;

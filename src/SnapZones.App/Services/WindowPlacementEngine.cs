@@ -562,7 +562,7 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         var environment = environmentFactory();
         // Dieselbe Ableitung wie beim Einrasten per Maus: aktiv ist die Snap-Funktion genau dann, wenn
         // mindestens ein Layout aktiv ist. Frueher hing dieser Pfad an einem eigenen, nie gesetzten
-        // Schalter in den Einstellungen, sodass Hauptzone und Positionsgedaechtnis im Betrieb nie liefen.
+        // Schalter in den Einstellungen, sodass Startzone und Positionsgedaechtnis im Betrieb nie liefen.
         if (!SnapActivationPolicy.ShouldEnable(environment.Configuration))
         {
             return;
@@ -604,21 +604,21 @@ public sealed class WindowPlacementEngine : IWindowPlacementEngine
         if (entry is null)
         {
             // Letzte Stufe der Zuordnungskette: was weder eine Regel noch eine gemerkte Position hat und
-            // in keiner Zone liegt, wird in der Hauptzone aufgefangen. Ein maximiertes oder minimiertes
+            // in keiner Zone liegt, wird in der Startzone aufgefangen. Ein maximiertes oder minimiertes
             // Fenster bleibt in Ruhe — es hat seine Groesse nicht von einer Zone.
             MarkProcessed(context, snapshot.Identity);
             if (snapshot.IsMaximized ||
                 snapshot.IsMinimized ||
-                MainZoneFallback.Resolve(
+                StartZoneFallback.Resolve(
                     environment.Configuration,
                     environment.Zones,
-                    snapshot.CurrentBounds) is not { } mainZoneBounds)
+                    snapshot.CurrentBounds) is not { } startZoneBounds)
             {
                 return;
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            TryPlaceIfCurrent(windowHandle, state, context, snapshot.Identity, mainZoneBounds, maximize: false);
+            TryPlaceIfCurrent(windowHandle, state, context, snapshot.Identity, startZoneBounds, maximize: false);
             return;
         }
 

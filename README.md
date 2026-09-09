@@ -74,7 +74,7 @@ Drei Mechanismen greifen ineinander, in dieser Reihenfolge:
 1. **Zuordnungen** — eine feste Zone für ein bestimmtes Fenster.
 2. **Gemerkte Positionen** — jedes einmal platzierte Fenster kehrt beim nächsten Öffnen in seine Zone
    zurück. Auch nach einem Auflösungswechsel, dann anteilig umgerechnet.
-3. **Auffangzone** — eine Zone je Layout als Arbeitszone. Dort landet, was sonst nirgends hingehört.
+3. **Startzone** — eine Zone je Layout als Arbeitszone. Dort landet, was sonst nirgends hingehört.
 
 Wer es genauer will, findet auf der Seite **Verhalten** in fünf Untertabs alles offen: Anzeigeverzögerung,
 Toleranzen beim Nachmessen, Umgang mit Fenstern fester Grösse, Katalogumfang, Schutzgrenzen, Wartezeiten.
@@ -89,7 +89,7 @@ darf sein Vollbild einschalten und füllt trotzdem nur die Zone — ein Film aus
 neben dem Browser, ein Spiel neben dem Chat. Die Maus wird übergeben, nicht nachgebaut: in der Zone
 springt der echte Zeiger auf den virtuellen Monitor, am Rand kommt er zurück, `Strg+Alt+Q` holt ihn sofort.
 
-Dafür bringt das Programm den Anzeigetreiber «Virtual Display Driver» mit (freie Software, signiert von der
+Dafür bringt das Programm den Vollbildzonen-Treiber «Virtual Display Driver» mit (freie Software, signiert von der
 SignPath Foundation); die Installation nach «Programme» richtet ihn ein. Kopiergeschützte Streams wie
 Netflix bleiben im Spiegel schwarz, das ist so gewollt.
 

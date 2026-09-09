@@ -30,8 +30,8 @@ public sealed class LayoutCanvas : FrameworkElement
         typeof(LayoutCanvas),
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
 
-    public static readonly DependencyProperty MainZoneIdProperty = DependencyProperty.Register(
-        nameof(MainZoneId),
+    public static readonly DependencyProperty StartZoneIdProperty = DependencyProperty.Register(
+        nameof(StartZoneId),
         typeof(Guid?),
         typeof(LayoutCanvas),
         new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.AffectsRender));
@@ -105,11 +105,11 @@ public sealed class LayoutCanvas : FrameworkElement
         set => SetValue(SelectedZoneIdProperty, value);
     }
 
-    /// <summary>Die Auffangzone; sie erhält im Editor eine eigene, beschriftete Kennzeichnung.</summary>
-    public Guid? MainZoneId
+    /// <summary>Die Startzone; sie erhält im Editor eine eigene, beschriftete Kennzeichnung.</summary>
+    public Guid? StartZoneId
     {
-        get => (Guid?)GetValue(MainZoneIdProperty);
-        set => SetValue(MainZoneIdProperty, value);
+        get => (Guid?)GetValue(StartZoneIdProperty);
+        set => SetValue(StartZoneIdProperty, value);
     }
 
     public double MonitorAspectRatio
@@ -381,12 +381,12 @@ public sealed class LayoutCanvas : FrameworkElement
     }
 
     /// <summary>
-    /// Kennzeichnet die Auffangzone mit einem beschrifteten Feld neben dem Zonennamen. Bewusst mit Text und
+    /// Kennzeichnet die Startzone mit einem beschrifteten Feld neben dem Zonennamen. Bewusst mit Text und
     /// nicht nur mit Farbe: die Kennzeichnung muss auch ohne Farbwahrnehmung erkennbar sein.
     /// </summary>
-    private void DrawMainZoneBadge(DrawingContext context, Rect rectangle, double labelRight, double labelTop, double labelHeight)
+    private void DrawStartZoneBadge(DrawingContext context, Rect rectangle, double labelRight, double labelTop, double labelHeight)
     {
-        var badge = Text("Auffangzone", IsFullscreen ? 12 : 11, System.Windows.Media.Brushes.White, 200);
+        var badge = Text("Startzone", IsFullscreen ? 12 : 11, System.Windows.Media.Brushes.White, 200);
         var area = new Rect(labelRight + 8, labelTop + (labelHeight - badge.Height - 4) / 2, badge.Width + 12, badge.Height + 4);
         if (area.Right > rectangle.Right - 6 || area.Bottom > rectangle.Bottom - 6)
         {
@@ -451,9 +451,9 @@ public sealed class LayoutCanvas : FrameworkElement
             var pill = new Rect(rectangle.X + 12, rectangle.Y + 12, label.Width + 20, label.Height + 12);
             context.DrawRoundedRectangle(new SolidColorBrush(MediaColor.FromArgb(191, 0, 0, 0)), null, pill, 5, 5);
             context.DrawText(label, new System.Windows.Point(pill.X + 10, pill.Y + 6));
-            if (zone.Id == MainZoneId)
+            if (zone.Id == StartZoneId)
             {
-                DrawMainZoneBadge(context, rectangle, pill.Right, pill.Y, pill.Height);
+                DrawStartZoneBadge(context, rectangle, pill.Right, pill.Y, pill.Height);
             }
 
             DrawDimensionBadge(context, rectangle, zone);
@@ -462,9 +462,9 @@ public sealed class LayoutCanvas : FrameworkElement
         {
             var label = Text(labelText, selected ? 15 : 13, ResourceBrush("InkBrush", MediaColor.FromRgb(23, 32, 51)), rectangle.Width - 20);
             context.DrawText(label, new System.Windows.Point(rectangle.X + 10, rectangle.Y + 9));
-            if (zone.Id == MainZoneId)
+            if (zone.Id == StartZoneId)
             {
-                DrawMainZoneBadge(context, rectangle, rectangle.X + 10 + label.Width, rectangle.Y + 8, label.Height + 2);
+                DrawStartZoneBadge(context, rectangle, rectangle.X + 10 + label.Width, rectangle.Y + 8, label.Height + 2);
             }
         }
 

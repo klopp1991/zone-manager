@@ -7,14 +7,14 @@ using SnapZones.Core.Placement;
 using SnapZones.Tests.Support;
 using Xunit;
 
-namespace SnapZones.Tests.MainZone;
+namespace SnapZones.Tests.StartZone;
 
 /// <summary>
-/// Die Hauptzone als Auffang für Fenster, die sonst niemandem zugeordnet werden können. Geprüft wird die
+/// Die Startzone als Auffang für Fenster, die sonst niemandem zugeordnet werden können. Geprüft wird die
 /// Auflösung, die Eindeutigkeit über die gesamte Konfiguration und der Entscheid, ob ein einzelnes
 /// Fenster überhaupt aufgefangen wird.
 /// </summary>
-public sealed class MainZoneTests
+public sealed class StartZoneTests
 {
     private static readonly Guid WorkLayoutId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid EveningLayoutId = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -25,15 +25,15 @@ public sealed class MainZoneTests
     [Fact]
     public void Without_a_marked_zone_there_is_no_main_zone()
     {
-        Assert.Null(Core.Layouts.MainZone.Resolve(ConfigurationSamples.TwoLayouts()));
+        Assert.Null(Core.Layouts.StartZone.Resolve(ConfigurationSamples.TwoLayouts()));
     }
 
     [Fact]
     public void The_marked_zone_of_the_active_layout_is_the_main_zone()
     {
-        var configuration = WithMainZone(WorkLayoutId, RightZoneId);
+        var configuration = WithStartZone(WorkLayoutId, RightZoneId);
 
-        var resolved = Core.Layouts.MainZone.Resolve(configuration);
+        var resolved = Core.Layouts.StartZone.Resolve(configuration);
 
         Assert.NotNull(resolved);
         Assert.Equal(RightZoneId, resolved.Zone.Id);
@@ -43,15 +43,15 @@ public sealed class MainZoneTests
     [Fact]
     public void A_main_zone_in_an_inactive_layout_does_not_apply()
     {
-        var configuration = WithMainZone(EveningLayoutId, VideoZoneId);
+        var configuration = WithStartZone(EveningLayoutId, VideoZoneId);
 
-        Assert.Null(Core.Layouts.MainZone.Resolve(configuration));
+        Assert.Null(Core.Layouts.StartZone.Resolve(configuration));
     }
 
     [Fact]
     public void A_deleted_zone_leaves_no_main_zone_behind()
     {
-        var configuration = WithMainZone(WorkLayoutId, RightZoneId);
+        var configuration = WithStartZone(WorkLayoutId, RightZoneId);
         configuration = configuration with
         {
             Layouts = configuration.Layouts
@@ -61,31 +61,31 @@ public sealed class MainZoneTests
                 .ToArray()
         };
 
-        Assert.Null(Core.Layouts.MainZone.Resolve(configuration));
+        Assert.Null(Core.Layouts.StartZone.Resolve(configuration));
     }
 
     [Fact]
     public void Every_layout_may_carry_its_own_main_zone()
     {
         var service = new LayoutService(ConfigurationSamples.TwoLayouts());
-        service.SetMainZone(EveningLayoutId, VideoZoneId);
+        service.SetStartZone(EveningLayoutId, VideoZoneId);
 
-        service.SetMainZone(WorkLayoutId, LeftZoneId);
+        service.SetStartZone(WorkLayoutId, LeftZoneId);
 
-        Assert.Equal(LeftZoneId, service.Configuration.Layouts.Single(layout => layout.Id == WorkLayoutId).MainZoneId);
-        Assert.Equal(VideoZoneId, service.Configuration.Layouts.Single(layout => layout.Id == EveningLayoutId).MainZoneId);
+        Assert.Equal(LeftZoneId, service.Configuration.Layouts.Single(layout => layout.Id == WorkLayoutId).StartZoneId);
+        Assert.Equal(VideoZoneId, service.Configuration.Layouts.Single(layout => layout.Id == EveningLayoutId).StartZoneId);
     }
 
     [Fact]
     public void The_marking_survives_a_layout_switch_when_both_layouts_carry_one()
     {
         var service = new LayoutService(ConfigurationSamples.TwoLayouts());
-        service.SetMainZone(WorkLayoutId, LeftZoneId);
-        service.SetMainZone(EveningLayoutId, VideoZoneId);
+        service.SetStartZone(WorkLayoutId, LeftZoneId);
+        service.SetStartZone(EveningLayoutId, VideoZoneId);
 
         service.ActivateLayout(EveningLayoutId);
 
-        Assert.Equal(VideoZoneId, service.ResolveMainZone()?.Zone.Id);
+        Assert.Equal(VideoZoneId, service.ResolveStartZone()?.Zone.Id);
     }
 
     [Fact]
@@ -94,23 +94,23 @@ public sealed class MainZoneTests
         var configuration = TwoMonitors();
 
         // Ohne festgelegte Reihenfolge gewinnt das zuerst gespeicherte Layout.
-        Assert.Equal("Links", Core.Layouts.MainZone.Resolve(configuration)?.Zone.Name);
+        Assert.Equal("Links", Core.Layouts.StartZone.Resolve(configuration)?.Zone.Name);
 
         var service = new LayoutService(configuration);
         service.UpdateMonitorOrder([SecondMonitor, FirstMonitor]);
 
-        Assert.Equal("Video", service.ResolveMainZone()?.Zone.Name);
+        Assert.Equal("Video", service.ResolveStartZone()?.Zone.Name);
     }
 
     [Fact]
     public void A_main_zone_can_be_removed_again()
     {
         var service = new LayoutService(ConfigurationSamples.TwoLayouts());
-        service.SetMainZone(WorkLayoutId, LeftZoneId);
+        service.SetStartZone(WorkLayoutId, LeftZoneId);
 
-        service.SetMainZone(WorkLayoutId, null);
+        service.SetStartZone(WorkLayoutId, null);
 
-        Assert.Null(service.ResolveMainZone());
+        Assert.Null(service.ResolveStartZone());
     }
 
     [Fact]
@@ -118,21 +118,21 @@ public sealed class MainZoneTests
     {
         var service = new LayoutService(ConfigurationSamples.TwoLayouts());
 
-        Assert.Throws<KeyNotFoundException>(() => service.SetMainZone(WorkLayoutId, VideoZoneId));
+        Assert.Throws<KeyNotFoundException>(() => service.SetStartZone(WorkLayoutId, VideoZoneId));
     }
 
     [Fact]
     public void A_copied_layout_inherits_the_marking_on_its_own_new_zone()
     {
         var service = new LayoutService(ConfigurationSamples.TwoLayouts());
-        service.SetMainZone(WorkLayoutId, LeftZoneId);
+        service.SetStartZone(WorkLayoutId, LeftZoneId);
 
         var added = service.AddLayout(WorkLayoutId, "Fokus");
 
         var copy = service.Configuration.Layouts.Single(layout => layout.Id == added.Id);
-        Assert.Equal(copy.Zones[0].Id, copy.MainZoneId);
-        Assert.NotEqual(LeftZoneId, copy.MainZoneId);
-        Assert.Equal(LeftZoneId, service.Configuration.Layouts.Single(layout => layout.Id == WorkLayoutId).MainZoneId);
+        Assert.Equal(copy.Zones[0].Id, copy.StartZoneId);
+        Assert.NotEqual(LeftZoneId, copy.StartZoneId);
+        Assert.Equal(LeftZoneId, service.Configuration.Layouts.Single(layout => layout.Id == WorkLayoutId).StartZoneId);
     }
 
     [Fact]
@@ -142,7 +142,7 @@ public sealed class MainZoneTests
 
         var added = service.AddLayout(WorkLayoutId, "Fokus");
 
-        Assert.Null(service.Configuration.Layouts.Single(layout => layout.Id == added.Id).MainZoneId);
+        Assert.Null(service.Configuration.Layouts.Single(layout => layout.Id == added.Id).StartZoneId);
     }
 
     [Fact]
@@ -151,22 +151,22 @@ public sealed class MainZoneTests
         var configuration = ConfigurationSamples.TwoLayouts();
         var layouts = configuration.Layouts
             .Select(layout => layout.Id == WorkLayoutId
-                ? layout with { MainZoneId = LeftZoneId }
-                : layout with { MainZoneId = LeftZoneId })
+                ? layout with { StartZoneId = LeftZoneId }
+                : layout with { StartZoneId = LeftZoneId })
             .ToArray();
 
-        var normalized = Core.Layouts.MainZone.Normalize(layouts);
+        var normalized = Core.Layouts.StartZone.Normalize(layouts);
 
-        Assert.Equal(LeftZoneId, normalized.Single(layout => layout.Id == WorkLayoutId).MainZoneId);
-        Assert.Null(normalized.Single(layout => layout.Id == EveningLayoutId).MainZoneId);
+        Assert.Equal(LeftZoneId, normalized.Single(layout => layout.Id == WorkLayoutId).StartZoneId);
+        Assert.Null(normalized.Single(layout => layout.Id == EveningLayoutId).StartZoneId);
     }
 
     [Fact]
     public void A_window_outside_every_zone_is_caught_by_the_main_zone()
     {
-        var configuration = WithMainZone(WorkLayoutId, RightZoneId);
+        var configuration = WithStartZone(WorkLayoutId, RightZoneId);
 
-        var bounds = MainZoneFallback.Resolve(configuration, Zones(), new PixelRect(1400, 600, 300, 200));
+        var bounds = StartZoneFallback.Resolve(configuration, Zones(), new PixelRect(1400, 600, 300, 200));
 
         Assert.Equal(new PixelRect(960, 0, 960, 1080), bounds);
     }
@@ -174,31 +174,31 @@ public sealed class MainZoneTests
     [Fact]
     public void A_window_snapped_to_another_zone_is_left_alone()
     {
-        var configuration = WithMainZone(WorkLayoutId, RightZoneId);
+        var configuration = WithStartZone(WorkLayoutId, RightZoneId);
 
-        Assert.Null(MainZoneFallback.Resolve(configuration, Zones(), new PixelRect(0, 0, 960, 1080)));
+        Assert.Null(StartZoneFallback.Resolve(configuration, Zones(), new PixelRect(0, 0, 960, 1080)));
     }
 
     [Fact]
     public void The_invisible_window_border_still_counts_as_snapped()
     {
-        var configuration = WithMainZone(WorkLayoutId, RightZoneId);
+        var configuration = WithStartZone(WorkLayoutId, RightZoneId);
 
         // Ein eingerastetes Fenster meldet wegen des unsichtbaren Griffbereichs ein etwas groesseres
         // Rechteck als die Zone.
-        Assert.Null(MainZoneFallback.Resolve(configuration, Zones(), new PixelRect(-7, 0, 974, 1087)));
+        Assert.Null(StartZoneFallback.Resolve(configuration, Zones(), new PixelRect(-7, 0, 974, 1087)));
     }
 
     [Fact]
     public void A_small_window_lying_over_a_zone_is_not_snapped()
     {
-        Assert.False(MainZoneFallback.IsSnappedToAnyZone(new PixelRect(100, 100, 400, 300), Zones()));
+        Assert.False(StartZoneFallback.IsSnappedToAnyZone(new PixelRect(100, 100, 400, 300), Zones()));
     }
 
     [Fact]
     public void Without_a_main_zone_nothing_is_caught()
     {
-        Assert.Null(MainZoneFallback.Resolve(
+        Assert.Null(StartZoneFallback.Resolve(
             ConfigurationSamples.TwoLayouts(),
             Zones(),
             new PixelRect(1400, 600, 300, 200)));
@@ -209,13 +209,13 @@ public sealed class MainZoneTests
     {
         var session = new LayoutEditorSession(Layout(WorkLayoutId));
 
-        session.SetMainZone(RightZoneId);
-        Assert.Equal(RightZoneId, session.MainZoneId);
+        session.SetStartZone(RightZoneId);
+        Assert.Equal(RightZoneId, session.StartZoneId);
         Assert.True(session.IsDirty);
-        Assert.Equal(RightZoneId, session.CreateSnapshot().MainZoneId);
+        Assert.Equal(RightZoneId, session.CreateSnapshot().StartZoneId);
 
-        session.SetMainZone(null);
-        Assert.Null(session.MainZoneId);
+        session.SetStartZone(null);
+        Assert.Null(session.StartZoneId);
         Assert.False(session.IsDirty);
     }
 
@@ -223,34 +223,34 @@ public sealed class MainZoneTests
     public void Deleting_the_main_zone_removes_the_marking()
     {
         var session = new LayoutEditorSession(Layout(WorkLayoutId));
-        session.SetMainZone(RightZoneId);
+        session.SetStartZone(RightZoneId);
 
         session.DeleteZone(RightZoneId);
 
-        Assert.Null(session.MainZoneId);
+        Assert.Null(session.StartZoneId);
     }
 
     [Fact]
     public void Applying_a_template_removes_the_marking()
     {
         var session = new LayoutEditorSession(Layout(WorkLayoutId));
-        session.SetMainZone(RightZoneId);
+        session.SetStartZone(RightZoneId);
 
         session.ReplaceZones(LayoutTemplates.Create(LayoutTemplate.ThreeColumns));
 
-        Assert.Null(session.MainZoneId);
+        Assert.Null(session.StartZoneId);
     }
 
     [Fact]
     public void Resetting_the_draft_restores_the_saved_marking()
     {
-        var saved = Layout(WorkLayoutId) with { MainZoneId = LeftZoneId };
+        var saved = Layout(WorkLayoutId) with { StartZoneId = LeftZoneId };
         var session = new LayoutEditorSession(saved);
-        session.SetMainZone(RightZoneId);
+        session.SetStartZone(RightZoneId);
 
         session.Reset();
 
-        Assert.Equal(LeftZoneId, session.MainZoneId);
+        Assert.Equal(LeftZoneId, session.StartZoneId);
         Assert.False(session.IsDirty);
     }
 
@@ -260,7 +260,7 @@ public sealed class MainZoneTests
     private static readonly MonitorIdentity SecondMonitor =
         new("DISPLAY-B", @"\\.\DISPLAY2", "Zweitmonitor");
 
-    /// <summary>Zwei Monitore, deren aktives Layout je eine Hauptzone traegt.</summary>
+    /// <summary>Zwei Monitore, deren aktives Layout je eine Startzone traegt.</summary>
     private static SnapConfiguration TwoMonitors() => new(
         SnapConfiguration.CurrentSchemaVersion,
         AppSettings.Default(Guid.Empty),
@@ -270,21 +270,21 @@ public sealed class MainZoneTests
                 Id = WorkLayoutId,
                 Name = "Arbeit",
                 IsActive = true,
-                MainZoneId = LeftZoneId
+                StartZoneId = LeftZoneId
             },
             new MonitorLayout(SecondMonitor, 1920, 1080, [new ZoneDefinition(VideoZoneId, "Video", NormalizedRect.Full)])
             {
                 Id = EveningLayoutId,
                 Name = "Abend",
                 IsActive = true,
-                MainZoneId = VideoZoneId
+                StartZoneId = VideoZoneId
             }
         ]);
 
-    private static SnapConfiguration WithMainZone(Guid layoutId, Guid zoneId)
+    private static SnapConfiguration WithStartZone(Guid layoutId, Guid zoneId)
     {
         var service = new LayoutService(ConfigurationSamples.TwoLayouts());
-        service.SetMainZone(layoutId, zoneId);
+        service.SetStartZone(layoutId, zoneId);
         return service.Configuration;
     }
 

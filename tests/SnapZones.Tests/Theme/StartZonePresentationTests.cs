@@ -11,10 +11,10 @@ using Xunit;
 namespace SnapZones.Tests.Theme;
 
 /// <summary>
-/// Die Auffangzone wird an der Zone selbst festgelegt: eine Checkbox im Werte-Panel, die in beide
+/// Die Startzone wird an der Zone selbst festgelegt: eine Checkbox im Werte-Panel, die in beide
 /// Richtungen führt, den Zustand im Klartext nennt und die Zeichenfläche mitnimmt.
 /// </summary>
-public sealed class MainZonePresentationTests
+public sealed class StartZonePresentationTests
 {
     [Fact]
     public void The_value_panel_offers_one_checkbox_for_both_directions()
@@ -22,24 +22,24 @@ public sealed class MainZonePresentationTests
         WpfThemeHost.Invoke(() =>
         {
             var (_, panel) = CreateWindow();
-            var toggle = Assert.IsType<CheckBox>(panel.FindName("MainZoneCheckBox"));
-            var state = Assert.IsType<TextBlock>(panel.FindName("MainZoneStateText"));
+            var toggle = Assert.IsType<CheckBox>(panel.FindName("StartZoneCheckBox"));
+            var state = Assert.IsType<TextBlock>(panel.FindName("StartZoneStateText"));
 
-            Assert.Equal("Auffangzone", toggle.Content);
+            Assert.Equal("Startzone", toggle.Content);
             Assert.False(toggle.IsChecked);
-            Assert.Equal("Keine Zone dieses Layouts ist Auffangzone.", state.Text);
-            Assert.Contains("Auffangzone", AutomationProperties.GetName(toggle));
+            Assert.Equal("Keine Zone dieses Layouts ist Startzone.", state.Text);
+            Assert.Contains("Startzone", AutomationProperties.GetName(toggle));
 
             toggle.IsChecked = true;
             toggle.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
 
             Assert.True(toggle.IsChecked);
-            Assert.Equal("Diese Zone ist die Auffangzone dieses Layouts.", state.Text);
+            Assert.Equal("Diese Zone ist die Startzone dieses Layouts.", state.Text);
 
             toggle.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
 
             Assert.False(toggle.IsChecked);
-            Assert.Equal("Keine Zone dieses Layouts ist Auffangzone.", state.Text);
+            Assert.Equal("Keine Zone dieses Layouts ist Startzone.", state.Text);
         });
     }
 
@@ -53,11 +53,11 @@ public sealed class MainZonePresentationTests
             var editor = Assert.IsType<LayoutEditorViewModel>(viewModel.Editor);
             var zoneId = Assert.IsType<Guid>(editor.SelectedZone?.Id);
 
-            Assert.IsType<CheckBox>(panel.FindName("MainZoneCheckBox"))
+            Assert.IsType<CheckBox>(panel.FindName("StartZoneCheckBox"))
                 .RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
 
-            Assert.Equal(zoneId, Assert.IsType<LayoutCanvas>(window.FindName("EditorCanvas")).MainZoneId);
-            Assert.Equal(zoneId, viewModel.Configuration.Layouts.Single().MainZoneId);
+            Assert.Equal(zoneId, Assert.IsType<LayoutCanvas>(window.FindName("EditorCanvas")).StartZoneId);
+            Assert.Equal(zoneId, viewModel.Configuration.Layouts.Single().StartZoneId);
         });
     }
 
@@ -67,7 +67,7 @@ public sealed class MainZonePresentationTests
         WpfThemeHost.Invoke(() =>
         {
             var (_, panel) = CreateWindow();
-            var help = Assert.IsType<Button>(panel.FindName("MainZoneInfoButton"));
+            var help = Assert.IsType<Button>(panel.FindName("StartZoneInfoButton"));
             var tooltip = Assert.IsType<string>(help.ToolTip);
 
             Assert.True(tooltip.Length >= 120);

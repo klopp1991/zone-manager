@@ -6,11 +6,11 @@ using SnapZones.Core.Models;
 namespace SnapZones.Core.Placement;
 
 /// <summary>Ein Fenster, wie es der Auffang beim Layoutwechsel vorfindet.</summary>
-public sealed record MainZoneSweepWindow(nint WindowHandle, PixelRect Bounds);
+public sealed record StartZoneSweepWindow(nint WindowHandle, PixelRect Bounds);
 
 /// <summary>
 /// Sammelt nach einem Layoutwechsel die Fenster des betroffenen Monitors ein, die im neuen Layout auf
-/// keiner Zone mehr liegen, und legt sie in die Hauptzone.
+/// keiner Zone mehr liegen, und legt sie in die Startzone.
 ///
 /// <para>
 /// Bewusst nur beim tatsächlichen Wechsel des aktiven Layouts: während des Bearbeitens speichert die
@@ -18,11 +18,11 @@ public sealed record MainZoneSweepWindow(nint WindowHandle, PixelRect Bounds);
 /// Händen wegziehen.
 /// </para>
 /// </summary>
-public static class MainZoneSweep
+public static class StartZoneSweep
 {
     /// <summary>
     /// Die Fenster, die verschoben werden sollen, samt Zielfläche. Leer, wenn die Snap-Funktion aus ist,
-    /// keine Hauptzone gilt oder kein Fenster in Frage kommt.
+    /// keine Startzone gilt oder kein Fenster in Frage kommt.
     /// </summary>
     /// <param name="activatedWorkArea">Die Arbeitsfläche des Monitors, dessen Layout gewechselt hat.</param>
     /// <param name="resolveIdentity">
@@ -33,7 +33,7 @@ public static class MainZoneSweep
         SnapConfiguration? configuration,
         IReadOnlyList<PlacementZoneTarget> zones,
         MonitorWorkArea activatedWorkArea,
-        IEnumerable<MainZoneSweepWindow> windows,
+        IEnumerable<StartZoneSweepWindow> windows,
         Func<nint, AppWindowIdentity?> resolveIdentity)
     {
         ArgumentNullException.ThrowIfNull(zones);
@@ -41,8 +41,8 @@ public static class MainZoneSweep
         ArgumentNullException.ThrowIfNull(resolveIdentity);
         if (configuration is null ||
             !SnapActivationPolicy.ShouldEnable(configuration) ||
-            !configuration.Settings.CatchNewWindowsInMainZone ||
-            MainZone.Resolve(configuration) is null)
+            !configuration.Settings.CatchNewWindowsInStartZone ||
+            StartZone.Resolve(configuration) is null)
         {
             return [];
         }
@@ -51,13 +51,13 @@ public static class MainZoneSweep
         foreach (var window in windows)
         {
             if (!IsCentredOn(window.Bounds, activatedWorkArea) ||
-                MainZoneFallback.Resolve(configuration, zones, window.Bounds) is not { } bounds)
+                StartZoneFallback.Resolve(configuration, zones, window.Bounds) is not { } bounds)
             {
                 continue;
             }
 
             // Ein Fenster ohne lesbare Identität bleibt unberührt: ohne sie liesse sich weder ein
-            // Ausschluss noch eine Regel prüfen, und beide haben Vorrang vor der Hauptzone.
+            // Ausschluss noch eine Regel prüfen, und beide haben Vorrang vor der Startzone.
             var identity = resolveIdentity(window.WindowHandle);
             if (identity is null ||
                 AppExclusionMatcher.IsExcluded(configuration.AppExclusions, identity) ||

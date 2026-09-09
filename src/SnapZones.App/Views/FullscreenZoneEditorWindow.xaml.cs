@@ -97,7 +97,7 @@ public partial class FullscreenZoneEditorWindow : Window
         var monitor = viewModel.SelectedMonitor;
         Canvas.Zones = editor?.Zones ?? [];
         Canvas.SelectedZoneId = editor?.SelectedZone?.Id;
-        Canvas.MainZoneId = editor?.MainZoneId;
+        Canvas.StartZoneId = editor?.StartZoneId;
         Canvas.MonitorPixelWidth = monitor?.Live.WorkArea.Width ?? 1;
         Canvas.MonitorPixelHeight = monitor?.Live.WorkArea.Height ?? 1;
         Canvas.MagnetThresholdPixels = viewModel.Settings.MagnetThresholdPixels;
@@ -298,7 +298,7 @@ public partial class FullscreenZoneEditorWindow : Window
     private void ZoneValues_ValuesApplied(object sender, EventArgs eventArgs)
     {
         Canvas.Zones = viewModel.Editor?.Zones ?? [];
-        Canvas.MainZoneId = viewModel.Editor?.MainZoneId;
+        Canvas.StartZoneId = viewModel.Editor?.StartZoneId;
         Canvas.InvalidateVisual();
     }
 

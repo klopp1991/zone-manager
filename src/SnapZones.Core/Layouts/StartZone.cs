@@ -3,33 +3,33 @@ using SnapZones.Core.Monitors;
 
 namespace SnapZones.Core.Layouts;
 
-/// <summary>Die aufgelöste Hauptzone: das Layout, dem sie gehört, und die Zone selbst.</summary>
-public sealed record MainZoneTarget(MonitorLayout Layout, ZoneDefinition Zone)
+/// <summary>Die aufgelöste Startzone: das Layout, dem sie gehört, und die Zone selbst.</summary>
+public sealed record StartZoneTarget(MonitorLayout Layout, ZoneDefinition Zone)
 {
     /// <summary>Layout und Zone in einer Zeile, so wie es auch die App-Regeln melden.</summary>
     public string DisplayName => $"{Layout.Name} / {Zone.Name}";
 }
 
 /// <summary>
-/// Die Hauptzone ist die Arbeitszone, in der neu erscheinende Fenster landen, wenn sie sonst nirgends
+/// Die Startzone ist die Arbeitszone, in der neu erscheinende Fenster landen, wenn sie sonst nirgends
 /// hingehören.
 ///
 /// <para>
-/// Jedes Layout darf eine eigene Hauptzone tragen; welche davon zur Laufzeit gilt, entscheidet die
-/// Monitorreihenfolge aus den Einstellungen: es gewinnt die Hauptzone des ersten Monitors, dessen aktives
+/// Jedes Layout darf eine eigene Startzone tragen; welche davon zur Laufzeit gilt, entscheidet die
+/// Monitorreihenfolge aus den Einstellungen: es gewinnt die Startzone des ersten Monitors, dessen aktives
 /// Layout überhaupt eine trägt. Damit bleibt der Ort verlässlich derselbe, solange nur eine einzige
-/// markiert ist — und ein Layoutwechsel lässt die Hauptzone nicht ausfallen, sobald auch das andere
+/// markiert ist — und ein Layoutwechsel lässt die Startzone nicht ausfallen, sobald auch das andere
 /// Layout desselben Monitors eine trägt.
 /// </para>
 /// </summary>
-public static class MainZone
+public static class StartZone
 {
     /// <summary>
-    /// Die gerade gültige Hauptzone, oder <c>null</c>, wenn kein aktives Layout eine trägt. Bei mehreren
+    /// Die gerade gültige Startzone, oder <c>null</c>, wenn kein aktives Layout eine trägt. Bei mehreren
     /// gewinnt der in der Monitorreihenfolge vorderste Monitor; Monitore ohne Eintrag in dieser Reihenfolge
     /// stehen hinten, innerhalb eines Monitors entscheidet die Reihenfolge der Layouts.
     /// </summary>
-    public static MainZoneTarget? Resolve(SnapConfiguration? configuration)
+    public static StartZoneTarget? Resolve(SnapConfiguration? configuration)
     {
         if (configuration?.Layouts is null)
         {
@@ -39,7 +39,7 @@ public static class MainZone
         var order = configuration.MonitorOrder ?? [];
         return configuration.Layouts
             .Select((layout, index) => (Layout: layout, Index: index))
-            .Where(entry => entry.Layout.IsActive && entry.Layout.MainZoneId is not null)
+            .Where(entry => entry.Layout.IsActive && entry.Layout.StartZoneId is not null)
             .Select(entry => (
                 entry.Index,
                 Rank: MonitorRank(order, entry.Layout.Monitor),
@@ -52,7 +52,7 @@ public static class MainZone
     }
 
     /// <summary>
-    /// Setzt die Hauptzone eines Layouts; <c>null</c> hebt sie auf. Andere Layouts bleiben unberührt — sie
+    /// Setzt die Startzone eines Layouts; <c>null</c> hebt sie auf. Andere Layouts bleiben unberührt — sie
     /// dürfen ihre eigene tragen. Eine Zone, die es im Layout nicht gibt, wird abgewiesen, sonst entstünde
     /// ein Verweis ins Leere, den erst die Auflösung zur Laufzeit bemerkt.
     /// </summary>
@@ -70,28 +70,28 @@ public static class MainZone
         }
 
         return layouts
-            .Select(layout => layout.Id == layoutId ? layout with { MainZoneId = zoneId } : layout)
+            .Select(layout => layout.Id == layoutId ? layout with { StartZoneId = zoneId } : layout)
             .ToArray();
     }
 
     /// <summary>
-    /// Räumt Verweise auf, die durch anderweitige Bearbeitung ungültig geworden sind: eine Hauptzone, die
+    /// Räumt Verweise auf, die durch anderweitige Bearbeitung ungültig geworden sind: eine Startzone, die
     /// es in ihrem Layout nicht mehr gibt.
     /// </summary>
     public static IReadOnlyList<MonitorLayout> Normalize(IReadOnlyList<MonitorLayout> layouts)
     {
         ArgumentNullException.ThrowIfNull(layouts);
         return layouts
-            .Select(layout => layout.MainZoneId is Guid zoneId && layout.Zones.All(zone => zone.Id != zoneId)
-                ? layout with { MainZoneId = null }
+            .Select(layout => layout.StartZoneId is Guid zoneId && layout.Zones.All(zone => zone.Id != zoneId)
+                ? layout with { StartZoneId = null }
                 : layout)
             .ToArray();
     }
 
-    private static MainZoneTarget? ToTarget(MonitorLayout layout)
+    private static StartZoneTarget? ToTarget(MonitorLayout layout)
     {
-        var zone = layout.Zones.FirstOrDefault(candidate => candidate.Id == layout.MainZoneId);
-        return zone is null ? null : new MainZoneTarget(layout, zone);
+        var zone = layout.Zones.FirstOrDefault(candidate => candidate.Id == layout.StartZoneId);
+        return zone is null ? null : new StartZoneTarget(layout, zone);
     }
 
     private static int MonitorRank(IReadOnlyList<string> order, MonitorIdentity monitor)

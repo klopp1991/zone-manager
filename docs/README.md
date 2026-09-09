@@ -73,46 +73,46 @@ Priorität und Konflikte gibt es nicht, weil mehrere zutreffende Einträge zum s
 - **+ Zone** belegt die grösste freie achsenparallele Fläche; ohne ausreichenden freien Bereich wird nichts verändert. **Zone löschen** und `Entf` entfernen die ausgewählte Zone mit **Rückgängig**.
 - **Vorlage ⌵** zeigt die fünf Vorschläge, die zu Seitenverhältnis, Auflösung, Skalierung und Monitorgrösse passen; eine Vorlage ersetzt alle Zonen, der Hinweis bietet **Rückgängig**.
 - **↶** und **↷** (auch `Strg + Z` / `Strg + Y`) nehmen jede Änderung am Entwurf zurück; ein Mausziehen zählt als eine Änderung.
-- **Doppelklick** auf eine Zone benennt sie an Ort um (`Enter` übernimmt, `Esc` bricht ab). **Rechtsklick** öffnet das Menü: Auffangzone festlegen oder aufheben, Umbenennen, **Mit Zone n verbinden** (zwei Zonen, die eine ganze Kante teilen, werden zu einer), Zone entfernen.
+- **Doppelklick** auf eine Zone benennt sie an Ort um (`Enter` übernimmt, `Esc` bricht ab). **Rechtsklick** öffnet das Menü: Startzone festlegen oder aufheben, Umbenennen, **Mit Zone n verbinden** (zwei Zonen, die eine ganze Kante teilen, werden zu einer), Zone entfernen.
 - Jede Zone trägt vor ihrem Namen eine Nummer (`1 · Links`); dieselbe Nummer steht im Overlay und ist die Taste in `Ctrl + Shift + Nummer`.
 - Zonen docken innerhalb der eingestellten Magnetdistanz an Monitor- und Zonenkanten an; `Alt` deaktiviert das Andocken während des Ziehens.
-- Das **Werte-Panel** rechts (mit **Werte ausblenden ›** einklappbar; die Stellung wird gespeichert) schaltet die **Masseinheit** an einer einzigen Stelle um; die Umschaltung gilt gemeinsam für alle acht Zahlenfelder. **Prozent** bleibt bei Auflösungsänderungen proportional; **Pixel** bezieht sich auf die aktuelle Windows-Arbeitsfläche des Monitors. **Position und Grösse** bearbeitet X, Y, Breite und Höhe; **Abstände zum Rand** beschreibt dieselbe Zone von den vier Rändern aus. Die Checkbox **Auffangzone** markiert die ausgewählte Zone. Siehe [Auffangzone](#auffangzone).
+- Das **Werte-Panel** rechts (mit **Werte ausblenden ›** einklappbar; die Stellung wird gespeichert) schaltet die **Masseinheit** an einer einzigen Stelle um; die Umschaltung gilt gemeinsam für alle acht Zahlenfelder. **Prozent** bleibt bei Auflösungsänderungen proportional; **Pixel** bezieht sich auf die aktuelle Windows-Arbeitsfläche des Monitors. **Position und Grösse** bearbeitet X, Y, Breite und Höhe; **Abstände zum Rand** beschreibt dieselbe Zone von den vier Rändern aus. Die Checkbox **Startzone** markiert die ausgewählte Zone. Siehe [Startzone](#auffangzone).
 - **Auf dem Monitor zeichnen ⤢** öffnet denselben Editor als randloses Fenster über der Arbeitsfläche des gewählten Monitors: die Zonen in echter Grösse, der Desktop abgedunkelt dahinter, oben eine schwebende Werkzeugleiste (+ Zone, Vorlage, ↶ ↷, **Werte ⌵** mit den acht Zahlenfeldern, Fertig), an jeder Zone ihr Mass in Prozent **und** Pixel, beim Ziehen eine Hilfslinie mit Masstooltip. Doppelklick, Rechtsklick, `Alt` und `Strg + Z` gelten wie im Fenster; `Esc` oder **Fertig** schliesst. Gespeichert ist ohnehin schon alles. Solange gezeichnet wird, blendet **Zonen kurz einblenden** nichts ein.
 - Überlappende, zu kleine oder ausserhalb liegende Zonen werden markiert und können nicht gespeichert werden.
 - Nach jedem Setzen misst das Programm nach. Sitzt das Fenster nicht innerhalb von zwei Pixeln auf der Zielfläche, wird es einmal erneut gesetzt (ein Wechsel zwischen Monitoren mit unterschiedlicher Skalierung braucht häufig zwei Anläufe). Bleibt eine Abweichung, nennt die Statuszeile den Grund, etwa eine Mindestgrösse des Fensters; nach Administratorrechten wird nur gefragt, wenn sich das Fenster gar nicht bewegen liess. Fenster ohne veränderbare Grösse werden in der Zone zentriert statt gestreckt.
 - Beginnt das Ziehen über der Taskleiste, gilt der nächstgelegene Monitor; bleibt das Endereignis von Windows aus (Fenster geschlossen, Maustaste losgelassen), zieht ein Wachhund die Overlays nach spätestens einer Sekunde ein.
 - Beim Einrasten wird der unsichtbare Fensterrand ausgeglichen. Windows gibt Fenstern mit veränderbarer Grösse einen Griffbereich zum Ziehen, der zum Fensterrechteck zählt, aber nicht gezeichnet wird – typischerweise sieben Pixel links, rechts und unten. Ohne Ausgleich stünden zwei Fenster in lückenlos aneinandergrenzenden Zonen sichtbar auseinander. Das Programm vergrössert das Fensterrechteck deshalb um genau diesen Rand, sodass der sichtbare Rahmen exakt in der Zone liegt.
 
-## Auffangzone
+## Startzone
 
-Die Auffangzone (bis zum 05.09.2026 «Auffangzone») ist die Arbeitszone: dort landen neu erscheinende Fenster,
+Die Startzone (bis zum 05.09.2026 «Startzone») ist die Arbeitszone: dort landen neu erscheinende Fenster,
 die sonst nirgends hingehören. Festgelegt wird sie im Layouteditor an der Zone selbst – über die Checkbox
-**Auffangzone** im Werte-Panel oder den Rechtsklick auf die Zone. Die markierte Zone trägt in der
-Zeichenfläche das Feld «Auffangzone».
+**Startzone** im Werte-Panel oder den Rechtsklick auf die Zone. Die markierte Zone trägt in der
+Zeichenfläche das Feld «Startzone».
 
-Jedes Layout darf eine eigene Auffangzone tragen. Welche davon wirksam ist, entscheidet die Monitorreihenfolge
-aus der Seite **Monitore**: es gilt die Auffangzone des ersten Monitors, dessen aktives Layout überhaupt eine
+Jedes Layout darf eine eigene Startzone tragen. Welche davon wirksam ist, entscheidet die Monitorreihenfolge
+aus der Seite **Monitore**: es gilt die Startzone des ersten Monitors, dessen aktives Layout überhaupt eine
 trägt. Monitore ohne Eintrag in dieser Reihenfolge stehen hinten.
 
 Daraus folgt das Verhalten, das im Alltag zählt:
 
 - Ist nur eine einzige Zone markiert, landen neue Fenster immer am selben Ort.
-- Markierst du in mehreren Layouts desselben Monitors je eine, überlebt die Auffangzone den Layoutwechsel:
+- Markierst du in mehreren Layouts desselben Monitors je eine, überlebt die Startzone den Layoutwechsel:
   das neue Layout bringt seine eigene mit.
 - Trägt das aktive Layout des vordersten Monitors keine, rutscht die Wahl auf den nächsten Monitor, statt
   ganz auszufallen.
-- Trägt kein aktives Layout eine, gibt es keine Auffangzone, und neue Fenster bleiben unangetastet — so
+- Trägt kein aktives Layout eine, gibt es keine Startzone, und neue Fenster bleiben unangetastet — so
   verhält sich das Programm auch ohne jede Markierung.
 
 Ein kopiertes Layout übernimmt die Markierung auf der Zone an derselben Stelle; ohne das hätte eine Kopie
-nie eine Auffangzone. Nach dem Setzen nennt die Statuszeile, welche Auffangzone tatsächlich wirksam ist.
+nie eine Startzone. Nach dem Setzen nennt die Statuszeile, welche Startzone tatsächlich wirksam ist.
 
-Ein Fenster kommt in die Auffangzone, wenn nacheinander nichts anderes zutrifft:
+Ein Fenster kommt in die Startzone, wenn nacheinander nichts anderes zutrifft:
 
 1. Eine passende Regel platziert das Fenster — sie gewinnt immer.
-2. Eine gemerkte Position liegt vor — sie gewinnt vor der Auffangzone.
+2. Eine gemerkte Position liegt vor — sie gewinnt vor der Startzone.
 3. Das Fenster liegt bereits auf einer Zone eines aktiven Layouts eingerastet — es bleibt, wo es ist.
-4. Sonst: Auffangzone.
+4. Sonst: Startzone.
 
 Eingerastet heisst, dass die vier Fensterränder auf höchstens 40 Pixel genau mit den Zonenrändern
 zusammenfallen; genau so viel kann der unsichtbare Fensterrand ausmachen. `scripts\measure-window-frame.ps1`
@@ -130,7 +130,7 @@ Aufgefangen wird in zwei Fällen:
   speichert die Oberfläche nach jedem Zug, und ein Auffang bei jedem Speichern zöge die Fenster unter den
   Händen weg.
 
-Ausgeschlossene Fenster fasst die Auffangzone nie an. Wie das Einrasten selbst läuft der Auffang genau dann, wenn
+Ausgeschlossene Fenster fasst die Startzone nie an. Wie das Einrasten selbst läuft der Auffang genau dann, wenn
 mindestens ein Layout aktiv ist; einen eigenen Schalter dafür gibt es nicht.
 
 ### Welche Fenster von selbst angefasst werden
@@ -147,7 +147,7 @@ eines zutrifft:
   Kopierdialog des Explorers etwa bleibt so unangetastet.
 - Es ist kleiner als 200 × 120 Pixel.
 
-Die Regel gilt ausschliesslich für den automatischen Weg — Auffang in der Auffangzone, gemerkte Positionen,
+Die Regel gilt ausschliesslich für den automatischen Weg — Auffang in der Startzone, gemerkte Positionen,
 Auffang nach einem Layoutwechsel und das Nachziehen bei geänderten Zonen. Ziehst du ein solches Fenster
 selbst auf eine Zone oder drückst du ein Zonenkürzel, rastet es weiterhin ein: dort ist die Absicht
 eindeutig. Jede Ablehnung steht mit ihrer Begründung im Protokoll.
@@ -174,7 +174,7 @@ Ist die gemerkte Zone im aktiven Layout noch vorhanden, kehrt das Fenster in die
 sich deren Fläche inzwischen geändert hat; erst ohne Zone zählt die gemerkte Lage. Ein kleines Fenster bleibt
 beim Wiederherstellen klein.
 
-Fehlt eine gemerkte Position, greift die [Auffangzone](#auffangzone), sofern eine festgelegt ist.
+Fehlt eine gemerkte Position, greift die [Startzone](#auffangzone), sofern eine festgelegt ist.
 
 Zurückgelegt wird ein Fenster nur beim Erscheinen; ein blosser Fokuswechsel verschiebt nie ein Fenster,
 das gerade von Hand irgendwohin gestellt wurde. Erkannt wird ein Fenster an Programm, Fensterklasse und
@@ -204,7 +204,7 @@ früheren Stände.
 
 Was beim Betreten passiert, in dieser Reihenfolge:
 
-1. Der virtuelle Monitor des Anzeigetreibers bekommt einen Anzeigemodus in Zonengrösse. Die Liste
+1. Der virtuelle Monitor des Vollbildzonen-Treibers bekommt einen Anzeigemodus in Zonengrösse. Die Liste
    seiner Modi entsteht aus allen Vollbildzonen der gespeicherten Layouts; die Installation schreibt
    sie, und der Treiber liest sie beim Start seines Geräts. Bekommt eine Vollbildzone später eine
    Grösse, die der Treiber noch nicht kennt, schreibt Zone Manager die Liste neu und startet das
@@ -235,7 +235,7 @@ Gemessen am 08.09.2026 auf einer RTX 4060 Ti: 32 bis 71 ms zwischen dem Bild auf
 und dem Bild in der Zone, also zwei bis vier Bilder bei 60 Hz; ein bis drei Prozent Grafiklast für den
 Spiegel; Plex Desktop spielt mit Direct Play und eigenem Hardwaredecoder.
 
-Voraussetzung ist der Anzeigetreiber «Virtual Display Driver», den die [Installation](#installation)
+Voraussetzung ist der Vollbildzonen-Treiber «Virtual Display Driver», den die [Installation](#installation)
 einrichtet; fehlt er, bleibt die Zone eine gewöhnliche Zone, und die Statuszeile nennt den Weg. Was
 nicht geht:
 
@@ -254,15 +254,15 @@ nicht geht:
 - Programme, die den Zeiger einsperren (Spiele mit Raw Input), sind mit der Zeigerübergabe ungeprüft.
 ## Monitore
 
-Die Seite **Monitore** zeigt einen Monitor auf einmal: **‹** und **›** blättern («Monitor 1 von 2»), in der Mitte steht das aktive Layout als grosse Vorschau mit dem Verweis **Layout «…» · bearbeiten**. Darunter das Feld **Name** (leer stellt die automatische Bezeichnung «Monitor n» wieder her), **Auf Monitor zeigen** blendet den verwendeten Namen drei Sekunden lang auf jedem Bildschirm ein, **Reihenfolge ⌵** verschiebt den Monitor nach oben oder unten. Die Reihenfolge entscheidet, welche Auffangzone wirksam ist. Monitornamen werden bevorzugt aus dem aktiven Displaypfad und den EDID-Daten gelesen.
+Die Seite **Monitore** zeigt einen Monitor auf einmal: **‹** und **›** blättern («Monitor 1 von 2»), in der Mitte steht das aktive Layout als grosse Vorschau mit dem Verweis **Layout «…» · bearbeiten**. Darunter das Feld **Name** (leer stellt die automatische Bezeichnung «Monitor n» wieder her), **Auf Monitor zeigen** blendet den verwendeten Namen drei Sekunden lang auf jedem Bildschirm ein, **Reihenfolge ⌵** verschiebt den Monitor nach oben oder unten. Die Reihenfolge entscheidet, welche Startzone wirksam ist. Monitornamen werden bevorzugt aus dem aktiven Displaypfad und den EDID-Daten gelesen.
 
 **Erkannte Werte** (aufgeklappt) nennt Skalierung, Auflösung, Arbeitsfläche und, sofern Windows die EDID liefert, die Diagonale sowie den gemeldeten Namen mit der Kennung aus der EDID. **Windows-Einstellungen öffnen** (zugeklappt) führt zu Anzeige, Textgrösse und Taskleiste. Ändern lassen sich diese Werte nur in Windows selbst: Windows 11 stellt normalen Desktopanwendungen keine unterstützte Schnittstelle bereit, um Anzeigeskalierung, Textskalierung oder monitorweise Taskleisten- und Icongrössen zu setzen; Zone Manager verwendet dafür bewusst keine Explorer-Injektion, keine privaten DPI-Pakete und keine undokumentierten Registry-Werte.
 
-Monitore werden zur Laufzeit beobachtet. Anstecken, Abstecken, eine geänderte Auflösung, Skalierung oder Drehung und eine verschobene Taskleiste werden nach einer kurzen Ruhepause übernommen: Zonen, Overlays und Zielflächen werden neu aufgebaut, die Statuszeile meldet den neuen Stand, und Fenster, die im neuen Bild auf keiner Zone mehr liegen, werden in die Auffangzone geholt. Ein Neustart ist nicht nötig.
+Monitore werden zur Laufzeit beobachtet. Anstecken, Abstecken, eine geänderte Auflösung, Skalierung oder Drehung und eine verschobene Taskleiste werden nach einer kurzen Ruhepause übernommen: Zonen, Overlays und Zielflächen werden neu aufgebaut, die Statuszeile meldet den neuen Stand, und Fenster, die im neuen Bild auf keiner Zone mehr liegen, werden in die Startzone geholt. Ein Neustart ist nicht nötig.
 
 Wiedererkannt wird ein Monitor an seiner Hardware: Hersteller, Modell und, sofern der Monitor eine liefert, Seriennummer aus der EDID. Liefert er eine Seriennummer, ist diese Kennung zugleich der Schlüssel, unter dem Layouts, eigener Name und Position in der Reihenfolge liegen — derselbe Monitor bleibt derselbe, an welchem Anschluss er auch hängt und mit welcher Auflösung er auch läuft. Ohne Seriennummer bleibt der Anzeigepfad von Windows der Schlüssel; hängt der Monitor dann an einem anderen Anschluss oder hinter einem anderen Treiber, werden Layouts, Name und Reihenfolge übernommen, und die Statuszeile nennt das. Zwei baugleiche Monitore ohne Seriennummer bleiben getrennt, weil eine Verwechslung schlimmer wäre als ein neues Standardlayout. Verwaiste Namen und Reihenfolgeeinträge, die zu keinem Monitor und keinem Layout mehr gehören, werden beim Abgleich entfernt.
 
-Platzhalteranzeigen von Windows sind keine Monitore: `WinDisc` meldet Windows, solange die Sitzung gesperrt oder per Fernzugriff getrennt ist, `Default_Monitor` («Generic PnP Monitor»), solange alle echten Monitore aus oder im Standby sind. Dasselbe gilt für den virtuellen Monitor des Anzeigetreibers «Virtual Display Driver» (Kennung `MTT1337`), den Zone Manager selbst für das Vollbild in einer Zone anlegt: er bekommt kein Layout, steht in keiner Monitorliste und ist kein Ziel für Regeln. Alle drei werden beim Einlesen übersprungen; Layouts, Namen und Monitorkombinationen, die frühere Versionen dafür angelegt hatten, verschwinden beim nächsten Laden der Konfiguration.
+Platzhalteranzeigen von Windows sind keine Monitore: `WinDisc` meldet Windows, solange die Sitzung gesperrt oder per Fernzugriff getrennt ist, `Default_Monitor` («Generic PnP Monitor»), solange alle echten Monitore aus oder im Standby sind. Dasselbe gilt für den virtuellen Monitor des Vollbildzonen-Treibers «Virtual Display Driver» (Kennung `MTT1337`), den Zone Manager selbst für das Vollbild in einer Zone anlegt: er bekommt kein Layout, steht in keiner Monitorliste und ist kein Ziel für Regeln. Alle drei werden beim Einlesen übersprungen; Layouts, Namen und Monitorkombinationen, die frühere Versionen dafür angelegt hatten, verschwinden beim nächsten Laden der Konfiguration.
 
 Je Monitorkombination merkt sich das Programm, welche Layouts zuletzt aktiv waren: am Dock mit zwei Monitoren ein anderes als unterwegs mit dem Laptopdisplay allein. Kehrt eine Kombination zurück, werden ihre Layouts wieder aktiviert, ohne dass jemand umschalten muss. Ein Wechsel des aktiven Layouts gilt immer für die gerade verbundene Kombination.
 
@@ -288,7 +288,7 @@ Die Einstellungen sind auf zwei Seiten verteilt: **Verhalten** mit den Untertabs
 
 **Darstellung**: Farbe der Zonen (Farbfeld und Hexwert), Deckkraft, Beschriftung, dazu der **Overlay-Stil** mit Rahmenbreite, Eckenradius, Hervorhebung (Farbe und Deckkraft der Zielzone) und Schriftgrösse der Beschriftung. Rechts zeigt die Karte **Vorschau** ein Overlay mit drei Zonen, das jede Änderung sofort übernimmt.
 
-**Abstände**: Abstand zum Bildschirmrand (links, oben, rechts, unten in Pixel), Abstand zwischen Zonen und Andocken im Editor in ganzen Prozent. Aussen- und Zonenabstand gelten für Vorschau **und** Fenster: ein Fenster landet genau auf der Fläche, die das Overlay zeigt, auch über Zuordnungen, Auffangzone und Layoutwechsel. Neben jedem Prozentregler steht der abgeleitete Pixelwert als `≙ n px`.
+**Abstände**: Abstand zum Bildschirmrand (links, oben, rechts, unten in Pixel), Abstand zwischen Zonen und Andocken im Editor in ganzen Prozent. Aussen- und Zonenabstand gelten für Vorschau **und** Fenster: ein Fenster landet genau auf der Fläche, die das Overlay zeigt, auch über Zuordnungen, Startzone und Layoutwechsel. Neben jedem Prozentregler steht der abgeleitete Pixelwert als `≙ n px`.
 
 **Fenster merken**: **Fensterpositionen merken** schaltet den Positionskatalog ein und aus; darunter stehen die Anzahl der Einträge und der Verweis **alle verwerfen** (mit Rückgängig). Siehe [Gemerkte Fensterpositionen](#gemerkte-fensterpositionen). Darunter die Karten **Feinabstimmung Platzieren** und **Schutz und Zeiten**, siehe Tabelle.
 
@@ -301,15 +301,15 @@ Die Einstellungen sind auf zwei Seiten verteilt: **Verhalten** mit den Untertabs
 | Untertab · Karte | Einstellung | Bereich (Standard) | Wirkung |
 |---|---|---|---|
 | Beim Ziehen · Feinabstimmung | Anzeigeverzögerung | 0–1000 ms (0) | Zonen erscheinen erst, wenn das Ziehen so lange dauert; kurze Züge bleiben ohne Aufblitzen. |
-| | Fenster nach dem Einrasten in den Vordergrund holen | aus | Ein per Zuordnung, Auffangzone oder Kürzel gesetztes Fenster erhält den Fokus. |
+| | Fenster nach dem Einrasten in den Vordergrund holen | aus | Ein per Zuordnung, Startzone oder Kürzel gesetztes Fenster erhält den Fokus. |
 | | Grösse beim Herausziehen wiederherstellen | aus | Ein aus der Zone gezogenes, nirgends abgelegtes Fenster bekommt seine frühere Grösse zurück. |
 | Darstellung · Overlay-Stil | Beschriftung | Nummer und Name / nur Nummer / nur Name | Inhalt der Beschriftungsfläche. |
 | | Rahmenbreite, Eckenradius, Schriftgrösse | 1–6 px (1), 0–24 px (4), 10–24 pt (13) | Optik der Zonen im Overlay. |
 | | Hervorhebung | #RRGGBB oder leer, 10–90 % (36) | Farbe und Deckkraft der Zone unter dem Mauszeiger. |
 | Fenster merken · Feinabstimmung Platzieren | Fenster mit fester Grösse | zentrieren / oben links / nicht anfassen | Dialoge, die keine Zone füllen können. |
 | | Toleranz beim Nachmessen | 0–10 px (2) | Ab welcher Abweichung ein zweiter Anlauf und eine Meldung folgen. |
-| | Toleranz für «eingerastet» | 8–80 px (40) | Wie nah ein Fenster an den Zonenkanten liegen muss, damit Auffangzone und Layoutwechsel es in Ruhe lassen. |
-| | Neue Fenster in der Auffangzone auffangen | ein | Aus: die Auffangzone dient nur dem Layoutwechsel. |
+| | Toleranz für «eingerastet» | 8–80 px (40) | Wie nah ein Fenster an den Zonenkanten liegen muss, damit Startzone und Layoutwechsel es in Ruhe lassen. |
+| | Neue Fenster in der Startzone auffangen | ein | Aus: die Startzone dient nur dem Layoutwechsel. |
 | | Gemerkte Zone vor gemerkter Lage | ein | Aus: ein Fenster kehrt pixelgenau an seine letzte Lage zurück. |
 | | Maximierte Fenster maximiert wiederherstellen | ein | |
 | | Katalog gemerkter Positionen | 50–2000 (500) | Obergrenze des Positionsgedächtnisses. |
@@ -345,18 +345,18 @@ früheren Installation aus dem Programm heraus räumt es dabei weg, damit nicht 
 Verzeichnis nennen. Für eine Installation ohne Rückfragen genügt
 `msiexec /i ZoneManager-Setup-<Version>.msi /qn`.
 
-Den Anzeigetreiber für [Vollbildzonen](#vollbildzonen) bringt das Paket **nicht** mit; er wird im Programm
-unter **Programm → Anzeigetreiber für Vollbildzonen** eingerichtet. Die Installation aus dem Programm
+Den Vollbildzonen-Treiber für [Vollbildzonen](#vollbildzonen) bringt das Paket **nicht** mit; er wird im Programm
+unter **Programm → Vollbildzonen-Treiber** eingerichtet. Die Installation aus dem Programm
 heraus nimmt ihn dagegen gleich mit.
 
 Das Paket enthält dieselbe Programmdatei, die auch einzeln am Release hängt, und verdoppelt damit die
 Auslieferung — wer die Datei lieber ohne Installation nutzt, lädt weiterhin nur `ZoneManager.exe`.
 Installieren und Entfernen bleiben ausserdem Modi derselben Datei, damit beides ohne Paket möglich ist.
 
-Die Installation richtet ausserdem den Anzeigetreiber für [Vollbildzonen](#vollbildzonen) ein, die Deinstallation
+Die Installation richtet ausserdem den Vollbildzonen-Treiber für [Vollbildzonen](#vollbildzonen) ein, die Deinstallation
 entfernt ihn samt virtuellem Monitor wieder. Der Treiber ist der «Virtual Display Driver»
 (github.com/VirtualDrivers/Virtual-Display-Driver, MIT-Lizenz, signiert von der SignPath Foundation); er
-reist in der Programmdatei mit und wird nicht heruntergeladen. Unter **Programm → Anzeigetreiber für
+reist in der Programmdatei mit und wird nicht heruntergeladen. Unter **Programm → Vollbildzonen-Treiber für
 Vollbildzonen** lässt er sich auch einzeln einrichten oder entfernen, etwa nach einer älteren Installation;
 dasselbe leisten `ZoneManager.exe --install-display-driver` und `--remove-display-driver`. Ohne Treiber
 bleiben Vollbildzonen ausgeschaltet, alles andere läuft wie gewohnt.
@@ -570,7 +570,7 @@ Die Version folgt dem Schema `YYYY.MMDD.NN`. `NN` beginnt an jedem Tag bei `01` 
 
 `scripts\publish-release.ps1` führt den vollständigen Weg aus: Version schreiben, `scripts\verify.ps1` ausführen, `Directory.Build.props` committen, Tag `v<Version>` setzen, Commit und Tag pushen und das GitHub-Release mit `ZoneManager.exe` als Anhang erstellen. Das Skript arbeitet nur auf `main` und nur bei sauberem Arbeitsbaum und reicht `-SkipDpiCheck` an den Prüflauf durch; ohne angemeldetes GitHub CLI oder `GH_TOKEN` endet es nach dem Push und nennt den Befehl für das Release.
 
-Die EXE wird bewusst nicht versioniert, sondern nur an Releases angehängt: Sie ist ein reproduzierbares Build-Artefakt von rund 74 MB, das die Repository-Historie sonst mit jeder Auslieferung dauerhaft vergrössern würde. Rund sieben MB davon entfallen seit den Vollbildzonen auf die Windows-Laufzeitprojektion für die Bildschirmaufnahme und den eingebetteten Anzeigetreiber.
+Die EXE wird bewusst nicht versioniert, sondern nur an Releases angehängt: Sie ist ein reproduzierbares Build-Artefakt von rund 74 MB, das die Repository-Historie sonst mit jeder Auslieferung dauerhaft vergrössern würde. Rund sieben MB davon entfallen seit den Vollbildzonen auf die Windows-Laufzeitprojektion für die Bildschirmaufnahme und den eingebetteten Vollbildzonen-Treiber.
 
 ## Entwicklung und Prüfung
 

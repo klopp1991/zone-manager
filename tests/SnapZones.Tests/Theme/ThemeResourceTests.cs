@@ -354,7 +354,7 @@ public sealed class ThemeResourceTests
                 "BackupsInfoButton"
             };
             var panel = Assert.IsType<SnapZones.App.Controls.ZoneValuesPanel>(window.FindName("ZoneValues"));
-            foreach (var name in new[] { "ZonePositionInfoButton", "ZoneMarginsInfoButton", "MainZoneInfoButton" })
+            foreach (var name in new[] { "ZonePositionInfoButton", "ZoneMarginsInfoButton", "StartZoneInfoButton" })
             {
                 Assert.IsType<Button>(panel.FindName(name));
             }

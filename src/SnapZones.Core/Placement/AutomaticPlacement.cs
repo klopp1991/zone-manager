@@ -35,7 +35,7 @@ public sealed record AutomaticPlacementCandidate(
     int Height);
 
 /// <summary>
-/// Der Filter fuer alles, was das Programm <em>von selbst</em> anfasst: den Auffang in der Hauptzone,
+/// Der Filter fuer alles, was das Programm <em>von selbst</em> anfasst: den Auffang in der Startzone,
 /// das Wiederherstellen gemerkter Positionen, den Auffang nach einem Layoutwechsel und das Nachziehen
 /// bei geaenderten Zonen.
 ///
@@ -43,7 +43,7 @@ public sealed record AutomaticPlacementCandidate(
 /// Bis zum 03.09.2026 galt hier derselbe grosszuegige Filter wie fuer ein vom Benutzer gezogenes
 /// Fenster: es genuegte, dass ein Popup irgendeinen Rahmenstil trug. Damit wurden Kontextmenue- und
 /// Aufklappfenster moderner Oberflaechen und jeder Dialog mit Titelleiste — bis hin zum Kopierdialog
-/// des Explorers — in die Hauptzone gezogen.
+/// des Explorers — in die Startzone gezogen.
 /// </para>
 ///
 /// <para>

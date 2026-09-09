@@ -77,9 +77,9 @@ public static class ConfigurationDiff
                     return $"Layout «{layout.Name}»: Zone «{before.Name}» in «{after.Name}» umbenannt";
                 }
 
-                if (before.IsVirtualMonitor != after.IsVirtualMonitor)
+                if (before.IsFullscreenZone != after.IsFullscreenZone)
                 {
-                    return after.IsVirtualMonitor
+                    return after.IsFullscreenZone
                         ? $"Layout «{layout.Name}»: Zone «{after.Name}» als virtueller Monitor gekennzeichnet"
                         : $"Layout «{layout.Name}»: Zone «{after.Name}» ist kein virtueller Monitor mehr";
                 }
@@ -91,11 +91,11 @@ public static class ConfigurationDiff
                 }
             }
 
-            if (layout.MainZoneId != replacement.MainZoneId)
+            if (layout.StartZoneId != replacement.StartZoneId)
             {
-                return replacement.MainZoneId is null
-                    ? $"Layout «{layout.Name}»: Auffangzone aufgehoben"
-                    : $"Layout «{layout.Name}»: Auffangzone festgelegt";
+                return replacement.StartZoneId is null
+                    ? $"Layout «{layout.Name}»: Startzone aufgehoben"
+                    : $"Layout «{layout.Name}»: Startzone festgelegt";
             }
 
             if (layout.IsActive != replacement.IsActive && replacement.IsActive)

@@ -20,11 +20,14 @@
     <SolidColorBrush x:Key="DisabledSurfaceBrush" Color="#E9EDF3" />
     <SolidColorBrush x:Key="DisabledInkBrush" Color="#5F6B80" />
     <SolidColorBrush x:Key="DisabledCheckBrush" Color="#5F6B80" />
-    <SolidColorBrush x:Key="WarningSoftBrush" Color="#FFF2D8" />
+    <SolidColorBrush x:Key="WarningSoftBrush" Color="#F7EEDC" />
     <SolidColorBrush x:Key="WarningBrush" Color="#754900" />
     <SolidColorBrush x:Key="WarningBorderBrush" Color="#B5842A" />
     <SolidColorBrush x:Key="DangerBrush" Color="#B52424" />
     <SolidColorBrush x:Key="SuccessBrush" Color="#2E7D32" />
+    <!-- Die drei Gruende der Status-Chips; der Text darauf ist Success-, Warning- bzw. SubtleInkBrush. -->
+    <SolidColorBrush x:Key="SuccessSoftBrush" Color="#EFF7EF" />
+    <SolidColorBrush x:Key="NeutralChipBrush" Color="#F8FAFD" />
     <SolidColorBrush x:Key="DropTargetBrush" Color="#2F6FED" />
     <SolidColorBrush x:Key="DropTargetInkBrush" Color="#245AC5" />
     <SolidColorBrush x:Key="MonitorFrameBrush" Color="#172033" />
@@ -728,10 +731,10 @@
     <Style x:Key="ListRow" TargetType="Border" BasedOn="{StaticResource SectionCard}">
         <Setter Property="Padding" Value="20,14" /><Setter Property="Margin" Value="0,0,0,8" />
     </Style>
-    <!-- Der Standardbaustein der Seiten Verhalten und Programm: Beschriftung links, Steuerelement rechts (280). -->
+    <!-- Der Standardbaustein jeder Einstellungsseite: Beschriftung links, ein Steuerelement rechts (300). -->
     <Style x:Key="SettingRow" TargetType="Border">
         <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" /><Setter Property="BorderThickness" Value="0,0,0,1" />
-        <Setter Property="Padding" Value="0,10" />
+        <Setter Property="Padding" Value="0,12" />
     </Style>
     <Style x:Key="SettingRowLast" TargetType="Border" BasedOn="{StaticResource SettingRow}">
         <Setter Property="BorderThickness" Value="0" />
@@ -791,5 +794,147 @@
     <Style x:Key="WarningBox" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource WarningSoftBrush}" /><Setter Property="CornerRadius" Value="5" />
         <Setter Property="Padding" Value="12,10" />
+    </Style>
+    <!-- Hinweisband ueber einer Seite: erklaert eine Regel, die fuer die ganze Seite gilt. -->
+    <Style x:Key="NoticeBand" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="6" />
+        <Setter Property="Padding" Value="16,12" /><Setter Property="Margin" Value="0,0,0,12" />
+    </Style>
+
+    <!--
+        Status-Chip: die Pille hinter einer Beschriftung, die den Zustand einer Systemsache in einem
+        Wort zeigt. Punkt und Wort tragen den Zustand; die Farbe ist nie der einzige Traeger.
+        Das Chip bricht nie um (TextWrapping NoWrap), die Zeile darum herum darf es.
+    -->
+    <Style TargetType="{x:Type controls:StatusChip}">
+        <Setter Property="Height" Value="20" /><Setter Property="Margin" Value="8,0,0,0" />
+        <Setter Property="VerticalAlignment" Value="Center" /><Setter Property="FontSize" Value="12" />
+        <Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Focusable" Value="False" />
+        <Setter Property="Background" Value="{DynamicResource NeutralChipBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource SubtleInkBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type controls:StatusChip}">
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding Foreground}"
+                            BorderThickness="1" CornerRadius="11" Padding="8,1" SnapsToDevicePixels="True">
+                        <TextBlock Foreground="{TemplateBinding Foreground}" FontSize="{TemplateBinding FontSize}"
+                                   FontWeight="{TemplateBinding FontWeight}" TextWrapping="NoWrap" VerticalAlignment="Center">
+                            <Run Text="{Binding Glyph, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" /><Run Text=" " /><Run Text="{Binding Text, RelativeSource={RelativeSource TemplatedParent}, Mode=OneWay}" />
+                        </TextBlock>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="State" Value="Good">
+                <Setter Property="Background" Value="{DynamicResource SuccessSoftBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource SuccessBrush}" />
+            </Trigger>
+            <Trigger Property="State" Value="Warning">
+                <Setter Property="Background" Value="{DynamicResource WarningSoftBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <!--
+        Icon-Knopf in einer Listenzeile: 36 x 36, genau ein Zeichen. Jeder Aufrufer setzt ToolTip in
+        ganzen Worten und AutomationProperties.Name mit dem Namen der Sache; loeschende Aktionen
+        bleiben Textknoepfe in DangerBrush.
+    -->
+    <Style x:Key="ListIconButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Width" Value="36" /><Setter Property="Height" Value="36" /><Setter Property="MinHeight" Value="36" />
+        <Setter Property="Padding" Value="0" /><Setter Property="FontSize" Value="16" />
+        <Setter Property="Background" Value="{DynamicResource SurfaceRaisedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ControlBorderBrush}" />
+        <Setter Property="ToolTipService.InitialShowDelay" Value="250" />
+    </Style>
+    <!-- Derselbe Knopf, wenn er auf einen Fehler zeigt: das Zeichen steht in WarningBrush. -->
+    <Style x:Key="ListIconButtonWarning" TargetType="Button" BasedOn="{StaticResource ListIconButton}">
+        <Setter Property="Foreground" Value="{DynamicResource WarningBrush}" />
+        <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+
+    <!--
+        Reihenfolge-Tab (Monitore, Layouts): der aktive Tab traegt am Ende die beiden Pfeile ‹ ›.
+        Ein Klick auf einen Pfeil darf den Tabwechsel nicht ausloesen (e.Handled im Code-Behind).
+    -->
+    <Style x:Key="ReorderTabItem" TargetType="Button" BasedOn="{StaticResource LayoutTab}">
+        <Setter Property="Padding" Value="14,6" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+    </Style>
+    <Style x:Key="ReorderArrowButton" TargetType="Button">
+        <Setter Property="Width" Value="20" /><Setter Property="Height" Value="20" /><Setter Property="MinHeight" Value="20" />
+        <Setter Property="Padding" Value="0" /><Setter Property="Margin" Value="0" />
+        <Setter Property="FontSize" Value="14" /><Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" /><Setter Property="Foreground" Value="{DynamicResource SubtleInkBrush}" />
+        <Setter Property="FocusVisualStyle" Value="{x:Null}" /><Setter Property="Cursor" Value="Hand" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="ArrowBorder" Background="Transparent" CornerRadius="4">
+                        <TextBlock x:Name="ArrowText" Text="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
+                                   FontSize="{TemplateBinding FontSize}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ArrowBorder" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ArrowBorder" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                        <Trigger Property="IsEnabled" Value="False"><Setter TargetName="ArrowText" Property="Foreground" Value="{DynamicResource DisabledInkBrush}" /></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+    <!-- Die Einfuegemarke, die beim Ziehen eines Tabs zeigt, wohin er kommt. -->
+    <Style x:Key="ReorderInsertionMark" TargetType="Border">
+        <Setter Property="Width" Value="2" /><Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+        <Setter Property="Margin" Value="0,4" /><Setter Property="Visibility" Value="Collapsed" />
+    </Style>
+
+    <!--
+        «Feinabstimmung»: der aufklappbare Abschnitt am Seitenfuss mit den Expertenwerten. Die ganze
+        Kopfzeile schaltet um; der Zustand gilt nur fuer die laufende Sitzung.
+    -->
+    <Style TargetType="{x:Type controls:TuningExpander}">
+        <Setter Property="Margin" Value="0,0,0,12" /><Setter Property="Foreground" Value="{DynamicResource InkBrush}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type controls:TuningExpander}">
+                    <StackPanel>
+                        <ToggleButton x:Name="HeaderToggle" Cursor="Hand" FocusVisualStyle="{x:Null}"
+                                      IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                      AutomationProperties.Name="{Binding Title, RelativeSource={RelativeSource TemplatedParent}}">
+                            <ToggleButton.Template>
+                                <ControlTemplate TargetType="ToggleButton">
+                                    <Border x:Name="HeaderBorder" Background="{DynamicResource SurfaceBrush}" BorderBrush="{DynamicResource BorderBrush}"
+                                            BorderThickness="1" CornerRadius="8" Padding="20,12" SnapsToDevicePixels="True">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions><ColumnDefinition Width="10" /><ColumnDefinition Width="Auto" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                                            <TextBlock x:Name="Arrow" Text="▸" FontSize="11" Foreground="{DynamicResource MutedBrush}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Margin="8,0,0,0" VerticalAlignment="Center" Style="{StaticResource GroupTitle}"
+                                                       Text="{Binding Title, RelativeSource={RelativeSource AncestorType={x:Type controls:TuningExpander}}}" />
+                                            <TextBlock Grid.Column="2" Margin="14,0,0,0" VerticalAlignment="Center" HorizontalAlignment="Right"
+                                                       Style="{StaticResource HelpText}" TextTrimming="CharacterEllipsis"
+                                                       Text="{Binding Hint, RelativeSource={RelativeSource AncestorType={x:Type controls:TuningExpander}}}" />
+                                        </Grid>
+                                    </Border>
+                                    <ControlTemplate.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="HeaderBorder" Property="Background" Value="{DynamicResource HoverBrush}" /></Trigger>
+                                        <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="HeaderBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" /></Trigger>
+                                        <Trigger Property="IsChecked" Value="True"><Setter TargetName="Arrow" Property="Text" Value="▾" /></Trigger>
+                                    </ControlTemplate.Triggers>
+                                </ControlTemplate>
+                            </ToggleButton.Template>
+                        </ToggleButton>
+                        <ContentPresenter x:Name="TuningBody" Margin="0,8,0,0" Visibility="Collapsed" />
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsExpanded" Value="True"><Setter TargetName="TuningBody" Property="Visibility" Value="Visible" /></Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 </ResourceDictionary>

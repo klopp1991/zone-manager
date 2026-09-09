@@ -35,7 +35,7 @@ public sealed class SettingsViewModel : ViewModelBase
     private FixedSizeWindowPlacement fixedSizeWindowPlacement;
     private int placementTolerancePixels;
     private int snappedTolerancePixels;
-    private bool catchNewWindowsInMainZone;
+    private bool catchNewWindowsInStartZone;
     private bool preferRememberedZone;
     private bool restoreMaximizedWindows;
     private int rememberedWindowLimit;
@@ -283,10 +283,10 @@ public sealed class SettingsViewModel : ViewModelBase
         set => SetProperty(ref snappedTolerancePixels, Math.Clamp(value, 8, 80));
     }
 
-    public bool CatchNewWindowsInMainZone
+    public bool CatchNewWindowsInStartZone
     {
-        get => catchNewWindowsInMainZone;
-        set => SetProperty(ref catchNewWindowsInMainZone, value);
+        get => catchNewWindowsInStartZone;
+        set => SetProperty(ref catchNewWindowsInStartZone, value);
     }
 
     public bool PreferRememberedZone
@@ -437,7 +437,7 @@ public sealed class SettingsViewModel : ViewModelBase
         FixedSizeWindowPlacement: FixedSizeWindowPlacement,
         PlacementTolerancePixels: PlacementTolerancePixels,
         SnappedTolerancePixels: SnappedTolerancePixels,
-        CatchNewWindowsInMainZone: CatchNewWindowsInMainZone,
+        CatchNewWindowsInStartZone: CatchNewWindowsInStartZone,
         PreferRememberedZone: PreferRememberedZone,
         RestoreMaximizedWindows: RestoreMaximizedWindows,
         RememberedWindowLimit: RememberedWindowLimit,
@@ -481,7 +481,7 @@ public sealed class SettingsViewModel : ViewModelBase
         FixedSizeWindowPlacement = settings.FixedSizeWindowPlacement;
         PlacementTolerancePixels = settings.PlacementTolerancePixels;
         SnappedTolerancePixels = settings.SnappedTolerancePixels;
-        CatchNewWindowsInMainZone = settings.CatchNewWindowsInMainZone;
+        CatchNewWindowsInStartZone = settings.CatchNewWindowsInStartZone;
         PreferRememberedZone = settings.PreferRememberedZone;
         RestoreMaximizedWindows = settings.RestoreMaximizedWindows;
         RememberedWindowLimit = settings.RememberedWindowLimit;

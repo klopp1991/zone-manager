@@ -481,7 +481,7 @@ public sealed class ApplicationController : IDisposable
         {
             foreach (var layout in configuration.Layouts.Where(layout => layout.IsActive))
             {
-                CollectStrayWindowsIntoMainZone(layout.Id);
+                CollectStrayWindowsIntoStartZone(layout.Id);
             }
         }
     }
@@ -571,7 +571,7 @@ public sealed class ApplicationController : IDisposable
         Reconfigure(configuration);
         foreach (var layoutId in activatedLayoutIds)
         {
-            CollectStrayWindowsIntoMainZone(layoutId);
+            CollectStrayWindowsIntoStartZone(layoutId);
             _ = ApplyLayoutRulesAsync(layoutId);
         }
         try
@@ -633,11 +633,11 @@ public sealed class ApplicationController : IDisposable
     }
 
     /// <summary>
-    /// Legt nach einem Layoutwechsel die Fenster in die Hauptzone, die <see cref="MainZoneSweep"/> dafuer
+    /// Legt nach einem Layoutwechsel die Fenster in die Startzone, die <see cref="StartZoneSweep"/> dafuer
     /// bestimmt. Der Entscheid steckt vollstaendig in der Kernfunktion; hier bleiben nur das Einsammeln
     /// der Fenster und das Setzen.
     /// </summary>
-    private void CollectStrayWindowsIntoMainZone(Guid activatedLayoutId)
+    private void CollectStrayWindowsIntoStartZone(Guid activatedLayoutId)
     {
         var activatedLayout = configuration.Layouts.FirstOrDefault(layout => layout.Id == activatedLayoutId);
         var activatedMonitor = activatedLayout is null
@@ -650,13 +650,13 @@ public sealed class ApplicationController : IDisposable
 
         try
         {
-            var planned = MainZoneSweep.Plan(
+            var planned = StartZoneSweep.Plan(
                 configuration,
                 BuildPlacementEnvironment(configuration).Zones,
                 activatedMonitor.WorkArea,
                 windowService
                     .GetMovableTopLevelWindows(Environment.ProcessId)
-                    .Select(window => new MainZoneSweepWindow(window.WindowHandle, window.Bounds)),
+                    .Select(window => new StartZoneSweepWindow(window.WindowHandle, window.Bounds)),
                 handle => windowService.InspectRuleCandidate(handle, Environment.ProcessId)?.Identity);
 
             foreach (var target in planned)
@@ -664,17 +664,17 @@ public sealed class ApplicationController : IDisposable
                 var outcome = windowService.Snap(target.WindowHandle, target.Bounds);
                 if (outcome.Succeeded)
                 {
-                    log.Write("DEBUG", $"Fenster 0x{target.WindowHandle:X} in der Hauptzone aufgefangen: {target.Bounds}.");
+                    log.Write("DEBUG", $"Fenster 0x{target.WindowHandle:X} in der Startzone aufgefangen: {target.Bounds}.");
                 }
                 else
                 {
-                    log.Write("WARN", $"Fenster 0x{target.WindowHandle:X} konnte nicht in der Hauptzone aufgefangen werden: {outcome.Rejection}");
+                    log.Write("WARN", $"Fenster 0x{target.WindowHandle:X} konnte nicht in der Startzone aufgefangen werden: {outcome.Rejection}");
                 }
             }
         }
         catch (Exception exception)
         {
-            log.Write("WARN", "Fenster konnten nach dem Layoutwechsel nicht in der Hauptzone aufgefangen werden.", exception);
+            log.Write("WARN", "Fenster konnten nach dem Layoutwechsel nicht in der Startzone aufgefangen werden.", exception);
         }
     }
 
@@ -996,7 +996,7 @@ public sealed class ApplicationController : IDisposable
     }
 
     /// <summary>
-    /// Fuehrt den Stand des Anzeigetreibers fuer Vollbildzonen in den Einstellungen nach. Das Lesen
+    /// Fuehrt den Stand des Vollbildzonen-Treibers fuer Vollbildzonen in den Einstellungen nach. Das Lesen
     /// braucht keine Rechte; installiert und entfernt wird im erhoehten Hilfsprozess.
     /// </summary>
     private void PublishDisplayDriverStatus()
@@ -1017,30 +1017,30 @@ public sealed class ApplicationController : IDisposable
     {
         if (ElevationState.IsAdministrator())
         {
-            _ = RunDisplayDriverActionAsync("Anzeigetreiber wird installiert …", DisplayDriverSetup.Install);
+            _ = RunDisplayDriverActionAsync("Vollbildzonen-Treiber wird installiert …", DisplayDriverSetup.Install);
             return;
         }
 
         _ = RunDisplayDriverActionAsync(
-            "Anzeigetreiber wird installiert; Windows fragt nach Administratorrechten …",
-            () => RunDisplayDriverCommandElevated(StartupArguments.InstallDisplayDriver, "Der Anzeigetreiber ist installiert."));
+            "Vollbildzonen-Treiber wird installiert; Windows fragt nach Administratorrechten …",
+            () => RunDisplayDriverCommandElevated(StartupArguments.InstallDisplayDriver, "Der Vollbildzonen-Treiber ist installiert."));
     }
 
     private void RemoveDisplayDriver()
     {
         if (ElevationState.IsAdministrator())
         {
-            _ = RunDisplayDriverActionAsync("Anzeigetreiber wird entfernt …", DisplayDriverSetup.Remove);
+            _ = RunDisplayDriverActionAsync("Vollbildzonen-Treiber wird entfernt …", DisplayDriverSetup.Remove);
             return;
         }
 
         _ = RunDisplayDriverActionAsync(
-            "Anzeigetreiber wird entfernt; Windows fragt nach Administratorrechten …",
-            () => RunDisplayDriverCommandElevated(StartupArguments.RemoveDisplayDriver, "Der Anzeigetreiber wurde entfernt."));
+            "Vollbildzonen-Treiber wird entfernt; Windows fragt nach Administratorrechten …",
+            () => RunDisplayDriverCommandElevated(StartupArguments.RemoveDisplayDriver, "Der Vollbildzonen-Treiber wurde entfernt."));
     }
 
     /// <summary>
-    /// Startet das Geraet des Anzeigetreibers neu: im eigenen Prozess, wenn er erhoeht laeuft, sonst
+    /// Startet das Geraet des Vollbildzonen-Treibers neu: im eigenen Prozess, wenn er erhoeht laeuft, sonst
     /// ueber den erhoehten Hilfsprozess. Gebraucht von der Vollbildzone, wenn die Modeliste neu ist
     /// oder der Treiber einen Fehler meldet.
     /// </summary>
@@ -1048,7 +1048,7 @@ public sealed class ApplicationController : IDisposable
     {
         var result = ElevationState.IsAdministrator()
             ? await Task.Run(DisplayDriverSetup.Restart)
-            : await Task.Run(() => RunDisplayDriverCommandElevated(StartupArguments.RestartDisplayDriver, "Der Anzeigetreiber wurde neu gestartet."));
+            : await Task.Run(() => RunDisplayDriverCommandElevated(StartupArguments.RestartDisplayDriver, "Der Vollbildzonen-Treiber wurde neu gestartet."));
         log.Write(result.Successful ? "INFO" : "ERROR", result.Message);
         PublishDisplayDriverStatus();
         return result.Successful;

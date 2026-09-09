@@ -55,11 +55,11 @@ public sealed class LayoutService
             Id = Guid.NewGuid(),
             Name = trimmedName,
             IsActive = true,
-            // Die Kopie erhaelt neue Zonenkennungen; der geerbte Verweis auf die Hauptzone des Originals
+            // Die Kopie erhaelt neue Zonenkennungen; der geerbte Verweis auf die Startzone des Originals
             // ginge damit ins Leere und wird weiter unten auf die entsprechende neue Zone umgesetzt.
             Zones = source.Zones.Select(zone => zone with { Id = Guid.NewGuid() }).ToArray()
         };
-        added = added with { MainZoneId = MappedMainZoneId(source, added) };
+        added = added with { StartZoneId = MappedStartZoneId(source, added) };
         var layouts = Configuration.Layouts
             .Select(layout => BelongsToMonitor(layout.Monitor, source.Monitor)
                 ? layout with { IsActive = false }
@@ -220,20 +220,20 @@ public sealed class LayoutService
     }
 
     /// <summary>
-    /// Legt die Hauptzone eines Layouts fest oder hebt sie auf. Andere Layouts behalten ihre eigene;
-    /// welche zur Laufzeit gilt, entscheidet die Monitorreihenfolge. Siehe <see cref="MainZone"/>.
+    /// Legt die Startzone eines Layouts fest oder hebt sie auf. Andere Layouts behalten ihre eigene;
+    /// welche zur Laufzeit gilt, entscheidet die Monitorreihenfolge. Siehe <see cref="StartZone"/>.
     /// </summary>
-    public void SetMainZone(Guid layoutId, Guid? zoneId)
+    public void SetStartZone(Guid layoutId, Guid? zoneId)
     {
         _ = Find(layoutId);
         Configuration = Configuration with
         {
-            Layouts = MainZone.Assign(Configuration.Layouts, layoutId, zoneId)
+            Layouts = StartZone.Assign(Configuration.Layouts, layoutId, zoneId)
         };
     }
 
-    /// <summary>Die gerade gueltige Hauptzone, oder <c>null</c>. Siehe <see cref="MainZone.Resolve"/>.</summary>
-    public MainZoneTarget? ResolveMainZone() => MainZone.Resolve(Configuration);
+    /// <summary>Die gerade gueltige Startzone, oder <c>null</c>. Siehe <see cref="StartZone.Resolve"/>.</summary>
+    public StartZoneTarget? ResolveStartZone() => StartZone.Resolve(Configuration);
 
     public void UpdateSettings(AppSettings settings)
     {
@@ -301,13 +301,13 @@ public sealed class LayoutService
     }
 
     /// <summary>
-    /// Setzt die Hauptzone des Originals auf die Zone an derselben Stelle der Kopie um. Ohne das haette
-    /// ein kopiertes Layout keine Hauptzone, und ein Layoutwechsel liesse sie ausfallen — genau das, was
+    /// Setzt die Startzone des Originals auf die Zone an derselben Stelle der Kopie um. Ohne das haette
+    /// ein kopiertes Layout keine Startzone, und ein Layoutwechsel liesse sie ausfallen — genau das, was
     /// die Kopie eines eingerichteten Layouts vermeiden soll.
     /// </summary>
-    private static Guid? MappedMainZoneId(MonitorLayout source, MonitorLayout copy)
+    private static Guid? MappedStartZoneId(MonitorLayout source, MonitorLayout copy)
     {
-        if (source.MainZoneId is not Guid zoneId)
+        if (source.StartZoneId is not Guid zoneId)
         {
             return null;
         }

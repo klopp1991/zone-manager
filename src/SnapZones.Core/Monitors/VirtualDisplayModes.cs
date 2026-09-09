@@ -18,7 +18,7 @@ public sealed record VirtualDisplayMode(int Width, int Height)
 }
 
 /// <summary>
-/// Die Liste der Anzeigemodi, die der Anzeigetreiber dem virtuellen Monitor anbietet. Der Treiber liest
+/// Die Liste der Anzeigemodi, die der Vollbildzonen-Treiber dem virtuellen Monitor anbietet. Der Treiber liest
 /// sie aus <c>vdd_settings.xml</c> und nimmt hoechstens hundert Eintraege an (gemessen am 08.09.2026:
 /// 100 gehen, 112 nicht). Zone Manager erzeugt die Liste aus den Groessen der virtuellen Zonen, damit
 /// jede Zone einen exakt passenden Modus bekommt, und fuellt sie mit verbreiteten Groessen auf.

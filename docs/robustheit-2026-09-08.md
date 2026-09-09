@@ -4,7 +4,7 @@
 
 | Änderung | Wirkung | Nachweis |
 |---|---|---|
-| Vollbildschutz beim Wiederherstellen | Vollbild bleibt unangetastet, auch wenn es erst zwischen den Fensterabfragen beginnt; die bisher gemerkte Zone bleibt erhalten | Drei Tests für unterschiedliche Umschaltzeitpunkte und ein Auffangzonentest |
+| Vollbildschutz beim Wiederherstellen | Vollbild bleibt unangetastet, auch wenn es erst zwischen den Fensterabfragen beginnt; die bisher gemerkte Zone bleibt erhalten | Drei Tests für unterschiedliche Umschaltzeitpunkte und ein Startzonentest |
 | Vollbild- und Minimiertschutz für App-Regeln | Regeln für Öffnen, Fokus und Layoutwechsel prüfen den Zustand nach der Verzögerung und vor jedem Versuch | Vier Regeltests |
 | Schutz unmittelbar im Windows-Fensterdienst | Ein erkanntes Vollbild wird auch über den direkten Platzierungspfad nicht verkleinert; manuelle Platzierungen erhalten einen verständlichen Hinweis | Vier Tests mit echten Windows-Fenstern, einschliesslich eines weiterhin platzierbaren kleinen rahmenlosen Fensters |
 | Rahmenausgleich nach Wiederherstellung | Beim Einrasten maximierter oder minimierter Fenster werden Grösse und unsichtbarer Rand nochmals im Normalzustand gemessen | Zwei Tests gegen den sichtbaren DWM-Rahmen, im selben DPI-Modus wie die Anwendung |

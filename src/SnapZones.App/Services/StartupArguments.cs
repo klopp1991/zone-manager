@@ -33,14 +33,14 @@ public static class StartupArguments
     /// <summary>Entfernt das Signaturzertifikat; läuft ohne Oberfläche und endet danach.</summary>
     public const string RemoveCertificate = "--remove-certificate";
 
-    /// <summary>Installiert den Anzeigetreiber für Vollbildzonen; läuft ohne Oberfläche und endet danach.</summary>
+    /// <summary>Installiert den Vollbildzonen-Treiber; läuft ohne Oberfläche und endet danach.</summary>
     public const string InstallDisplayDriver = "--install-display-driver";
 
-    /// <summary>Entfernt den Anzeigetreiber für Vollbildzonen; läuft ohne Oberfläche und endet danach.</summary>
+    /// <summary>Entfernt den Vollbildzonen-Treiber; läuft ohne Oberfläche und endet danach.</summary>
     public const string RemoveDisplayDriver = "--remove-display-driver";
 
     /// <summary>
-    /// Startet das Gerät des Anzeigetreibers neu, damit es die Modeliste neu einliest oder aus einem
+    /// Startet das Gerät des Vollbildzonen-Treibers neu, damit es die Modeliste neu einliest oder aus einem
     /// Fehlerzustand zurückkommt; läuft ohne Oberfläche und endet danach.
     /// </summary>
     public const string RestartDisplayDriver = "--restart-display-driver";

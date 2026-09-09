@@ -6,7 +6,7 @@ namespace SnapZones.Tests.Placement;
 /// <summary>
 /// Der Filter fuer alles, was das Programm von selbst anfasst (03.09.2026). Zuvor genuegte irgendein
 /// Rahmenstil, sodass Kontextmenues moderner Oberflaechen und jeder Dialog mit Titelleiste — bis hin zum
-/// Kopierdialog des Explorers — in die Hauptzone gezogen wurden.
+/// Kopierdialog des Explorers — in die Startzone gezogen wurden.
 /// </summary>
 public sealed class AutomaticPlacementTests
 {

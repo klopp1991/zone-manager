@@ -16,7 +16,7 @@ public enum DisplayDriverAction
 }
 
 /// <summary>
-/// Installiert, entfernt und startet den Anzeigetreiber für Vollbildzonen neu. Läuft im erhöhten
+/// Installiert, entfernt und startet den Vollbildzonen-Treiber neu. Läuft im erhöhten
 /// Prozess: als Schritt der Installation nach «Programme» (<c>--install</c>, <c>--uninstall</c>) oder
 /// allein über <c>--install-display-driver</c>, <c>--remove-display-driver</c> und
 /// <c>--restart-display-driver</c>.
@@ -30,7 +30,7 @@ public static class DisplayDriverSetup
     /// </summary>
     public static DriverActionResult Install()
     {
-        var directory = Path.Combine(Path.GetTempPath(), $"ZoneManager-Anzeigetreiber-{Guid.NewGuid():N}");
+        var directory = Path.Combine(Path.GetTempPath(), $"ZoneManager-Vollbildzonen-Treiber-{Guid.NewGuid():N}");
         try
         {
             var infPath = VirtualDisplayDriverPackage.Extract(directory);
@@ -90,7 +90,7 @@ public static class DisplayDriverSetup
         {
             var live = monitors.FirstOrDefault(monitor => LayoutService.BelongsToMonitor(layout.Monitor, monitor.Identity));
             var workArea = live?.WorkArea ?? new MonitorWorkArea(0, 0, layout.SavedWidth, layout.SavedHeight);
-            foreach (var zone in layout.Zones.Where(candidate => candidate.IsVirtualMonitor))
+            foreach (var zone in layout.Zones.Where(candidate => candidate.IsFullscreenZone))
             {
                 var bounds = ZoneGeometry.ToPixels(zone.Bounds, workArea, metrics);
                 yield return VirtualDisplayModes.Normalize(bounds.Width, bounds.Height);

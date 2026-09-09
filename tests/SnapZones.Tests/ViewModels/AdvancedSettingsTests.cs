@@ -34,7 +34,7 @@ public sealed class AdvancedSettingsTests
         Assert.Equal(120, settings.DragWatchdogSeconds);
         Assert.Equal(ZoneHotkeyModifiers.ControlShift, settings.ZoneHotkeyModifiers);
         Assert.Equal(OverlayStyle.Default with { HighlightColor = "#707070" }, OverlayStyle.From(settings));
-        Assert.True(settings.CatchNewWindowsInMainZone);
+        Assert.True(settings.CatchNewWindowsInStartZone);
         Assert.True(settings.PreferRememberedZone);
     }
 
@@ -145,7 +145,7 @@ public sealed class AdvancedSettingsTests
         var layout = configuration.Layouts[0];
         configuration = configuration with
         {
-            Layouts = [layout with { MainZoneId = layout.Zones[1].Id }, configuration.Layouts[1]]
+            Layouts = [layout with { StartZoneId = layout.Zones[1].Id }, configuration.Layouts[1]]
         };
         var zones = layout.Zones
             .Select(zone => new PlacementZoneTarget(layout.Id, zone.Id, layout.Monitor.StableId,
@@ -153,16 +153,16 @@ public sealed class AdvancedSettingsTests
             .ToArray();
         var stray = new PixelRect(300, 300, 400, 300);
 
-        Assert.NotNull(MainZoneFallback.Resolve(configuration, zones, stray));
+        Assert.NotNull(StartZoneFallback.Resolve(configuration, zones, stray));
 
-        var switchedOff = configuration with { Settings = configuration.Settings with { CatchNewWindowsInMainZone = false } };
-        Assert.Null(MainZoneFallback.Resolve(switchedOff, zones, stray));
+        var switchedOff = configuration with { Settings = configuration.Settings with { CatchNewWindowsInStartZone = false } };
+        Assert.Null(StartZoneFallback.Resolve(switchedOff, zones, stray));
 
         // 30 px neben der Zone: mit 40 px Toleranz eingerastet, mit 8 px nicht.
         var almost = new PixelRect(30, 0, 1000, 1000);
-        Assert.Null(MainZoneFallback.Resolve(configuration, zones, almost));
+        Assert.Null(StartZoneFallback.Resolve(configuration, zones, almost));
         var strict = configuration with { Settings = configuration.Settings with { SnappedTolerancePixels = 8 } };
-        Assert.NotNull(MainZoneFallback.Resolve(strict, zones, almost));
+        Assert.NotNull(StartZoneFallback.Resolve(strict, zones, almost));
     }
 
     [Fact]

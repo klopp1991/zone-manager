@@ -4,7 +4,7 @@ using Xunit;
 namespace SnapZones.Tests.Monitors;
 
 /// <summary>
-/// Der Anzeigetreiber nimmt hoechstens hundert Modi an und liest sie aus <c>vdd_settings.xml</c>.
+/// Der Vollbildzonen-Treiber nimmt hoechstens hundert Modi an und liest sie aus <c>vdd_settings.xml</c>.
 /// Die Liste muss die Zonengroessen exakt enthalten und darf die Grenze nie ueberschreiten.
 /// </summary>
 public sealed class VirtualDisplayModesTests

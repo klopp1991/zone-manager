@@ -66,7 +66,22 @@ public enum OverlayLabelStyle
 {
     NumberAndName,
     NumberOnly,
-    NameOnly
+    NameOnly,
+
+    /// <summary>Gar keine Beschriftung, auch wenn die Zonennamen sonst eingeschaltet sind.</summary>
+    None
+}
+
+/// <summary>
+/// Die Tastenkombination des Not-Aus. Sie haelt das Einrasten an, ohne das Programm zu beenden, und
+/// bleibt registriert, auch wenn die Zonenkuerzel ausgeschaltet sind.
+/// </summary>
+public enum EmergencyHotkey
+{
+    ControlAltShiftF12,
+    ControlAltShiftF11,
+    ControlAltShiftPause,
+    Off
 }
 
 /// <summary>
@@ -104,7 +119,8 @@ public sealed record AppSettings(
     FixedSizeWindowPlacement FixedSizeWindowPlacement = FixedSizeWindowPlacement.Center,
     int PlacementTolerancePixels = 2,
     int SnappedTolerancePixels = 40,
-    bool CatchNewWindowsInMainZone = true,
+    [property: JsonPropertyName("CatchNewWindowsInMainZone")]
+    bool CatchNewWindowsInStartZone = true,
     bool PreferRememberedZone = true,
     bool RestoreMaximizedWindows = true,
     int RememberedWindowLimit = 500,
@@ -113,14 +129,32 @@ public sealed record AppSettings(
     bool ZoneHotkeysEnabled = true,
     ZoneHotkeyModifiers ZoneHotkeyModifiers = ZoneHotkeyModifiers.ControlShift,
     OverlayLabelStyle OverlayLabelStyle = OverlayLabelStyle.NumberAndName,
-    int OverlayBorderThickness = 1,
-    int OverlayCornerRadius = 4,
-    int OverlayLabelFontSize = 13,
-    string HighlightColor = "",
+    int OverlayBorderThickness = 2,
+    int OverlayCornerRadius = 6,
+    int OverlayLabelFontSize = 16,
+    string HighlightColor = "#2F6FED",
     double HighlightOpacity = 0.36,
-    int MoveHookEventLimit = 400,
-    int DragWatchdogSeconds = 120)
+    int MoveHookEventLimit = 2000,
+    int DragWatchdogSeconds = 10)
 {
+    /// <summary>
+    /// Ob eine Zone, die als Vollbildzone markiert ist, tatsaechlich als eigener Bildschirm gilt.
+    /// Ohne den Vollbildzonen-Treiber bleibt der Schalter wirkungslos.
+    /// </summary>
+    public bool UseFullscreenZones { get; init; } = true;
+
+    /// <summary>
+    /// Programme, die in einer Vollbildzone trotzdem den ganzen Monitor bekommen sollen. Dateinamen
+    /// ohne Pfad, etwa «vlc.exe».
+    /// </summary>
+    public IReadOnlyList<string> FullscreenZoneExcludedPrograms { get; init; } = [];
+
+    /// <summary>Ob das ✕ des Hauptfensters das Programm nur in den Infobereich legt statt es zu beenden.</summary>
+    public bool CloseToTray { get; init; } = true;
+
+    /// <summary>Die Tastenkombination des Not-Aus.</summary>
+    public EmergencyHotkey EmergencyHotkey { get; init; } = EmergencyHotkey.ControlAltShiftF12;
+
     [JsonIgnore]
     public EdgeInsets EffectiveOuterMargins =>
         (OuterMargins ?? EdgeInsets.Uniform(OuterMargin)).Clamp(0, 400);

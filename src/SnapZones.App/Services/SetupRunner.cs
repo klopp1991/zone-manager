@@ -56,7 +56,7 @@ public static class SetupRunner
 
         if (mode == Mode.Uninstall)
         {
-            // Der Anzeigetreiber fuer Vollbildzonen geht mit dem Programm; sonst bliebe ein
+            // Der Vollbildzonen-Treiber fuer Vollbildzonen geht mit dem Programm; sonst bliebe ein
             // Geistermonitor in den Anzeigeeinstellungen zurueck.
             var driverRemoval = DisplayDriverSetup.Remove();
             var removal = service.Uninstall();

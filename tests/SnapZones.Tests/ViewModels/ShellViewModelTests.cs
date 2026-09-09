@@ -19,7 +19,7 @@ public sealed class ShellViewModelTests
         Assert.Contains(SettingsSearchIndex.Search("Deckkraft"), result => result.Label == "Deckkraft der Zonen" && result.BehaviourTab == 1);
         Assert.Contains(SettingsSearchIndex.Search("Darstellung"), result => result.Page == NavigationPage.Behaviour);
         Assert.Contains(SettingsSearchIndex.Search("dunkel"), result => result.Label.StartsWith("Erscheinungsbild", StringComparison.Ordinal) && result.Page == NavigationPage.Program);
-        Assert.Contains(SettingsSearchIndex.Search("Hauptzone"), result => result.Label == "Auffangzone");
+        Assert.Contains(SettingsSearchIndex.Search("Startzone"), result => result.Label == "Startzone");
         Assert.Empty(SettingsSearchIndex.Search("   "));
         Assert.Empty(SettingsSearchIndex.Search("xyzzy"));
         Assert.True(SettingsSearchIndex.Search("e").Count <= SettingsSearchIndex.MaximumResults);

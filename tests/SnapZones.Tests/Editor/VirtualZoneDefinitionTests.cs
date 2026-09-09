@@ -18,15 +18,15 @@ public sealed class VirtualZoneDefinitionTests
     public void The_flag_round_trips_through_json_and_is_omitted_when_false()
     {
         var plain = new ZoneDefinition(Guid.NewGuid(), "Links", NormalizedRect.Full);
-        var virtualZone = plain with { IsVirtualMonitor = true };
+        var virtualZone = plain with { IsFullscreenZone = true };
 
         var plainJson = JsonSerializer.Serialize(plain);
         var virtualJson = JsonSerializer.Serialize(virtualZone);
 
-        Assert.DoesNotContain("IsVirtualMonitor", plainJson);
-        Assert.Contains("\"IsVirtualMonitor\":true", virtualJson);
-        Assert.True(JsonSerializer.Deserialize<ZoneDefinition>(virtualJson)!.IsVirtualMonitor);
-        Assert.False(JsonSerializer.Deserialize<ZoneDefinition>(plainJson)!.IsVirtualMonitor);
+        Assert.DoesNotContain("IsFullscreenZone", plainJson);
+        Assert.Contains("\"IsFullscreenZone\":true", virtualJson);
+        Assert.True(JsonSerializer.Deserialize<ZoneDefinition>(virtualJson)!.IsFullscreenZone);
+        Assert.False(JsonSerializer.Deserialize<ZoneDefinition>(plainJson)!.IsFullscreenZone);
     }
 
     [Fact]
@@ -34,7 +34,7 @@ public sealed class VirtualZoneDefinitionTests
     {
         var configuration = ConfigurationSamples.TwoLayouts();
         var layout = configuration.Layouts[0];
-        var marked = layout with { Zones = [layout.Zones[0] with { IsVirtualMonitor = true }, .. layout.Zones.Skip(1)] };
+        var marked = layout with { Zones = [layout.Zones[0] with { IsFullscreenZone = true }, .. layout.Zones.Skip(1)] };
         configuration = configuration with { Layouts = [marked, .. configuration.Layouts.Skip(1)] };
 
         using var directory = new TemporaryDirectory();
@@ -43,8 +43,8 @@ public sealed class VirtualZoneDefinitionTests
         var loaded = await repository.LoadAsync(CancellationToken.None);
 
         var loadedLayout = loaded.Configuration.Layouts.Single(candidate => candidate.Id == layout.Id);
-        Assert.True(loadedLayout.Zones[0].IsVirtualMonitor);
-        Assert.All(loadedLayout.Zones.Skip(1), zone => Assert.False(zone.IsVirtualMonitor));
+        Assert.True(loadedLayout.Zones[0].IsFullscreenZone);
+        Assert.All(loadedLayout.Zones.Skip(1), zone => Assert.False(zone.IsFullscreenZone));
     }
 
     [Fact]
@@ -55,16 +55,16 @@ public sealed class VirtualZoneDefinitionTests
         var zoneId = layout.Zones[0].Id;
 
         session.SetVirtualMonitor(zoneId, true);
-        Assert.True(session.Zones.Single(zone => zone.Id == zoneId).IsVirtualMonitor);
+        Assert.True(session.Zones.Single(zone => zone.Id == zoneId).IsFullscreenZone);
         Assert.True(session.IsDirty);
 
         session.SetVirtualMonitor(zoneId, true);
         Assert.True(session.Undo());
-        Assert.False(session.Zones.Single(zone => zone.Id == zoneId).IsVirtualMonitor);
+        Assert.False(session.Zones.Single(zone => zone.Id == zoneId).IsFullscreenZone);
         Assert.False(session.IsDirty);
 
         Assert.True(session.Redo());
-        Assert.True(session.CreateSnapshot().Zones.Single(zone => zone.Id == zoneId).IsVirtualMonitor);
+        Assert.True(session.CreateSnapshot().Zones.Single(zone => zone.Id == zoneId).IsFullscreenZone);
         Assert.Throws<KeyNotFoundException>(() => session.SetVirtualMonitor(Guid.NewGuid(), true));
     }
 
@@ -75,7 +75,7 @@ public sealed class VirtualZoneDefinitionTests
         var layout = older.Layouts[0];
         var newer = older with
         {
-            Layouts = [layout with { Zones = [layout.Zones[0] with { IsVirtualMonitor = true }, .. layout.Zones.Skip(1)] }, .. older.Layouts.Skip(1)]
+            Layouts = [layout with { Zones = [layout.Zones[0] with { IsFullscreenZone = true }, .. layout.Zones.Skip(1)] }, .. older.Layouts.Skip(1)]
         };
 
         Assert.Equal($"Layout «{layout.Name}»: Zone «{layout.Zones[0].Name}» als virtueller Monitor gekennzeichnet", ConfigurationDiff.Summarize(older, newer));

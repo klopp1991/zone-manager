@@ -57,7 +57,7 @@ public sealed class LayoutEditorUndoTests
         var session = new LayoutEditorSession(layout);
 
         session.UpdateZone(layout.Zones[0].Id, layout.Zones[0].Name, layout.Zones[0].Bounds);
-        session.SetMainZone(null);
+        session.SetStartZone(null);
 
         Assert.False(session.CanUndo);
     }
@@ -70,9 +70,9 @@ public sealed class LayoutEditorUndoTests
         session.DeleteZone(layout.Zones[1].Id);
         session.Undo();
 
-        session.SetMainZone(layout.Zones[0].Id);
+        session.SetStartZone(layout.Zones[0].Id);
 
         Assert.False(session.CanRedo);
-        Assert.Equal(layout.Zones[0].Id, session.MainZoneId);
+        Assert.Equal(layout.Zones[0].Id, session.StartZoneId);
     }
 }

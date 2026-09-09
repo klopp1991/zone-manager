@@ -114,7 +114,7 @@ Zahlenfeld daneben zeigt denselben Wert (`StringFormat={}{0:0}`).
   Träger, der Text sagt, was geschieht («Zuordnung entfernen», «Wieder einrasten lassen»).
 - **Schalter** (`ToggleSwitch`, 40 × 20, Knopf 12; an = `AccentBrush` mit `AccentInkBrush`-Knopf, aus =
   `SurfaceRaisedBrush` mit `MutedBrush`-Knopf, Fokusring `AccentBrush` 2 px) ersetzen die Checkbox in Listen
-  und Einstellungszeilen. Die Checkbox bleibt dort, wo sie ein Merkmal einer Sache setzt («Auffangzone» im
+  und Einstellungszeilen. Die Checkbox bleibt dort, wo sie ein Merkmal einer Sache setzt («Startzone» im
   Werte-Panel).
 - Menüs (`+ Neu ⌵`, `Vorlage ⌵`, `Reihenfolge ⌵`, Rechtsklick) sind `ContextMenu`s im Theme: `SurfaceBrush`,
   Rand `ControlBorderBrush`, Radius 6, Einträge Padding 7 10, Kürzel rechts in `SubtleInkBrush`, löschender
@@ -145,6 +145,6 @@ einrichten oder entfernen, Installation, Update installieren. Sie benennt konkre
   erreicht wird), `DropTargetBrush` (#2F6FED, Ablagefläche) und `DropTargetInkBrush` (#245AC5 / #8FB3F5, «Hier
   ablegen»).
 - Farbe ist nie der einzige Träger einer Information: die pausierte Zuordnung trägt Text und Schaltfläche, die
-  Auffangzone ein beschriftetes Feld, das aktive Layout das Wort «aktiv».
+  Startzone ein beschriftetes Feld, das aktive Layout das Wort «aktiv».
 - Doppelklick und Rechtsklick haben immer einen zweiten Weg: das Werte-Panel für den Namen, das Menü für alles
   andere, `Entf` für das Löschen.

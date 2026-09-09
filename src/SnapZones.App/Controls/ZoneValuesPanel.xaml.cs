@@ -10,7 +10,7 @@ using SnapZones.Core.Models;
 namespace SnapZones.App.Controls;
 
 /// <summary>
-/// Das Werte-Panel des Layout-Editors: Name, die acht Masse in einer Einheit und die Auffangzone. Es wird
+/// Das Werte-Panel des Layout-Editors: Name, die acht Masse in einer Einheit und die Startzone. Es wird
 /// im Fenster rechts neben der Zeichenflaeche und im Vollbild-Editor als Popover verwendet und bezieht
 /// seinen Zustand aus dem <see cref="LayoutEditorViewModel"/> des Fensters.
 /// </summary>
@@ -83,9 +83,9 @@ public partial class ZoneValuesPanel : System.Windows.Controls.UserControl
                 MarginsSummaryText.Text = string.Empty;
             }
 
-            MainZoneCheckBox.IsEnabled = zone is not null;
-            MainZoneCheckBox.IsChecked = editor?.IsSelectedZoneMainZone ?? false;
-            MainZoneStateText.Text = editor?.MainZoneStateText ?? string.Empty;
+            StartZoneCheckBox.IsEnabled = zone is not null;
+            StartZoneCheckBox.IsChecked = editor?.IsSelectedZoneStartZone ?? false;
+            StartZoneStateText.Text = editor?.StartZoneStateText ?? string.Empty;
             VirtualMonitorCheckBox.IsEnabled = zone is not null;
             VirtualMonitorCheckBox.IsChecked = editor?.IsSelectedZoneVirtualMonitor ?? false;
             VirtualMonitorStateText.Text = editor?.VirtualMonitorStateText ?? string.Empty;
@@ -135,7 +135,7 @@ public partial class ZoneValuesPanel : System.Windows.Controls.UserControl
         SetActiveZoneInputGroup(ZoneInputGroup.Margins);
     }
 
-    private void MainZone_Click(object sender, RoutedEventArgs eventArgs)
+    private void StartZone_Click(object sender, RoutedEventArgs eventArgs)
     {
         _ = sender;
         _ = eventArgs;
@@ -144,7 +144,7 @@ public partial class ZoneValuesPanel : System.Windows.Controls.UserControl
             return;
         }
 
-        editor.ToggleSelectedZoneAsMainZone();
+        editor.ToggleSelectedZoneAsStartZone();
         Refresh();
         ValuesApplied?.Invoke(this, EventArgs.Empty);
     }
@@ -197,7 +197,7 @@ public partial class ZoneValuesPanel : System.Windows.Controls.UserControl
             applyingZoneFieldChange = false;
         }
 
-        MainZoneStateText.Text = editor.MainZoneStateText;
+        StartZoneStateText.Text = editor.StartZoneStateText;
         ValidationText.Text = editor.ValidationMessage;
         ValuesApplied?.Invoke(this, EventArgs.Empty);
     }

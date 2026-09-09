@@ -15,7 +15,7 @@ public sealed class LayoutEditorSession
     private readonly List<EditorState> undoHistory = [];
     private readonly List<EditorState> redoHistory = [];
     private List<ZoneDefinition> zones;
-    private Guid? mainZoneId;
+    private Guid? startZoneId;
     private int interactionDepth;
     private bool interactionRemembered;
 
@@ -23,15 +23,15 @@ public sealed class LayoutEditorSession
     {
         savedLayout = layout with { Zones = [.. layout.Zones] };
         zones = [.. layout.Zones];
-        mainZoneId = layout.MainZoneId;
+        startZoneId = layout.StartZoneId;
     }
 
     public IReadOnlyList<ZoneDefinition> Zones => zones;
 
-    /// <summary>Die im Entwurf als Hauptzone markierte Zone, falls es eine gibt.</summary>
-    public Guid? MainZoneId => mainZoneId;
+    /// <summary>Die im Entwurf als Startzone markierte Zone, falls es eine gibt.</summary>
+    public Guid? StartZoneId => startZoneId;
 
-    public bool IsDirty => !zones.SequenceEqual(savedLayout.Zones) || mainZoneId != savedLayout.MainZoneId;
+    public bool IsDirty => !zones.SequenceEqual(savedLayout.Zones) || startZoneId != savedLayout.StartZoneId;
     public ZoneValidationResult Validation => ZoneGeometry.Validate(zones);
 
     public bool CanUndo => undoHistory.Count > 0;
@@ -105,41 +105,41 @@ public sealed class LayoutEditorSession
     {
         Remember();
         zones = [.. replacement];
-        // Eine Vorlage ersetzt alle Zonen samt Kennungen; ein Verweis auf die alte Hauptzone waere leer.
-        DropMainZoneIfMissing();
+        // Eine Vorlage ersetzt alle Zonen samt Kennungen; ein Verweis auf die alte Startzone waere leer.
+        DropStartZoneIfMissing();
     }
 
     /// <summary>
-    /// Markiert eine Zone als Hauptzone oder hebt die Markierung auf. <c>null</c> hebt sie auf; dieselbe
+    /// Markiert eine Zone als Startzone oder hebt die Markierung auf. <c>null</c> hebt sie auf; dieselbe
     /// Zone erneut zu setzen bleibt folgenlos.
     /// </summary>
-    public void SetMainZone(Guid? zoneId)
+    public void SetStartZone(Guid? zoneId)
     {
         if (zoneId is Guid wanted && zones.All(zone => zone.Id != wanted))
         {
             throw new KeyNotFoundException("Die Zone wurde nicht gefunden.");
         }
 
-        if (mainZoneId == zoneId)
+        if (startZoneId == zoneId)
         {
             return;
         }
 
         Remember();
-        mainZoneId = zoneId;
+        startZoneId = zoneId;
     }
 
     /// <summary>Kennzeichnet eine Zone als virtuellen Monitor oder hebt das Kennzeichen auf.</summary>
     public void SetVirtualMonitor(Guid zoneId, bool isVirtualMonitor)
     {
         var index = FindIndex(zoneId);
-        if (zones[index].IsVirtualMonitor == isVirtualMonitor)
+        if (zones[index].IsFullscreenZone == isVirtualMonitor)
         {
             return;
         }
 
         Remember();
-        zones[index] = zones[index] with { IsVirtualMonitor = isVirtualMonitor };
+        zones[index] = zones[index] with { IsFullscreenZone = isVirtualMonitor };
     }
 
     public void DeleteZone(Guid zoneId)
@@ -151,14 +151,14 @@ public sealed class LayoutEditorSession
 
         Remember();
         zones.RemoveAll(zone => zone.Id == zoneId);
-        DropMainZoneIfMissing();
+        DropStartZoneIfMissing();
     }
 
     public void Reset()
     {
         Remember();
         zones = [.. savedLayout.Zones];
-        mainZoneId = savedLayout.MainZoneId;
+        startZoneId = savedLayout.StartZoneId;
     }
 
     /// <summary>Nimmt die letzte Aenderung zurueck. Ohne Verlauf passiert nichts.</summary>
@@ -196,7 +196,7 @@ public sealed class LayoutEditorSession
             throw new InvalidOperationException("Das Layout enthält ungültige Zonen.");
         }
 
-        return savedLayout with { Zones = [.. zones], MainZoneId = mainZoneId };
+        return savedLayout with { Zones = [.. zones], StartZoneId = startZoneId };
     }
 
     private void Remember()
@@ -220,19 +220,19 @@ public sealed class LayoutEditorSession
         redoHistory.Clear();
     }
 
-    private EditorState Capture() => new([.. zones], mainZoneId);
+    private EditorState Capture() => new([.. zones], startZoneId);
 
     private void Restore(EditorState state)
     {
         zones = [.. state.Zones];
-        mainZoneId = state.MainZoneId;
+        startZoneId = state.StartZoneId;
     }
 
-    private void DropMainZoneIfMissing()
+    private void DropStartZoneIfMissing()
     {
-        if (mainZoneId is Guid zoneId && zones.All(zone => zone.Id != zoneId))
+        if (startZoneId is Guid zoneId && zones.All(zone => zone.Id != zoneId))
         {
-            mainZoneId = null;
+            startZoneId = null;
         }
     }
 
@@ -254,5 +254,5 @@ public sealed class LayoutEditorSession
         return index >= 0 ? index : throw new KeyNotFoundException("Die Zone wurde nicht gefunden.");
     }
 
-    private sealed record EditorState(IReadOnlyList<ZoneDefinition> Zones, Guid? MainZoneId);
+    private sealed record EditorState(IReadOnlyList<ZoneDefinition> Zones, Guid? StartZoneId);
 }

@@ -5,14 +5,14 @@ using SnapZones.Core.Models;
 namespace SnapZones.Core.Placement;
 
 /// <summary>
-/// Entscheidet, ob ein Fenster in der Hauptzone aufgefangen wird. Der Auffang ist die letzte Stufe der
+/// Entscheidet, ob ein Fenster in der Startzone aufgefangen wird. Der Auffang ist die letzte Stufe der
 /// Zuordnungskette: App-Regel, gemerkte Position und Ausschluss haben Vorrang und werden vor dem Aufruf
 /// geprüft. Hier bleibt nur noch die Frage, ob das Fenster bereits in einer Zone eingerastet ist.
 /// </summary>
-public static class MainZoneFallback
+public static class StartZoneFallback
 {
     /// <summary>
-    /// Die Zielfläche der Hauptzone, oder <c>null</c>, wenn keine Hauptzone gilt, sie im aktiven Satz
+    /// Die Zielfläche der Startzone, oder <c>null</c>, wenn keine Startzone gilt, sie im aktiven Satz
     /// keine Fläche hat oder das Fenster bereits in einer Zone eingerastet ist.
     /// </summary>
     public static PixelRect? Resolve(
@@ -21,7 +21,7 @@ public static class MainZoneFallback
         PixelRect windowBounds)
     {
         ArgumentNullException.ThrowIfNull(zones);
-        if (MainZone.Resolve(configuration) is not { } target)
+        if (StartZone.Resolve(configuration) is not { } target)
         {
             return null;
         }
@@ -33,10 +33,10 @@ public static class MainZoneFallback
         }
 
         // Ein bereits eingerastetes Fenster wird nicht angefasst — auch dann nicht, wenn es in einer
-        // anderen Zone liegt als der Hauptzone. Sonst würde die Hauptzone Fenster einsammeln, die der
+        // anderen Zone liegt als der Startzone. Sonst würde die Startzone Fenster einsammeln, die der
         // Benutzer bewusst irgendwo abgelegt hat. Ob der Auffang ueberhaupt gewollt ist, entscheidet die
         // Einstellung; die Toleranz fuer «eingerastet» ebenfalls.
-        if (!configuration!.Settings.CatchNewWindowsInMainZone)
+        if (!configuration!.Settings.CatchNewWindowsInStartZone)
         {
             return null;
         }

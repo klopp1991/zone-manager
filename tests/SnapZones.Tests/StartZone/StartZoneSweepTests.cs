@@ -6,13 +6,13 @@ using SnapZones.Core.Placement;
 using SnapZones.Tests.Support;
 using Xunit;
 
-namespace SnapZones.Tests.MainZone;
+namespace SnapZones.Tests.StartZone;
 
 /// <summary>
-/// Der Auffang beim Layoutwechsel. Er ist der eingreifendste Teil der Hauptzone — er bewegt bestehende
+/// Der Auffang beim Layoutwechsel. Er ist der eingreifendste Teil der Startzone — er bewegt bestehende
 /// Fenster — und muss deshalb genau die Fenster treffen, die im neuen Layout wirklich heimatlos sind.
 /// </summary>
-public sealed class MainZoneSweepTests
+public sealed class StartZoneSweepTests
 {
     private static readonly Guid WorkLayoutId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid LeftZoneId = Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa");
@@ -24,7 +24,7 @@ public sealed class MainZoneSweepTests
     [Fact]
     public void A_stray_window_of_the_switched_monitor_moves_into_the_main_zone()
     {
-        var planned = Plan(Configuration(), new MainZoneSweepWindow(17, new PixelRect(300, 200, 500, 400)));
+        var planned = Plan(Configuration(), new StartZoneSweepWindow(17, new PixelRect(300, 200, 500, 400)));
 
         var target = Assert.Single(planned);
         Assert.Equal((nint)17, target.WindowHandle);
@@ -34,14 +34,14 @@ public sealed class MainZoneSweepTests
     [Fact]
     public void A_window_snapped_to_a_zone_stays_where_it_is()
     {
-        Assert.Empty(Plan(Configuration(), new MainZoneSweepWindow(17, new PixelRect(0, 0, 960, 1080))));
+        Assert.Empty(Plan(Configuration(), new StartZoneSweepWindow(17, new PixelRect(0, 0, 960, 1080))));
     }
 
     [Fact]
     public void A_window_on_another_monitor_is_not_touched()
     {
         // Der Wechsel betraf nur diesen einen Monitor; Fenster daneben gehen ihn nichts an.
-        Assert.Empty(Plan(Configuration(), new MainZoneSweepWindow(17, new PixelRect(2400, 200, 500, 400))));
+        Assert.Empty(Plan(Configuration(), new StartZoneSweepWindow(17, new PixelRect(2400, 200, 500, 400))));
     }
 
     [Fact]
@@ -49,10 +49,10 @@ public sealed class MainZoneSweepTests
     {
         var configuration = Configuration() with
         {
-            Layouts = Configuration().Layouts.Select(layout => layout with { MainZoneId = null }).ToArray()
+            Layouts = Configuration().Layouts.Select(layout => layout with { StartZoneId = null }).ToArray()
         };
 
-        Assert.Empty(Plan(configuration, new MainZoneSweepWindow(17, new PixelRect(300, 200, 500, 400))));
+        Assert.Empty(Plan(configuration, new StartZoneSweepWindow(17, new PixelRect(300, 200, 500, 400))));
     }
 
     [Fact]
@@ -66,7 +66,7 @@ public sealed class MainZoneSweepTests
             Layouts = configuration.Layouts.Select(layout => layout with { IsActive = false }).ToArray()
         };
 
-        Assert.Empty(Plan(configuration, new MainZoneSweepWindow(17, new PixelRect(300, 200, 500, 400))));
+        Assert.Empty(Plan(configuration, new StartZoneSweepWindow(17, new PixelRect(300, 200, 500, 400))));
     }
 
     [Fact]
@@ -78,7 +78,7 @@ public sealed class MainZoneSweepTests
             AppExclusions = [new AppExclusion(Guid.NewGuid(), "editor.exe", null, null, true)]
         };
 
-        Assert.Empty(Plan(configuration, new MainZoneSweepWindow(17, new PixelRect(300, 200, 500, 400))));
+        Assert.Empty(Plan(configuration, new StartZoneSweepWindow(17, new PixelRect(300, 200, 500, 400))));
     }
 
     [Fact]
@@ -104,7 +104,7 @@ public sealed class MainZoneSweepTests
             ]
         };
 
-        Assert.Empty(Plan(configuration, new MainZoneSweepWindow(17, new PixelRect(300, 200, 500, 400))));
+        Assert.Empty(Plan(configuration, new StartZoneSweepWindow(17, new PixelRect(300, 200, 500, 400))));
     }
 
     [Fact]
@@ -130,17 +130,17 @@ public sealed class MainZoneSweepTests
             ]
         };
 
-        Assert.Single(Plan(configuration, new MainZoneSweepWindow(17, new PixelRect(300, 200, 500, 400))));
+        Assert.Single(Plan(configuration, new StartZoneSweepWindow(17, new PixelRect(300, 200, 500, 400))));
     }
 
     [Fact]
     public void A_window_without_a_readable_identity_is_left_alone()
     {
-        var planned = MainZoneSweep.Plan(
+        var planned = StartZoneSweep.Plan(
             Configuration(),
             Zones(),
             WorkArea,
-            [new MainZoneSweepWindow(17, new PixelRect(300, 200, 500, 400))],
+            [new StartZoneSweepWindow(17, new PixelRect(300, 200, 500, 400))],
             _ => null);
 
         Assert.Empty(planned);
@@ -151,8 +151,8 @@ public sealed class MainZoneSweepTests
     {
         var planned = Plan(
             Configuration(),
-            new MainZoneSweepWindow(17, new PixelRect(300, 200, 500, 400)),
-            new MainZoneSweepWindow(18, new PixelRect(100, 700, 400, 300)));
+            new StartZoneSweepWindow(17, new PixelRect(300, 200, 500, 400)),
+            new StartZoneSweepWindow(18, new PixelRect(100, 700, 400, 300)));
 
         Assert.Equal(2, planned.Count);
         Assert.All(planned, target => Assert.Equal(RightZoneBounds, target.Bounds));
@@ -160,8 +160,8 @@ public sealed class MainZoneSweepTests
 
     private static IReadOnlyList<WindowPlacement> Plan(
         SnapConfiguration configuration,
-        params MainZoneSweepWindow[] windows) =>
-        MainZoneSweep.Plan(configuration, Zones(), WorkArea, windows, _ => Editor);
+        params StartZoneSweepWindow[] windows) =>
+        StartZoneSweep.Plan(configuration, Zones(), WorkArea, windows, _ => Editor);
 
     private static SnapConfiguration Configuration()
     {
@@ -169,7 +169,7 @@ public sealed class MainZoneSweepTests
         return configuration with
         {
             Layouts = configuration.Layouts
-                .Select(layout => layout.Id == WorkLayoutId ? layout with { MainZoneId = RightZoneId } : layout)
+                .Select(layout => layout.Id == WorkLayoutId ? layout with { StartZoneId = RightZoneId } : layout)
                 .ToArray()
         };
     }

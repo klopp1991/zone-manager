@@ -4,7 +4,7 @@ using System.Text;
 namespace SnapZones.Windows.Native;
 
 /// <summary>
-/// SetupAPI fuer den Geraeteknoten des virtuellen Anzeigetreibers. Ersetzt devcon: Knoten anlegen,
+/// SetupAPI fuer den Geraeteknoten des virtuellen Vollbildzonen-Treibers. Ersetzt devcon: Knoten anlegen,
 /// Hardware-Kennung setzen, registrieren, aufzaehlen, entfernen.
 /// </summary>
 internal static class SetupApi

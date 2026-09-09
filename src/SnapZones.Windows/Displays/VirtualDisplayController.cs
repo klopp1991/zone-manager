@@ -25,7 +25,7 @@ public sealed record DisplayChangeResult(bool Succeeded, int Code)
     {
         0 => "Der Anzeigemodus wurde gesetzt.",
         1 => "Windows verlangt fuer diesen Anzeigemodus einen Neustart.",
-        -2 => "Der Anzeigetreiber kennt diesen Modus nicht.",
+        -2 => "Der Vollbildzonen-Treiber kennt diesen Modus nicht.",
         -3 => "Windows konnte die Anzeigeeinstellungen nicht schreiben.",
         -5 => "Windows hat die Modusangaben zurueckgewiesen.",
         _ => $"Der Anzeigemodus liess sich nicht setzen (Code {Code})."
@@ -33,7 +33,7 @@ public sealed record DisplayChangeResult(bool Succeeded, int Code)
 }
 
 /// <summary>
-/// Steuert den virtuellen Monitor des Anzeigetreibers ohne Administratorrechte: finden, Modeliste
+/// Steuert den virtuellen Monitor des Vollbildzonen-Treibers ohne Administratorrechte: finden, Modeliste
 /// nachfuehren, in Zonengroesse anhaengen, Skalierung des Zielmonitors uebernehmen, abhaengen.
 ///
 /// <para>
@@ -211,7 +211,7 @@ public sealed class VirtualDisplayController
             }
 
             File.WriteAllText(path, xml, Utf8WithoutBom);
-            log("INFO", $"Modeliste des Anzeigetreibers mit {modes.Count} Modi geschrieben.");
+            log("INFO", $"Modeliste des Vollbildzonen-Treibers mit {modes.Count} Modi geschrieben.");
             return true;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)

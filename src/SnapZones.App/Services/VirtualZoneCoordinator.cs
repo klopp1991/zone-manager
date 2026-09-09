@@ -17,7 +17,7 @@ namespace SnapZones.App.Services;
 
 /// <summary>
 /// Haelt ein Fenster in einer Vollbildzone: sobald ein Fenster in eine als virtueller Monitor
-/// gekennzeichnete Zone kommt, wird der virtuelle Monitor des Anzeigetreibers in Zonengroesse
+/// gekennzeichnete Zone kommt, wird der virtuelle Monitor des Vollbildzonen-Treibers in Zonengroesse
 /// angehaengt, die Skalierung des Zielmonitors uebernommen, das Fenster dorthin gelegt, sein Bild in
 /// die Zone gespiegelt und der Zeiger uebergeben. Verlaesst das Fenster den virtuellen Monitor oder
 /// wird es geschlossen, endet die Sitzung, und der Monitor wird abgehaengt. Es gibt hoechstens eine
@@ -25,7 +25,7 @@ namespace SnapZones.App.Services;
 ///
 /// <para>
 /// Alles Langsame — Modeliste nachfuehren, anhaengen, skalieren — laeuft im Hintergrund; Fenster,
-/// Spiegel und Zeiger-Hook gehoeren auf den UI-Thread. Ohne Anzeigetreiber tut der Koordinator nichts
+/// Spiegel und Zeiger-Hook gehoeren auf den UI-Thread. Ohne Vollbildzonen-Treiber tut der Koordinator nichts
 /// als den Hinweis, wie er sich einschalten laesst.
 /// </para>
 /// </summary>
@@ -54,7 +54,7 @@ public sealed class VirtualZoneCoordinator : IDisposable
     private bool disposed;
 
     /// <param name="restartDriver">
-    /// Startet das Geraet des Anzeigetreibers neu (Administratorrechte) und liefert, ob das gelungen
+    /// Startet das Geraet des Vollbildzonen-Treibers neu (Administratorrechte) und liefert, ob das gelungen
     /// ist. Noetig, wenn die Modeliste eine neue Zonengroesse bekommt oder der Treiber einen Fehler meldet.
     /// </param>
     public VirtualZoneCoordinator(
@@ -121,7 +121,7 @@ public sealed class VirtualZoneCoordinator : IDisposable
 
         var target = targets().FirstOrDefault(candidate => candidate.Monitor.Identity.StableId == monitorStableId);
         var zone = target?.PartMonitors.FirstOrDefault(candidate => candidate.Id == zoneId);
-        if (target is null || zone is null || !zone.IsVirtualMonitor)
+        if (target is null || zone is null || !zone.IsFullscreenZone)
         {
             return false;
         }
@@ -167,7 +167,7 @@ public sealed class VirtualZoneCoordinator : IDisposable
 
         var target = targets().FirstOrDefault(candidate => candidate.Monitor.Identity.StableId == active.MonitorStableId);
         var zone = target?.PartMonitors.FirstOrDefault(candidate => candidate.Id == active.ZoneId);
-        if (target is null || zone is null || !zone.IsVirtualMonitor)
+        if (target is null || zone is null || !zone.IsFullscreenZone)
         {
             End("die Zone gibt es nicht mehr");
             return;
@@ -225,7 +225,7 @@ public sealed class VirtualZoneCoordinator : IDisposable
             var driver = VirtualDisplayDriverService.ReadStatus();
             if (!driver.DevicePresent || !driver.ConfigurationPresent)
             {
-                status("Vollbildzone: der Anzeigetreiber fehlt. Programm → Anzeigetreiber für Vollbildzonen richtet ihn ein.");
+                status("Vollbildzone: der Vollbildzonen-Treiber fehlt. Programm → Vollbildzonen-Treiber richtet ihn ein.");
                 return;
             }
 
@@ -343,12 +343,12 @@ public sealed class VirtualZoneCoordinator : IDisposable
         if (needsRestart)
         {
             log("INFO", driver.Faulted
-                ? $"Der Anzeigetreiber meldet Code {driver.ProblemCode}; das Gerät wird neu gestartet."
-                : "Der Anzeigetreiber bekommt eine neue Modeliste; das Gerät wird neu gestartet.", null);
-            status("Vollbildzone: der Anzeigetreiber wird neu gestartet; Windows fragt nach Administratorrechten …");
+                ? $"Der Vollbildzonen-Treiber meldet Code {driver.ProblemCode}; das Gerät wird neu gestartet."
+                : "Der Vollbildzonen-Treiber bekommt eine neue Modeliste; das Gerät wird neu gestartet.", null);
+            status("Vollbildzone: der Vollbildzonen-Treiber wird neu gestartet; Windows fragt nach Administratorrechten …");
             if (!await restartDriver())
             {
-                log("ERROR", "Der Anzeigetreiber liess sich nicht neu starten.", null);
+                log("ERROR", "Der Vollbildzonen-Treiber liess sich nicht neu starten.", null);
                 return null;
             }
 
@@ -497,7 +497,7 @@ public sealed class VirtualZoneCoordinator : IDisposable
     {
         foreach (var target in targets())
         {
-            foreach (var zone in target.PartMonitors.Where(candidate => candidate.IsVirtualMonitor))
+            foreach (var zone in target.PartMonitors.Where(candidate => candidate.IsFullscreenZone))
             {
                 var bounds = ZoneBounds(target, zone);
                 yield return VirtualDisplayModes.Normalize(bounds.Width, bounds.Height);

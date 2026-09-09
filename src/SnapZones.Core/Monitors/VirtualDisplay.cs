@@ -3,7 +3,7 @@ using SnapZones.Core.Models;
 namespace SnapZones.Core.Monitors;
 
 /// <summary>
-/// Kennzeichen des virtuellen Monitors, den Zone Manager selbst ueber den Anzeigetreiber
+/// Kennzeichen des virtuellen Monitors, den Zone Manager selbst ueber den Vollbildzonen-Treiber
 /// «Virtual Display Driver» anlegt, um ein Programm im Vollbild auf Zonengroesse zu halten. Der
 /// Treiber meldet den Adapter mit der Hardware-Kennung <c>Root\MttVDD</c> und den Monitor mit der
 /// EDID-Kennung <c>MTT1337</c> im Anzeigepfad (<c>\\?\DISPLAY#MTT1337#…</c>). Fuer die eigene

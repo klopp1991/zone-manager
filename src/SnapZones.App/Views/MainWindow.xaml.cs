@@ -781,13 +781,13 @@ public partial class MainWindow : Window
         }
 
         var menu = new ContextMenu();
-        var mainZone = new MenuItem { Header = editor.MainZoneId == zoneId ? "Auffangzone aufheben" : "Als Auffangzone festlegen" };
-        mainZone.Click += (_, _) =>
+        var startZone = new MenuItem { Header = editor.StartZoneId == zoneId ? "Startzone aufheben" : "Als Startzone festlegen" };
+        startZone.Click += (_, _) =>
         {
-            editor.ToggleMainZone(zoneId);
+            editor.ToggleStartZone(zoneId);
             RefreshEditor();
         };
-        menu.Items.Add(mainZone);
+        menu.Items.Add(startZone);
         var renameItem = new MenuItem { Header = "Umbenennen", InputGestureText = "Doppelklick" };
         renameItem.Click += (_, _) => rename();
         menu.Items.Add(renameItem);
@@ -822,7 +822,7 @@ public partial class MainWindow : Window
     {
         var editor = viewModel?.Editor;
         EditorCanvas.Zones = editor?.Zones ?? [];
-        EditorCanvas.MainZoneId = editor?.MainZoneId;
+        EditorCanvas.StartZoneId = editor?.StartZoneId;
         EditorCanvas.InvalidateVisual();
         ValidationText.Text = editor?.ValidationMessage ?? string.Empty;
         fullscreenEditor?.RefreshFromEditor();
@@ -864,7 +864,7 @@ public partial class MainWindow : Window
         var editor = viewModel?.Editor;
         EditorCanvas.Zones = editor?.Zones ?? [];
         EditorCanvas.SelectedZoneId = editor?.SelectedZone?.Id;
-        EditorCanvas.MainZoneId = editor?.MainZoneId;
+        EditorCanvas.StartZoneId = editor?.StartZoneId;
         AddZoneButton.IsEnabled = editor is not null;
         DeleteZoneButton.IsEnabled = editor?.SelectedZone is not null && editor.Zones.Count > 1;
         var monitor = viewModel?.SelectedMonitor?.Live;
@@ -1261,7 +1261,7 @@ public partial class MainWindow : Window
 
         if (System.Windows.MessageBox.Show(
                 "Die Programmdatei wird nach «Programme» kopiert, im Startmenü verknüpft und in "
-                    + "«Apps und Features» eingetragen; dazu wird der Anzeigetreiber für Vollbildzonen "
+                    + "«Apps und Features» eingetragen; dazu wird der Vollbildzonen-Treiber "
                     + "eingerichtet. Das Programm startet danach von dort neu.",
                 "Installieren",
                 MessageBoxButton.OKCancel,
@@ -1283,10 +1283,10 @@ public partial class MainWindow : Window
         }
 
         if (System.Windows.MessageBox.Show(
-                "Der Anzeigetreiber «Virtual Display Driver» wird eingerichtet. Er legt einen zusätzlichen, "
+                "Der Vollbildzonen-Treiber «Virtual Display Driver» wird eingerichtet. Er legt einen zusätzlichen, "
                     + "virtuellen Monitor an, den Zone Manager nur dann anhängt, wenn ein Fenster in einer "
                     + "Vollbildzone liegt. Windows fragt einmal nach Administratorrechten.",
-                "Anzeigetreiber installieren",
+                "Vollbildzonen-Treiber installieren",
                 MessageBoxButton.OKCancel,
                 MessageBoxImage.Information) != MessageBoxResult.OK)
         {
@@ -1306,9 +1306,9 @@ public partial class MainWindow : Window
         }
 
         if (System.Windows.MessageBox.Show(
-                "Der Anzeigetreiber wird samt virtuellem Monitor entfernt. Vollbildzonen bleiben danach "
+                "Der Vollbildzonen-Treiber wird samt virtuellem Monitor entfernt. Vollbildzonen bleiben danach "
                     + "ausgeschaltet, bis er erneut installiert wird. Windows fragt einmal nach Administratorrechten.",
-                "Anzeigetreiber entfernen",
+                "Vollbildzonen-Treiber entfernen",
                 MessageBoxButton.OKCancel,
                 MessageBoxImage.Information) != MessageBoxResult.OK)
         {

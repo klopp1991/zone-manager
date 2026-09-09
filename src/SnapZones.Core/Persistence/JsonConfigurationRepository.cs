@@ -238,7 +238,7 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
 
         // Schema 6: jede Monitorkennung traegt Hersteller und Modell aus dem Anzeigepfad, damit ein
         // umgesteckter Monitor wiedererkannt wird; Monitorsaetze verweisen nur auf vorhandene Layouts.
-        var layouts = MainZone.Normalize(upgraded.Layouts ?? [])
+        var layouts = StartZone.Normalize(upgraded.Layouts ?? [])
             .Select(layout => string.IsNullOrWhiteSpace(layout.Monitor.HardwareId)
                 ? layout with { Monitor = layout.Monitor with { HardwareId = MonitorHardwareId.FromDevicePath(layout.Monitor.StableId) } }
                 : layout)
@@ -425,9 +425,9 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
                 throw new InvalidDataException($"Das Layout «{layout.Name}» enthält ungültige Zonen.");
             }
 
-            if (layout.MainZoneId is Guid mainZoneId && layout.Zones.All(zone => zone.Id != mainZoneId))
+            if (layout.StartZoneId is Guid startZoneId && layout.Zones.All(zone => zone.Id != startZoneId))
             {
-                throw new InvalidDataException($"Die Hauptzone des Layouts «{layout.Name}» gibt es nicht.");
+                throw new InvalidDataException($"Die Startzone des Layouts «{layout.Name}» gibt es nicht.");
             }
         }
     }
@@ -479,11 +479,11 @@ public sealed class JsonConfigurationRepository : IConfigurationRepository
             settings.RuleRetryDelayMilliseconds is < 50 or > 2000 ||
             settings.OverlayBorderThickness is < 1 or > 6 ||
             settings.OverlayCornerRadius is < 0 or > 24 ||
-            settings.OverlayLabelFontSize is < 10 or > 24 ||
+            settings.OverlayLabelFontSize is < 8 or > 48 ||
             !double.IsFinite(settings.HighlightOpacity) ||
             settings.HighlightOpacity is < 0.10 or > 0.90 ||
-            settings.MoveHookEventLimit is < 100 or > 5000 ||
-            settings.DragWatchdogSeconds is < 5 or > 600)
+            settings.MoveHookEventLimit is < 100 or > 20000 ||
+            settings.DragWatchdogSeconds is < 2 or > 600)
         {
             throw new InvalidDataException("Eine Feinabstimmung liegt ausserhalb des gültigen Bereichs.");
         }

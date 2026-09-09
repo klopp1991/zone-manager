@@ -6,11 +6,11 @@ using Xunit;
 namespace SnapZones.Tests.Persistence;
 
 /// <summary>
-/// Die Hauptzone ist ein zusätzliches, weglassbares Feld am Layout. Bestehende Stände laufen ohne sie
+/// Die Startzone ist ein zusätzliches, weglassbares Feld am Layout. Bestehende Stände laufen ohne sie
 /// weiter, jedes Layout darf eine eigene tragen, und ein Verweis ins Leere darf nie in den Betrieb
 /// gelangen.
 /// </summary>
-public sealed class MainZonePersistenceTests
+public sealed class StartZonePersistenceTests
 {
     private static readonly Guid WorkLayoutId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly Guid EveningLayoutId = Guid.Parse("22222222-2222-2222-2222-222222222222");
@@ -26,7 +26,7 @@ public sealed class MainZonePersistenceTests
 
         var loaded = await repository.LoadAsync(CancellationToken.None);
 
-        Assert.All(loaded.Configuration.Layouts, layout => Assert.Null(layout.MainZoneId));
+        Assert.All(loaded.Configuration.Layouts, layout => Assert.Null(layout.StartZoneId));
     }
 
     [Fact]
@@ -35,11 +35,11 @@ public sealed class MainZonePersistenceTests
         using var directory = new TemporaryDirectory();
         var repository = new JsonConfigurationRepository(directory.Path);
 
-        await repository.SaveAsync(WithMainZone(WorkLayoutId, LeftZoneId), CancellationToken.None);
+        await repository.SaveAsync(WithStartZone(WorkLayoutId, LeftZoneId), CancellationToken.None);
         var loaded = await repository.LoadAsync(CancellationToken.None);
 
-        Assert.Equal(LeftZoneId, loaded.Configuration.Layouts.Single(layout => layout.Id == WorkLayoutId).MainZoneId);
-        Assert.Null(loaded.Configuration.Layouts.Single(layout => layout.Id == EveningLayoutId).MainZoneId);
+        Assert.Equal(LeftZoneId, loaded.Configuration.Layouts.Single(layout => layout.Id == WorkLayoutId).StartZoneId);
+        Assert.Null(loaded.Configuration.Layouts.Single(layout => layout.Id == EveningLayoutId).StartZoneId);
     }
 
     [Fact]
@@ -49,7 +49,7 @@ public sealed class MainZonePersistenceTests
         var repository = new JsonConfigurationRepository(directory.Path);
 
         await Assert.ThrowsAsync<InvalidDataException>(
-            () => repository.SaveAsync(WithMainZone(WorkLayoutId, VideoZoneId), CancellationToken.None));
+            () => repository.SaveAsync(WithStartZone(WorkLayoutId, VideoZoneId), CancellationToken.None));
     }
 
     [Fact]
@@ -62,25 +62,25 @@ public sealed class MainZonePersistenceTests
         {
             Layouts = configuration.Layouts
                 .Select(layout => layout.Id == WorkLayoutId
-                    ? layout with { MainZoneId = LeftZoneId }
-                    : layout with { MainZoneId = VideoZoneId })
+                    ? layout with { StartZoneId = LeftZoneId }
+                    : layout with { StartZoneId = VideoZoneId })
                 .ToArray()
         };
 
         await repository.SaveAsync(configuration, CancellationToken.None);
         var loaded = await repository.LoadAsync(CancellationToken.None);
 
-        Assert.Equal(LeftZoneId, loaded.Configuration.Layouts.Single(layout => layout.Id == WorkLayoutId).MainZoneId);
-        Assert.Equal(VideoZoneId, loaded.Configuration.Layouts.Single(layout => layout.Id == EveningLayoutId).MainZoneId);
+        Assert.Equal(LeftZoneId, loaded.Configuration.Layouts.Single(layout => layout.Id == WorkLayoutId).StartZoneId);
+        Assert.Equal(VideoZoneId, loaded.Configuration.Layouts.Single(layout => layout.Id == EveningLayoutId).StartZoneId);
     }
 
-    private static SnapConfiguration WithMainZone(Guid layoutId, Guid zoneId)
+    private static SnapConfiguration WithStartZone(Guid layoutId, Guid zoneId)
     {
         var configuration = ConfigurationSamples.TwoLayouts();
         return configuration with
         {
             Layouts = configuration.Layouts
-                .Select(layout => layout.Id == layoutId ? layout with { MainZoneId = zoneId } : layout)
+                .Select(layout => layout.Id == layoutId ? layout with { StartZoneId = zoneId } : layout)
                 .ToArray()
         };
     }
