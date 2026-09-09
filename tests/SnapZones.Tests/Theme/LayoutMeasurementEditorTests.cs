@@ -152,21 +152,27 @@ public sealed class LayoutMeasurementEditorTests
     }
 
     [Fact]
-    public void The_value_panel_can_be_hidden_and_the_choice_is_stored_as_a_setting()
+    public void The_value_panel_stays_visible_and_falls_back_to_a_placeholder()
     {
         WpfThemeHost.Invoke(() =>
         {
-            var (window, _) = CreateWindow();
-            var viewModel = Assert.IsType<MainViewModel>(window.DataContext);
+            var (window, panel) = CreateWindow();
             var host = Assert.IsType<Border>(window.FindName("ZoneValuesHost"));
-            var toggle = Assert.IsType<Button>(window.FindName("ToggleValuePanelButton"));
 
+            // Kein Ein- und Ausblenden mehr: das Panel ist immer da und 300 breit.
+            Assert.Null(window.FindName("ToggleValuePanelButton"));
             Assert.Equal(Visibility.Visible, host.Visibility);
-            toggle.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            Assert.Equal(300d, host.Width);
 
-            Assert.Equal(Visibility.Collapsed, host.Visibility);
-            Assert.False(viewModel.Configuration.Settings.EditorValuePanelOpen);
-            Assert.Equal("‹ Werte einblenden", toggle.Content);
+            var zoneState = Assert.IsType<StackPanel>(panel.FindName("ZoneState"));
+            var emptyState = Assert.IsType<StackPanel>(panel.FindName("EmptyState"));
+            Assert.Equal(Visibility.Visible, zoneState.Visibility);
+            Assert.Equal(Visibility.Collapsed, emptyState.Visibility);
+
+            panel.Attach(null, 3200, 1080);
+
+            Assert.Equal(Visibility.Collapsed, zoneState.Visibility);
+            Assert.Equal(Visibility.Visible, emptyState.Visibility);
         });
     }
 

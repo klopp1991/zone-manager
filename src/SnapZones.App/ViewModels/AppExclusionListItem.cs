@@ -40,7 +40,6 @@ public sealed class AppExclusionListItem : ViewModelBase
         {
             if (SetProperty(ref isExpanded, value))
             {
-                OnPropertyChanged(nameof(ActionLabel));
             }
         }
     }
@@ -69,8 +68,6 @@ public sealed class AppExclusionListItem : ViewModelBase
             return exclusion.IsEnabled ? text : $"{text} · ausgeschaltet";
         }
     }
-
-    public string ActionLabel => isExpanded ? "Schliessen" : "Eingrenzen …";
 
     internal void Update(AppExclusion replacement) => Exclusion = replacement;
 }

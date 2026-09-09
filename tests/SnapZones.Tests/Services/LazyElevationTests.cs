@@ -153,11 +153,19 @@ public sealed class LazyElevationTests
             Assert.Equal(
                 "Settings.ElevationMode",
                 selector.GetBindingExpression(Selector.SelectedItemProperty)!.ParentBinding.Path.Path);
-            Assert.Contains("nächsten Start", hint.Text, StringComparison.Ordinal);
+            // Der Untertitel sagt in Alltagssprache, was die Rechtelage bedeutet; alles Technische –
+            // auch der Hinweis auf den naechsten Start – steht im ToolTip des «?».
+            Assert.Equal(
+                "ElevationHint",
+                hint.GetBindingExpression(TextBlock.TextProperty)!.ParentBinding.Path.Path);
+            var viewModel = Assert.IsType<MainViewModel>(window.DataContext);
+            Assert.Contains("höheren Rechten", viewModel.ElevationHint, StringComparison.Ordinal);
+            Assert.DoesNotContain("UAC", viewModel.ElevationHint, StringComparison.Ordinal);
 
             var tooltip = Assert.IsType<string>(help.ToolTip);
             Assert.True(tooltip.Length >= 120);
             Assert.Contains("Vertrauensstufen", tooltip, StringComparison.Ordinal);
+            Assert.Contains("nächsten Start", tooltip, StringComparison.Ordinal);
         });
     }
 }

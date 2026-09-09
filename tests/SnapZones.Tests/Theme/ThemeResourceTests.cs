@@ -369,11 +369,15 @@ public sealed class ThemeResourceTests
                 Assert.False(string.IsNullOrWhiteSpace(System.Windows.Automation.AutomationProperties.GetName(button)));
             }
 
+            // Statt eines Einleitungssatzes traegt jede Zeile ihren eigenen Untertitel in Laiensprache.
             var helpStyle = Assert.IsType<Style>(Application.Current.Resources["HelpText"]);
             Assert.Contains(
                 LogicalDescendants<TextBlock>(window),
                 textBlock => ReferenceEquals(textBlock.Style, helpStyle) &&
-                    textBlock.Text == "Alle Einstellungen, sofort gespeichert. Das ? neben jeder Einstellung erklärt beim Darüberfahren, was sie tut.");
+                    textBlock.Text == "Auf welchen Monitoren die Zonen erscheinen");
+            Assert.DoesNotContain(
+                LogicalDescendants<TextBlock>(window),
+                textBlock => textBlock.Text.StartsWith("Alle Einstellungen, sofort gespeichert", StringComparison.Ordinal));
             Assert.Null(window.FindName("OverlayVisualMarginInfoButton"));
             Assert.Null(window.FindName("ShowAdvancedSettingsCheckBox"));
         });
@@ -439,9 +443,9 @@ public sealed class ThemeResourceTests
     }
 
     [Theory]
-    [InlineData("Monitore", "IdentifyMonitorsButton,MonitorOrderButton")]
-    [InlineData("Übersicht", "DrawZonesButton,OverviewAssignButton,PreviewZonesButton")]
-    [InlineData("Programm", "ExportConfigurationButton,ImportConfigurationButton")]
+    [InlineData("Zonen & Layouts", "AddZoneButton,DeleteZoneButton,TemplateMenuButton")]
+    [InlineData("Sicherung & Stände", "ExportConfigurationButton,ImportConfigurationButton")]
+    [InlineData("System & Rechte", "OpenLogButton,RunDiagnosticsButton")]
     public void Neighbouring_buttons_render_with_the_same_height(string tabHeader, string buttonNames)
     {
         WpfThemeHost.Invoke(() =>
@@ -563,19 +567,25 @@ public sealed class ThemeResourceTests
     {
         WpfThemeHost.Invoke(() =>
         {
-            var window = new MainWindow();
+            var window = new MainWindow { Left = -10000, Width = 1480, Height = 900 };
+            window.AttachViewModel(new MainViewModel(SnapConfiguration.CreateDefault(), []));
             var root = Assert.IsType<Grid>(window.Content);
             var tabs = Assert.Single(root.Children.OfType<TabControl>());
-            tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Programm"));
-            var size = new Size(1480, 900);
+            tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Aussehen & Start"));
+            window.Show();
+            try
+            {
+                root.UpdateLayout();
 
-            root.Measure(size);
-            root.Arrange(new Rect(size));
-            root.UpdateLayout();
-
-            var content = Assert.IsAssignableFrom<FrameworkElement>(window.FindName("SettingsContent"));
-            // Listen und Einstellungsseiten sind auf 860 bis 900 Pixel begrenzt, damit Zeilen lesbar bleiben.
-            Assert.InRange(content.ActualWidth, 860d, 900d);
+                // Keine feste Breite mehr: die Seite fuellt alles, was neben der Seitenleiste bleibt.
+                var card = LogicalDescendants<Border>(Assert.IsType<TabItem>(tabs.SelectedItem))
+                    .First(border => ReferenceEquals(border.Style, Application.Current.Resources["SectionCard"]));
+                Assert.True(card.ActualWidth > 1000d, $"Die Karte ist nur {card.ActualWidth:0} Pixel breit.");
+            }
+            finally
+            {
+                window.Close();
+            }
         });
     }
 
@@ -585,32 +595,44 @@ public sealed class ThemeResourceTests
         WpfThemeHost.Invoke(() =>
         {
             var window = new MainWindow();
-            var root = Assert.IsType<Grid>(window.Content);
-            var tabs = Assert.Single(root.Children.OfType<TabControl>());
-            // Seit dem 02.09.2026 sind die Einstellungen auf zwei Seiten verteilt: Verhalten und Programm.
-            var behaviourPage = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Verhalten"));
-            var programPage = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Programm"));
-            var behaviourText = string.Join("\n", LogicalDescendants<TextBlock>(behaviourPage)
-                .Select(textBlock => textBlock.Text)
-                .Where(value => !string.IsNullOrWhiteSpace(value)));
-            var text = string.Join("\n", LogicalDescendants<TextBlock>(programPage)
-                .Select(textBlock => textBlock.Text)
-                .Where(value => !string.IsNullOrWhiteSpace(value)));
+            var tabs = Assert.Single(Assert.IsType<Grid>(window.Content).Children.OfType<TabControl>());
+            var pages = tabs.Items.OfType<TabItem>().ToArray();
 
-            var behaviourTabs = Assert.IsType<TabControl>(window.FindName("BehaviourTabs"));
-            foreach (var heading in new[] { "Beim Ziehen", "Darstellung", "Abstände", "Tastenkürzel", "Fenster merken" })
+            string TextOf(string header) => string.Join(
+                "\n",
+                LogicalDescendants<TextBlock>(pages.Single(item => Equals(item.Header, header)))
+                    .Select(textBlock => textBlock.Text)
+                    .Where(value => !string.IsNullOrWhiteSpace(value)));
+
+            // Es gibt keine Untertabs mehr: jede fruehere Registerkarte ist eine eigene Seite.
+            Assert.Null(window.FindName("BehaviourTabs"));
+            foreach (var heading in new[] { "Ziehen & Einrasten", "Aussehen der Zonen", "Abstände & Raster", "Fenster merken", "Vollbild & Videos", "Tastenkürzel" })
             {
-                Assert.Contains(behaviourTabs.Items.OfType<TabItem>(), item => Equals(item.Header, heading));
+                Assert.Contains(pages, item => Equals(item.Header, heading));
             }
 
-            Assert.Contains("Alle Einstellungen, sofort gespeichert.", behaviourText);
-            foreach (var heading in new[] { "Erscheinungsbild", "Updates", "Administratorrechte", "Installation", "Sicherung", "Frühere Stände" })
+            foreach (var heading in new[] { "Erscheinungsbild", "Updates", "Update-Quelle", "Mit Windows starten" })
             {
-                Assert.Contains(heading, text);
+                Assert.Contains(heading, TextOf("Aussehen & Start"));
             }
 
-            Assert.DoesNotContain("Snap-Funktion", text, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("Änderungen werden sofort gespeichert.", text);
+            foreach (var heading in new[] { "Sicherung als Datei", "Frühere Stände", "Von vorn anfangen" })
+            {
+                Assert.Contains(heading, TextOf("Sicherung & Stände"));
+            }
+
+            foreach (var heading in new[] { "Administratorrechte", "Fensterhelfer ohne Administratorrechte", "Vollbildzonen-Treiber", "Diagnose" })
+            {
+                Assert.Contains(heading, TextOf("System & Rechte"));
+            }
+
+            // «Installation» ist entfallen: die Anwendung laeuft immer installiert.
+            foreach (var page in pages)
+            {
+                Assert.DoesNotContain("Nach «Programme» installieren", TextOf(page.Header?.ToString() ?? string.Empty));
+            }
+
+            Assert.DoesNotContain("Snap-Funktion", TextOf("System & Rechte"), StringComparison.OrdinalIgnoreCase);
         });
     }
 

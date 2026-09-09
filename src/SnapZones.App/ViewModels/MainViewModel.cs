@@ -52,6 +52,7 @@ public sealed class MainViewModel : ViewModelBase
         layoutService = new LayoutService(configuration);
         liveMonitors = monitors;
         Settings = new SettingsViewModel(layoutService.Configuration.Settings);
+        Settings.ApplyFullscreenExclusions(layoutService.Configuration.FullscreenZoneExcludedPrograms);
         Settings.PropertyChanged += Settings_PropertyChanged;
         Monitors = [];
         Layouts = [];
@@ -130,9 +131,9 @@ public sealed class MainViewModel : ViewModelBase
 
     public string SnappingStateLabel => snappingState switch
     {
-        SnappingState.Active => "Einrasten aktiv",
-        SnappingState.Paused => "Einrasten angehalten",
-        _ => "Kein aktives Layout"
+        SnappingState.Active => "● läuft",
+        SnappingState.Paused => "● angehalten",
+        _ => "● kein aktives Layout"
     };
 
     public void ResumeSnapping() => ResumeSnappingRequested?.Invoke();
@@ -926,6 +927,7 @@ public sealed class MainViewModel : ViewModelBase
         }
 
         layoutService.UpdateSettings(Settings.CreateSettings());
+        layoutService.UpdateFullscreenZoneExclusions([.. Settings.FullscreenZoneExcludedPrograms]);
         layoutService.RecordMonitorSet(liveMonitors);
         StatusMessage = "Wird gespeichert …";
         SaveRequested?.Invoke(layoutService.Configuration);
@@ -1310,6 +1312,11 @@ public sealed class MainViewModel : ViewModelBase
         if (suppressPersistence || eventArgs.PropertyName == nameof(SettingsViewModel.BehaviourTabIndex))
         {
             return;
+        }
+
+        if (eventArgs.PropertyName == nameof(SettingsViewModel.FullscreenZoneExcludedPrograms))
+        {
+            layoutService.UpdateFullscreenZoneExclusions([.. Settings.FullscreenZoneExcludedPrograms]);
         }
 
         if (eventArgs.PropertyName == nameof(SettingsViewModel.StartWithWindows))

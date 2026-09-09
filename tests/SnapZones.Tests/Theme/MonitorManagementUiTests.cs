@@ -41,27 +41,22 @@ public sealed class MonitorManagementUiTests
     }
 
     [Fact]
-    public void Monitor_page_steps_through_all_monitors_and_changes_the_shared_selection()
+    public void Monitor_page_lists_one_tab_per_monitor_and_names_how_many_are_connected()
     {
         WpfThemeHost.Invoke(() =>
         {
             var viewModel = TwoMonitors(out var window);
-            var next = Assert.IsType<Button>(window.FindName("NextMonitorButton"));
-            var previous = Assert.IsType<Button>(window.FindName("PreviousMonitorButton"));
+            var tabs = Assert.IsType<ItemsControl>(window.FindName("MonitorTabs"));
 
-            Assert.Equal("Monitor 1 von 2", viewModel.MonitorPositionText);
-            Assert.False(viewModel.CanSelectPreviousMonitor);
-            Assert.True(viewModel.CanSelectNextMonitor);
+            Assert.Equal(
+                "Monitors",
+                tabs.GetBindingExpression(ItemsControl.ItemsSourceProperty)!.ParentBinding.Path.Path);
+            Assert.Equal("Angeschlossen: 2 Monitore", viewModel.MonitorConnectionSummary);
+            Assert.All(viewModel.Monitors, monitor => Assert.Equal(string.Empty, monitor.ConnectionSuffix));
 
-            next.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-
-            Assert.Equal("SECOND", viewModel.SelectedMonitor?.Live.Identity.StableId);
-            Assert.Equal("Monitor 2 von 2", viewModel.MonitorPositionText);
-            Assert.False(viewModel.CanSelectNextMonitor);
-
-            previous.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
-
-            Assert.Equal("FIRST", viewModel.SelectedMonitor?.Live.Identity.StableId);
+            // Ein abgestecktes Gerät behält seinen Tab und sagt in der Zeile, dass es fehlt.
+            var unplugged = viewModel.Monitors[0] with { IsConnected = false };
+            Assert.Equal(" · nicht angeschlossen", unplugged.ConnectionSuffix);
         });
     }
 
@@ -70,15 +65,20 @@ public sealed class MonitorManagementUiTests
     {
         WpfThemeHost.Invoke(() =>
         {
-            var viewModel = TwoMonitors(out var window);
+            var viewModel = TwoMonitors(out _);
             viewModel.SelectedMonitor = viewModel.Monitors[1];
-            var upItem = Assert.IsType<MenuItem>(window.FindName("MoveMonitorUpButton"));
 
-            upItem.RaiseEvent(new RoutedEventArgs(MenuItem.ClickEvent));
+            Assert.True(viewModel.CanMoveMonitorLeft);
+            Assert.False(viewModel.CanMoveMonitorRight);
+            viewModel.MoveMonitorLeft();
 
             Assert.Equal(["SECOND", "FIRST"], viewModel.Monitors.Select(monitor => monitor.Live.Identity.StableId));
             Assert.Equal("SECOND", viewModel.SelectedMonitor!.Live.Identity.StableId);
             Assert.Equal(["stable:SECOND", "stable:FIRST"], viewModel.Configuration.MonitorOrder);
+
+            // Ziehen fuehrt auf denselben Weg.
+            viewModel.MoveMonitorTo(viewModel.Monitors[0], viewModel.Monitors[1]);
+            Assert.Equal(["FIRST", "SECOND"], viewModel.Monitors.Select(monitor => monitor.Live.Identity.StableId));
         });
     }
 

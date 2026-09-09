@@ -30,10 +30,16 @@ public sealed class AdvancedSettingsTests
         Assert.Equal(40, settings.SnappedTolerancePixels);
         Assert.Equal(500, settings.RememberedWindowLimit);
         Assert.Equal(250, settings.RuleRetryDelayMilliseconds);
-        Assert.Equal(400, settings.MoveHookEventLimit);
-        Assert.Equal(120, settings.DragWatchdogSeconds);
+        Assert.Equal(2000, settings.MoveHookEventLimit);
+        Assert.Equal(10, settings.DragWatchdogSeconds);
         Assert.Equal(ZoneHotkeyModifiers.ControlShift, settings.ZoneHotkeyModifiers);
-        Assert.Equal(OverlayStyle.Default with { HighlightColor = "#707070" }, OverlayStyle.From(settings));
+        Assert.Equal(2, settings.OverlayBorderThickness);
+        Assert.Equal(6, settings.OverlayCornerRadius);
+        Assert.Equal(16, settings.OverlayLabelFontSize);
+        Assert.Equal("#2F6FED", settings.HighlightColor);
+        Assert.True(settings.UseFullscreenZones);
+        Assert.True(settings.CloseToTray);
+        Assert.Equal(EmergencyHotkey.ControlAltShiftF12, settings.EmergencyHotkey);
         Assert.True(settings.CatchNewWindowsInStartZone);
         Assert.True(settings.PreferRememberedZone);
     }
@@ -116,7 +122,7 @@ public sealed class AdvancedSettingsTests
         Assert.Equal(ElevationMode.Always, settings.ElevationMode);
         Assert.False(settings.EditorValuePanelOpen);
         Assert.Equal(0, settings.ZoneGap);
-        Assert.Equal(4, settings.OverlayCornerRadius);
+        Assert.Equal(6, settings.OverlayCornerRadius);
     }
 
     [Fact]
@@ -189,19 +195,21 @@ public sealed class AdvancedSettingsTests
             var window = new MainWindow();
             var viewModel = new MainViewModel(ConfigurationSamples.TwoLayouts(), []);
             window.AttachViewModel(viewModel);
-            var tabs = Assert.IsType<TabControl>(Assert.IsType<Grid>(window.Content).Children[1]);
-            tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Verhalten"));
             window.Show();
             try
             {
                 Assert.Null(window.FindName("ShowAdvancedSettingsCheckBox"));
-                Assert.Null(window.FindName("PlacementTuningCard"));
-                var behaviourTabs = Assert.IsType<TabControl>(window.FindName("BehaviourTabs"));
-                Assert.Equal(
-                    ["Beim Ziehen", "Darstellung", "Abstände", "Fenster merken", "Tastenkürzel"],
-                    behaviourTabs.Items.OfType<TabItem>().Select(item => item.Header?.ToString() ?? string.Empty).ToArray());
+                Assert.Null(window.FindName("BehaviourTabs"));
 
-                // Die Feinabstimmung steht offen im Untertab «Fenster merken», jede Einstellung mit «?».
+                // Jede Seite traegt ihre Expertenwerte in einem eigenen Abschnitt «Feinabstimmung».
+                foreach (var name in new[] { "DragTuning", "AppearanceTuning", "SpacingTuning", "MemoryTuning" })
+                {
+                    var section = Assert.IsType<SnapZones.App.Controls.TuningExpander>(window.FindName(name));
+                    Assert.False(section.IsExpanded);
+                    Assert.Equal("Feinabstimmung", section.Title);
+                }
+
+                // Jede Einstellung darin hat ein «?» mit einer ausfuehrlichen Erklaerung.
                 foreach (var name in new[] { "PlacementToleranceInfoButton", "SnappedToleranceInfoButton", "MoveHookLimitInfoButton", "WatchdogInfoButton" })
                 {
                     var help = Assert.IsType<System.Windows.Controls.Button>(window.FindName(name));

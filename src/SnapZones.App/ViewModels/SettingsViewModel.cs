@@ -503,8 +503,7 @@ public sealed class SettingsViewModel : ViewModelBase
     {
         UseFullscreenZones = UseFullscreenZones,
         CloseToTray = CloseToTray,
-        EmergencyHotkey = EmergencyHotkey,
-        FullscreenZoneExcludedPrograms = [.. FullscreenZoneExcludedPrograms]
+        EmergencyHotkey = EmergencyHotkey
     };
 
     public void Apply(AppSettings settings)
@@ -553,8 +552,10 @@ public sealed class SettingsViewModel : ViewModelBase
         UseFullscreenZones = settings.UseFullscreenZones;
         CloseToTray = settings.CloseToTray;
         EmergencyHotkey = settings.EmergencyHotkey;
-        ReplaceFullscreenExclusions(settings.FullscreenZoneExcludedPrograms);
     }
+
+    /// <summary>Uebernimmt die Programmliste aus der Konfiguration.</summary>
+    public void ApplyFullscreenExclusions(IReadOnlyList<string>? programs) => ReplaceFullscreenExclusions(programs);
 
     /// <summary>
     /// Uebernimmt die Liste der Programme ohne Vollbildzone, ohne die Sammlung auszutauschen: die
@@ -613,8 +614,7 @@ public sealed class SettingsViewModel : ViewModelBase
             CheckForUpdatesOnStart = CheckForUpdatesOnStart,
             EditorValuePanelOpen = EditorValuePanelOpen,
             UseFullscreenZones = UseFullscreenZones,
-            CloseToTray = CloseToTray,
-            FullscreenZoneExcludedPrograms = [.. FullscreenZoneExcludedPrograms]
+            CloseToTray = CloseToTray
         };
         Apply(defaults);
     }

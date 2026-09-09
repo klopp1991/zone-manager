@@ -143,12 +143,6 @@ public sealed record AppSettings(
     /// </summary>
     public bool UseFullscreenZones { get; init; } = true;
 
-    /// <summary>
-    /// Programme, die in einer Vollbildzone trotzdem den ganzen Monitor bekommen sollen. Dateinamen
-    /// ohne Pfad, etwa «vlc.exe».
-    /// </summary>
-    public IReadOnlyList<string> FullscreenZoneExcludedPrograms { get; init; } = [];
-
     /// <summary>Ob das ✕ des Hauptfensters das Programm nur in den Infobereich legt statt es zu beenden.</summary>
     public bool CloseToTray { get; init; } = true;
 

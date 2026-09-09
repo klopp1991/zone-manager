@@ -1741,7 +1741,7 @@
                 <Border x:Name="PausedBox" Style="{StaticResource WarningBox}" Padding="10,3" Margin="0,0,14,0" VerticalAlignment="Center"
                         Visibility="{Binding IsSnappingPaused, Converter={StaticResource BooleanToVisibilityConverter}}" AutomationProperties.Name="Zustand der Snap-Funktion">
                     <StackPanel Orientation="Horizontal">
-                        <TextBlock x:Name="SnappingStateText" Text="● angehalten" Foreground="{DynamicResource WarningBrush}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" ToolTip="{Binding PauseReason}" />
+                        <TextBlock x:Name="SnappingStateText" Text="{Binding SnappingStateLabel}" Foreground="{DynamicResource WarningBrush}" FontSize="14" FontWeight="SemiBold" VerticalAlignment="Center" ToolTip="{Binding PauseReason}" />
                         <Button x:Name="ResumeSnappingButton" Content="Einrasten wieder aktivieren" Style="{StaticResource CompactButton}" Click="ResumeSnapping_Click" Margin="12,0,0,0"
                                 ToolTip="{Binding PauseReason}" AutomationProperties.Name="Einrasten wieder aktivieren" />
                     </StackPanel>

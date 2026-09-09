@@ -55,6 +55,13 @@ public sealed record SnapConfiguration
     /// </summary>
     public IReadOnlyList<AppExclusion> AppExclusions { get; init; } = [];
 
+    /// <summary>
+    /// Programme, die in einer Vollbildzone trotzdem den ganzen Monitor bekommen. Dateinamen ohne Pfad,
+    /// etwa «vlc.exe». Steht hier statt in <see cref="AppSettings"/>, weil es wie die Ausschlussliste
+    /// eine Aufzaehlung von Programmen ist.
+    /// </summary>
+    public IReadOnlyList<string> FullscreenZoneExcludedPrograms { get; init; } = [];
+
     /// <summary>Die zuletzt aktive Layoutauswahl je Monitorkombination. Siehe <see cref="MonitorSetSelection"/>.</summary>
     public IReadOnlyList<MonitorSetSelection> MonitorSets { get; init; } = [];
 

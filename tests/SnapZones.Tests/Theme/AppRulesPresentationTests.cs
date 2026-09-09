@@ -30,7 +30,6 @@ public sealed class AppRulesPresentationTests
                 var item = Assert.Single(viewModel.AppRules.RuleItems);
                 Assert.Equal("Links", item.TargetLabel);
                 Assert.StartsWith("Beim Öffnen · Monitor 1 › Arbeit", item.Subtitle, StringComparison.Ordinal);
-                Assert.Equal("Bearbeiten", item.ActionLabel);
                 Assert.False(item.IsPaused);
 
                 var toggle = UiTree.VisualDescendants<CheckBox>(list).Single();
@@ -59,7 +58,7 @@ public sealed class AppRulesPresentationTests
             try
             {
                 var list = Assert.IsType<ItemsControl>(window.FindName("AppRuleList"));
-                var action = UiTree.VisualDescendants<Button>(list).Single(button => Equals(button.Content, "Bearbeiten"));
+                var action = UiTree.VisualDescendants<Button>(list).Single(button => Equals(button.Content, "✎"));
                 action.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
                 window.UpdateLayout();
 
@@ -93,7 +92,8 @@ public sealed class AppRulesPresentationTests
                     Assert.False(string.IsNullOrWhiteSpace(AutomationProperties.GetName(help)));
                 }
 
-                Assert.Equal("Schliessen", action.Content);
+                // Der Icon-Knopf bleibt derselbe, ob das Detail offen ist oder nicht.
+                Assert.Equal("✎", action.Content);
             }
             finally
             {
@@ -114,7 +114,6 @@ public sealed class AppRulesPresentationTests
                 var item = Assert.Single(viewModel.AppRules.RuleItems);
                 Assert.True(item.IsPaused);
                 Assert.Equal("Ziel fehlt – Zuordnung pausiert", item.TargetLabel);
-                Assert.Equal("Beheben", item.ActionLabel);
                 Assert.Equal(1, viewModel.PausedRuleCount);
                 Assert.Equal("1 pausiert – Ziel fehlt", viewModel.RuleCountHint);
 

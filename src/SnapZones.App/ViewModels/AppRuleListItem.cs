@@ -57,7 +57,6 @@ public sealed class AppRuleListItem : ViewModelBase
             {
                 OnPropertyChanged(nameof(HasWarning));
                 OnPropertyChanged(nameof(IsPaused));
-                OnPropertyChanged(nameof(ActionLabel));
             }
         }
     }
@@ -84,7 +83,6 @@ public sealed class AppRuleListItem : ViewModelBase
         {
             if (SetProperty(ref isExpanded, value))
             {
-                OnPropertyChanged(nameof(ActionLabel));
             }
         }
     }
@@ -100,8 +98,6 @@ public sealed class AppRuleListItem : ViewModelBase
     public bool IsPaused => warning is not null && warning.Contains("fehlt", StringComparison.Ordinal);
 
     /// <summary>Beschriftung der Schaltflaeche rechts: Beheben bei fehlendem Ziel, sonst Bearbeiten, offen Schliessen.</summary>
-    public string ActionLabel => isExpanded ? "Schliessen" : IsPaused ? "Beheben" : "Bearbeiten";
-
     internal void Update(AppRule replacement, string? replacementWarning, string replacementTarget, string replacementSubtitle)
     {
         Rule = replacement;

@@ -19,7 +19,7 @@ public sealed class ConfigurationTransferUiTests
             var tabs = Assert.Single(root.Children.OfType<TabControl>());
             var transferPage = tabs.Items
                 .OfType<TabItem>()
-                .Single(item => Equals(item.Header, "Programm"));
+                .Single(item => Equals(item.Header, "Sicherung & Stände"));
             var exportButton = Assert.IsType<Button>(window.FindName("ExportConfigurationButton"));
             var importButton = Assert.IsType<Button>(window.FindName("ImportConfigurationButton"));
             var pageButtons = UiTree.LogicalDescendants<Button>(transferPage).ToArray();
@@ -37,7 +37,7 @@ public sealed class ConfigurationTransferUiTests
 
             // Beide Aktionen sind gleichrangig und teilen sich denselben Schaltflaechenstil.
             Assert.Same(exportButton.Style, importButton.Style);
-            Assert.NotSame(window.FindResource("PrimaryButton"), exportButton.Style);
+            Assert.Same(window.FindResource("PrimaryButton"), exportButton.Style);
         });
     }
 }

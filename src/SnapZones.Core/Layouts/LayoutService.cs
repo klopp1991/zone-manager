@@ -261,6 +261,13 @@ public sealed class LayoutService
         Configuration = Configuration with { Layouts = layouts };
     }
 
+    /// <summary>Uebernimmt die Programme, die trotz Vollbildzone den ganzen Monitor bekommen.</summary>
+    public void UpdateFullscreenZoneExclusions(IReadOnlyList<string> programs)
+    {
+        ArgumentNullException.ThrowIfNull(programs);
+        Configuration = Configuration with { FullscreenZoneExcludedPrograms = [.. programs] };
+    }
+
     public void UpdateSettings(AppSettings settings)
     {
         ArgumentNullException.ThrowIfNull(settings);

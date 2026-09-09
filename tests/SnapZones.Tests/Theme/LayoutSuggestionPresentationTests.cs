@@ -47,7 +47,11 @@ public sealed class LayoutSuggestionPresentationTests
                 window.UpdateLayout();
                 var layoutTabs = Assert.IsType<ItemsControl>(window.FindName("LayoutTabs"));
                 Assert.Equal(2, layoutTabs.Items.Count);
-                var buttons = UiTree.VisualDescendants<Button>(layoutTabs).Where(button => button.DataContext is MonitorLayout).ToArray();
+                // Die beiden Reihenfolgepfeile im aktiven Tab erben denselben DataContext; sie tragen
+                // aber ein einzelnes Zeichen, waehrend der Tab selbst Name und Zustand zusammenfasst.
+                var buttons = UiTree.VisualDescendants<Button>(layoutTabs)
+                    .Where(button => button.DataContext is MonitorLayout && button.Content is StackPanel)
+                    .ToArray();
                 Assert.Equal(2, buttons.Length);
                 Assert.True(Chrome.GetIsCurrent(buttons[0]));
                 Assert.False(Chrome.GetIsCurrent(buttons[1]));
@@ -125,7 +129,7 @@ public sealed class LayoutSuggestionPresentationTests
             {
                 Assert.IsType<ComboBox>(window.FindName("LayoutMonitorSelector")),
                 Assert.IsType<Button>(window.FindName("AddLayoutButton")),
-                Assert.IsType<Button>(window.FindName("ToggleValuePanelButton"))
+                Assert.IsType<Button>(window.FindName("DrawOnMonitorButton"))
             };
 
             Assert.All(headerControls, control =>
@@ -135,7 +139,7 @@ public sealed class LayoutSuggestionPresentationTests
                     $"{control.Name} endet bei {bounds.Bottom:0.0}, der Editor beginnt bereits bei {editorBounds.Top:0.0}.");
             });
 
-            var footer = Assert.IsType<Button>(window.FindName("DrawOnMonitorButton"));
+            var footer = Assert.IsType<Button>(window.FindName("AddZoneButton"));
             var page = Assert.IsType<Grid>(tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Zonen & Layouts")).Content);
             Assert.True(BoundsRelativeTo(footer, root).Right <= BoundsRelativeTo(page, root).Right + 0.5,
                 "Die Hauptaktion der Fusszeile ragt aus der Seite.");

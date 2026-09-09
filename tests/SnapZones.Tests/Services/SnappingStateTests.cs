@@ -23,15 +23,15 @@ public sealed class SnappingStateTests
         var viewModel = new MainViewModel(ConfigurationSamples.TwoLayouts(), []);
 
         viewModel.SnappingState = SnappingState.Active;
-        Assert.Equal("Einrasten aktiv", viewModel.SnappingStateLabel);
+        Assert.Equal("● läuft", viewModel.SnappingStateLabel);
         Assert.False(viewModel.IsSnappingPaused);
 
         viewModel.SnappingState = SnappingState.Paused;
-        Assert.Equal("Einrasten angehalten", viewModel.SnappingStateLabel);
+        Assert.Equal("● angehalten", viewModel.SnappingStateLabel);
         Assert.True(viewModel.IsSnappingPaused);
 
         viewModel.SnappingState = SnappingState.NoActiveLayout;
-        Assert.Equal("Kein aktives Layout", viewModel.SnappingStateLabel);
+        Assert.Equal("● kein aktives Layout", viewModel.SnappingStateLabel);
     }
 
     [Fact]
@@ -72,7 +72,7 @@ public sealed class SnappingStateTests
             window.UpdateLayout();
 
             Assert.Equal(System.Windows.Visibility.Visible, pausedBox.Visibility);
-            Assert.Equal("Einrasten angehalten", stateText.Text);
+            Assert.Equal("● angehalten", stateText.Text);
             Assert.True(resumeButton.IsVisible);
             window.Close();
         });
@@ -87,9 +87,9 @@ public sealed class SnappingStateTests
             using var service = new TrayIconService(new MainWindow(), _ => { }, () => { }, () => resumed++);
             service.Update(ConfigurationSamples.TwoLayouts());
 
-            service.SetSnappingState("Einrasten aktiv", paused: false);
+            service.SetSnappingState("● läuft", paused: false);
             // Flach: kein Eintrag fuer den Normalzustand, kein Kopf «Layouts pro Monitor», keine Untermenues.
-            Assert.DoesNotContain(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Einrasten aktiv");
+            Assert.DoesNotContain(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "● läuft");
             Assert.DoesNotContain(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Layouts pro Monitor");
             Assert.DoesNotContain(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Einrasten wieder aktivieren");
             Assert.Contains(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "MONITOR 1" && !item.Enabled);
@@ -97,8 +97,8 @@ public sealed class SnappingStateTests
             Assert.Contains(service.Menu.Items.OfType<ToolStripMenuItem>(), item => item.Text?.Trim() == "Abend" && !item.Checked);
             Assert.All(service.Menu.Items.OfType<ToolStripMenuItem>(), item => Assert.Empty(item.DropDownItems));
 
-            service.SetSnappingState("Einrasten angehalten", paused: true);
-            Assert.Contains(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Einrasten angehalten" && !item.Enabled);
+            service.SetSnappingState("● angehalten", paused: true);
+            Assert.Contains(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "● angehalten" && !item.Enabled);
             var resume = service.Menu.Items.Cast<ToolStripItem>().Single(item => item.Text == "Einrasten wieder aktivieren");
             resume.PerformClick();
 

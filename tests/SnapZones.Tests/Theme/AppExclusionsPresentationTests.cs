@@ -45,9 +45,8 @@ public sealed class AppExclusionsPresentationTests
                 Assert.Equal("AppExclusions.ExclusionItems", list.GetBindingExpression(ItemsControl.ItemsSourceProperty)!.ParentBinding.Path.Path);
                 var item = Assert.Single(viewModel.AppExclusions.ExclusionItems);
                 Assert.Equal("Alle Fenster", item.Subtitle);
-                Assert.Equal("Eingrenzen …", item.ActionLabel);
 
-                var action = UiTree.VisualDescendants<Button>(list).Single(button => Equals(button.Content, "Eingrenzen …"));
+                var action = UiTree.VisualDescendants<Button>(list).Single(button => Equals(button.Content, "✎"));
                 action.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
                 window.UpdateLayout();
 

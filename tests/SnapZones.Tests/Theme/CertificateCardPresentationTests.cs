@@ -82,15 +82,20 @@ public sealed class CertificateCardPresentationTests
             var viewModel = new MainViewModel(ConfigurationSamples.TwoLayouts(), []);
             window.AttachViewModel(viewModel);
 
-            var state = Assert.IsType<TextBlock>(window.FindName("CertificateStateText"));
             var certificate = Assert.IsType<TextBlock>(window.FindName("CertificateStatusText"));
             var helper = Assert.IsType<TextBlock>(window.FindName("HelperStatusText"));
             Assert.IsType<Button>(window.FindName("HelperWizardButton"));
             Assert.Null(window.FindName("InstallCertificateButton"));
-            Assert.Null(window.FindName("RemoveCertificateButton"));
             Assert.Null(window.FindName("CertificateActionButton"));
 
-            Assert.Equal("CertificateStateLabel", state.GetBindingExpression(TextBlock.TextProperty)!.ParentBinding.Path.Path);
+            // Der Zustand steht als Chip in der Zeile: einrichten und entfernen sind beide moeglich.
+            Assert.Equal("Nicht eingerichtet", viewModel.HelperChipText);
+            Assert.Equal("Einrichten …", viewModel.HelperSetupLabel);
+            viewModel.IsCertificateInstalled = true;
+            Assert.Equal("Eingerichtet", viewModel.HelperChipText);
+            Assert.Equal("Neu einrichten …", viewModel.HelperSetupLabel);
+            Assert.IsType<Button>(window.FindName("RemoveCertificateButton"));
+
             Assert.Equal("CertificateStatus", certificate.GetBindingExpression(TextBlock.TextProperty)!.ParentBinding.Path.Path);
             Assert.Equal("HelperStatus", helper.GetBindingExpression(TextBlock.TextProperty)!.ParentBinding.Path.Path);
 
@@ -123,7 +128,7 @@ public sealed class CertificateCardPresentationTests
             window.SettingsPageOpened += () => refreshes++;
 
             var tabs = Assert.IsType<TabControl>(Assert.IsType<Grid>(window.Content).Children[1]);
-            tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "Programm"));
+            tabs.SelectedItem = tabs.Items.OfType<TabItem>().Single(item => Equals(item.Header, "System & Rechte"));
 
             Assert.Equal(1, refreshes);
 

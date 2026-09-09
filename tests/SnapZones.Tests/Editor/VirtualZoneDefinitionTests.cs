@@ -8,9 +8,10 @@ using Xunit;
 namespace SnapZones.Tests.Editor;
 
 /// <summary>
-/// Das Kennzeichen «virtueller Monitor» einer Zone muss gespeichert, im Editor umschaltbar und
-/// rueckgaengig machbar sein und in der Sicherungsuebersicht benannt werden. Eine gewoehnliche Zone
-/// schreibt das Feld nicht, damit aeltere Staende unveraendert bleiben.
+/// Das Kennzeichen «Vollbildzone» einer Zone muss gespeichert, im Editor umschaltbar und rueckgaengig
+/// machbar sein und in der Sicherungsuebersicht benannt werden. Eine gewoehnliche Zone schreibt das
+/// Feld nicht, damit aeltere Staende unveraendert bleiben; der gespeicherte Name bleibt
+/// <c>IsVirtualMonitor</c>, damit ein Stand von vor dem 10.09.2026 ohne Umbau weiter gelesen wird.
 /// </summary>
 public sealed class VirtualZoneDefinitionTests
 {
@@ -23,8 +24,8 @@ public sealed class VirtualZoneDefinitionTests
         var plainJson = JsonSerializer.Serialize(plain);
         var virtualJson = JsonSerializer.Serialize(virtualZone);
 
-        Assert.DoesNotContain("IsFullscreenZone", plainJson);
-        Assert.Contains("\"IsFullscreenZone\":true", virtualJson);
+        Assert.DoesNotContain("IsVirtualMonitor", plainJson);
+        Assert.Contains("\"IsVirtualMonitor\":true", virtualJson);
         Assert.True(JsonSerializer.Deserialize<ZoneDefinition>(virtualJson)!.IsFullscreenZone);
         Assert.False(JsonSerializer.Deserialize<ZoneDefinition>(plainJson)!.IsFullscreenZone);
     }
