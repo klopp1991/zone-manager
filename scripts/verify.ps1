@@ -102,14 +102,23 @@ if ((Get-FileHash -LiteralPath $publishedHelperPath).Hash -ne (Get-FileHash -Lit
     throw 'Der Fensterhelfer im Rootverzeichnis stimmt nicht mit dem Publish-Artefakt ueberein.'
 }
 
+# In einer Fernsitzung zeigt Windows dem Prozess nur die Platzhalteranzeige der Sitzung; die echten
+# Monitore gehoeren zur getrennten Konsolensitzung. Die Diagnose meldet dann keinen Monitor und
+# endet mit Rueckgabewert 2 -- kein Fehler des Programms, aber auch keine pruefbare Monitorsicht.
+Add-Type -AssemblyName System.Windows.Forms
+$remoteSession = [System.Windows.Forms.SystemInformation]::TerminalServerSession
+
 & $rootExecutablePath --diagnostics | Out-File -LiteralPath $diagnosticPath -Encoding utf8
-if ($LASTEXITCODE -ne 0) { throw 'Die Diagnose ist fehlgeschlagen.' }
+$diagnosticExitCode = $LASTEXITCODE
+if ($diagnosticExitCode -ne 0 -and -not ($diagnosticExitCode -eq 2 -and $remoteSession)) {
+    throw "Die Diagnose ist fehlgeschlagen (Rückgabewert $diagnosticExitCode)."
+}
 
 $diagnostic = Get-Content -LiteralPath $diagnosticPath -Raw | ConvertFrom-Json
 if ($diagnostic.application -ne "Zone Manager") { throw 'Die Diagnose meldet einen unerwarteten Programmnamen.' }
 if ($diagnostic.hookRegistered -ne $false) { throw 'Die Diagnose hat unerwartet einen Hook registriert.' }
 if ($diagnostic.settingsChanged -ne $false) { throw 'Die Diagnose hat unerwartet Einstellungen verändert.' }
-if (@($diagnostic.monitors).Count -lt 1) { throw 'Die Diagnose hat keinen Monitor erkannt.' }
+if (@($diagnostic.monitors).Count -lt 1 -and -not $remoteSession) { throw 'Die Diagnose hat keinen Monitor erkannt.' }
 if ($diagnostic.startupConfigurationReady -ne $true) { throw 'Die Diagnose konnte keine leere Startkonfiguration initialisieren.' }
 if ([int]$diagnostic.startupLayoutCount -ne @($diagnostic.monitors).Count) { throw 'Die Diagnose hat nicht für jeden Monitor ein Startlayout erzeugt.' }
 

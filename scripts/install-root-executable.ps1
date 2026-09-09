@@ -12,6 +12,20 @@ param(
 $ErrorActionPreference = 'Stop'
 Set-StrictMode -Version Latest
 
+# Startet ein Programm ohne Fenster und ohne die Shell. «Start-Process -WindowStyle» geht immer ueber
+# die Shell, und die legt einer EXE auf einem Netzlaufwerk den Dialog «Datei oeffnen -
+# Sicherheitswarnung» vor: der Aufruf kehrt dann erst zurueck, wenn jemand klickt. Ein Installations-
+# oder Buildlauf haette dort still bis zum Abbruch gewartet.
+function Start-Hidden([string]$Path, [string[]]$Arguments = @(), [string]$WorkingDirectory) {
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = $Path
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    if ($WorkingDirectory) { $startInfo.WorkingDirectory = $WorkingDirectory }
+    foreach ($argument in $Arguments) { $startInfo.ArgumentList.Add($argument) }
+    return [System.Diagnostics.Process]::Start($startInfo)
+}
+
 function Get-Sha256Hash([string]$Path) {
     $stream = [System.IO.File]::OpenRead($Path)
     try {
@@ -114,7 +128,7 @@ function Stop-RunningInstance([string]$Path, [System.Diagnostics.Process[]]$Inst
 
     Write-Host "Laufende Instanz wird beendet: $($Instances.Id -join ', ')"
     try {
-        $request = Start-Process -FilePath $Path -ArgumentList '--exit' -PassThru -WindowStyle Hidden
+        $request = Start-Hidden -Path $Path -Arguments @('--exit')
         $request.WaitForExit([Math]::Min(15000, $ShutdownTimeoutSeconds * 1000)) | Out-Null
     }
     catch {
@@ -275,8 +289,8 @@ finally {
     try {
         if ($restartAfterSwap -and $safeToRestart) {
             try {
-                Start-Process -FilePath $applicationPath -ArgumentList '--autostart' `
-                    -WorkingDirectory $destinationDirectory -WindowStyle Hidden | Out-Null
+                Start-Hidden -Path $applicationPath -Arguments @('--autostart') `
+                    -WorkingDirectory $destinationDirectory | Out-Null
                 Write-Host 'Die zuvor laufende Instanz wurde neu gestartet.'
             }
             catch { Write-Warning "Die Anwendung muss manuell gestartet werden: $($_.Exception.Message)" }

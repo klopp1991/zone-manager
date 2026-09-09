@@ -32,7 +32,15 @@ try {
     }
 
     & $testExecutable --diagnostics | Out-File -LiteralPath $diagnosticPath -Encoding utf8
-    if ($LASTEXITCODE -ne 0) { throw 'Die vom normalen Build erzeugte Root-EXE ist nicht selbständig ausführbar.' }
+    $diagnosticExitCode = $LASTEXITCODE
+    # Rueckgabewert 2 heisst «kein Monitor erkannt». In einer Fernsitzung ist das der Normalfall: dort
+    # zeigt Windows nur die Platzhalteranzeige der Sitzung, die echten Monitore gehoeren zur getrennten
+    # Konsolensitzung. Die EXE hat dann trotzdem bewiesen, dass sie selbstaendig laeuft.
+    Add-Type -AssemblyName System.Windows.Forms
+    $remoteSession = [System.Windows.Forms.SystemInformation]::TerminalServerSession
+    if ($diagnosticExitCode -ne 0 -and -not ($diagnosticExitCode -eq 2 -and $remoteSession)) {
+        throw "Die vom normalen Build erzeugte Root-EXE ist nicht selbständig ausführbar (Rückgabewert $diagnosticExitCode)."
+    }
 
     $diagnostic = Get-Content -Raw -LiteralPath $diagnosticPath | ConvertFrom-Json
     if ($diagnostic.application -ne "Zone Manager") {

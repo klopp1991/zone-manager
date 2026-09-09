@@ -111,7 +111,13 @@ public static class Fixture {
         $target = Join-Path $files.Target 'ZoneManager.exe'
         Copy-Item -LiteralPath $fixture -Destination $target -Force
         $before = (Get-FileHash -LiteralPath $target).Hash
-        $process = Start-Process -FilePath $target -WindowStyle Hidden -PassThru
+        # Nicht ueber die Shell starten: bei einer EXE auf einem Netzlaufwerk legt sie den Dialog
+        # «Datei oeffnen - Sicherheitswarnung» vor, und der Testlauf wartete still auf einen Klick.
+        $startInfo = [Diagnostics.ProcessStartInfo]::new()
+        $startInfo.FileName = $target
+        $startInfo.UseShellExecute = $false
+        $startInfo.CreateNoWindow = $true
+        $process = [Diagnostics.Process]::Start($startInfo)
         try {
             $failure = ''
             try { Invoke-Install $files } catch { $failure = $_.Exception.Message }

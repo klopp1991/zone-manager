@@ -1,5 +1,6 @@
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Monitors;
+using SnapZones.Tests.Support;
 using SnapZones.Windows.Displays;
 using Xunit;
 
@@ -20,7 +21,9 @@ public sealed class VirtualDisplayControllerTests
 
         if (state is null)
         {
-            Assert.False(VirtualDisplayDriverService.ReadStatus().DevicePresent);
+            // In einer Fernsitzung gehoert der Monitor des Treibers zur getrennten Konsolensitzung:
+            // das Geraet ist da, in dieser Sitzung aber nicht zu sehen.
+            Assert.False(VirtualDisplayDriverService.ReadStatus().DevicePresent && !RemoteSession.IsActive);
             return;
         }
 

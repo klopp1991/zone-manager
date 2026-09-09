@@ -1,3 +1,4 @@
+using SnapZones.Tests.Support;
 using SnapZones.Windows.Displays;
 using Xunit;
 
@@ -8,7 +9,7 @@ public sealed class WindowsMonitorServiceIntegrationTests
     [Fact]
     public void GetMonitors_returns_unique_read_only_display_information()
     {
-        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000))
+        if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000) || RemoteSession.IsActive)
         {
             return;
         }
