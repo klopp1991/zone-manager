@@ -85,14 +85,13 @@ public static class DisplayDriverSetup
     {
         ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(monitors);
-        var metrics = new LayoutMetrics(configuration.Settings.EffectiveOuterMargins, configuration.Settings.ZoneGap);
         foreach (var layout in configuration.Layouts)
         {
             var live = monitors.FirstOrDefault(monitor => LayoutService.BelongsToMonitor(layout.Monitor, monitor.Identity));
             var workArea = live?.WorkArea ?? new MonitorWorkArea(0, 0, layout.SavedWidth, layout.SavedHeight);
             foreach (var zone in layout.Zones.Where(candidate => candidate.IsFullscreenZone))
             {
-                var bounds = ZoneGeometry.ToPixels(zone.Bounds, workArea, metrics);
+                var bounds = ZoneGeometry.ToPixels(zone.Bounds, workArea);
                 yield return VirtualDisplayModes.Normalize(bounds.Width, bounds.Height);
             }
         }

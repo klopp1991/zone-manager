@@ -1,4 +1,4 @@
-﻿using SnapZones.Core.AppRules;
+using SnapZones.Core.AppRules;
 using SnapZones.Core.Geometry;
 using SnapZones.Core.Layouts;
 using SnapZones.Core.Models;
@@ -308,11 +308,8 @@ public sealed class AppRuleCoordinator : IDisposable
             return false;
         }
 
-        // Dieselbe Geometrie wie Overlay und Ziehpfad: Aussen- und Zonenabstand gelten auch hier.
-        bounds = ZoneGeometry.ToPixels(
-            zone.Bounds,
-            monitor.WorkArea,
-            new LayoutMetrics(configuration.Settings.EffectiveOuterMargins, configuration.Settings.ZoneGap));
+        // Zielflaeche ist das Zonenrechteck selbst; Rand und Luecke gelten nur fuer die Anzeige.
+        bounds = ZoneGeometry.ToPixels(zone.Bounds, monitor.WorkArea);
         targetName = $"{layout.Name} / {zone.Name}";
         monitorStableId = monitor.Identity.StableId;
         zoneId = zone.Id;

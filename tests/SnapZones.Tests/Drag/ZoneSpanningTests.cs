@@ -206,10 +206,10 @@ public sealed class ZoneSpanningTests
         ];
     }
 
-    private static PartMonitorResolver Resolver() => new(Targets(), new LayoutMetrics(0, 0));
+    private static PartMonitorResolver Resolver() => new(Targets());
 
     private static WindowDragCoordinator CreateCoordinator() =>
-        new(Targets(), new LayoutMetrics(0, 0), OverlayScope.AllMonitors);
+        new(Targets(), OverlayScope.AllMonitors);
 
     private static WindowSnapshot EligibleWindow() => new(true, false, false, false, false, true);
 }

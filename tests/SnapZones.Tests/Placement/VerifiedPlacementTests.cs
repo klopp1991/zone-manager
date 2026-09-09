@@ -69,7 +69,7 @@ public sealed class VerifiedPlacementTests
         // Links: Zone 0..1000, Fenster mit 7 px unsichtbarem Rand links, rechts und unten.
         var windows = new[] { new WindowPlacement((nint)7, new PixelRect(-7, 0, 1014, 1007)) };
 
-        var planned = LayoutWindowReflow.Plan(oldLayout, newLayout, workArea, metrics, windows);
+        var planned = LayoutWindowReflow.Plan(oldLayout, newLayout, workArea, windows);
 
         var target = Assert.Single(planned);
         Assert.Equal(new PixelRect(0, 0, 800, 1000), target.Bounds);
@@ -85,9 +85,7 @@ public sealed class VerifiedPlacementTests
             96,
             true);
         var zoneId = Guid.NewGuid();
-        var resolver = new PartMonitorResolver(
-            [new PartMonitorTarget(monitor, [new ZoneDefinition(zoneId, "Links", new NormalizedRect(0, 0, 0.5, 1))])],
-            new LayoutMetrics(0, 0));
+        var resolver = new PartMonitorResolver([new PartMonitorTarget(monitor, [new ZoneDefinition(zoneId, "Links", new NormalizedRect(0, 0, 0.5, 1))])]);
         var gateway = new MeasuringGateway(PlacementOutcome.Rejected("Mindestgrösse", new PixelRect(0, 0, 1200, 1040)));
         var service = new PartMonitorCommandService(resolver, new PlacementHistory(), gateway);
 

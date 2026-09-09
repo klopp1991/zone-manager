@@ -132,7 +132,7 @@ public sealed class OverlayScopeTests
             new PartMonitorTarget(second, [new ZoneDefinition(Guid.NewGuid(), "Voll", NormalizedRect.Full)])
         };
 
-        var coordinator = new WindowDragCoordinator(targets, new LayoutMetrics(0, 0), scope);
+        var coordinator = new WindowDragCoordinator(targets, scope);
         var actions = new List<DragAction>();
         coordinator.ActionRequested += actions.Add;
         coordinator.Start((nint)42, EligibleWindow(), cursor);

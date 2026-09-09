@@ -19,12 +19,11 @@ public sealed class WindowDragCoordinator
 
     public WindowDragCoordinator(
         IReadOnlyList<PartMonitorTarget> targets,
-        LayoutMetrics metrics,
         OverlayScope overlayScope,
         IReadOnlyList<AppExclusion>? exclusions = null)
     {
         this.targets = targets;
-        resolver = new PartMonitorResolver(targets, metrics);
+        resolver = new PartMonitorResolver(targets);
         this.overlayScope = overlayScope;
         this.exclusions = exclusions ?? [];
     }

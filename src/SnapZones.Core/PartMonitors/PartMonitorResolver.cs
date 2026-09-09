@@ -5,18 +5,17 @@ namespace SnapZones.Core.PartMonitors;
 
 /// <summary>
 /// Loest Zonen zu Bildschirmrechtecken auf. Seit dem 02.09.2026 gilt ueberall dieselbe Geometrie wie im
-/// Overlay: Aussenabstand und Zonenabstand aus <see cref="LayoutMetrics"/> wirken auch auf das Fenster.
+/// Ziel eines Fensters ist immer das Zonenrechteck selbst. Rand und Luecke aus <see cref="LayoutMetrics"/>
+/// gelten nur fuer die Zonen, die beim Ziehen erscheinen.
 /// Frueher zeigte die Vorschau Abstaende, das Fenster wurde aber auf die volle Zone gesetzt.
 /// </summary>
 public sealed class PartMonitorResolver
 {
     private readonly IReadOnlyList<PartMonitorTarget> targets;
-    private readonly LayoutMetrics metrics;
 
-    public PartMonitorResolver(IReadOnlyList<PartMonitorTarget> targets, LayoutMetrics metrics)
+    public PartMonitorResolver(IReadOnlyList<PartMonitorTarget> targets)
     {
         this.targets = targets;
-        this.metrics = metrics;
     }
 
     /// <summary>Der Monitor, auf dessen Arbeitsflaeche der Punkt liegt; null ueber Taskleiste oder Luecke.</summary>
@@ -57,8 +56,8 @@ public sealed class PartMonitorResolver
             return null;
         }
 
-        // Getroffen wird ueber die ungepolsterte Zone: im schmalen Zwischenraum zweier Zonen soll das
-        // Loslassen nicht ins Leere gehen. Gesetzt wird das Fenster dann mit den Abstaenden.
+        // Getroffen wird die Zone selbst, nicht die schmalere Flaeche aus dem Overlay: im Zwischenraum
+        // zweier Zonen soll das Loslassen nicht ins Leere gehen.
         var partMonitor = ZoneGeometry.HitTest(
             target.PartMonitors,
             target.Monitor.WorkArea,
@@ -137,6 +136,6 @@ public sealed class PartMonitorResolver
             : new PartMonitorPlacement(
                 target.Monitor.Identity.StableId,
                 partMonitor.Id,
-                ZoneGeometry.ToPixels(partMonitor.Bounds, target.Monitor.WorkArea, metrics));
+                ZoneGeometry.ToPixels(partMonitor.Bounds, target.Monitor.WorkArea));
     }
 }

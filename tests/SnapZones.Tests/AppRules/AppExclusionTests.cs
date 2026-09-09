@@ -179,9 +179,7 @@ public sealed class AppExclusionTests
         {
             new PartMonitorTarget(monitor, [new ZoneDefinition(Guid.NewGuid(), "Voll", NormalizedRect.Full)])
         };
-        return new WindowDragCoordinator(
-            targets,
-            new LayoutMetrics(0, 0),
+        return new WindowDragCoordinator(targets,
             OverlayScope.AllMonitors,
             exclusions);
     }

@@ -608,11 +608,8 @@ public sealed class ApplicationController : IDisposable
                     continue;
                 }
 
-                var metrics = new LayoutMetrics(
-                    newConfiguration.Settings.EffectiveOuterMargins,
-                    newConfiguration.Settings.ZoneGap);
                 foreach (var target in LayoutWindowReflow.Plan(
-                    oldLayout, newLayout, monitor.WorkArea, metrics, windows))
+                    oldLayout, newLayout, monitor.WorkArea, windows))
                 {
                     var outcome = windowService.Snap(target.WindowHandle, target.Bounds);
                     if (outcome.Succeeded)
@@ -1289,12 +1286,11 @@ public sealed class ApplicationController : IDisposable
             newConfiguration.Settings.EffectiveOuterMargins,
             newConfiguration.Settings.ZoneGap);
         partMonitorCommands = new PartMonitorCommandService(
-            new PartMonitorResolver(targets, metrics),
+            new PartMonitorResolver(targets),
             placementHistory,
             windowService);
         coordinator = new WindowDragCoordinator(
             targets,
-            metrics,
             newConfiguration.Settings.OverlayScope,
             newConfiguration.AppExclusions);
         coordinator.ActionRequested += HandleDragAction;
@@ -1489,7 +1485,8 @@ public sealed class ApplicationController : IDisposable
                     string.IsNullOrWhiteSpace(monitor.Identity.StableId)
                         ? monitor.Identity.DeviceName
                         : monitor.Identity.StableId,
-                    ZoneGeometry.ToPixels(zone.Bounds, monitor.WorkArea, metrics)))))
+                    // Zielflaeche ist die Zone selbst: Rand und Luecke gelten nur fuer die Anzeige.
+                    ZoneGeometry.ToPixels(zone.Bounds, monitor.WorkArea)))))
             .ToArray();
         return new PlacementEnvironment(currentConfiguration, placementMonitors, placementZones);
     }
@@ -1580,10 +1577,9 @@ public sealed class ApplicationController : IDisposable
             return false;
         }
 
-        var metrics = new LayoutMetrics(configuration.Settings.EffectiveOuterMargins, configuration.Settings.ZoneGap);
         return BuildTargets(configuration).Any(target => target.PartMonitors.Any(zone =>
             current.NormalPosition.IsWithinTolerance(
-                ZoneGeometry.ToPixels(zone.Bounds, target.Monitor.WorkArea, metrics),
+                ZoneGeometry.ToPixels(zone.Bounds, target.Monitor.WorkArea),
                 configuration.Settings.SnappedTolerancePixels)));
     }
 
@@ -1832,8 +1828,7 @@ public sealed class ApplicationController : IDisposable
 
         log.Write("DEBUG", $"Tastenkürzel für Vordergrundfenster 0x{foreground.Handle:X} bei {foreground.Bounds}");
 
-        var metrics = new LayoutMetrics(configuration.Settings.EffectiveOuterMargins, configuration.Settings.ZoneGap);
-        var command = ZoneHotkeyNavigator.Plan(hotkey, foreground.Handle, foreground.Bounds, BuildTargets(configuration), metrics);
+        var command = ZoneHotkeyNavigator.Plan(hotkey, foreground.Handle, foreground.Bounds, BuildTargets(configuration));
         if (command is null)
         {
             viewModel.StatusMessage = hotkey.Action == ZoneHotkeyAction.ZoneByNumber

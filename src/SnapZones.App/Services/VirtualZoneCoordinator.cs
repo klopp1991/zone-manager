@@ -486,11 +486,8 @@ public sealed class VirtualZoneCoordinator : IDisposable
         }
     }
 
-    private PixelRect ZoneBounds(PartMonitorTarget target, ZoneDefinition zone)
-    {
-        var settings = configuration().Settings;
-        return ZoneGeometry.ToPixels(zone.Bounds, target.Monitor.WorkArea, new LayoutMetrics(settings.EffectiveOuterMargins, settings.ZoneGap));
-    }
+    private static PixelRect ZoneBounds(PartMonitorTarget target, ZoneDefinition zone) =>
+        ZoneGeometry.ToPixels(zone.Bounds, target.Monitor.WorkArea);
 
     /// <summary>Die Groessen aller Vollbildzonen der aktiven Layouts, damit die Modeliste jede kennt.</summary>
     private IEnumerable<VirtualDisplayMode> VirtualZoneSizes()

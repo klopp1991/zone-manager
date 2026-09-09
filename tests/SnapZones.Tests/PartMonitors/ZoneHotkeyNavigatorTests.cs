@@ -19,8 +19,7 @@ public sealed class ZoneHotkeyNavigatorTests
             new ZoneHotkey(ZoneHotkeyAction.NextZone),
             (nint)42,
             new PixelRect(-7, 0, 974, 1047),
-            Targets(),
-            Metrics);
+            Targets());
 
         var cycle = Assert.IsType<CyclePartMonitorCommand>(command);
         Assert.Equal(LeftId, cycle.CurrentPartMonitorId);
@@ -33,9 +32,9 @@ public sealed class ZoneHotkeyNavigatorTests
         var bounds = new PixelRect(300, 300, 400, 300);
 
         var next = Assert.IsType<FillPartMonitorCommand>(
-            ZoneHotkeyNavigator.Plan(new ZoneHotkey(ZoneHotkeyAction.NextZone), (nint)1, bounds, Targets(), Metrics));
+            ZoneHotkeyNavigator.Plan(new ZoneHotkey(ZoneHotkeyAction.NextZone), (nint)1, bounds, Targets()));
         var previous = Assert.IsType<FillPartMonitorCommand>(
-            ZoneHotkeyNavigator.Plan(new ZoneHotkey(ZoneHotkeyAction.PreviousZone), (nint)1, bounds, Targets(), Metrics));
+            ZoneHotkeyNavigator.Plan(new ZoneHotkey(ZoneHotkeyAction.PreviousZone), (nint)1, bounds, Targets()));
 
         Assert.Equal(LeftId, next.PartMonitorId);
         Assert.Equal(RightId, previous.PartMonitorId);
@@ -47,16 +46,16 @@ public sealed class ZoneHotkeyNavigatorTests
         var bounds = new PixelRect(1000, 100, 400, 300);
 
         var second = Assert.IsType<FillPartMonitorCommand>(
-            ZoneHotkeyNavigator.Plan(new ZoneHotkey(ZoneHotkeyAction.ZoneByNumber, 2), (nint)1, bounds, Targets(), Metrics));
+            ZoneHotkeyNavigator.Plan(new ZoneHotkey(ZoneHotkeyAction.ZoneByNumber, 2), (nint)1, bounds, Targets()));
         Assert.Equal(RightId, second.PartMonitorId);
-        Assert.Null(ZoneHotkeyNavigator.Plan(new ZoneHotkey(ZoneHotkeyAction.ZoneByNumber, 3), (nint)1, bounds, Targets(), Metrics));
+        Assert.Null(ZoneHotkeyNavigator.Plan(new ZoneHotkey(ZoneHotkeyAction.ZoneByNumber, 3), (nint)1, bounds, Targets()));
     }
 
     [Fact]
     public void Restore_previous_needs_no_geometry()
     {
         var command = ZoneHotkeyNavigator.Plan(
-            new ZoneHotkey(ZoneHotkeyAction.RestorePrevious), (nint)9, default, Targets(), Metrics);
+            new ZoneHotkey(ZoneHotkeyAction.RestorePrevious), (nint)9, default, Targets());
 
         Assert.Equal((nint)9, Assert.IsType<RestorePreviousPlacementCommand>(command).WindowHandle);
     }

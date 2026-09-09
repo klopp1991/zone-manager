@@ -26,26 +26,39 @@ public sealed class PartMonitorResolverTests
     }
 
     [Fact]
-    public void Resolve_applies_margins_and_gap_exactly_like_the_overlay()
+    public void Resolve_places_the_window_on_the_zone_itself_without_margin_or_gap()
     {
-        // Seit dem 02.09.2026 landet das Fenster auf der Flaeche, die das Overlay zeigt. Frueher
-        // zeigte die Vorschau Abstaende, gesetzt wurde aber die volle Zone.
-        var metrics = new LayoutMetrics(8, 8);
-        var resolver = CreateResolver(metrics);
+        // Seit dem 10.09.2026 folgt ein platziertes Fenster pixelgenau dem Layout. Rand und Luecke
+        // gelten nur noch fuer die Zonen, die beim Ziehen erscheinen; eine Zone am Bildschirmrand
+        // ergibt daher ein Fenster am Bildschirmrand.
+        var resolver = CreateResolver();
 
         var placement = resolver.Resolve("LEFT-MONITOR", LeftId);
 
         Assert.NotNull(placement);
         Assert.Equal(
-            ZoneGeometry.ToPixels(new NormalizedRect(0, 0, 0.5, 1), new MonitorWorkArea(-1920, 0, 1920, 1040), metrics),
+            ZoneGeometry.ToPixels(new NormalizedRect(0, 0, 0.5, 1), new MonitorWorkArea(-1920, 0, 1920, 1040)),
             placement.Bounds);
-        Assert.Equal(new PixelRect(-1912, 8, 948, 1024), placement.Bounds);
+        Assert.Equal(new PixelRect(-1920, 0, 960, 1040), placement.Bounds);
+    }
+
+    [Fact]
+    public void Two_neighbouring_zones_produce_flush_windows()
+    {
+        var resolver = CreateResolver();
+
+        var left = resolver.Resolve("LEFT-MONITOR", LeftId);
+        var right = resolver.Resolve("LEFT-MONITOR", RightId);
+
+        Assert.NotNull(left);
+        Assert.NotNull(right);
+        Assert.Equal(left.Bounds.Right, right.Bounds.X);
     }
 
     [Fact]
     public void FindAt_hits_a_zone_even_inside_the_gap_between_two_zones()
     {
-        var resolver = CreateResolver(new LayoutMetrics(0, 20));
+        var resolver = CreateResolver();
 
         // Ein Pixel rechts der Mitte liegt im Zwischenraum, gehoert aber zur rechten Zone.
         var placement = resolver.FindAt(new PointInt(-959, 400));
@@ -79,7 +92,7 @@ public sealed class PartMonitorResolverTests
         Assert.Equal(FullId, previous?.PartMonitorId);
     }
 
-    private static PartMonitorResolver CreateResolver(LayoutMetrics? metrics = null)
+    private static PartMonitorResolver CreateResolver()
     {
         var left = new LiveMonitor(
             new MonitorIdentity("LEFT-MONITOR", "DISPLAY1", "Links"),
@@ -107,7 +120,6 @@ public sealed class PartMonitorResolverTests
             [
                 new ZoneDefinition(FullId, "Voll", NormalizedRect.Full)
             ])
-        ],
-        metrics ?? new LayoutMetrics(0, 0));
+        ]);
     }
 }

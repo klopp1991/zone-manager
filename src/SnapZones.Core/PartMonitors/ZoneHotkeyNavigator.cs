@@ -33,12 +33,10 @@ public static class ZoneHotkeyNavigator
         ZoneHotkey hotkey,
         nint windowHandle,
         PixelRect windowBounds,
-        IReadOnlyList<PartMonitorTarget> targets,
-        LayoutMetrics metrics)
+        IReadOnlyList<PartMonitorTarget> targets)
     {
         ArgumentNullException.ThrowIfNull(hotkey);
         ArgumentNullException.ThrowIfNull(targets);
-        ArgumentNullException.ThrowIfNull(metrics);
         if (windowHandle == 0 || targets.Count == 0)
         {
             return null;
@@ -65,7 +63,7 @@ public static class ZoneHotkeyNavigator
 
         var current = monitor.PartMonitors.FirstOrDefault(zone =>
             windowBounds.IsWithinTolerance(
-                ZoneGeometry.ToPixels(zone.Bounds, monitor.Monitor.WorkArea, metrics),
+                ZoneGeometry.ToPixels(zone.Bounds, monitor.Monitor.WorkArea),
                 WindowFrameCompensation.MaximumBorderPixels));
         var offset = hotkey.Action == ZoneHotkeyAction.NextZone ? 1 : -1;
         if (current is not null)

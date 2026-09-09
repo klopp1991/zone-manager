@@ -91,15 +91,13 @@ public sealed class PartMonitorCommandServiceTests
             96,
             96,
             true);
-        var resolver = new PartMonitorResolver(
-        [
+        var resolver = new PartMonitorResolver([
             new PartMonitorTarget(monitor,
             [
                 new ZoneDefinition(LeftId, "Links", new NormalizedRect(0, 0, 0.5, 1)),
                 new ZoneDefinition(RightId, "Rechts", new NormalizedRect(0.5, 0, 0.5, 1))
             ])
-        ],
-        new LayoutMetrics(0, 0));
+        ]);
         return new PartMonitorCommandService(resolver, history, gateway);
     }
 
