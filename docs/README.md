@@ -5,7 +5,7 @@ Zone Manager erstellt frei bearbeitbare Fensterbereiche pro Monitor. Sobald mind
 ## Schnellstart
 
 1. `ZoneManager.exe` starten. Standardmässig sind keine Administratorrechte erforderlich; nur für entsprechend geschützte Fenster kann später eine UAC-Abfrage nötig werden. Die Datei kommt entweder aus dem neuesten [Release](https://github.com/klopp1991/zone-manager/releases/latest) oder entsteht im Rootverzeichnis, sobald das Projekt gebaut wird.
-2. Die **Übersicht** zeigt jeden Monitor mit seinem aktiven Layout. Ein Klick auf einen Monitor öffnet **Zonen & Layouts**; dort steht ein Tab je Layout, **+ Neu** legt ein leeres, ein Vorlagen- oder ein dupliziertes Layout an.
+2. Das Fenster öffnet auf **Zonen & Layouts**. Oben stehen die Monitorauswahl und ein Tab je Layout; **+ Neu** legt ein leeres, ein Vorlagen- oder ein dupliziertes Layout an.
 3. Die vorhandenen Zonen anpassen und mit **+ Zone** die grösste freie Fläche belegen – im Fenster oder mit **Auf dem Monitor zeichnen** in echter Grösse direkt auf dem Bildschirm.
 4. Zonen ziehen, über acht Griffe skalieren oder im Werte-Panel als Zahlen eingeben – wahlweise über Position und Grösse oder über die vier Randabstände. Die **Masseinheit** wird einmal pro Panel auf Prozent oder Pixel gestellt und gilt für alle acht Felder.
 5. Die Snap-Funktion läuft mit den aktiven Layouts automatisch; jede gültige Änderung wird sofort gespeichert und angewendet. Die Statuszeile nennt die letzte Aktion mit Uhrzeit.
@@ -14,17 +14,39 @@ Konfiguration und bestehende Installationen bleiben unter `%APPDATA%\SnapZones\s
 
 **Export** schreibt jederzeit ein vollständiges JSON-Backup mit sämtlichen Einstellungen, Monitorlayouts, Zonen, IDs und Parametern. **Import** validiert die komplette Datei, zeigt den exakten Ersetzungsumfang und sichert den bisherigen Zustand unmittelbar vor der bestätigten Übernahme. Bestehende Profilkonfigurationen aus Schema 1 werden beim Laden in unabhängige Layouts pro Monitor migriert.
 
-Die fünf Sicherungen erscheinen unter **Programm → Frühere Stände** mit Zeitstempel und einem Satz, was sich danach geändert hat («Layout «Video» angelegt», «Deckkraft 24 % → 30 %»). **Wiederherstellen** holt einen Stand zurück; der bisherige wird dabei selbst als jüngste Sicherung abgelegt, und der Hinweis unten bietet **Rückgängig**.
+Die fünf Sicherungen erscheinen unter **Sicherung & Stände → Frühere Stände** mit Zeitstempel und einem Satz, was sich danach geändert hat («Layout «Video» angelegt», «Deckkraft 24 % → 30 %»). **Wiederherstellen** holt einen Stand zurück; der bisherige wird dabei selbst als jüngste Sicherung abgelegt, und der Hinweis unten bietet **Rückgängig**.
 
 ## Oberfläche
 
-Die Navigation links hat sieben Seiten in drei Gruppen: **Übersicht** · **Einrichten** (Monitore, Zonen & Layouts, Fenster zuordnen, In Ruhe lassen) · **Einstellungen** (Verhalten, Programm). Die Zähler neben den Einträgen nennen Monitore, Layouts, Zuordnungen und in Ruhe gelassene Programme. Das Suchfeld oben findet jede Einstellung über Beschriftung, Pfad und Synonyme («dunkel» führt zum Erscheinungsbild); ein Treffer öffnet Seite und Untertab, `Enter` den ersten Treffer, `Esc` leert das Feld.
+Die Navigation links hat vierzehn Seiten in drei Gruppen. Untertabs gibt es nicht; jede Seite steht für
+sich und beginnt ohne Titel direkt mit ihrem Inhalt.
 
-Die **Übersicht** zeigt jeden Monitor als Karte mit Miniatur seines aktiven Layouts und einer Auswahl zum Umschalten, darunter drei Zähler (zugeordnete Fenster mit Hinweis auf pausierte Zuordnungen, in Ruhe gelassene Programme, gemerkte Fenster) und die drei häufigsten Aktionen: **Zonen auf dem Monitor zeichnen**, **+ Fenster zuordnen**, **Zonen kurz einblenden** (drei Sekunden auf allen Monitoren).
+| Gruppe | Seiten |
+|---|---|
+| **Einrichten** | Zonen & Layouts · Monitore · Fenster zuordnen · In Ruhe lassen |
+| **Verhalten** | Ziehen & Einrasten · Aussehen der Zonen · Abstände & Raster · Fenster merken · Vollbild & Videos · Tastenkürzel |
+| **Programm** | Aussehen & Start · Sicherung & Stände · System & Rechte · Über Zone Manager |
 
-Löschende Aktionen fragen nicht mehr nach. Zuordnung entfernen, wieder einrasten lassen, Zone oder Layout löschen, gemerkte Positionen verwerfen, Einstellungen zurücksetzen und einen früheren Stand wiederherstellen werden sofort gespeichert und unten in der Mitte mit einem Hinweis samt **Rückgängig** bestätigt; er bleibt sechs Sekunden stehen, länger, solange der Mauszeiger darauf liegt. Nachgefragt wird nur noch, wo sich nichts zurücknehmen lässt: Zertifikat, Installation, Update.
+Startseite ist **Zonen & Layouts**; ein Klick auf das Logo in der Kopfzeile führt dorthin zurück. Die Zähler
+neben den Einträgen nennen Layouts, Monitore, Zuordnungen, in Ruhe gelassene Programme und gemerkte Fenster.
+Das Suchfeld oben findet jede Einstellung über Beschriftung, Pfad und Synonyme («dunkel» führt zum
+Erscheinungsbild); ein Treffer öffnet die Seite und klappt bei Bedarf ihre **Feinabstimmung** auf, `Enter`
+nimmt den ersten Treffer, `Esc` leert das Feld.
 
-Jede Einstellung trägt ein **?**; beim Darüberfahren oder mit Tastaturfokus erklärt es in zwei bis fünf Sätzen Wirkung, Beispiel, Bedeutung des leeren Werts und den erlaubten Bereich. Schalter ersetzen die Checkboxen in Listen und Einstellungszeilen.
+Die Expertenwerte einer Seite stehen zugeklappt am Seitenfuss im Abschnitt **Feinabstimmung**. Der Zustand
+gilt nur für die laufende Sitzung.
+
+Jede Systemsache — Autostart, Administratorrechte, Fensterhelfer, Vollbildzonen-Treiber, Update-Quelle —
+zeigt ihren Zustand als Chip in der Zeile: `● Aktiv`, `● Nicht installiert`, `○ Nicht eingerichtet`. Punkt
+und Wort tragen den Zustand, nicht die Farbe allein. Jede lässt sich einrichten **und** entfernen.
+
+Löschende Aktionen fragen nicht mehr nach. Zuordnung entfernen, wieder einrasten lassen, Zone oder Layout löschen, gemerkte Positionen verwerfen, Einstellungen zurücksetzen und einen früheren Stand wiederherstellen werden sofort gespeichert und unten in der Mitte mit einem Hinweis samt **Rückgängig** bestätigt; er bleibt sechs Sekunden stehen, länger, solange der Mauszeiger darauf liegt. Nachgefragt wird nur noch, wo sich nichts zurücknehmen lässt: Zertifikat, Treiber, Update.
+
+Jede Einstellung trägt ein **?**; beim Darüberfahren oder mit Tastaturfokus erklärt es in zwei bis fünf Sätzen Wirkung, Beispiel, Bedeutung des leeren Werts und den erlaubten Bereich. Unter der Beschriftung steht ein Untertitel in Alltagssprache, der sagt, was passiert; alles Technische bleibt im **?**. Schalter ersetzen die Checkboxen in Listen und Einstellungszeilen.
+
+Monitore und Layouts stehen als Tabs. Der aktive Tab trägt am Ende die Pfeile `‹ ›`, mit denen er eine Stelle
+weiter wandert; ziehen geht ebenso. Die so festgelegte Reihenfolge gilt überall: Tabs, Auswahllisten und das
+Menü im Infobereich.
 
 ## Mehrere Zonen verbinden
 
@@ -69,7 +91,7 @@ Priorität und Konflikte gibt es nicht, weil mehrere zutreffende Einträge zum s
 
 ## Layouteditor
 
-- Über der Zeichenfläche steht die Monitorauswahl und ein **Tab je Layout**; das auf dem Monitor aktive trägt «● aktiv». Ein Klick wechselt nur das bearbeitete Layout, aktiviert wird über die Übersicht, das Infobereichsmenü oder den Rechtsklick auf den Tab (**Aktivieren**, **Umbenennen …**, **Duplizieren**, **Layout löschen**). **+ Neu ⌵** legt ein leeres Layout, eines aus einer Vorlage oder eine Kopie des aktuellen an.
+- Über der Zeichenfläche steht die Monitorauswahl und ein **Tab je Layout**; das auf dem Monitor aktive trägt «● aktiv». Ein Klick wechselt nur das bearbeitete Layout, aktiviert wird über das Menü im Infobereich oder den Rechtsklick auf den Tab (**Aktivieren**, **Umbenennen …**, **Duplizieren**, **Layout löschen**). **+ Neu ⌵** legt ein leeres Layout, eines aus einer Vorlage oder eine Kopie des aktuellen an.
 - **+ Zone** belegt die grösste freie achsenparallele Fläche; ohne ausreichenden freien Bereich wird nichts verändert. **Zone löschen** und `Entf` entfernen die ausgewählte Zone mit **Rückgängig**.
 - **Vorlage ⌵** zeigt die fünf Vorschläge, die zu Seitenverhältnis, Auflösung, Skalierung und Monitorgrösse passen; eine Vorlage ersetzt alle Zonen, der Hinweis bietet **Rückgängig**.
 - **↶** und **↷** (auch `Strg + Z` / `Strg + Y`) nehmen jede Änderung am Entwurf zurück; ein Mausziehen zählt als eine Änderung.
@@ -191,16 +213,19 @@ gezielt löschen.
 
 ## Vollbildzonen
 
-Eine Zone kann ein **virtueller Monitor** sein. Ein Fenster, das dorthin kommt — gezogen, per Tastenkürzel
+Eine Zone kann eine **Vollbildzone** sein. Ein Fenster, das dorthin kommt — gezogen, per Tastenkürzel
 oder über eine Zuordnung —, läuft dann auf einem eigenen Monitor in genau der Grösse der Zone, und Zone
 Manager spiegelt dessen Bild in die Zone. Für das Programm ist das ein ganzer Bildschirm: es darf sein
 Vollbild einschalten und füllt trotzdem nur die Zone, weil es aus seiner Sicht den ganzen Monitor füllt.
 Es gibt nichts zurückzuholen und nichts zu bekämpfen. Der Anlass: ein Film aus der eigenen Plex-Mediathek
 neben dem Browser.
 
-Gekennzeichnet wird die Zone im Layouteditor mit **Virtueller Monitor** in den Zonenwerten. Das
-Kennzeichen wird wie alles andere gespeichert, ist rückgängig machbar und erscheint in der Übersicht der
-früheren Stände.
+Gekennzeichnet wird die Zone im Layouteditor mit dem Kästchen **Vollbildzone** in den Zonenwerten. Fehlt
+der Vollbildzonen-Treiber, erscheint darunter ein Warnhinweis mit dem Verweis **Jetzt einrichten**; das
+Kästchen bleibt gesetzt und greift, sobald der Treiber da ist. Das Kennzeichen wird wie alles andere
+gespeichert, ist rückgängig machbar und erscheint in der Übersicht der früheren Stände. Die Seite
+**Vollbild & Videos** trägt dazu den Schalter **Vollbildzone verwenden** und die Liste **Programme ohne
+Vollbildzone**.
 
 Was beim Betreten passiert, in dieser Reihenfolge:
 
@@ -270,7 +295,7 @@ Die Monitorauswahl enthält auch Monitore, die gerade **nicht verbunden** sind, 
 
 ## Einstellungen
 
-Die Einstellungen sind auf zwei Seiten verteilt: **Verhalten** mit den Untertabs **Beim Ziehen**, **Darstellung**, **Abstände**, **Fenster merken** und **Tastenkürzel**, und **Programm** (Erscheinungsbild, Autostart, Updates, Administratorrechte, Installation, Sicherung, Frühere Stände, Fensterhelfer, Zurücksetzen). Alle Einstellungen sind sichtbar; einen Standard-/Experten-Schalter gibt es seit dem 05.09.2026 nicht mehr. Jede Zeile trägt links die Beschriftung mit **?**, rechts das Steuerelement; das **?** erklärt beim Darüberfahren, was die Einstellung tut, mit Beispiel und Wertebereich. Jeder Wert hat einen sicheren Standard und einen begrenzten Bereich; ungültige Werte werden schon beim Eingeben auf den Bereich gestutzt und beim Laden der Datei abgewiesen.
+Die Einstellungen stehen auf zehn Seiten: sechs unter **Verhalten** (Ziehen & Einrasten, Aussehen der Zonen, Abstände & Raster, Fenster merken, Vollbild & Videos, Tastenkürzel) und vier unter **Programm** (Aussehen & Start, Sicherung & Stände, System & Rechte, Über Zone Manager). Alle Einstellungen sind sichtbar; einen Standard-/Experten-Schalter gibt es seit dem 05.09.2026 nicht mehr. Die selten gebrauchten Werte einer Seite stehen zugeklappt in ihrer **Feinabstimmung**. Jede Zeile trägt links die Beschriftung mit **?**, rechts das Steuerelement; das **?** erklärt beim Darüberfahren, was die Einstellung tut, mit Beispiel und Wertebereich. Jeder Wert hat einen sicheren Standard und einen begrenzten Bereich; ungültige Werte werden schon beim Eingeben auf den Bereich gestutzt und beim Laden der Datei abgewiesen.
 
 **Beim Ziehen**
 
@@ -284,40 +309,57 @@ Die Einstellungen sind auf zwei Seiten verteilt: **Verhalten** mit den Untertabs
     bleibt die bisherige Anzeige stehen, statt zu flackern.
 - **Zonen einblenden**: sofort oder nur mit Umschalttaste. Die Umschalttaste darf auch erst während des
   Ziehens gedrückt werden; wird sie losgelassen, verschwinden die Zonen wieder, bis sie erneut gedrückt wird.
-- **Zonennamen anzeigen** und die Karte **Feinabstimmung**: Anzeigeverzögerung, Fenster nach dem Einrasten in den Vordergrund holen, Grösse beim Herausziehen wiederherstellen.
+- **Zonennamen anzeigen**, **Fenster nach dem Einrasten in den Vordergrund holen** und **Grösse beim
+  Herausziehen wiederherstellen**; in der Feinabstimmung Anzeigeverzögerung, Toleranz für «eingerastet»,
+  Schutzschalter des Verschiebe-Hooks und Wachhund.
 
-**Darstellung**: Farbe der Zonen (Farbfeld und Hexwert), Deckkraft, Beschriftung, dazu der **Overlay-Stil** mit Rahmenbreite, Eckenradius, Hervorhebung (Farbe und Deckkraft der Zielzone) und Schriftgrösse der Beschriftung. Rechts zeigt die Karte **Vorschau** ein Overlay mit drei Zonen, das jede Änderung sofort übernimmt.
+**Aussehen der Zonen**: Farbe der Zonen (Farbfeld und Hexwert), Deckkraft, Beschriftung (Nummer und Name · nur Nummer · nur Name · keine) und Schriftgrösse; in der Feinabstimmung Rahmenbreite, Eckenradius und die Hervorhebung der Zielzone. Rechts zeigt die Karte **Vorschau** drei Zonen, die jede Änderung sofort übernehmen, dazu **Zonen kurz einblenden**.
 
-**Abstände**: Abstand zum Bildschirmrand (links, oben, rechts, unten in Pixel), Abstand zwischen Zonen und Andocken im Editor in ganzen Prozent. Aussen- und Zonenabstand gelten für Vorschau **und** Fenster: ein Fenster landet genau auf der Fläche, die das Overlay zeigt, auch über Zuordnungen, Startzone und Layoutwechsel. Neben jedem Prozentregler steht der abgeleitete Pixelwert als `≙ n px`.
+**Abstände & Raster**: **Rand zum Bildschirm** (links, oben, rechts, unten in Pixel) und **Lücke zwischen den Zonen** gelten **nur** für die Zonen, die beim Ziehen erscheinen. Ein platziertes Fenster folgt immer pixelgenau dem Layout: eine Zone am Bildschirmrand ergibt ein Fenster am Bildschirmrand, zwei Nachbarzonen ergeben bündige Fenster. Wer Luft zwischen den Fenstern will, zeichnet sie im Layout ein. Darunter **Andocken im Editor** in ganzen Prozent; neben jedem Regler steht der abgeleitete Pixelwert als `≙ n px`.
 
-**Fenster merken**: **Fensterpositionen merken** schaltet den Positionskatalog ein und aus; darunter stehen die Anzahl der Einträge und der Verweis **alle verwerfen** (mit Rückgängig). Siehe [Gemerkte Fensterpositionen](#gemerkte-fensterpositionen). Darunter die Karten **Feinabstimmung Platzieren** und **Schutz und Zeiten**, siehe Tabelle.
+**Fenster merken**: **Fensterpositionen merken** schaltet den Positionskatalog ein und aus; darunter stehen die Anzahl der Einträge und der Verweis **alle verwerfen** (mit Rückgängig). Siehe [Gemerkte Fensterpositionen](#gemerkte-fensterpositionen). Dazu **Neue Fenster in der Startzone öffnen**, **Maximierte Fenster maximiert wiederherstellen**, **Fenster mit fester Grösse** und **Gemerkte Zone vor gemerkter Lage**.
 
-**Tastenkürzel**: Zonenkürzel aktiv, Zusatztasten mit AltGr-Warnung bei `Ctrl + Alt`, und die Tabelle aller Kürzel.
+**Vollbild & Videos**: **Vollbildzone verwenden**, der Zustand des **Vollbildzonen-Treibers** und die Liste **Programme ohne Vollbildzone**. Eine Erklärkarte zeigt an zwei Miniaturen, was «Vollbild» mit und ohne Vollbildzone bedeutet.
 
-**Programm**: System-, helles oder dunkles Theme (Systemänderungen werden ohne Neustart übernommen); Autostart pro Benutzer über eine Anmeldeaufgabe der Windows-Aufgabenplanung, die das Programm bereits erhöht startet, sodass bei der Anmeldung **keine** UAC-Abfrage erscheint (schlägt das Anlegen fehl, weicht das Programm auf den Registry-Eintrag `Run` aus und meldet das im Protokoll; eingetragen ist immer nur einer der beiden Wege); Updates mit Schalter «beim Start» und **Jetzt suchen**; Administratorrechte; Installation; Sicherung mit **Exportieren** und **Importieren**; **Frühere Stände**; die gestrichelte Karte **Erweitert: Fensterhelfer ohne Administratorrechte** mit dem dreischrittigen **Assistent …**; ganz unten **Alle Einstellungen zurücksetzen** – mit Rückgängig, ohne Nachfrage. Zurückgesetzt werden Abstände, Darstellung, Verhalten und alle Feinabstimmungen; Erscheinungsbild, Autostart, Rechte, Updatesuche, Layouts, Zuordnungen und die Liste «In Ruhe lassen» bleiben.
+**Tastenkürzel**: Zonenkürzel aktiv, Zusatztasten mit AltGr-Warnung bei `Ctrl + Alt`, der **Not-Aus** und die Tabelle aller Kürzel.
+
+**Aussehen & Start**: System-, helles oder dunkles Theme (Systemänderungen werden ohne Neustart übernommen); Autostart pro Benutzer über eine Anmeldeaufgabe der Windows-Aufgabenplanung, die das Programm bereits erhöht startet, sodass bei der Anmeldung **keine** UAC-Abfrage erscheint (schlägt das Anlegen fehl, weicht das Programm auf den Registry-Eintrag `Run` aus und meldet das im Protokoll; eingetragen ist immer nur einer der beiden Wege); **Beim Schliessen in den Infobereich**; Updates mit Schalter «beim Start suchen» und **Jetzt suchen**; **Update-Quelle** mit der Verbindung zum GitHub-Konto.
+
+**Sicherung & Stände**: **Sicherung als Datei** mit **Exportieren** und **Importieren** — beide gleichrangig; **Frühere Stände**; **Von vorn anfangen** mit **Alle Einstellungen zurücksetzen** – mit Rückgängig, ohne Nachfrage. Zurückgesetzt werden Abstände, Darstellung, Verhalten und alle Feinabstimmungen; Erscheinungsbild, Autostart, Rechte, Updatesuche, Layouts, Zuordnungen und die Liste «In Ruhe lassen» bleiben.
+
+**System & Rechte**: **Administratorrechte** mit Chip, Auswahl (Nie · Nur wenn nötig · Immer beim Start) und, solange das Programm erhöht läuft, **Rechte abgeben**; **Fensterhelfer ohne Administratorrechte** mit **Einrichten …** beziehungsweise **Neu einrichten …** und **Entfernen**; **Vollbildzonen-Treiber** mit **Installieren …** beziehungsweise **Prüfen** und **Deinstallieren**; **Diagnose** mit **Protokoll öffnen** und **Diagnose ausführen**.
+
+**Über Zone Manager**: Version, .NET-Fassung und Mindestanforderung, **Projektseite** und **Lizenz**, dazu die **Protokolldatei** (Ordner öffnen, Leeren) und die **Einstellungsdatei** (Ordner öffnen). Die Pfade stehen im ToolTip.
 
 ### Feinabstimmung
 
-| Untertab · Karte | Einstellung | Bereich (Standard) | Wirkung |
+| Seite | Einstellung | Bereich (Standard) | Wirkung |
 |---|---|---|---|
-| Beim Ziehen · Feinabstimmung | Anzeigeverzögerung | 0–1000 ms (0) | Zonen erscheinen erst, wenn das Ziehen so lange dauert; kurze Züge bleiben ohne Aufblitzen. |
-| | Fenster nach dem Einrasten in den Vordergrund holen | aus | Ein per Zuordnung, Startzone oder Kürzel gesetztes Fenster erhält den Fokus. |
+| Ziehen & Einrasten | Fenster nach dem Einrasten in den Vordergrund holen | aus | Ein per Zuordnung, Startzone oder Kürzel gesetztes Fenster erhält den Fokus. |
 | | Grösse beim Herausziehen wiederherstellen | aus | Ein aus der Zone gezogenes, nirgends abgelegtes Fenster bekommt seine frühere Grösse zurück. |
-| Darstellung · Overlay-Stil | Beschriftung | Nummer und Name / nur Nummer / nur Name | Inhalt der Beschriftungsfläche. |
-| | Rahmenbreite, Eckenradius, Schriftgrösse | 1–6 px (1), 0–24 px (4), 10–24 pt (13) | Optik der Zonen im Overlay. |
-| | Hervorhebung | #RRGGBB oder leer, 10–90 % (36) | Farbe und Deckkraft der Zone unter dem Mauszeiger. |
-| Fenster merken · Feinabstimmung Platzieren | Fenster mit fester Grösse | zentrieren / oben links / nicht anfassen | Dialoge, die keine Zone füllen können. |
-| | Toleranz beim Nachmessen | 0–10 px (2) | Ab welcher Abweichung ein zweiter Anlauf und eine Meldung folgen. |
+| Ziehen & Einrasten › Feinabstimmung | Anzeigeverzögerung | 0–1000 ms (0) | Zonen erscheinen erst, wenn das Ziehen so lange dauert; kurze Züge bleiben ohne Aufblitzen. |
 | | Toleranz für «eingerastet» | 8–80 px (40) | Wie nah ein Fenster an den Zonenkanten liegen muss, damit Startzone und Layoutwechsel es in Ruhe lassen. |
-| | Neue Fenster in der Startzone auffangen | ein | Aus: die Startzone dient nur dem Layoutwechsel. |
+| | Schutzschalter des Verschiebe-Hooks | 200–20000 Ereignisse je 10 s (2000) | Darüber hält das Programm das Einrasten an. |
+| | Wachhund für hängende Ziehvorgänge | 2–60 s (10) | Danach werden die Zonen eingezogen, was auch immer Windows meldet. |
+| Aussehen der Zonen | Beschriftung | Nummer und Name / nur Nummer / nur Name / keine | Inhalt der Beschriftungsfläche. |
+| | Deckkraft, Schriftgrösse | 8–75 % (24), 8–48 pt (16) | Wie kräftig die Flächen sind und wie gross ihre Beschriftung ist. |
+| Aussehen der Zonen › Feinabstimmung | Rahmenbreite, Eckenradius | 1–6 px (2), 0–24 px (6) | Optik der Zonen beim Ziehen. |
+| | Hervorhebung der Zielzone | #RRGGBB oder leer, 10–90 % (#2F6FED, 36) | Farbe und Deckkraft der Zone unter dem Mauszeiger. |
+| Abstände & Raster › Feinabstimmung | Toleranz beim Nachmessen | 0–10 px (2) | Ab welcher Abweichung ein zweiter Anlauf und eine Meldung folgen. |
+| Fenster merken | Fenster mit fester Grösse | zentrieren / oben links / nicht anfassen | Dialoge, die keine Zone füllen können. |
+| | Neue Fenster in der Startzone öffnen | ein | Aus: die Startzone dient nur dem Layoutwechsel. |
 | | Gemerkte Zone vor gemerkter Lage | ein | Aus: ein Fenster kehrt pixelgenau an seine letzte Lage zurück. |
 | | Maximierte Fenster maximiert wiederherstellen | ein | |
-| | Katalog gemerkter Positionen | 50–2000 (500) | Obergrenze des Positionsgedächtnisses. |
+| Fenster merken › Feinabstimmung | Katalog gemerkter Positionen | 50–2000 (500) | Obergrenze des Positionsgedächtnisses. |
 | | Wartezeit vor dem Beurteilen neuer Fenster | 0–2000 ms (0) | Für Programme, die ihr Fenster spät fertig aufbauen. |
 | | Abstand zwischen Regelversuchen | 50–2000 ms (250) | |
-| Tastenkürzel | Zonenkürzel aktiv, Zusatztasten | ein; Ctrl + Shift / Ctrl + Alt / Alt + Shift / Ctrl + Win | Gilt für alle Zonenkürzel; der Not-Aus bleibt fest. `Ctrl + Alt` blockiert AltGr und wird in der Oberfläche mit einer Warnung angeboten. |
-| Fenster merken · Schutz und Zeiten | Schutzschalter des Verschiebe-Hooks | 100–5000 Ereignisse je 10 s (400) | Darüber hält das Programm das Einrasten an. |
-| | Wachhund für hängende Ziehvorgänge | 5–600 s (120) | Danach werden die Zonen eingezogen, was auch immer Windows meldet. |
+| Vollbild & Videos | Vollbildzone verwenden | ein | Ohne Vollbildzonen-Treiber wirkungslos. |
+| Tastenkürzel | Zonenkürzel aktiv, Zusatztasten | ein; Ctrl + Shift / Ctrl + Alt / Alt + Shift / Ctrl + Win | Gilt für alle Zonenkürzel. `Ctrl + Alt` blockiert AltGr und wird in der Oberfläche mit einer Warnung angeboten. |
+| | Not-Aus | Ctrl + Alt + Shift + F12 / F11 / Pause / aus | Bleibt registriert, auch wenn die Zonenkürzel aus sind. |
+| Aussehen & Start | Beim Schliessen in den Infobereich | ein | Aus: das ✕ beendet das Programm. |
+
+Ein gespeicherter Wert ausserhalb dieser Bereiche wird beim Laden nicht mehr abgewiesen, solange er
+innerhalb der bis zum 09.09.2026 gültigen Grenzen liegt; die Oberfläche nennt den neuen Bereich im «?».
 
 Wie Titel, Beschriftungen und Erklärungen dabei aufgebaut sind, steht verbindlich in [ui-richtlinien.md](ui-richtlinien.md).
 
@@ -326,9 +368,10 @@ Wie Titel, Beschriftungen und Erklärungen dabei aufgebaut sind, steht verbindli
 Das Programm läuft ohne Installation aus dem Verzeichnis, in dem die Datei liegt. Das genügt, ist im
 Downloadordner aber unaufgeräumt und erschwert Updates.
 
-**Programm → Installation** kopiert die Programmdatei nach `%ProgramFiles%\ZoneManager`, legt eine
-Verknüpfung im Startmenü an und trägt das Programm in «Apps und Features» ein. Danach startet es von dort
-neu. Dasselbe leistet `ZoneManager.exe --install` auf der Kommandozeile.
+`ZoneManager.exe --install` auf der Kommandozeile kopiert die Programmdatei nach
+`%ProgramFiles%\ZoneManager`, legt eine Verknüpfung im Startmenü an und trägt das Programm in «Apps und
+Features» ein. Danach startet es von dort neu. Einen Menüpunkt dafür gibt es seit dem 10.09.2026 nicht mehr;
+der übliche Weg ist das Installationspaket.
 
 Entfernt wird es über «Apps und Features» wie jedes andere Programm, oder mit
 `ZoneManager.exe --uninstall`. Die Einstellungen unter `%APPDATA%\SnapZones` bleiben dabei erhalten — sie
@@ -346,7 +389,7 @@ Verzeichnis nennen. Für eine Installation ohne Rückfragen genügt
 `msiexec /i ZoneManager-Setup-<Version>.msi /qn`.
 
 Den Vollbildzonen-Treiber für [Vollbildzonen](#vollbildzonen) bringt das Paket **nicht** mit; er wird im Programm
-unter **Programm → Vollbildzonen-Treiber** eingerichtet. Die Installation aus dem Programm
+unter **System & Rechte → Vollbildzonen-Treiber** eingerichtet. Die Installation aus dem Programm
 heraus nimmt ihn dagegen gleich mit.
 
 Das Paket enthält dieselbe Programmdatei, die auch einzeln am Release hängt, und verdoppelt damit die
@@ -356,7 +399,7 @@ Installieren und Entfernen bleiben ausserdem Modi derselben Datei, damit beides 
 Die Installation richtet ausserdem den Vollbildzonen-Treiber für [Vollbildzonen](#vollbildzonen) ein, die Deinstallation
 entfernt ihn samt virtuellem Monitor wieder. Der Treiber ist der «Virtual Display Driver»
 (github.com/VirtualDrivers/Virtual-Display-Driver, MIT-Lizenz, signiert von der SignPath Foundation); er
-reist in der Programmdatei mit und wird nicht heruntergeladen. Unter **Programm → Vollbildzonen-Treiber für
+reist in der Programmdatei mit und wird nicht heruntergeladen. Unter **System & Rechte → Vollbildzonen-Treiber für
 Vollbildzonen** lässt er sich auch einzeln einrichten oder entfernen, etwa nach einer älteren Installation;
 dasselbe leisten `ZoneManager.exe --install-display-driver` und `--remove-display-driver`. Ohne Treiber
 bleiben Vollbildzonen ausgeschaltet, alles andere läuft wie gewohnt.
@@ -370,7 +413,7 @@ bereits erhöht, läuft die Installation direkt.
 
 ## Updates
 
-Unter **Programm → Updates** steht die installierte Version, daneben **Nach Updates suchen** und
+Unter **Aussehen & Start → Updates** steht die installierte Version, daneben **Nach Updates suchen** und
 **Update installieren und neu starten**.
 
 Die Suche fragt die Veröffentlichungen des Projekts ab und sendet dabei nichts ausser der Anfrage selbst —
@@ -410,7 +453,7 @@ derselben oder einer niedrigeren Stufe angehören. Alltägliche Fenster — Brow
 zur gewöhnlichen Stufe; der Taskmanager, der Registrierungs-Editor und alles «als Administrator» Gestartete
 stehen darüber.
 
-Unter **Programm → Rechte** steht deshalb zur Wahl:
+Unter **System & Rechte → Administratorrechte** steht deshalb zur Wahl:
 
 - **Nur wenn nötig** (Voreinstellung). Das Programm startet ohne UAC-Abfrage. Trifft es später auf ein
   Fenster, das es nicht bewegen darf, fragt es **einmal je Sitzung** nach und startet auf Wunsch erhöht neu.
@@ -447,7 +490,7 @@ Zugriffsliste, die nur den angemeldeten Benutzer zulässt; der Helfer prüft, da
 `ZoneManager.exe` aus seinem eigenen Verzeichnis sitzt; und das Protokoll kennt genau zwei Befehle, deren
 Zahlen streng geprüft werden. Der Helfer wird erst beim ersten Fenster gestartet, das ihn wirklich braucht.
 
-Unter **Programm → Fensterhelfer ohne Administratorrechte** wird ein selbst ausgestelltes Zertifikat
+Unter **System & Rechte → Fensterhelfer ohne Administratorrechte** wird ein selbst ausgestelltes Zertifikat
 erzeugt, in die Vertrauensspeicher der lokalen Maschine gelegt und der Helfer damit signiert. Das ist
 freiwillig; ohne diesen Schritt bleiben die beiden Wahlmöglichkeiten oben die einzigen.
 
@@ -489,7 +532,7 @@ Die Tabelle zeigt die Voreinstellung `Ctrl + Shift`.
 | `Ctrl + Alt + Shift + F12` | Einrasten anhalten und wieder starten (Not-Aus). |
 | `Strg + Z` / `Strg + Y` | Im Layouteditor: Änderung zurücknehmen oder wiederherstellen. |
 
-Der Untertab **Tastenkürzel** der Seite **Verhalten** listet dieselben Kürzel.
+Die Seite **Tastenkürzel** listet dieselben Kürzel.
 
 ## Not-Aus und Schutzschalter
 

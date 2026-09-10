@@ -33,9 +33,9 @@ wie du willst — und wechselst sie in einem Klick.
 laden und starten. Das war's — keine Installation, keine Laufzeitumgebung, kein Setup-Assistent. Die
 Datei läuft aus dem Ordner, in dem sie liegt.
 
-Wer sie dauerhaft einrichten will, wählt **Programm → Installation** oder ruft `ZoneManager.exe --install`
-auf: Das kopiert sie nach `%ProgramFiles%`, verknüpft sie im Startmenü und trägt sie in «Apps und
-Features» ein — deinstallierbar wie jedes andere Programm.
+Wer sie dauerhaft einrichten will, nimmt das Installationspaket aus demselben Release oder ruft
+`ZoneManager.exe --install` auf: Das kopiert sie nach `%ProgramFiles%`, verknüpft sie im Startmenü und
+trägt sie in «Apps und Features» ein — deinstallierbar wie jedes andere Programm.
 
 ---
 
@@ -76,14 +76,15 @@ Drei Mechanismen greifen ineinander, in dieser Reihenfolge:
    zurück. Auch nach einem Auflösungswechsel, dann anteilig umgerechnet.
 3. **Startzone** — eine Zone je Layout als Arbeitszone. Dort landet, was sonst nirgends hingehört.
 
-Wer es genauer will, findet auf der Seite **Verhalten** in fünf Untertabs alles offen: Anzeigeverzögerung,
-Toleranzen beim Nachmessen, Umgang mit Fenstern fester Grösse, Katalogumfang, Schutzgrenzen, Wartezeiten.
-Jeder Wert hat einen sicheren Standard, einen begrenzten Bereich und ein **?**, das beim Darüberfahren
-erklärt, was er tut. Löschen fragt nicht nach, sondern bietet sechs Sekunden lang **Rückgängig**.
+Wer es genauer will, findet die Expertenwerte je Seite im Abschnitt **Feinabstimmung**:
+Anzeigeverzögerung, Toleranzen beim Nachmessen, Umgang mit Fenstern fester Grösse, Katalogumfang,
+Schutzgrenzen, Wartezeiten. Jeder Wert hat einen sicheren Standard, einen begrenzten Bereich und ein **?**,
+das beim Darüberfahren erklärt, was er tut. Löschen fragt nicht nach, sondern bietet sechs Sekunden lang
+**Rückgängig**.
 
 ### Vollbildzonen
 
-Eine Zone kann ein **virtueller Monitor** sein. Ein Fenster, das dorthin kommt, läuft auf einem eigenen
+Eine Zone kann eine **Vollbildzone** sein. Ein Fenster, das dorthin kommt, läuft auf einem eigenen
 Monitor in genau der Grösse der Zone, und Zone Manager spiegelt dessen Bild in die Zone. Das Programm
 darf sein Vollbild einschalten und füllt trotzdem nur die Zone — ein Film aus der eigenen Plex-Mediathek
 neben dem Browser, ein Spiel neben dem Chat. Die Maus wird übergeben, nicht nachgebaut: in der Zone
