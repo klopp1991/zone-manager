@@ -111,6 +111,7 @@ public partial class MainWindow : Window
         model.PropertyChanged += ViewModel_PropertyChanged;
         model.Settings.PropertyChanged += Settings_PropertyChanged;
         ObserveEditor(model.Editor);
+        ZoneValues.IsFullscreenDriverMissing = !model.IsDisplayDriverInstalled;
         RefreshEditor();
         savedTextTimer.Start();
     }
@@ -177,6 +178,11 @@ public partial class MainWindow : Window
     private void ViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs eventArgs)
     {
         _ = sender;
+        if (eventArgs.PropertyName == nameof(MainViewModel.IsDisplayDriverInstalled))
+        {
+            ZoneValues.IsFullscreenDriverMissing = viewModel?.IsDisplayDriverInstalled == false;
+        }
+
         if (eventArgs.PropertyName == nameof(MainViewModel.Editor))
         {
             ObserveEditor(viewModel?.Editor);
@@ -1264,29 +1270,6 @@ public partial class MainWindow : Window
 
         var wizard = new HelperWizardWindow(viewModel) { Owner = this };
         wizard.ShowDialog();
-    }
-
-    private void Install_Click(object sender, RoutedEventArgs eventArgs)
-    {
-        _ = sender;
-        _ = eventArgs;
-        if (viewModel is null)
-        {
-            return;
-        }
-
-        if (System.Windows.MessageBox.Show(
-                "Die Programmdatei wird nach «Programme» kopiert, im Startmenü verknüpft und in "
-                    + "«Apps und Features» eingetragen; dazu wird der Vollbildzonen-Treiber "
-                    + "eingerichtet. Das Programm startet danach von dort neu.",
-                "Installieren",
-                MessageBoxButton.OKCancel,
-                MessageBoxImage.Information) != MessageBoxResult.OK)
-        {
-            return;
-        }
-
-        viewModel.Install();
     }
 
     private void InstallDisplayDriver_Click(object sender, RoutedEventArgs eventArgs)

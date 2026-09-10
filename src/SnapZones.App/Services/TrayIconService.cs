@@ -10,6 +10,7 @@ public sealed class TrayIconService : IDisposable
     private readonly Forms.NotifyIcon icon;
     private readonly Forms.ContextMenuStrip menu = new();
     private readonly Drawing.Icon? applicationIcon;
+    private readonly Drawing.Image? headerImage;
     private readonly MainWindow window;
     private readonly Action<Guid> activateLayout;
     private readonly Action exit;
@@ -32,6 +33,7 @@ public sealed class TrayIconService : IDisposable
         applicationIcon = Environment.ProcessPath is { } processPath
             ? Drawing.Icon.ExtractAssociatedIcon(processPath)
             : null;
+        headerImage = applicationIcon is null ? null : new Drawing.Bitmap(applicationIcon.ToBitmap(), 20, 20);
         icon = new Forms.NotifyIcon
         {
             Icon = applicationIcon ?? Drawing.SystemIcons.Application,
@@ -90,6 +92,7 @@ public sealed class TrayIconService : IDisposable
         icon.ContextMenuStrip = null;
         menu.Dispose();
         icon.Dispose();
+        headerImage?.Dispose();
         applicationIcon?.Dispose();
     }
 
@@ -123,21 +126,29 @@ public sealed class TrayIconService : IDisposable
             item.Dispose();
         }
 
-        // Flach statt verschachtelt: der Zustand «aktiv» braucht keinen Eintrag; nur ein angehaltenes
-        // Einrasten steht oben, zusammen mit dem Weg zurueck.
-        if (snappingPaused)
+        // Kopfzeile: Symbol, Produktname und rechts der Zustand als Punkt mit Wort. Doppelklick auf das
+        // Symbol im Infobereich oeffnet das Fenster; einen eigenen Menuepunkt dafuer gibt es nicht.
+        var header = new Forms.ToolStripMenuItem(ProductInfo.Name)
         {
-            menu.Items.Add(new Forms.ToolStripMenuItem(snappingStateLabel.Length > 0 ? snappingStateLabel : "Einrasten angehalten") { Enabled = false });
-            if (resumeSnapping is not null)
-            {
-                menu.Items.Add("Einrasten wieder aktivieren", null, (_, _) => resumeSnapping());
-            }
+            Enabled = false,
+            Font = new Drawing.Font(menu.Font, Drawing.FontStyle.Bold),
+            Image = headerImage,
+            ShowShortcutKeys = true,
+            ShortcutKeyDisplayString = snappingStateLabel.Length > 0 ? snappingStateLabel : "● läuft"
+        };
+        menu.Items.Add(header);
 
-            menu.Items.Add(new Forms.ToolStripSeparator());
+        // Ein angehaltenes Einrasten braucht den Weg zurueck; der Not-Aus selbst steht nicht im Menue.
+        if (snappingPaused && resumeSnapping is not null)
+        {
+            menu.Items.Add("Einrasten wieder aktivieren", null, (_, _) => resumeSnapping());
         }
 
+        menu.Items.Add(new Forms.ToolStripSeparator());
+
         // Pro Monitor eine Gruppenueberschrift in Grossbuchstaben, darunter die Layouts eingerueckt,
-        // das aktive mit Haekchen. Keine Untermenues: ein Layoutwechsel ist damit ein einziger Klick.
+        // das aktive mit Haekchen und halbfett. Keine Untermenues: ein Layoutwechsel ist ein Klick.
+        // Die Reihenfolge ist die globale aus der Konfiguration.
         foreach (var monitor in plan.Monitors)
         {
             menu.Items.Add(new Forms.ToolStripMenuItem(monitor.Name.ToUpperInvariant()) { Enabled = false });
@@ -148,16 +159,25 @@ public sealed class TrayIconService : IDisposable
                     Checked = layout.IsActive,
                     Tag = layout.Id
                 };
+                if (layout.IsActive)
+                {
+                    layoutItem.Font = new Drawing.Font(menu.Font, Drawing.FontStyle.Bold);
+                }
+
                 layoutItem.Click += (_, _) => activateLayout(layout.Id);
                 menu.Items.Add(layoutItem);
             }
         }
 
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Editor öffnen", null, (_, _) => ShowWindow());
-        menu.Items.Add("Einstellungen öffnen", null, (_, _) => ShowSettings());
+        menu.Items.Add("Fenster zuordnen …", null, (_, _) => ShowPage(ViewModels.NavigationPage.Rules));
+        menu.Items.Add("Zonen zeichnen …", null, (_, _) => ShowPage(ViewModels.NavigationPage.Layouts));
+        menu.Items.Add("Einstellungen …", null, (_, _) => ShowPage(ViewModels.NavigationPage.Startup));
         menu.Items.Add(new Forms.ToolStripSeparator());
-        menu.Items.Add("Beenden", null, (_, _) => exit());
+        menu.Items.Add(new Forms.ToolStripMenuItem("Beenden", null, (_, _) => exit())
+        {
+            ForeColor = Drawing.Color.FromArgb(0xB5, 0x24, 0x24)
+        });
 
         // NotifyIcon.Text ist auf 127 Zeichen begrenzt.
         var tooltip = snappingPaused && snappingStateLabel.Length > 0
@@ -166,10 +186,10 @@ public sealed class TrayIconService : IDisposable
         icon.Text = tooltip.Length > 127 ? tooltip[..127] : tooltip;
     }
 
-    private void ShowSettings()
+    private void ShowPage(ViewModels.NavigationPage page)
     {
         ShowWindow();
-        window.ShowSettingsPage();
+        window.ShowPage(page);
     }
 
     private void ShowWindow()

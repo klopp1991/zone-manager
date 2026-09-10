@@ -88,8 +88,11 @@ public sealed class SnappingStateTests
             service.Update(ConfigurationSamples.TwoLayouts());
 
             service.SetSnappingState("● läuft", paused: false);
-            // Flach: kein Eintrag fuer den Normalzustand, kein Kopf «Layouts pro Monitor», keine Untermenues.
-            Assert.DoesNotContain(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "● läuft");
+            // Der Zustand steht in der Kopfzeile, nicht als eigener Eintrag; laufend braucht keinen Weg zurueck.
+            var header = service.Menu.Items.OfType<ToolStripMenuItem>().First();
+            Assert.Equal("Zone Manager", header.Text);
+            Assert.Equal("● läuft", header.ShortcutKeyDisplayString);
+            Assert.False(header.Enabled);
             Assert.DoesNotContain(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Layouts pro Monitor");
             Assert.DoesNotContain(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Einrasten wieder aktivieren");
             Assert.Contains(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "MONITOR 1" && !item.Enabled);
@@ -98,12 +101,12 @@ public sealed class SnappingStateTests
             Assert.All(service.Menu.Items.OfType<ToolStripMenuItem>(), item => Assert.Empty(item.DropDownItems));
 
             service.SetSnappingState("● angehalten", paused: true);
-            Assert.Contains(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "● angehalten" && !item.Enabled);
+            Assert.Equal("● angehalten", service.Menu.Items.OfType<ToolStripMenuItem>().First().ShortcutKeyDisplayString);
             var resume = service.Menu.Items.Cast<ToolStripItem>().Single(item => item.Text == "Einrasten wieder aktivieren");
             resume.PerformClick();
 
             Assert.Equal(1, resumed);
-            Assert.Contains(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Einstellungen öffnen");
+            Assert.Contains(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Einstellungen …");
         });
     }
 

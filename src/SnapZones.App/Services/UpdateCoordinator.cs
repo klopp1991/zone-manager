@@ -44,8 +44,11 @@ public sealed class UpdateCoordinator
         this.executablePath = executablePath ?? throw new ArgumentNullException(nameof(executablePath));
         this.stagingDirectory = stagingDirectory ?? throw new ArgumentNullException(nameof(stagingDirectory));
         this.log = log ?? throw new ArgumentNullException(nameof(log));
-        this.feed = feed ?? new GitHubReleaseFeed($"{ProductInfo.InstanceKey}/{currentVersion()}");
-        this.installer = installer ?? new UpdateInstaller();
+        // Ohne hinterlegten Zugangsschluessel bleibt beides so anonym wie bisher.
+        this.feed = feed ?? new GitHubReleaseFeed(
+            $"{ProductInfo.InstanceKey}/{currentVersion()}",
+            accessToken: GitHubAuthService.ReadToken);
+        this.installer = installer ?? new UpdateInstaller(accessToken: GitHubAuthService.ReadToken);
         this.start = start ?? DefaultStart;
     }
 

@@ -48,8 +48,13 @@ public sealed class TrayIconServiceTests
 
             // Wiederholte Aktualisierungen duerfen die Eintraege nicht anhaeufen.
             Assert.Equal(afterFirst, service.Menu.Items.Count);
-            Assert.Contains(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Editor öffnen");
+            Assert.Contains(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Zonen zeichnen …");
             Assert.Contains(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Beenden");
+
+            // Kein eigener Menuepunkt zum Oeffnen: dafuer genuegt der Doppelklick auf das Symbol.
+            Assert.DoesNotContain(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Zone Manager öffnen");
+            Assert.DoesNotContain(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Zonen kurz einblenden");
+            Assert.DoesNotContain(service.Menu.Items.Cast<ToolStripItem>(), item => item.Text == "Alle Fenster neu ordnen");
         });
     }
 }

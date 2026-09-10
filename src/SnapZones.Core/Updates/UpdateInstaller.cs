@@ -60,10 +60,12 @@ public sealed class UpdateInstaller
     private const string SupersededMarker = ".previous.";
     private const string DownloadSuffix = ".download";
     private readonly Func<HttpClient> clientFactory;
+    private readonly Func<string?> accessToken;
 
-    public UpdateInstaller(Func<HttpClient>? clientFactory = null)
+    public UpdateInstaller(Func<HttpClient>? clientFactory = null, Func<string?>? accessToken = null)
     {
         this.clientFactory = clientFactory ?? (() => new HttpClient { Timeout = TimeSpan.FromMinutes(10) });
+        this.accessToken = accessToken ?? (() => null);
     }
 
     /// <summary>
@@ -459,8 +461,17 @@ public sealed class UpdateInstaller
         CancellationToken cancellationToken)
     {
         using var client = clientFactory();
+        using var request = new HttpRequestMessage(HttpMethod.Get, url);
+        // Die API-Adresse eines Anhangs liefert die Datei nur mit diesem Accept-Kopf; ohne ihn kaeme
+        // die JSON-Beschreibung. Der Zugangsschluessel oeffnet die Ablage eines privaten Repositories.
+        request.Headers.Accept.Add(new System.Net.Http.Headers.MediaTypeWithQualityHeaderValue("application/octet-stream"));
+        if (accessToken() is { Length: > 0 } token)
+        {
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        }
+
         using var response = await client
-            .GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
+            .SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken)
             .ConfigureAwait(false);
         response.EnsureSuccessStatusCode();
 

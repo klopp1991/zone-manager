@@ -1,0 +1,77 @@
+<Window x:Class="SnapZones.App.Views.GitHubConnectDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Mit GitHub verbinden"
+        Width="560" SizeToContent="Height" ResizeMode="NoResize"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False" FontSize="16">
+    <Border Background="{DynamicResource CanvasBrush}" Padding="24">
+        <StackPanel>
+            <TextBlock Text="Mit GitHub verbinden" Style="{StaticResource SectionTitle}" />
+            <TextBlock Style="{StaticResource HelpText}" Margin="0,8,0,0"
+                       Text="Die neuen Fassungen liegen in einem privaten Bereich. Melde dich einmal mit deinem GitHub-Konto an: du bestätigst dazu im Browser einen kurzen Code. Der Zugangsschlüssel liegt danach im Anmeldeinformations-Speicher von Windows." />
+
+            <!-- Schritt 1: der Code, gross und in Monospace, mit einem Knopf zum Kopieren. -->
+            <Border Style="{StaticResource SectionCard}" Margin="0,18,0,0" Padding="20,16">
+                <StackPanel>
+                    <TextBlock Text="1 · Diesen Code merken" Style="{StaticResource GroupTitle}" />
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <TextBlock x:Name="UserCodeText" Text="————" FontFamily="Cascadia Mono" FontSize="22" FontWeight="Bold"
+                                   VerticalAlignment="Center" AutomationProperties.Name="Gerätecode">
+                            <TextBlock.RenderTransform>
+                                <TranslateTransform />
+                            </TextBlock.RenderTransform>
+                        </TextBlock>
+                        <Button x:Name="CopyCodeButton" Grid.Column="1" Content="⧉" Style="{StaticResource ListIconButton}" Click="CopyCode_Click"
+                                ToolTip="Code in die Zwischenablage kopieren" AutomationProperties.Name="Gerätecode in die Zwischenablage kopieren" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Schritt 2: die Seite im Browser oeffnen, auf der der Code bestaetigt wird. -->
+            <Border Style="{StaticResource SectionCard}" Padding="20,16">
+                <Grid>
+                    <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                    <StackPanel>
+                        <TextBlock Text="2 · Im Browser bestätigen" Style="{StaticResource GroupTitle}" />
+                        <TextBlock x:Name="VerificationUriText" Style="{StaticResource HelpText}" AutomationProperties.Name="Adresse der Bestätigungsseite" />
+                    </StackPanel>
+                    <Button x:Name="OpenBrowserButton" Grid.Column="1" Content="Seite öffnen" Style="{StaticResource PrimaryButton}" Click="OpenBrowser_Click"
+                            VerticalAlignment="Center" AutomationProperties.Name="Bestätigungsseite im Browser öffnen" />
+                </Grid>
+            </Border>
+
+            <!-- Schritt 3: warten, mit Restzeit. -->
+            <Border x:Name="WaitingCard" Style="{StaticResource SectionCard}" Padding="20,16">
+                <StackPanel>
+                    <TextBlock Text="3 · Warten" Style="{StaticResource GroupTitle}" />
+                    <TextBlock x:Name="StatusText" Style="{StaticResource HelpText}" AutomationProperties.Name="Stand der Anmeldung" />
+                </StackPanel>
+            </Border>
+
+            <!-- Ausweichweg: ein von Hand erzeugtes Zugriffstoken. -->
+            <Expander x:Name="TokenFallback" Margin="0,4,0,0">
+                <Expander.Header>
+                    <TextBlock Text="Stattdessen ein Zugriffstoken einfügen …" Style="{StaticResource GroupTitle}" />
+                </Expander.Header>
+                <StackPanel>
+                    <TextBlock Style="{StaticResource HelpText}" Margin="0,0,0,8"
+                               Text="Ein fein abgestuftes persönliches Token genügt; es braucht nur Leserecht auf die Inhalte dieses Repositories." />
+                    <Grid>
+                        <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
+                        <TextBox x:Name="TokenText" AutomationProperties.Name="Zugriffstoken" />
+                        <Button x:Name="UseTokenButton" Grid.Column="1" Content="Übernehmen" Click="UseToken_Click" Margin="8,0,0,0"
+                                AutomationProperties.Name="Zugriffstoken übernehmen" />
+                    </Grid>
+                </StackPanel>
+            </Expander>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,18,0,0">
+                <Button x:Name="RetryButton" Content="Neuen Code anfordern" Click="Retry_Click" Visibility="Collapsed"
+                        AutomationProperties.Name="Neuen Gerätecode anfordern" />
+                <Button x:Name="CloseButton" Content="Schliessen" Click="Close_Click" Margin="8,0,0,0"
+                        AutomationProperties.Name="Dialog schliessen" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

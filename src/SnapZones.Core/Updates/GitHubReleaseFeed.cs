@@ -16,8 +16,9 @@ public interface IReleaseFeed
 /// <summary>
 /// Liest die neueste Veröffentlichung aus der Release-Ablage des Projekts.
 ///
-/// Die Abfrage geht ohne Anmeldung und ohne Kennung: es wird nichts gesendet ausser der Anfrage selbst,
-/// keine Version, keine Rechnerkennung, keine Zählung. Die Antwort wird auf das Nötige eingedampft —
+/// Die Abfrage sendet nichts ausser der Anfrage selbst — keine Version, keine Rechnerkennung, keine
+/// Zählung. Liegt ein Zugangsschlüssel vor, geht er als <c>Authorization: Bearer</c> mit; nur so ist
+/// die Release-Ablage eines privaten Repositories überhaupt lesbar. Die Antwort wird eingedampft —
 /// Tag sowie Adresse und Grösse der Programmdatei, des Fensterhelfers und der beiden Prüfsummendateien —
 /// und alles andere verworfen.
 /// </summary>
@@ -34,13 +35,19 @@ public sealed class GitHubReleaseFeed : IReleaseFeed
     private readonly Func<HttpClient> clientFactory;
     private readonly string endpoint;
     private readonly string userAgent;
+    private readonly Func<string?> accessToken;
 
-    public GitHubReleaseFeed(string userAgent, string? endpoint = null, Func<HttpClient>? clientFactory = null)
+    public GitHubReleaseFeed(
+        string userAgent,
+        string? endpoint = null,
+        Func<HttpClient>? clientFactory = null,
+        Func<string?>? accessToken = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(userAgent);
         this.userAgent = userAgent;
         this.endpoint = endpoint ?? DefaultEndpoint;
         this.clientFactory = clientFactory ?? (() => new HttpClient { Timeout = RequestTimeout });
+        this.accessToken = accessToken ?? (() => null);
     }
 
     public async Task<ReleaseDescription?> ReadLatestAsync(CancellationToken cancellationToken)
@@ -49,6 +56,10 @@ public sealed class GitHubReleaseFeed : IReleaseFeed
         client.DefaultRequestHeaders.UserAgent.ParseAdd(userAgent);
         client.DefaultRequestHeaders.Accept.Add(
             new MediaTypeWithQualityHeaderValue("application/vnd.github+json"));
+        if (accessToken() is { Length: > 0 } token)
+        {
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
 
         using var response = await client.GetAsync(endpoint, cancellationToken).ConfigureAwait(false);
         if (!response.IsSuccessStatusCode)
@@ -94,8 +105,7 @@ public sealed class GitHubReleaseFeed : IReleaseFeed
             if (asset.ValueKind != JsonValueKind.Object ||
                 !asset.TryGetProperty("name", out var name) ||
                 name.ValueKind != JsonValueKind.String ||
-                !asset.TryGetProperty("browser_download_url", out var url) ||
-                url.ValueKind != JsonValueKind.String)
+                AssetUrl(asset) is not { Length: > 0 } assetUrl)
             {
                 continue;
             }
@@ -103,13 +113,13 @@ public sealed class GitHubReleaseFeed : IReleaseFeed
             var assetName = name.GetString();
             if (string.Equals(assetName, ChecksumAssetName, StringComparison.OrdinalIgnoreCase))
             {
-                checksumUrl = url.GetString();
+                checksumUrl = assetUrl;
                 continue;
             }
 
             if (string.Equals(assetName, HelperChecksumAssetName, StringComparison.OrdinalIgnoreCase))
             {
-                helperChecksumUrl = url.GetString();
+                helperChecksumUrl = assetUrl;
                 continue;
             }
 
@@ -120,12 +130,12 @@ public sealed class GitHubReleaseFeed : IReleaseFeed
 
             if (string.Equals(assetName, AssetName, StringComparison.OrdinalIgnoreCase))
             {
-                downloadUrl = url.GetString();
+                downloadUrl = assetUrl;
                 sizeInBytes = parsedSize;
             }
             else if (string.Equals(assetName, HelperAssetName, StringComparison.OrdinalIgnoreCase))
             {
-                helperUrl = url.GetString();
+                helperUrl = assetUrl;
                 helperSizeInBytes = parsedSize;
             }
         }
@@ -147,5 +157,23 @@ public sealed class GitHubReleaseFeed : IReleaseFeed
             helperUrl,
             helperSizeInBytes,
             helperChecksumUrl);
+    }
+
+    /// <summary>
+    /// Die Adresse, ueber die eine Datei geladen wird. Bevorzugt die API-Adresse aus <c>url</c>: nur sie
+    /// nimmt einen Zugangsschluessel an und leitet auf die signierte Ablage weiter. Erst wenn sie fehlt,
+    /// gilt <c>browser_download_url</c>, der nur bei oeffentlichen Repositories traegt.
+    /// </summary>
+    private static string? AssetUrl(JsonElement asset)
+    {
+        if (asset.TryGetProperty("url", out var apiUrl) && apiUrl.ValueKind == JsonValueKind.String)
+        {
+            return apiUrl.GetString();
+        }
+
+        return asset.TryGetProperty("browser_download_url", out var browserUrl) &&
+            browserUrl.ValueKind == JsonValueKind.String
+            ? browserUrl.GetString()
+            : null;
     }
 }

@@ -1,4 +1,5 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Windows.Threading;
 using SnapZones.App.Overlays;
@@ -34,6 +35,7 @@ public sealed class ApplicationController : IDisposable
     private readonly MonitorWatcher monitorWatcher;
     private volatile IReadOnlyList<LiveMonitor> monitors;
     private readonly IStartupService startupService;
+    private readonly GitHubAuthService gitHubAuth;
     private readonly FileLog log;
     private readonly IWindowMoveHook moveHook;
     private readonly IWindowRuleHook appRuleHook;
@@ -175,6 +177,9 @@ public sealed class ApplicationController : IDisposable
             "Administratorrechte erforderlich",
             System.Windows.MessageBoxButton.YesNo,
             System.Windows.MessageBoxImage.Question) == System.Windows.MessageBoxResult.Yes);
+        gitHubAuth = new GitHubAuthService(
+            $"{ProductInfo.InstanceKey}/{viewModel.ProductVersion}",
+            (level, message, exception) => log.Write(level, message, exception));
         updates = new UpdateCoordinator(
             () => viewModel.ProductVersion,
             () => Environment.ProcessPath,
@@ -190,6 +195,13 @@ public sealed class ApplicationController : IDisposable
         viewModel.DisplayDriverInstallRequested += InstallDisplayDriver;
         viewModel.DisplayDriverRemoveRequested += RemoveDisplayDriver;
         viewModel.ResumeSnappingRequested += ResumeSnapping;
+        viewModel.DisplayDriverCheckRequested += CheckDisplayDriver;
+        viewModel.ReleaseElevationRequested += ReleaseElevation;
+        viewModel.OpenLogFolderRequested += OpenLogFolder;
+        viewModel.ClearLogRequested += ClearLog;
+        viewModel.OpenSettingsFolderRequested += OpenSettingsFolder;
+        viewModel.DiagnosticsRequested += () => _ = RunDiagnosticsAsync();
+        viewModel.UpdateSourceActionRequested += ToggleUpdateSource;
 
         // Der Helfer wird nur angelegt, wenn seine Datei ueberhaupt neben dem Programm liegt. Gestartet
         // wird er erst beim ersten Fenster, das ihn braucht.
@@ -207,6 +219,9 @@ public sealed class ApplicationController : IDisposable
         PublishInstallationStatus();
         PublishCertificateStatus();
         PublishDisplayDriverStatus();
+        PublishFilePaths();
+        PublishUpdateSourceStatus();
+        viewModel.IsElevated = ElevationState.IsAdministrator();
         placementEngine.CatalogChanged += PublishRememberedWindowCount;
         viewModel.RememberedWindowCount = placementEngine.Catalog.Entries.Count;
         window.ExportConfigurationRequested += ExportConfigurationAsync;
@@ -214,6 +229,8 @@ public sealed class ApplicationController : IDisposable
         window.IdentifyMonitorsRequested += IdentifyMonitors;
         window.SettingsPageOpened += PublishCertificateStatus;
         window.SettingsPageOpened += PublishDisplayDriverStatus;
+        window.SettingsPageOpened += PublishFilePaths;
+        window.SettingsPageOpened += PublishUpdateSourceStatus;
         viewModel.BackupsRefreshRequested += RefreshBackups;
         viewModel.RestoreBackupRequested += RestoreBackup;
         moveHook.MoveStarted += MoveStarted;
@@ -441,6 +458,8 @@ public sealed class ApplicationController : IDisposable
         window.IdentifyMonitorsRequested -= IdentifyMonitors;
         window.SettingsPageOpened -= PublishCertificateStatus;
         window.SettingsPageOpened -= PublishDisplayDriverStatus;
+        window.SettingsPageOpened -= PublishFilePaths;
+        window.SettingsPageOpened -= PublishUpdateSourceStatus;
         viewModel.BackupsRefreshRequested -= RefreshBackups;
         viewModel.RestoreBackupRequested -= RestoreBackup;
     }
@@ -877,6 +896,169 @@ public sealed class ApplicationController : IDisposable
     /// Fuehrt Zertifikats- und Helferstand in den Einstellungen nach. Beide gehoeren zusammen: ein
     /// Zertifikat ohne signierten Helfer nuetzt nichts, ein Helfer ohne Zertifikat startet nicht.
     /// </summary>
+    /// <summary>Groesse und Ort von Protokoll- und Einstellungsdatei; die Pfade stehen nur im ToolTip.</summary>
+    private void PublishFilePaths()
+    {
+        var logPath = log.FilePath;
+        viewModel.LogFolderPath = Path.GetDirectoryName(logPath) ?? logPath;
+        viewModel.SettingsFolderPath = ConfigurationDirectory;
+        try
+        {
+            var size = new FileInfo(logPath) is { Exists: true } file ? file.Length : 0L;
+            viewModel.LogFileSummary = $"{Math.Max(1, size / 1024)} KB · notiert, was Zone Manager tut";
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            viewModel.LogFileSummary = "notiert, was Zone Manager tut";
+        }
+    }
+
+    private void OpenLogFolder() => OpenFolder(viewModel.LogFolderPath);
+
+    private void OpenSettingsFolder() => OpenFolder(viewModel.SettingsFolderPath);
+
+    private void OpenFolder(string path)
+    {
+        try
+        {
+            if (path.Length > 0 && Directory.Exists(path))
+            {
+                Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+                return;
+            }
+
+            viewModel.StatusMessage = "Den Ordner gibt es noch nicht.";
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or System.ComponentModel.Win32Exception)
+        {
+            viewModel.StatusMessage = $"Der Ordner liess sich nicht öffnen: {exception.Message}";
+        }
+    }
+
+    /// <summary>Leert die Protokolldatei; der bisherige Inhalt laesst sich nicht zurueckholen.</summary>
+    private void ClearLog()
+    {
+        try
+        {
+            File.WriteAllText(log.FilePath, string.Empty);
+            log.Write("INFO", "Die Protokolldatei wurde auf Wunsch geleert.");
+            PublishFilePaths();
+            viewModel.ShowToast("Protokolldatei geleert.");
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            viewModel.StatusMessage = $"Die Protokolldatei liess sich nicht leeren: {exception.Message}";
+        }
+    }
+
+    private async Task RunDiagnosticsAsync()
+    {
+        viewModel.StatusMessage = "Diagnose läuft …";
+        try
+        {
+            var result = await Task.Run(() => DiagnosticRunner.RunAsync(ConfigurationDirectory, startupService));
+            viewModel.StatusMessage = result == 0
+                ? "Diagnose ohne Befund – das Ergebnis steht im Protokoll."
+                : "Die Diagnose hat etwas gefunden – die Einzelheiten stehen im Protokoll.";
+            PublishFilePaths();
+        }
+        catch (Exception exception)
+        {
+            log.Write("ERROR", "Die Diagnose ist gescheitert.", exception);
+            viewModel.StatusMessage = $"Die Diagnose ist gescheitert: {exception.Message}";
+        }
+    }
+
+    /// <summary>
+    /// Verbindet mit GitHub oder trennt die Verbindung. Verbunden heisst: ein Zugangsschluessel liegt
+    /// im Anmeldeinformations-Speicher und die Updatesuche darf das private Repository lesen.
+    /// </summary>
+    private void ToggleUpdateSource()
+    {
+        if (GitHubAuthService.IsConnected())
+        {
+            var previous = GitHubAuthService.ReadToken();
+            var account = GitHubAuthService.ReadAccountName();
+            gitHubAuth.Disconnect();
+            PublishUpdateSourceStatus();
+            viewModel.ShowToast(
+                "Verbindung zu GitHub getrennt.",
+                previous is null ? null : () => RestoreGitHubToken(previous, account));
+            return;
+        }
+
+        var dialog = new GitHubConnectDialog(gitHubAuth) { Owner = window };
+        _ = dialog.ShowDialog();
+        PublishUpdateSourceStatus();
+        if (dialog.Result is { Connected: true } result)
+        {
+            viewModel.ShowToast(result.Message);
+        }
+        else if (dialog.Result is { Message.Length: > 0 } failure)
+        {
+            viewModel.StatusMessage = failure.Message;
+        }
+    }
+
+    private void RestoreGitHubToken(string token, string account)
+    {
+        _ = gitHubAuth.ConnectWithTokenAsync(token, CancellationToken.None).ContinueWith(
+            _ => window.Dispatcher.InvokeAsync(PublishUpdateSourceStatus),
+            TaskScheduler.Default);
+        _ = account;
+    }
+
+    /// <summary>Fuehrt Chip und Untertitel der Update-Quelle nach.</summary>
+    private void PublishUpdateSourceStatus()
+    {
+        viewModel.IsGitHubConnected = GitHubAuthService.IsConnected();
+        viewModel.GitHubAccountName = GitHubAuthService.ReadAccountName();
+    }
+
+    /// <summary>Sieht nach, welche Treiberversion laeuft und ob der zusaetzliche Bildschirm bereitsteht.</summary>
+    private void CheckDisplayDriver()
+    {
+        PublishDisplayDriverStatus();
+        viewModel.ShowToast(viewModel.DisplayDriverStatus);
+    }
+
+    /// <summary>
+    /// Startet das Programm ohne erhoehte Rechte neu. Ein gewoehnlicher Neustart erbt die Rechte des
+    /// laufenden Prozesses; nur der Umweg ueber den Explorer, der selbst unerhoeht laeuft, gibt sie ab.
+    /// </summary>
+    private void ReleaseElevation()
+    {
+        if (!ElevationState.IsAdministrator() || Environment.ProcessPath is not { Length: > 0 } path)
+        {
+            return;
+        }
+
+        try
+        {
+            log.Write("INFO", "Neustart ohne Administratorrechte auf Wunsch.");
+            viewModel.Save();
+            using var started = Process.Start(new ProcessStartInfo("explorer.exe", $"\"{path}\"")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true
+            });
+            RequestExit();
+        }
+        catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or IOException)
+        {
+            log.Write("ERROR", "Der Neustart ohne Administratorrechte ist gescheitert.", exception);
+            viewModel.StatusMessage = "Der Neustart ohne Administratorrechte ist gescheitert. Einzelheiten stehen im Protokoll.";
+        }
+    }
+
+    /// <summary>
+    /// Der Ordner der Einstellungsdatei. Er wird hier genauso gebildet wie beim Start, damit die
+    /// Oberflaeche und die Diagnose auf dieselbe Stelle zeigen.
+    /// </summary>
+    private static string ConfigurationDirectory { get; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+        "SnapZones");
+
     private void PublishCertificateStatus()
     {
         var status = certificates.Read();
@@ -1899,12 +2081,20 @@ public sealed class ApplicationController : IDisposable
     private void Window_Closing(object? sender, CancelEventArgs eventArgs)
     {
         _ = sender;
-        if (!allowClose)
+        if (allowClose)
         {
-            eventArgs.Cancel = true;
-            window.Hide();
-            viewModel.StatusMessage = "Zone Manager läuft im Infobereich weiter";
+            return;
         }
+
+        if (!configuration.Settings.CloseToTray)
+        {
+            RequestExit();
+            return;
+        }
+
+        eventArgs.Cancel = true;
+        window.Hide();
+        viewModel.StatusMessage = "Zone Manager läuft im Infobereich weiter";
     }
 
     /// <summary>
