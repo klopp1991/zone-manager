@@ -126,6 +126,27 @@ public sealed class AdvancedSettingsTests
     }
 
     [Fact]
+    public void The_emergency_hotkey_maps_to_a_key_and_can_be_switched_off()
+    {
+        Assert.Equal(0x7Bu, GlobalHotkeyService.EmergencyKey(EmergencyHotkey.ControlAltShiftF12));
+        Assert.Equal(0x7Au, GlobalHotkeyService.EmergencyKey(EmergencyHotkey.ControlAltShiftF11));
+        Assert.Equal(0x13u, GlobalHotkeyService.EmergencyKey(EmergencyHotkey.ControlAltShiftPause));
+        Assert.Null(GlobalHotkeyService.EmergencyKey(EmergencyHotkey.Off));
+        Assert.Equal("Ctrl + Alt + Shift + F11", GlobalHotkeyService.EmergencyLabel(EmergencyHotkey.ControlAltShiftF11));
+        Assert.Equal("kein Kürzel", GlobalHotkeyService.EmergencyLabel(EmergencyHotkey.Off));
+
+        // Oberflaeche und Registrierung nennen dieselbe Kombination.
+        var viewModel = new SettingsViewModel(AppSettings.Default(Guid.Empty))
+        {
+            EmergencyHotkey = EmergencyHotkey.ControlAltShiftPause
+        };
+        Assert.Equal(
+            GlobalHotkeyService.EmergencyLabel(EmergencyHotkey.ControlAltShiftPause),
+            viewModel.EmergencyHotkeyLabel);
+        Assert.Equal(EmergencyHotkey.ControlAltShiftPause, viewModel.CreateSettings().EmergencyHotkey);
+    }
+
+    [Fact]
     public void Hotkey_modifiers_map_to_win32_flags_and_labels()
     {
         Assert.Equal(0x0002u | 0x0001u, GlobalHotkeyService.ModifierFlags(ZoneHotkeyModifiers.ControlAlt));

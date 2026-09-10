@@ -281,7 +281,9 @@ public sealed class ApplicationController : IDisposable
             }
             else
             {
-                EmergencyStop("Not-Aus ausgelöst: Einrasten pausiert. Ctrl + Alt + Shift + F12 schaltet es wieder ein.");
+                EmergencyStop(
+                    "Not-Aus ausgelöst: Einrasten pausiert. "
+                        + $"{GlobalHotkeyService.EmergencyLabel(configuration.Settings.EmergencyHotkey)} schaltet es wieder ein.");
             }
         };
         window.Closing += Window_Closing;
@@ -330,7 +332,11 @@ public sealed class ApplicationController : IDisposable
         viewModel.SnappingState = SnappingState.Paused;
         configuration = viewModel.Configuration;
         // Der Hotkey bleibt registriert, damit er das Einrasten auch wieder einschalten kann.
-        _ = hotkeys.Configure(emergencyStopEnabled: true);
+        _ = hotkeys.Configure(
+            emergencyStopEnabled: true,
+            zoneHotkeysEnabled: false,
+            configuration.Settings.ZoneHotkeyModifiers,
+            configuration.Settings.EmergencyHotkey);
         tray.SetSnappingState(viewModel.SnappingStateLabel, paused: true);
         tray.Update(configuration);
         log.Write("WARN", reason);
@@ -1486,7 +1492,8 @@ public sealed class ApplicationController : IDisposable
         var hotkeyResult = hotkeys.Configure(
             snappingEnabled || emergencyStopped,
             snappingEnabled && newConfiguration.Settings.ZoneHotkeysEnabled,
-            newConfiguration.Settings.ZoneHotkeyModifiers);
+            newConfiguration.Settings.ZoneHotkeyModifiers,
+            newConfiguration.Settings.EmergencyHotkey);
         if (hotkeyResult.Errors.Count > 0)
         {
             viewModel.StatusMessage = string.Join(" ", hotkeyResult.Errors);

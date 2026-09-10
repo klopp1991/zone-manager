@@ -5,7 +5,7 @@ namespace SnapZones.Windows.Hotkeys;
 
 public interface IGlobalHotkeyService : IDisposable
 {
-    /// <summary>Der Not-Aus (Ctrl + Alt + Shift + F12); schaltet das Einrasten aus und wieder ein.</summary>
+    /// <summary>Der Not-Aus; schaltet das Einrasten aus und wieder ein. Die Kombination ist waehlbar.</summary>
     event Action? EmergencyStopRequested;
 
     /// <summary>Ein Zonenkuerzel fuer das Vordergrundfenster, siehe <see cref="ZoneHotkeyAction"/>.</summary>
@@ -18,8 +18,16 @@ public interface IGlobalHotkeyService : IDisposable
     HotkeyRegistrationResult Configure(bool emergencyStopEnabled, bool zoneHotkeysEnabled) =>
         Configure(emergencyStopEnabled, zoneHotkeysEnabled, ZoneHotkeyModifiers.ControlAlt);
 
-    /// <param name="modifiers">Die Zusatztasten der Zonenkuerzel; der Not-Aus bleibt bei Ctrl + Alt + Shift + F12.</param>
-    HotkeyRegistrationResult Configure(bool emergencyStopEnabled, bool zoneHotkeysEnabled, ZoneHotkeyModifiers modifiers);
+    /// <param name="modifiers">Die Zusatztasten der Zonenkuerzel.</param>
+    HotkeyRegistrationResult Configure(bool emergencyStopEnabled, bool zoneHotkeysEnabled, ZoneHotkeyModifiers modifiers) =>
+        Configure(emergencyStopEnabled, zoneHotkeysEnabled, modifiers, EmergencyHotkey.ControlAltShiftF12);
+
+    /// <param name="emergencyHotkey">Die Tastenkombination des Not-Aus; «Aus» gibt sie frei.</param>
+    HotkeyRegistrationResult Configure(
+        bool emergencyStopEnabled,
+        bool zoneHotkeysEnabled,
+        ZoneHotkeyModifiers modifiers,
+        EmergencyHotkey emergencyHotkey);
 }
 
 public sealed record HotkeyRegistrationResult(IReadOnlyList<string> Errors);

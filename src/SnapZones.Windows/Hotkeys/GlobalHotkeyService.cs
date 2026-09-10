@@ -8,7 +8,7 @@ namespace SnapZones.Windows.Hotkeys;
 /// <summary>
 /// Registriert die festen Tastenkuerzel des Programms:
 /// <list type="bullet">
-/// <item>Ctrl + Alt + Shift + F12: Einrasten anhalten und wieder starten.</item>
+/// <item>Not-Aus: Einrasten anhalten und wieder starten; die Kombination ist waehlbar.</item>
 /// <item>Ctrl + Alt + Links / Rechts: Vordergrundfenster eine Zone zurueck oder weiter.</item>
 /// <item>Ctrl + Alt + 1 bis 9: Vordergrundfenster in die Zone mit dieser Nummer auf seinem Monitor.</item>
 /// <item>Ctrl + Alt + Ruecktaste: Vordergrundfenster zurueck an die Stelle vor dem letzten Einrasten.</item>
@@ -36,7 +36,9 @@ public sealed class GlobalHotkeyService : IGlobalHotkeyService
     private const uint VirtualKeyBackspace = 0x08;
     private const uint VirtualKeyLeft = 0x25;
     private const uint VirtualKeyRight = 0x27;
+    private const uint VirtualKeyF11 = 0x7A;
     private const uint VirtualKeyF12 = 0x7B;
+    private const uint VirtualKeyPause = 0x13;
     private const uint VirtualKeyOne = 0x31;
     private readonly HashSet<int> registeredIds = [];
     private HwndSource? source;
@@ -45,15 +47,19 @@ public sealed class GlobalHotkeyService : IGlobalHotkeyService
 
     public event Action<ZoneHotkey>? ZoneHotkeyPressed;
 
-    public HotkeyRegistrationResult Configure(bool emergencyStopEnabled, bool zoneHotkeysEnabled, ZoneHotkeyModifiers modifiers)
+    public HotkeyRegistrationResult Configure(
+        bool emergencyStopEnabled,
+        bool zoneHotkeysEnabled,
+        ZoneHotkeyModifiers modifiers,
+        EmergencyHotkey emergencyHotkey)
     {
         EnsureSource();
         UnregisterAll();
         var errors = new List<string>();
 
-        if (emergencyStopEnabled)
+        if (emergencyStopEnabled && EmergencyKey(emergencyHotkey) is { } key)
         {
-            Register(EmergencyId, Control | Alt | Shift, VirtualKeyF12, "Ctrl + Alt + Shift + F12", errors);
+            Register(EmergencyId, Control | Alt | Shift, key, EmergencyLabel(emergencyHotkey), errors);
         }
 
         if (zoneHotkeysEnabled)
@@ -71,6 +77,24 @@ public sealed class GlobalHotkeyService : IGlobalHotkeyService
 
         return new HotkeyRegistrationResult(errors);
     }
+
+    /// <summary>Die Taste des Not-Aus, oder <c>null</c>, wenn er ausgeschaltet ist.</summary>
+    public static uint? EmergencyKey(EmergencyHotkey hotkey) => hotkey switch
+    {
+        EmergencyHotkey.ControlAltShiftF11 => VirtualKeyF11,
+        EmergencyHotkey.ControlAltShiftPause => VirtualKeyPause,
+        EmergencyHotkey.Off => null,
+        _ => VirtualKeyF12
+    };
+
+    /// <summary>Der Not-Aus in Tastennamen, fuer Meldungen und die Tastenkappe.</summary>
+    public static string EmergencyLabel(EmergencyHotkey hotkey) => hotkey switch
+    {
+        EmergencyHotkey.ControlAltShiftF11 => "Ctrl + Alt + Shift + F11",
+        EmergencyHotkey.ControlAltShiftPause => "Ctrl + Alt + Shift + Pause",
+        EmergencyHotkey.Off => "kein Kürzel",
+        _ => "Ctrl + Alt + Shift + F12"
+    };
 
     /// <summary>Die Win32-Modifikatorbits zu einer Auswahl. Oeffentlich, damit die Zuordnung pruefbar ist.</summary>
     public static uint ModifierFlags(ZoneHotkeyModifiers modifiers) => modifiers switch
