@@ -119,9 +119,23 @@ public sealed class VirtualZoneCoordinator : IDisposable
             return false;
         }
 
+        var current = configuration();
+        if (!current.Settings.UseFullscreenZones)
+        {
+            return false;
+        }
+
         var target = targets().FirstOrDefault(candidate => candidate.Monitor.Identity.StableId == monitorStableId);
         var zone = target?.PartMonitors.FirstOrDefault(candidate => candidate.Id == zoneId);
         if (target is null || zone is null || !zone.IsFullscreenZone)
+        {
+            return false;
+        }
+
+        // Ein eingetragenes Programm bekommt sein Vollbild auf dem ganzen Monitor, auch in einer
+        // Vollbildzone. Gedacht fuer Spiele und fuer Programme, die mit einem zusaetzlichen Bildschirm
+        // nicht zurechtkommen.
+        if (IsExcluded(current, window))
         {
             return false;
         }
@@ -133,6 +147,21 @@ public sealed class VirtualZoneCoordinator : IDisposable
 
         _ = StartAsync(window, target, zone);
         return true;
+    }
+
+    /// <summary>Ob das Programm dieses Fensters von der Vollbildzone ausgenommen ist.</summary>
+    private bool IsExcluded(SnapConfiguration current, nint window)
+    {
+        var excluded = current.FullscreenZoneExcludedPrograms;
+        if (excluded.Count == 0 ||
+            windowService.InspectRuleCandidate(window, Environment.ProcessId) is not { } candidate)
+        {
+            return false;
+        }
+
+        var program = System.IO.Path.GetFileName(candidate.Identity.ProcessPath);
+        return excluded.Any(entry =>
+            string.Equals(System.IO.Path.GetFileName(entry), program, StringComparison.OrdinalIgnoreCase));
     }
 
     /// <summary>Fensterereignisse des gehaltenen Fensters; laeuft auf dem UI-Thread.</summary>
