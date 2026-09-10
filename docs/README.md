@@ -323,6 +323,15 @@ Die Einstellungen stehen auf zehn Seiten: sechs unter **Verhalten** (Ziehen & Ei
 
 **Tastenkürzel**: Zonenkürzel aktiv, Zusatztasten mit AltGr-Warnung bei `Ctrl + Alt`, der **Not-Aus** und die Tabelle aller Kürzel.
 
+Die **Update-Quelle** ist das Repository des Projekts. Solange es öffentlich ist, braucht die Suche
+nichts weiter. Wird es privat, verbindest du Zone Manager einmal mit deinem GitHub-Konto: er fragt nach
+einem **Zugriffstoken**, das nur Leserecht auf die Inhalte dieses Repositories braucht (auf github.com
+unter Einstellungen → Developer settings → Personal access tokens, fein abgestuft). Der Schlüssel liegt
+danach im Anmeldeinformations-Speicher von Windows, nie in einer Datei und nie im Protokoll; Suche und
+Download nehmen ihn mit. Sobald für das Projekt eine OAuth-Anwendung hinterlegt ist
+(`GitHubAuthService.ClientId`), tritt zusätzlich der bequemere Gerätecode-Weg in Kraft: Zone Manager
+zeigt einen kurzen Code, den du im Browser bestätigst.
+
 **Aussehen & Start**: System-, helles oder dunkles Theme (Systemänderungen werden ohne Neustart übernommen); Autostart pro Benutzer über eine Anmeldeaufgabe der Windows-Aufgabenplanung, die das Programm bereits erhöht startet, sodass bei der Anmeldung **keine** UAC-Abfrage erscheint (schlägt das Anlegen fehl, weicht das Programm auf den Registry-Eintrag `Run` aus und meldet das im Protokoll; eingetragen ist immer nur einer der beiden Wege); **Beim Schliessen in den Infobereich**; Updates mit Schalter «beim Start suchen» und **Jetzt suchen**; **Update-Quelle** mit der Verbindung zum GitHub-Konto.
 
 **Sicherung & Stände**: **Sicherung als Datei** mit **Exportieren** und **Importieren** — beide gleichrangig; **Frühere Stände**; **Von vorn anfangen** mit **Alle Einstellungen zurücksetzen** – mit Rückgängig, ohne Nachfrage. Zurückgesetzt werden Abstände, Darstellung, Verhalten und alle Feinabstimmungen; Erscheinungsbild, Autostart, Rechte, Updatesuche, Layouts, Zuordnungen und die Liste «In Ruhe lassen» bleiben.

@@ -32,10 +32,21 @@ public partial class GitHubConnectDialog : Window
 
     private async Task StartAsync()
     {
+        // Ohne hinterlegte OAuth-Anwendung gibt es keinen Geraetecode; dann fuehrt nur das Token hin.
+        if (!GitHubAuthService.HasDeviceFlow)
+        {
+            DeviceSteps.Visibility = Visibility.Collapsed;
+            IntroText.Text = "Die neuen Fassungen liegen in einem privaten Bereich. Damit Zone Manager "
+                + "sie herunterladen darf, füge hier ein Zugriffstoken deines GitHub-Kontos ein.";
+            TokenTitleText.Text = "Zugriffstoken";
+            TokenText.Focus();
+            return;
+        }
+
         RetryButton.Visibility = Visibility.Collapsed;
         StatusText.Text = "Fordere einen Code an …";
         UserCodeText.Text = "————";
-        VerificationUriText.Text = string.Empty;
+        VerificationUriText.Text = "github.com/login/device";
         code = await auth.RequestDeviceCodeAsync(cancellation.Token);
         if (code is null)
         {
@@ -45,7 +56,9 @@ public partial class GitHubConnectDialog : Window
         }
 
         UserCodeText.Text = code.UserCode;
-        VerificationUriText.Text = code.VerificationUri;
+        VerificationUriText.Text = code.VerificationUri
+            .Replace("https://", string.Empty, StringComparison.Ordinal)
+            .TrimEnd('/');
         StatusText.Text = "Warte auf die Bestätigung …";
 
         var progress = new Progress<GitHubConnectProgress>(update =>
@@ -58,6 +71,7 @@ public partial class GitHubConnectDialog : Window
     {
         Result = result;
         StatusText.Text = result.Message;
+        TokenStatusText.Text = result.Message;
         if (result.Connected)
         {
             DialogResult = true;
@@ -65,7 +79,7 @@ public partial class GitHubConnectDialog : Window
             return;
         }
 
-        RetryButton.Visibility = Visibility.Visible;
+        RetryButton.Visibility = GitHubAuthService.HasDeviceFlow ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void CopyCode_Click(object sender, RoutedEventArgs eventArgs)
@@ -100,6 +114,7 @@ public partial class GitHubConnectDialog : Window
         try
         {
             Process.Start(new ProcessStartInfo(code.VerificationUri) { UseShellExecute = true });
+            StatusText.Text = "Warte auf die Bestätigung …";
         }
         catch (Exception exception) when (exception is System.ComponentModel.Win32Exception or System.IO.IOException)
         {

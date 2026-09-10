@@ -32,8 +32,15 @@ public sealed class GitHubAuthService
     /// <summary>Das Ziel im Anmeldeinformations-Speicher.</summary>
     public const string CredentialTarget = "ZoneManager:GitHub";
 
-    /// <summary>Die OAuth-Anwendung des Projekts. Eine Client-Kennung ist oeffentlich, kein Geheimnis.</summary>
-    public const string ClientId = "Ov23liZoneManagerUpdates";
+    /// <summary>
+    /// Die Client-Kennung der OAuth-Anwendung des Projekts. Sie ist oeffentlich, kein Geheimnis. Solange
+    /// hier nichts steht, gibt es keine OAuth-Anwendung: dann fuehrt nur der Weg ueber ein selbst
+    /// erzeugtes Zugriffstoken, und der Dialog bietet gleich diesen an.
+    /// </summary>
+    public const string ClientId = "";
+
+    /// <summary>Ob eine OAuth-Anwendung hinterlegt ist und der Geraetecode damit ueberhaupt geht.</summary>
+    public static bool HasDeviceFlow => ClientId.Length > 0;
 
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(20);
     private readonly Func<HttpClient> clientFactory;
@@ -116,9 +123,17 @@ public sealed class GitHubAuthService
         return Store(trimmed, account);
     }
 
-    /// <summary>Fordert einen Geraetecode an; <c>null</c>, wenn GitHub nicht erreichbar ist.</summary>
+    /// <summary>
+    /// Fordert einen Geraetecode an; <c>null</c>, wenn es keine OAuth-Anwendung gibt oder GitHub nicht
+    /// erreichbar ist.
+    /// </summary>
     public async Task<GitHubDeviceCode?> RequestDeviceCodeAsync(CancellationToken cancellationToken)
     {
+        if (!HasDeviceFlow)
+        {
+            return null;
+        }
+
         try
         {
             var json = await PostAsync(
