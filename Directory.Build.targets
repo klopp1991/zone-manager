@@ -1,0 +1,16 @@
+<Project>
+  <!--
+    Die Identitaet des Herausgebers, gemeinsam fuer alle Projekte. Sie steht hier und nicht in
+    Directory.Build.props, weil scripts/set-version.ps1 jene Datei bei jedem Release neu schreibt und
+    alles darin ueberschreibt.
+
+    «Company» erscheint in den Dateieigenschaften von ZoneManager.exe und ZoneManager.Helper.exe als
+    Firma und ist derselbe Name wie der «Manufacturer» des Installationspakets, den Windows in «Apps
+    und Features» als Herausgeber zeigt.
+  -->
+  <PropertyGroup>
+    <Company>Sascha Krähenbühl Studios</Company>
+    <Authors>Sascha Krähenbühl Studios</Authors>
+    <Copyright>© Sascha Krähenbühl Studios</Copyright>
+  </PropertyGroup>
+</Project>

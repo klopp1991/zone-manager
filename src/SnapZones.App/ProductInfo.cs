@@ -6,8 +6,11 @@ internal static class ProductInfo
 {
     public const string Name = "Zone Manager";
 
-    /// <summary>Urheber des Programms; erscheint in der Statuszeile und im Installationseintrag.</summary>
-    public const string Author = "Sascha Krähenbühl";
+    /// <summary>
+    /// Herausgeber des Programms; erscheint in der Statuszeile, in den Dateieigenschaften und in
+    /// «Apps und Features». Derselbe Name wie der «Manufacturer» des Installationspakets.
+    /// </summary>
+    public const string Author = "Sascha Krähenbühl Studios";
 
     /// <summary>
     /// Identitaet der Einzelinstanz fuer Mutex und Aktivierungsereignis; zugleich der Bezeichner, mit

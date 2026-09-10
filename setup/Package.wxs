@@ -13,7 +13,7 @@
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
      xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package Name="Zone Manager"
-           Manufacturer="Sascha Krähenbühl"
+           Manufacturer="Sascha Krähenbühl Studios"
            Version="$(var.MsiVersion)"
            UpgradeCode="6f2b1c84-9d3a-4f57-9a1e-7c0d5b8e42f3"
            Scope="perMachine"

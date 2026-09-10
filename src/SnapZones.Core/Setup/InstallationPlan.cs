@@ -83,7 +83,7 @@ public sealed record InstallationPlan(
         {
             ["DisplayName"] = DisplayName,
             ["DisplayVersion"] = version,
-            ["Publisher"] = "Sascha Krähenbühl",
+            ["Publisher"] = "Sascha Krähenbühl Studios",
             ["DisplayIcon"] = TargetPath,
             ["InstallLocation"] = TargetDirectory,
             ["UninstallString"] = $"\"{TargetPath}\" --uninstall",
