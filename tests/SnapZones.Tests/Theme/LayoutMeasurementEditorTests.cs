@@ -75,7 +75,10 @@ public sealed class LayoutMeasurementEditorTests
             Assert.Equal("0", Assert.IsType<TextBox>(panel.FindName("ZoneMarginTopText")).Text);
             Assert.Equal("0", Assert.IsType<TextBox>(panel.FindName("ZoneMarginRightText")).Text);
             Assert.Equal("0", Assert.IsType<TextBox>(panel.FindName("ZoneMarginBottomText")).Text);
-            Assert.Equal("0 · 0 · 0 · 0", Assert.IsType<TextBlock>(panel.FindName("MarginsSummaryText")).Text);
+            // Die Randabstaende stehen seit dem 10.09.2026 immer offen; eine Zusammenfassung in der
+            // Ueberschrift wuerde nur wiederholen, was direkt darunter steht.
+            Assert.Null(panel.FindName("MarginsSummaryText"));
+            Assert.Null(panel.FindName("MarginsExpander"));
         });
     }
 

@@ -81,8 +81,6 @@
             <!-- Die Randabstaende stehen immer offen; sie beschreiben dieselbe Zone von den Raendern aus. -->
             <StackPanel Orientation="Horizontal" Margin="0,16,0,8">
                 <TextBlock Text="Abstände zum Rand" Style="{StaticResource GroupTitle}" Margin="0" VerticalAlignment="Center" />
-                <TextBlock x:Name="MarginsSummaryText" Foreground="{DynamicResource SubtleInkBrush}" FontSize="13" FontFamily="Cascadia Mono"
-                           Margin="10,0,0,0" VerticalAlignment="Center" />
                 <Button x:Name="ZoneMarginsInfoButton" Style="{StaticResource InfoButton}" AutomationProperties.Name="Hilfe zu Abständen zum Rand"
                         ToolTip="Die vier Werte beschreiben dieselbe Zone wie Position und Grösse, nur von den Rändern aus gemessen: wie weit die Zone links, oben, rechts und unten vom Monitorrand entfernt ist. Praktisch, wenn eine Zone bis auf einen festen Rand den Monitor füllen soll. Die Einheit stellst du oben um." />
             </StackPanel>

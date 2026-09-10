@@ -90,8 +90,6 @@ public partial class ZoneValuesPanel : System.Windows.Controls.UserControl
                 SetZoneFieldValue(ZoneField.MarginTop, percentValues.Top, pixelValues.Top, preservedInputGroup);
                 SetZoneFieldValue(ZoneField.MarginRight, percentValues.Right, pixelValues.Right, preservedInputGroup);
                 SetZoneFieldValue(ZoneField.MarginBottom, percentValues.Bottom, pixelValues.Bottom, preservedInputGroup);
-                var shown = zoneInputUnit == MeasurementUnit.Percent ? percentValues : pixelValues;
-                MarginsSummaryText.Text = string.Join(" · ", new[] { shown.Left, shown.Top, shown.Right, shown.Bottom }.Select(FormatMeasurement));
             }
             else
             {
@@ -102,8 +100,6 @@ public partial class ZoneValuesPanel : System.Windows.Controls.UserControl
                         TextBoxFor(field).Text = string.Empty;
                     }
                 }
-
-                MarginsSummaryText.Text = string.Empty;
             }
 
             StartZoneCheckBox.IsChecked = editor?.IsSelectedZoneStartZone ?? false;

@@ -1318,10 +1318,12 @@
                                                     <Grid.ColumnDefinitions><ColumnDefinition Width="*" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
                                                     <Grid.RowDefinitions><RowDefinition Height="*" /><RowDefinition Height="*" /></Grid.RowDefinitions>
                                                     <Rectangle Grid.RowSpan="2" Fill="{DynamicResource ZoneFillBrush}" Opacity="0.35" Stroke="{DynamicResource ZoneBorderBrush}" Margin="0,0,2,0" />
-                                                    <Border Grid.Column="1" Background="{DynamicResource DropTargetBrush}" Opacity="0.5" CornerRadius="3" Margin="2,0,0,2" />
+                                                    <Grid Grid.Column="1" Margin="2,0,0,2">
+                                                        <Border Background="{DynamicResource DropTargetBrush}" Opacity="0.5" CornerRadius="3" />
+                                                        <TextBlock Text="Video" FontSize="12" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                                    </Grid>
                                                     <Rectangle Grid.Column="1" Grid.Row="1" Fill="{DynamicResource ZoneFillBrush}" Opacity="0.35" Stroke="{DynamicResource ZoneBorderBrush}" Margin="2,2,0,0" />
                                                 </Grid>
-                                                <TextBlock Text="Video" FontSize="12" FontWeight="SemiBold" Foreground="White" HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,20,34,0" />
                                             </Grid>
                                             <TextBlock Text="Das Video füllt genau seine Zone; daneben bleibt alles sichtbar." Style="{StaticResource HelpText}" />
                                         </StackPanel>

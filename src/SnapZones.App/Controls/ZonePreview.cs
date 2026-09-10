@@ -225,7 +225,7 @@ public sealed class ZonePreview : FrameworkElement
         drawingContext.DrawRoundedRectangle(screenBrush, null, screen, Math.Max(0, frameRadius - 3), Math.Max(0, frameRadius - 3));
 
         var number = 0;
-        foreach (var zone in Zones)
+        foreach (var zone in ZonesToDraw())
         {
             number++;
             var rectangle = new Rect(
@@ -249,6 +249,23 @@ public sealed class ZonePreview : FrameworkElement
             }
         }
     }
+
+    /// <summary>
+    /// Die zu zeichnenden Zonen. Die Vorschau auf «Aussehen der Zonen» bekommt keine echten Zonen: sie
+    /// soll die Werte zeigen, nicht ein bestimmtes Layout. Dafuer stehen drei Beispielzonen bereit,
+    /// deren mittlere die Zielzone ist.
+    /// </summary>
+    private IReadOnlyList<ZoneDefinition> ZonesToDraw() =>
+        Zones.Count > 0 || !OverlayMode ? Zones : SampleZones;
+
+    private static readonly Guid SampleTargetId = Guid.Parse("2A2A2A2A-0000-0000-0000-000000000002");
+
+    private static readonly ZoneDefinition[] SampleZones =
+    [
+        new(Guid.Parse("2A2A2A2A-0000-0000-0000-000000000001"), "Links", new NormalizedRect(0, 0, 0.34, 1)),
+        new(SampleTargetId, "Mitte", new NormalizedRect(0.34, 0, 0.32, 1)),
+        new(Guid.Parse("2A2A2A2A-0000-0000-0000-000000000003"), "Rechts", new NormalizedRect(0.66, 0, 0.34, 1))
+    ];
 
     private void DrawEditorZone(DrawingContext context, Rect rectangle, ZoneDefinition zone, int number)
     {
@@ -275,7 +292,7 @@ public sealed class ZonePreview : FrameworkElement
 
     private void DrawOverlayZone(DrawingContext context, Rect rectangle, ZoneDefinition zone, int number)
     {
-        var highlighted = zone.Id == HighlightedZoneId;
+        var highlighted = zone.Id == HighlightedZoneId || (Zones.Count == 0 && zone.Id == SampleTargetId);
         var colour = ParseColour(OverlayColor) ?? MediaColor.FromRgb(112, 112, 112);
         var highlight = ParseColour(HighlightColor) ?? colour;
         var active = highlighted ? highlight : colour;
