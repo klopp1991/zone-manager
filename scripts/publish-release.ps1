@@ -30,7 +30,7 @@
 #>
 param(
     [string]$RepositoryPath = (Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)),
-    [string]$Branch = 'main',
+    [string]$Branch = 'master',
     [string]$Notes,
     [ValidateRange(1, 99999)]
     [int]$Increment,

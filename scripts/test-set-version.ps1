@@ -34,7 +34,7 @@ $january = [datetimeoffset]'2027-01-05T10:00:00+01:00'
 
 try {
     New-Item -ItemType Directory -Path $testRoot | Out-Null
-    git -C $testRoot init --initial-branch=main | Out-Null
+    git -C $testRoot init --initial-branch=master | Out-Null
     git -C $testRoot config user.name 'Version Test' | Out-Null
     git -C $testRoot config user.email 'version-test@example.invalid' | Out-Null
     Set-Content -LiteralPath (Join-Path $testRoot 'README.md') -Value 'Testrepository' -Encoding UTF8

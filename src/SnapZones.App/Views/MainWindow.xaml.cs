@@ -1579,7 +1579,7 @@ public partial class MainWindow : Window
         OpenInBrowser($"https://github.com/{MainViewModel.UpdateSourceRepository}");
 
     private void OpenLicense_Click(object sender, RoutedEventArgs eventArgs) =>
-        OpenInBrowser($"https://github.com/{MainViewModel.UpdateSourceRepository}/blob/main/LICENSE");
+        OpenInBrowser($"https://github.com/{MainViewModel.UpdateSourceRepository}/blob/master/LICENSE");
 
     private void OpenInBrowser(string url)
     {
