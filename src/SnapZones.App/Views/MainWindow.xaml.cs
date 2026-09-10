@@ -117,7 +117,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Wechselt zu einer Seite; wird von Suche, Kopfzeile und Infobereich benutzt.</summary>
-    public void ShowPage(NavigationPage page, string? tuningSection = null)
+    public void ShowPage(NavigationPage page, string? tuningSection = null, string? highlightLabel = null)
     {
         var tab = page switch
         {
@@ -141,6 +141,75 @@ public partial class MainWindow : Window
         {
             ExpandTuning(tab);
         }
+
+        if (highlightLabel is { Length: > 0 })
+        {
+            // Erst nach dem Aufbau der Seite: vorher hat die Zeile weder Platz noch Position.
+            _ = Dispatcher.BeginInvoke(
+                System.Windows.Threading.DispatcherPriority.Loaded,
+                new Action(() => HighlightSetting(tab, highlightLabel)));
+        }
+    }
+
+    /// <summary>
+    /// Holt die Zeile eines Suchtreffers in Sicht und hebt sie kurz hervor. Gescrollt wird die Zeile
+    /// selbst, nicht die ganze Seite; sonst springt der Blick an eine beliebige Stelle.
+    /// </summary>
+    private void HighlightSetting(TabItem tab, string label)
+    {
+        var text = UiTuningLabels(tab).FirstOrDefault(candidate =>
+            string.Equals(candidate.Text, label, StringComparison.Ordinal));
+        if (text is null || FindSettingRow(text) is not { } row)
+        {
+            return;
+        }
+
+        row.BringIntoView();
+        var previous = row.Background;
+        row.SetResourceReference(Border.BackgroundProperty, "HoverBrush");
+        var timer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher)
+        {
+            Interval = TimeSpan.FromMilliseconds(1200)
+        };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            row.Background = previous;
+        };
+        timer.Start();
+    }
+
+    private static IEnumerable<TextBlock> UiTuningLabels(DependencyObject root)
+    {
+        foreach (var child in System.Windows.LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
+        {
+            if (child is TextBlock text)
+            {
+                yield return text;
+            }
+
+            foreach (var found in UiTuningLabels(child))
+            {
+                yield return found;
+            }
+        }
+    }
+
+    /// <summary>Die Einstellungszeile, in der ein Element steht; <c>null</c>, wenn es in keiner steht.</summary>
+    private static Border? FindSettingRow(DependencyObject element)
+    {
+        var settingRow = System.Windows.Application.Current?.Resources["SettingRow"] as Style;
+        var settingRowLast = System.Windows.Application.Current?.Resources["SettingRowLast"] as Style;
+        for (var current = element; current is not null; current = System.Windows.Media.VisualTreeHelper.GetParent(current))
+        {
+            if (current is Border border &&
+                (ReferenceEquals(border.Style, settingRow) || ReferenceEquals(border.Style, settingRowLast)))
+            {
+                return border;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -268,7 +337,7 @@ public partial class MainWindow : Window
 
     private void NavigateTo(SettingsSearchResult result)
     {
-        ShowPage(result.Page, result.TuningSection);
+        ShowPage(result.Page, result.TuningSection, result.Label);
         viewModel?.ClearSearch();
     }
 
@@ -804,11 +873,7 @@ public partial class MainWindow : Window
 
         var menu = new ContextMenu();
         var startZone = new MenuItem { Header = editor.StartZoneId == zoneId ? "Startzone aufheben" : "Als Startzone festlegen" };
-        startZone.Click += (_, _) =>
-        {
-            editor.ToggleStartZone(zoneId);
-            RefreshEditor();
-        };
+        startZone.Click += (_, _) => MoveStartZone(zoneId);
         menu.Items.Add(startZone);
         var renameItem = new MenuItem { Header = "Umbenennen", InputGestureText = "Doppelklick" };
         renameItem.Click += (_, _) => rename();
@@ -838,6 +903,42 @@ public partial class MainWindow : Window
         delete.Click += (_, _) => DeleteZone(zoneId);
         menu.Items.Add(delete);
         return menu;
+    }
+
+    /// <summary>
+    /// Setzt die Startzone eines Layouts um. Es gibt hoechstens eine je Layout: die alte verliert das
+    /// Merkmal. Der Toast nennt beide Zonen und stellt den vorherigen Stand wieder her.
+    /// </summary>
+    private void MoveStartZone(Guid zoneId)
+    {
+        if (viewModel?.Editor is not { } editor)
+        {
+            return;
+        }
+
+        var previous = editor.StartZoneId;
+        editor.ToggleStartZone(zoneId);
+        RefreshEditor();
+        var name = editor.Zones.FirstOrDefault(zone => zone.Id == zoneId)?.Name ?? "Zone";
+        var text = editor.StartZoneId == zoneId
+            ? previous is Guid old && editor.Zones.FirstOrDefault(zone => zone.Id == old) is { } oldZone
+                ? $"«{name}» ist jetzt die Startzone statt «{oldZone.Name}»."
+                : $"«{name}» ist jetzt die Startzone."
+            : $"«{name}» ist keine Startzone mehr.";
+        viewModel.ShowToast(text, () =>
+        {
+            if (viewModel.Editor is { } current)
+            {
+                current.SetStartZone(previous);
+                RefreshEditor();
+            }
+        });
+    }
+
+    private void ZoneValues_StartZoneToggled(object sender, Guid zoneId)
+    {
+        _ = sender;
+        MoveStartZone(zoneId);
     }
 
     private void ZoneValues_ValuesApplied(object sender, EventArgs eventArgs)

@@ -33,14 +33,24 @@
                 <Run Text="{Binding UserFacingMonitorName, Mode=OneWay}" /><Run Text=" · " /><Run Text="{Binding Name, Mode=OneWay}" />
             </TextBlock>
         </DataTemplate>
-        <!-- Programm-Symbol 36 x 36: echtes Symbol der .exe, sonst zwei Buchstaben auf AccentSoftBrush. -->
+        <!--
+            Programm-Symbol 36 x 36: echtes Symbol der .exe, sonst zwei Buchstaben auf AccentSoftBrush.
+            Fehlt die Datei – das Programm ist deinstalliert –, erscheint stattdessen ein graues
+            Platzhaltersymbol mit ToolTip.
+        -->
         <DataTemplate x:Key="ProgramIconTemplate">
             <Border Width="36" Height="36" CornerRadius="8" Background="{DynamicResource AccentSoftBrush}" VerticalAlignment="Center">
                 <Grid>
                     <TextBlock Text="{Binding Converter={StaticResource ProgramInitialsConverter}}" FontSize="12" FontWeight="SemiBold"
                                Foreground="{DynamicResource AccentStatusBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                    <Image Source="{Binding Converter={StaticResource ProgramIconConverter}}" Width="24" Height="24"
-                           RenderOptions.BitmapScalingMode="HighQuality" />
+                    <Grid DataContext="{Binding Converter={StaticResource ProgramIconConverter}}">
+                        <Image Source="{Binding Image}" Width="24" Height="24" RenderOptions.BitmapScalingMode="HighQuality" />
+                        <Border Background="{DynamicResource DisabledSurfaceBrush}" CornerRadius="8" Visibility="{Binding MissingVisibility}"
+                                ToolTip="Programmdatei nicht gefunden" AutomationProperties.Name="Programmdatei nicht gefunden">
+                            <TextBlock Text="?" FontSize="16" FontWeight="SemiBold" Foreground="{DynamicResource DisabledInkBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </Grid>
                 </Grid>
             </Border>
         </DataTemplate>
@@ -236,7 +246,8 @@
                         <Border x:Name="ZoneValuesHost" Grid.Column="1" Style="{StaticResource SectionCard}" Margin="12,0,0,0" Padding="16" Width="300">
                             <ScrollViewer VerticalScrollBarVisibility="Auto">
                                 <controls:ZoneValuesPanel x:Name="ZoneValues" ValuesApplied="ZoneValues_ValuesApplied"
-                                                          FullscreenZoneSetupRequested="ZoneValues_FullscreenZoneSetupRequested" />
+                                                          FullscreenZoneSetupRequested="ZoneValues_FullscreenZoneSetupRequested"
+                                                          StartZoneToggled="ZoneValues_StartZoneToggled" />
                             </ScrollViewer>
                         </Border>
                     </Grid>

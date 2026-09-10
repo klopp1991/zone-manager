@@ -283,6 +283,23 @@ public sealed class LayoutEditorViewModel : ViewModelBase
         return true;
     }
 
+    /// <summary>
+    /// Setzt die Startzone dieses Layouts auf eine bestimmte Zone; <c>null</c> hebt sie auf. Wird fuer
+    /// «Rueckgaengig» gebraucht, wo nicht umgeschaltet, sondern ein frueherer Stand hergestellt wird.
+    /// </summary>
+    public void SetStartZone(Guid? zoneId)
+    {
+        if (zoneId is Guid wanted && Zones.All(zone => zone.Id != wanted))
+        {
+            return;
+        }
+
+        session.SetStartZone(zoneId);
+        RecordAction("Startzone geändert");
+        NotifyStateChanged();
+        NotifyConfigurationChanged();
+    }
+
     /// <summary>Macht eine Zone zur Startzone oder hebt die Markierung auf, wenn sie es schon ist.</summary>
     public void ToggleStartZone(Guid zoneId)
     {

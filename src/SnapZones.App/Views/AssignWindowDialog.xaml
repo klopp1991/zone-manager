@@ -47,7 +47,9 @@
                                         <Border Width="26" Height="26" CornerRadius="6" Background="{DynamicResource AccentSoftBrush}" VerticalAlignment="Center">
                                             <Grid>
                                                 <TextBlock Text="{Binding DisplayName, Converter={StaticResource ProgramInitialsConverter}}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource AccentStatusBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
-                                                <Image Source="{Binding ProcessPath, Converter={StaticResource ProgramIconConverter}}" Width="18" Height="18" />
+                                                <Image Width="18" Height="18" RenderOptions.BitmapScalingMode="HighQuality"
+                                                       DataContext="{Binding ProcessPath, Converter={StaticResource ProgramIconConverter}}"
+                                                       Source="{Binding Image}" />
                                             </Grid>
                                         </Border>
                                         <StackPanel Grid.Column="1" Margin="10,0,0,0" VerticalAlignment="Center">

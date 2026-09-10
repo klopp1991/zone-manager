@@ -38,6 +38,12 @@ public partial class ZoneValuesPanel : System.Windows.Controls.UserControl
     public event EventHandler? FullscreenZoneSetupRequested;
 
     /// <summary>
+    /// Das Kaestchen «Startzone» wurde umgeschaltet. Der Aufrufer setzt die Startzone um und zeigt den
+    /// Hinweis mit Rueckgaengig; es gibt hoechstens eine Startzone je Layout.
+    /// </summary>
+    public event EventHandler<Guid>? StartZoneToggled;
+
+    /// <summary>
     /// Ob der Vollbildzonen-Treiber fehlt. Ist er weg und die Zone traegt das Kennzeichen, erscheint
     /// direkt unter dem Kaestchen ein Warnhinweis; blockiert wird nichts.
     /// </summary>
@@ -153,8 +159,15 @@ public partial class ZoneValuesPanel : System.Windows.Controls.UserControl
     {
         _ = sender;
         _ = eventArgs;
-        if (editor?.SelectedZone is null)
+        if (editor?.SelectedZone is not { } zone)
         {
+            return;
+        }
+
+        if (StartZoneToggled is { } handler)
+        {
+            handler(this, zone.Id);
+            Refresh();
             return;
         }
 

@@ -1,5 +1,7 @@
+using System.ComponentModel;
 using System.Globalization;
 using System.IO;
+using System.Windows;
 using System.Windows.Data;
 using System.Windows.Interop;
 using System.Windows.Media;
@@ -14,14 +16,19 @@ namespace SnapZones.App.Controls;
 /// </summary>
 public static class ProgramIcons
 {
-    private static readonly Dictionary<string, ImageSource?> Cache = new(StringComparer.OrdinalIgnoreCase);
+    private static readonly Dictionary<string, ProgramIcon> Cache = new(StringComparer.OrdinalIgnoreCase);
 
-    public static ImageSource? For(string? processPath)
+    /// <summary>
+    /// Das Symbol eines Programms. Der Aufrufer bekommt sofort einen Platzhalter zurueck; die Datei wird
+    /// im Hintergrund gelesen und das Ergebnis nachgemeldet. Ohne das haenge die Liste an jedem Pfad, der
+    /// auf einem getrennten Netzlaufwerk liegt.
+    /// </summary>
+    public static ProgramIcon For(string? processPath)
     {
         var path = processPath?.Trim().Trim('"') ?? string.Empty;
         if (path.Length == 0)
         {
-            return null;
+            return ProgramIcon.Unknown;
         }
 
         lock (Cache)
@@ -30,16 +37,27 @@ public static class ProgramIcons
             {
                 return cached;
             }
-        }
 
+            var pending = new ProgramIcon();
+            Cache[path] = pending;
+            _ = Task.Run(() => Load(path, pending));
+            return pending;
+        }
+    }
+
+    /// <summary>Liest Datei und Symbol ausserhalb des Oberflaechen-Threads und meldet das Ergebnis.</summary>
+    private static void Load(string path, ProgramIcon target)
+    {
         var resolved = Resolve(path);
         var icon = resolved is null ? null : Extract(resolved);
-        lock (Cache)
+        var dispatcher = System.Windows.Application.Current?.Dispatcher;
+        if (dispatcher is null)
         {
-            Cache[path] = icon;
+            target.Complete(icon, resolved is null);
+            return;
         }
 
-        return icon;
+        _ = dispatcher.InvokeAsync(() => target.Complete(icon, resolved is null));
     }
 
     /// <summary>Zwei Buchstaben als Ersatz fuer ein fehlendes Symbol, etwa «EX» fuer Explorer.exe.</summary>
@@ -109,7 +127,42 @@ public static class ProgramIcons
     }
 }
 
-/// <summary>Bindet einen Programmpfad an sein Symbol; ohne Symbol liefert der Konverter null.</summary>
+/// <summary>
+/// Das Symbol eines Programms, solange es noch geladen wird und danach. Die Oberflaeche bindet daran und
+/// bekommt das Ergebnis nachgereicht, ohne auf die Datei zu warten.
+/// </summary>
+public sealed class ProgramIcon : INotifyPropertyChanged
+{
+    /// <summary>Fuer einen leeren Pfad: es gibt nichts zu laden und nichts zu bemaengeln.</summary>
+    public static ProgramIcon Unknown { get; } = new() { IsLoaded = true };
+
+    private ImageSource? image;
+    private bool isMissing;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    /// <summary>Das Symbol der Programmdatei, oder <c>null</c>.</summary>
+    public ImageSource? Image => image;
+
+    /// <summary>Ob die Programmdatei nicht gefunden wurde – das Programm ist wohl deinstalliert.</summary>
+    public bool IsMissing => isMissing;
+
+    /// <summary>Sichtbarkeit des grauen Platzhalters fuer eine fehlende Programmdatei.</summary>
+    public Visibility MissingVisibility => isMissing ? Visibility.Visible : Visibility.Collapsed;
+
+    private bool IsLoaded { get; init; }
+
+    internal void Complete(ImageSource? loadedImage, bool missing)
+    {
+        image = loadedImage;
+        isMissing = missing;
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Image)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsMissing)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MissingVisibility)));
+    }
+}
+
+/// <summary>Bindet einen Programmpfad an sein Symbol; das Symbol kommt nach, sobald es gelesen ist.</summary>
 public sealed class ProgramIconConverter : IValueConverter
 {
     public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
