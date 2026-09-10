@@ -24,9 +24,6 @@ public static class StartupArguments
     /// </summary>
     public const string WaitForPid = "--wait-for-pid";
 
-    /// <summary>Übernimmt eine bereitgestellte Version an die Stelle der genannten Programmdatei.</summary>
-    public const string ApplyUpdate = "--apply-update";
-
     /// <summary>Richtet das Signaturzertifikat ein; läuft ohne Oberfläche und endet danach.</summary>
     public const string InstallCertificate = "--install-certificate";
 

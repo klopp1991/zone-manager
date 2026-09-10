@@ -89,13 +89,13 @@ public sealed class UpdateCheckTests
     }
 
     [Theory]
-    [InlineData("http://github.com/klopp1991/zone-manager/releases/download/v1/ZoneManager.exe")]
-    [InlineData("https://beispiel.invalid/ZoneManager.exe")]
-    [InlineData("https://github.com.angreifer.invalid/ZoneManager.exe")]
+    [InlineData("http://github.com/klopp1991/zone-manager/releases/download/v1/ZoneManager-Setup.msi")]
+    [InlineData("https://beispiel.invalid/ZoneManager-Setup.msi")]
+    [InlineData("https://github.com.angreifer.invalid/ZoneManager-Setup.msi")]
     [InlineData("nicht einmal eine Adresse")]
     public void A_download_from_anywhere_but_the_release_store_is_refused(string url)
     {
-        // Eine manipulierte Antwort darf keine fremde Programmdatei unterschieben.
+        // Eine manipulierte Antwort darf kein fremdes Installationspaket unterschieben.
         var release = Release("v2026.0901.01") with { DownloadUrl = url };
 
         Assert.False(UpdateCheck.IsAcceptableDownload(release, out var rejection));
@@ -123,23 +123,25 @@ public sealed class UpdateCheckTests
 
         var redirected = Release("v2026.0901.01") with
         {
-            DownloadUrl = "https://objects.githubusercontent.com/irgendwo/ZoneManager.exe"
+            DownloadUrl = "https://objects.githubusercontent.com/irgendwo/ZoneManager-Setup.msi"
         };
         Assert.True(UpdateCheck.IsAcceptableDownload(redirected, out _));
     }
 
     private static ReleaseDescription Release(string tag) => new(
         tag,
-        $"https://github.com/klopp1991/zone-manager/releases/download/{tag}/ZoneManager.exe",
-        66_149_043,
-        "Fehlerbehebungen",
-        $"https://github.com/klopp1991/zone-manager/releases/download/{tag}/ZoneManager.exe.sha256");
+        $"https://github.com/klopp1991/zone-manager/releases/download/{tag}/ZoneManager-Setup-2026.0901.01.msi",
+        70_149_043,
+        $"Fehlerbehebungen\n\nSHA-256 `{Hash}`",
+        Hash);
+
+    private const string Hash = "6d1f0a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7";
 
     [Fact]
-    public void A_release_without_a_checksum_file_is_never_downloaded()
+    public void A_release_without_a_checksum_is_never_downloaded()
     {
-        // Die Groesse allein ist kein Echtheitsmerkmal; ohne ZoneManager.exe.sha256 bleibt die Datei liegen.
-        var release = Release("v2026.0901.01") with { ChecksumUrl = null };
+        // Die Groesse allein ist kein Echtheitsmerkmal; ohne SHA-256 im Text bleibt die Datei liegen.
+        var release = Release("v2026.0901.01") with { Checksum = null, Notes = "Fehlerbehebungen" };
 
         Assert.False(UpdateCheck.IsAcceptableDownload(release, out var rejection));
         Assert.Contains("Prüfsumme", rejection, StringComparison.Ordinal);
@@ -147,10 +149,10 @@ public sealed class UpdateCheckTests
     }
 
     [Fact]
-    public void The_checksum_file_is_parsed_in_sha256sum_and_get_filehash_notation()
+    public void The_checksum_is_read_from_a_checksum_file_and_from_a_release_text()
     {
         var hash = new string('a', 64);
-        Assert.True(UpdateCheck.TryParseChecksum($"{hash} *ZoneManager.exe" + Environment.NewLine, out var first));
+        Assert.True(UpdateCheck.TryParseChecksum($"{hash} *ZoneManager-Setup.msi" + Environment.NewLine, out var first));
         Assert.Equal(hash, first);
         Assert.True(UpdateCheck.TryParseChecksum($"SHA256  {hash.ToUpperInvariant()}", out var second));
         Assert.Equal(hash, second);
@@ -159,59 +161,26 @@ public sealed class UpdateCheckTests
     }
 
     [Fact]
-    public void A_helper_without_a_checksum_file_stops_the_whole_update()
+    public void The_named_checksum_wins_over_any_other_hex_field_in_the_text()
     {
-        // Der Helfer laeuft mit uiAccess. Lieber gar kein Update als eines, dessen zweite Datei
-        // niemand nachrechnet.
-        var release = Release("v2026.0901.01") with
-        {
-            HelperUrl = "https://github.com/klopp1991/zone-manager/releases/download/v1/ZoneManager.Helper.exe",
-            HelperSizeInBytes = 10_578_996,
-            HelperChecksumUrl = null,
-        };
+        // Ein Release-Text traegt auch anderes; die ausdrueckliche Nennung entscheidet.
+        var other = new string('b', 64);
+        var wanted = new string('c', 64);
 
-        Assert.False(UpdateCheck.IsAcceptableDownload(release, out var rejection));
-        Assert.Contains("ZoneManager.Helper.exe.sha256", rejection, StringComparison.Ordinal);
-    }
-
-    [Theory]
-    [InlineData("https://beispiel.invalid/ZoneManager.Helper.exe")]
-    [InlineData("http://github.com/klopp1991/zone-manager/releases/download/v1/ZoneManager.Helper.exe")]
-    public void A_helper_from_anywhere_but_the_release_store_is_refused(string url)
-    {
-        var release = Release("v2026.0901.01") with
-        {
-            HelperUrl = url,
-            HelperSizeInBytes = 10_578_996,
-            HelperChecksumUrl = "https://github.com/klopp1991/zone-manager/releases/download/v1/ZoneManager.Helper.exe.sha256",
-        };
-
-        Assert.False(UpdateCheck.IsAcceptableDownload(release, out var rejection));
-        Assert.False(string.IsNullOrWhiteSpace(rejection));
+        Assert.True(UpdateCheck.TryParseChecksum($"Anhang {other}\nSHA-256: `{wanted}`", out var checksum));
+        Assert.Equal(wanted, checksum);
     }
 
     [Fact]
-    public void An_older_release_without_a_helper_stays_acceptable()
+    public void The_release_feed_reads_the_installer_package_and_its_checksum()
     {
-        // Veroeffentlichungen bis 2026.0902.01 tragen keinen Helfer; sie duerfen nicht daran scheitern.
-        var release = Release("v2026.0901.01");
-
-        Assert.False(UpdateCheck.HasHelper(release));
-        Assert.True(UpdateCheck.IsAcceptableDownload(release, out var rejection));
-        Assert.Equal(string.Empty, rejection);
-    }
-
-    [Fact]
-    public void The_release_feed_reads_the_helper_and_its_checksum()
-    {
-        var json = System.Text.Json.JsonDocument.Parse("""
+        var hash = new string('d', 64);
+        var json = System.Text.Json.JsonDocument.Parse($$"""
             {
               "tag_name": "v2026.0902.02",
+              "body": "Fehlerbehebungen\n\nSHA-256 `{{hash}}`",
               "assets": [
-                { "name": "ZoneManager.exe", "browser_download_url": "https://github.com/x/releases/download/v1/ZoneManager.exe", "size": 123 },
-                { "name": "ZoneManager.exe.sha256", "browser_download_url": "https://github.com/x/releases/download/v1/ZoneManager.exe.sha256", "size": 80 },
-                { "name": "ZoneManager.Helper.exe", "browser_download_url": "https://github.com/x/releases/download/v1/ZoneManager.Helper.exe", "size": 456 },
-                { "name": "ZoneManager.Helper.exe.sha256", "browser_download_url": "https://github.com/x/releases/download/v1/ZoneManager.Helper.exe.sha256", "size": 87 }
+                { "name": "ZoneManager-Setup-2026.0902.02.msi", "browser_download_url": "https://github.com/x/releases/download/v1/ZoneManager-Setup-2026.0902.02.msi", "size": 70123456 }
               ]
             }
             """);
@@ -219,18 +188,17 @@ public sealed class UpdateCheckTests
         var release = GitHubReleaseFeed.Parse(json.RootElement);
 
         Assert.NotNull(release);
-        // Die Namen unterscheiden sich nur um ein Wort; die Programmdatei darf nicht den Helfer erwischen.
-        Assert.Equal("https://github.com/x/releases/download/v1/ZoneManager.exe", release.DownloadUrl);
-        Assert.Equal(123, release.SizeInBytes);
-        Assert.Equal("https://github.com/x/releases/download/v1/ZoneManager.Helper.exe", release.HelperUrl);
-        Assert.Equal(456, release.HelperSizeInBytes);
-        Assert.Equal("https://github.com/x/releases/download/v1/ZoneManager.Helper.exe.sha256", release.HelperChecksumUrl);
-        Assert.True(UpdateCheck.HasHelper(release));
+        Assert.EndsWith(".msi", release.DownloadUrl, StringComparison.Ordinal);
+        Assert.Equal(70123456, release.SizeInBytes);
+        Assert.Equal(hash, release.Checksum);
+        Assert.True(UpdateCheck.IsAcceptableDownload(release, out _));
     }
 
     [Fact]
-    public void The_release_feed_reads_the_checksum_asset_next_to_the_executable()
+    public void A_release_without_an_installer_package_offers_nothing()
     {
+        // Veroeffentlichungen bis 2026.0909.03 tragen Programmdatei und Helfer einzeln; seit dem
+        // 10.09.2026 haengt nur noch das Installationspaket daran. Ein alter Stand wird nicht angeboten.
         var json = System.Text.Json.JsonDocument.Parse("""
             {
               "tag_name": "v2026.0901.01",
@@ -241,10 +209,31 @@ public sealed class UpdateCheckTests
             }
             """);
 
+        Assert.Null(GitHubReleaseFeed.Parse(json.RootElement));
+    }
+
+    [Fact]
+    public void The_api_address_of_an_asset_wins_over_the_browser_address()
+    {
+        // Nur die API-Adresse nimmt einen Zugangsschluessel an; ohne sie ist eine private Ablage zu.
+        var json = System.Text.Json.JsonDocument.Parse($$"""
+            {
+              "tag_name": "v2026.0902.02",
+              "body": "SHA-256 `{{new string('e', 64)}}`",
+              "assets": [
+                {
+                  "name": "ZoneManager-Setup-2026.0902.02.msi",
+                  "url": "https://api.github.com/repos/x/y/releases/assets/1",
+                  "browser_download_url": "https://github.com/x/releases/download/v1/ZoneManager-Setup-2026.0902.02.msi",
+                  "size": 70123456
+                }
+              ]
+            }
+            """);
+
         var release = GitHubReleaseFeed.Parse(json.RootElement);
 
         Assert.NotNull(release);
-        Assert.Equal("https://github.com/x/releases/download/v1/ZoneManager.exe.sha256", release.ChecksumUrl);
-        Assert.Equal(123, release.SizeInBytes);
+        Assert.Equal("https://api.github.com/repos/x/y/releases/assets/1", release.DownloadUrl);
     }
 }

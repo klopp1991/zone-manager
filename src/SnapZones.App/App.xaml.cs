@@ -116,31 +116,6 @@ public partial class App : System.Windows.Application
         Shutdown(result.Successful ? 0 : 1);
     }
 
-    /// <summary>
-    /// Der Modus <c>--apply-update</c>: dieser Prozess läuft aus der bereitgestellten Programmdatei,
-    /// legt sie an die Stelle der bisherigen und startet sie von dort.
-    /// </summary>
-    private void RunApplyUpdate(string targetExecutablePath, IReadOnlyList<string> arguments)
-    {
-        var processPath = Environment.ProcessPath ?? throw new InvalidOperationException("Der Programmpfad fehlt.");
-        var outcome = UpdateApplyRunner.Run(
-            Path.GetDirectoryName(processPath) ?? UpdateStagingDirectory,
-            targetExecutablePath,
-            arguments,
-            ElevationState.IsAdministrator(),
-            (level, message, exception) => log?.Write(level, message, exception));
-        if (outcome.ExitCode != 0 && !outcome.Relaunched)
-        {
-            System.Windows.MessageBox.Show(
-                $"{outcome.Message}\n\nEinzelheiten stehen im Protokoll:\n{log?.FilePath ?? "(kein Protokoll)"}",
-                $"{ProductInfo.Name} – Update",
-                MessageBoxButton.OK,
-                MessageBoxImage.Warning);
-        }
-
-        Shutdown(outcome.ExitCode);
-    }
-
     protected override async void OnStartup(StartupEventArgs eventArgs)
     {
         base.OnStartup(eventArgs);
@@ -179,12 +154,6 @@ public partial class App : System.Windows.Application
             !ProcessWait.WaitForExit(predecessor, PredecessorTimeout))
         {
             log.Write("WARN", $"Der Vorgängerprozess {predecessor} lief nach {PredecessorTimeout.TotalSeconds:0} Sekunden noch.");
-        }
-
-        if (StartupArguments.ReadValue(eventArgs.Args, StartupArguments.ApplyUpdate) is { Length: > 0 } updateTarget)
-        {
-            RunApplyUpdate(updateTarget, eventArgs.Args);
-            return;
         }
 
         var startupService = new StartupRegistration(
@@ -322,11 +291,8 @@ public partial class App : System.Windows.Application
         };
         singleInstance.StartListening();
 
-        // Reste einer frueheren Bereitstellung: die uebernommene Version laeuft laengst von ihrem Platz.
-        if (!UpdateInstaller.CleanStagingDirectory(UpdateStagingDirectory))
-        {
-            log.Write("DEBUG", "Das Bereitstellungsverzeichnis liess sich noch nicht vollständig leeren.");
-        }
+        // Reste einer frueheren Bereitstellung: das Installationspaket ist laengst durchgelaufen.
+        UpdateInstaller.CleanStagingDirectory(UpdateStagingDirectory);
 
         MainWindow = mainWindow;
         if (startupDisposition == StartupDisposition.StartVisible)

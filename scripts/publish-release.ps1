@@ -1,7 +1,7 @@
 #requires -Version 7.0
 <#
 .SYNOPSIS
-    Veroeffentlicht ZoneManager.exe als GitHub-Release-Asset unter der Version YYYY.MMDD.NN.
+    Veroeffentlicht das Installationspaket als einzigen GitHub-Release-Anhang unter der Version YYYY.MMDD.NN.
 
 .DESCRIPTION
     Der Ablauf ist bewusst linear und bricht bei jedem Fehler ab:
@@ -11,14 +11,15 @@
       3. scripts/verify.ps1 baut, testet und erneuert die Root-EXE.
       4. scripts/build-installer.ps1 packt daraus ZoneManager-Setup-<Version>.msi.
       5. Directory.Build.props wird committet, der Tag v<Version> gesetzt und beides gepusht.
-      6. Das Release wird mit ZoneManager.exe, ZoneManager.Helper.exe, dem Installationspaket und je
-         einer Pruefsummendatei als Anhaenge erstellt.
+      6. Das Release wird mit genau einem Anhang erstellt: ZoneManager-Setup-<Version>.msi.
 
-    Der Fensterhelfer haengt mit am Release, weil das Programm ihn beim Update mit ersetzt; laege nur
-    die Programmdatei bei, liefe nach einem Update eine neue Anwendung gegen einen alten Helfer.
+    An einem Release haengt seit dem 10.09.2026 nur noch das Installationspaket. Programmdatei und
+    Fensterhelfer stecken darin; einzeln daneben zu liegen brachte nichts als die Gefahr, dass jemand
+    eine neue Anwendung gegen einen alten Helfer laufen laesst. Die SHA-256-Pruefsumme des Pakets steht
+    im Text des Releases -- das Programm laedt nichts, was es nicht nachrechnen kann.
 
-    Die EXE liegt bewusst nur am Release und nicht im Repository: sie ist ein Build-Artefakt von
-    rund 66 MB, das sonst die Historie dauerhaft vergroessern wuerde.
+    Die Bauartefakte liegen bewusst nur am Release und nicht im Repository: sie messen zusammen rund
+    70 MB und wuerden die Historie dauerhaft vergroessern.
 
     Fuer Schritt 5 braucht es entweder ein angemeldetes GitHub CLI (gh auth login) oder ein Token
     in GH_TOKEN bzw. GITHUB_TOKEN mit dem Scope "repo"; ohne beides endet das Skript nach Schritt 4
@@ -164,30 +165,25 @@ if ([string]::IsNullOrWhiteSpace($Notes)) {
     $Notes = if ([string]::IsNullOrWhiteSpace($log)) { "Zone Manager $($version.DisplayVersion)" } else { $log }
 }
 
-# Die Pruefsumme ist Pflicht: das Programm laedt eine Datei nur, wenn die Veroeffentlichung die
-# zugehoerige .sha256 traegt und deren Inhalt zur geladenen Datei passt. Beide Pruefsummen entstehen
-# vor der Anmeldepruefung, damit die Anleitung zum Nachholen auf vorhandene Dateien verweist.
-function Write-Checksum {
-    param([Parameter(Mandatory = $true)][string]$Path)
-
-    $checksumPath = "$Path.sha256"
-    $name = [System.IO.Path]::GetFileName($Path)
-    $hash = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
-    Set-Content -LiteralPath $checksumPath -Value "$hash *$name" -Encoding ascii
-    Write-Host "CHECKSUM sha256=$hash -> $checksumPath"
-    return $checksumPath
+# Die Pruefsumme ist Pflicht: das Programm laedt das Paket nur, wenn der Text des Releases eine
+# SHA-256 nennt und diese zur geladenen Datei passt. Sie steht im Text und nicht als zweiter Anhang,
+# damit an einem Release wirklich nur das Installationspaket haengt.
+$installerHash = $null
+Invoke-Step 'pruefsumme' {
+    $script:installerHash = (Get-FileHash -LiteralPath $installerPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    Write-Host "CHECKSUM sha256=$($script:installerHash) -> $([System.IO.Path]::GetFileName($installerPath))"
 }
 
-$checksumPath = $null
-$helperChecksumPath = $null
-$installerChecksumPath = $null
-Invoke-Step 'pruefsummen' {
-    $script:checksumPath = Write-Checksum -Path $executablePath
-    $script:helperChecksumPath = Write-Checksum -Path $helperPath
-    $script:installerChecksumPath = Write-Checksum -Path $installerPath
-}
+$installerName = [System.IO.Path]::GetFileName($installerPath)
+$Notes = @"
+$Notes
 
-$assets = @($executablePath, $checksumPath, $helperPath, $helperChecksumPath, $installerPath, $installerChecksumPath)
+---
+$installerName
+SHA-256 ``$installerHash``
+"@
+
+$assets = @($installerPath)
 $assetQuoted = ($assets | ForEach-Object { """$_""" }) -join ' '
 
 $ghCommand = Get-Command gh -ErrorAction SilentlyContinue
@@ -195,7 +191,7 @@ if ($null -eq $ghCommand) {
     Write-Warning @"
 GitHub CLI (gh) ist nicht installiert. Commit und Tag sind gepusht; das Release fehlt noch.
 Nachholen: gh release create $($version.Tag) $assetQuoted --title "Zone Manager $($version.DisplayVersion)"
-oder auf github.com unter Releases den Tag $($version.Tag) waehlen und alle sechs Dateien anhaengen.
+oder auf github.com unter Releases den Tag $($version.Tag) waehlen und das Installationspaket anhaengen.
 "@
     return
 }

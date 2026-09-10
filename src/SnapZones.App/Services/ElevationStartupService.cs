@@ -47,12 +47,11 @@ public static class ElevationStartupService
         ArgumentNullException.ThrowIfNull(startElevated);
 
         // Hilfsmodi ohne Oberflaeche brauchen keine Erhoehung beim Start: --exit bittet nur die laufende
-        // Instanz um ihr Ende, und die Update-Uebernahme erhoeht sich selbst, falls das Ziel es verlangt.
+        // Instanz um ihr Ende.
         if (isAdministrator ||
             mode != ElevationMode.Always ||
             Contains(arguments, DiagnosticsArgument) ||
-            Contains(arguments, StartupArguments.Exit) ||
-            Contains(arguments, StartupArguments.ApplyUpdate))
+            Contains(arguments, StartupArguments.Exit))
         {
             return new ElevationStartupResult(ElevationStartupStatus.Continue);
         }

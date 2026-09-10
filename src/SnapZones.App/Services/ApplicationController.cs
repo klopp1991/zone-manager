@@ -301,8 +301,7 @@ public sealed class ApplicationController : IDisposable
         // Prozess, der sie belegte, geendet hat. Der naechste Start ist der erste Zeitpunkt dafuer.
         if (Environment.ProcessPath is { Length: > 0 } processPath)
         {
-            var removed = UpdateInstaller.RemoveSupersededFiles(processPath)
-                + UpdateInstaller.RemoveSupersededFiles(UpdateInstaller.BuildHelperPath(processPath));
+            var removed = UpdateInstaller.RemoveSupersededFiles(processPath);
             if (removed > 0)
             {
                 log.Write("INFO", $"{removed} Vorgaengerdatei(en) nach einem Update entfernt.");
@@ -844,19 +843,19 @@ public sealed class ApplicationController : IDisposable
             viewModel.IsUpdateBusy = false;
         }
 
-        // Erst speichern, dann die Uebernahme starten, dann selbst enden. Die laufende Programmdatei
-        // bleibt bis dahin unangetastet; der Uebernahmeprozess wartet auf das Ende dieses Prozesses.
+        // Erst speichern, dann das Installationspaket starten, dann selbst enden. Windows Installer
+        // ersetzt die Dateien, sobald diese Anwendung beendet ist.
         viewModel.Save();
         await saveCoordinator.FlushAsync(CancellationToken.None);
         await placementEngine.FlushAsync(CancellationToken.None);
-        if (updates.TryLaunchApply())
+        if (updates.TryLaunchInstaller())
         {
             RequestExit();
             return;
         }
 
         viewModel.StatusMessage =
-            "Die neue Version liegt bereit, die Übernahme liess sich aber nicht starten. Einzelheiten stehen im Protokoll.";
+            "Das Installationspaket liegt bereit, liess sich aber nicht starten. Einzelheiten stehen im Protokoll.";
     }
 
     /// <summary>

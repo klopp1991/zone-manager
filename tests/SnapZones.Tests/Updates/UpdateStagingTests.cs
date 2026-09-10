@@ -1,7 +1,6 @@
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
-using SnapZones.App.Services;
 using SnapZones.Core.Updates;
 using SnapZones.Tests.Support;
 using Xunit;
@@ -9,30 +8,31 @@ using Xunit;
 namespace SnapZones.Tests.Updates;
 
 /// <summary>
-/// Ein Update wird zuerst bereitgestellt und erst nach dem Ende der alten Anwendung übernommen. Die
-/// laufende Programmdatei darf vorher nie angefasst werden: eine Single-File-Anwendung lädt Bausteine
-/// über den Pfad ihrer Programmdatei nach, und eine weggeschobene Datei liess jedes Nachladen scheitern.
+/// Ein Update wird zuerst geladen und geprüft und erst beim Beenden übernommen. An einer
+/// Veröffentlichung hängt seit dem 10.09.2026 genau eine Datei, das Installationspaket; Windows
+/// Installer ersetzt Programmdatei und Fensterhelfer gemeinsam. Die laufende Programmdatei wird von
+/// hier aus nie angefasst: eine Single-File-Anwendung lädt Bausteine über den Pfad ihrer Programmdatei
+/// nach, und eine weggeschobene Datei liess jedes Nachladen scheitern.
 /// </summary>
 public sealed class UpdateStagingTests
 {
-    private static readonly DateTimeOffset Moment = new(2026, 9, 5, 12, 0, 0, TimeSpan.Zero);
-
     [Fact]
-    public async Task Staging_downloads_both_files_and_leaves_the_running_program_untouched()
+    public async Task Staging_downloads_the_package_and_leaves_the_running_program_untouched()
     {
         using var directory = new TemporaryDirectory();
         var executable = Path.Combine(directory.Path, "ZoneManager.exe");
         File.WriteAllText(executable, "laufend");
         var staging = Path.Combine(directory.Path, "updates");
-        var release = Release("neu", "neuer helfer");
+        var release = Release("paket");
         var installer = new UpdateInstaller(() => new HttpClient(new StubHandler(release.Responses)));
 
-        var result = await installer.StageAsync(staging, release.Description, CancellationToken.None);
+        var result = await installer.StageAsync(release.Description, staging, CancellationToken.None);
 
         Assert.Equal(UpdateInstallStatus.Staged, result.Status);
         Assert.Equal("laufend", File.ReadAllText(executable));
-        Assert.Equal("neu", File.ReadAllText(UpdateInstaller.BuildStagedExecutablePath(staging)));
-        Assert.Equal("neuer helfer", File.ReadAllText(UpdateInstaller.BuildStagedHelperPath(staging)));
+        Assert.NotNull(result.PackagePath);
+        Assert.EndsWith(".msi", result.PackagePath, StringComparison.Ordinal);
+        Assert.Equal("paket", File.ReadAllText(result.PackagePath));
     }
 
     [Fact]
@@ -40,147 +40,109 @@ public sealed class UpdateStagingTests
     {
         using var directory = new TemporaryDirectory();
         var staging = Path.Combine(directory.Path, "updates");
-        var release = Release("neu", helper: null, checksumOverride: new string('0', 64));
+        var release = Release("paket", checksumOverride: new string('0', 64));
         var installer = new UpdateInstaller(() => new HttpClient(new StubHandler(release.Responses)));
 
-        var result = await installer.StageAsync(staging, release.Description, CancellationToken.None);
+        var result = await installer.StageAsync(release.Description, staging, CancellationToken.None);
 
-        Assert.Equal(UpdateInstallStatus.DownloadFailed, result.Status);
-        Assert.False(File.Exists(UpdateInstaller.BuildStagedExecutablePath(staging)));
+        Assert.Equal(UpdateInstallStatus.Refused, result.Status);
+        Assert.Contains("Prüfsumme", result.Message, StringComparison.Ordinal);
+        Assert.Empty(Directory.EnumerateFiles(staging));
     }
 
     [Fact]
-    public async Task Leftovers_of_an_earlier_staging_are_cleared_first()
+    public async Task A_size_that_differs_from_the_announcement_discards_the_download()
     {
         using var directory = new TemporaryDirectory();
         var staging = Path.Combine(directory.Path, "updates");
-        Directory.CreateDirectory(staging);
-        File.WriteAllText(UpdateInstaller.BuildStagedHelperPath(staging), "alter helfer");
-        var release = Release("neu", helper: null);
+        var release = Release("paket");
+        var described = release.Description with { SizeInBytes = release.Description.SizeInBytes + 1 };
         var installer = new UpdateInstaller(() => new HttpClient(new StubHandler(release.Responses)));
 
-        var result = await installer.StageAsync(staging, release.Description, CancellationToken.None);
+        var result = await installer.StageAsync(described, staging, CancellationToken.None);
 
-        Assert.Equal(UpdateInstallStatus.Staged, result.Status);
-        Assert.False(File.Exists(UpdateInstaller.BuildStagedHelperPath(staging)));
+        Assert.Equal(UpdateInstallStatus.Refused, result.Status);
+        Assert.Contains("Grösse", result.Message, StringComparison.Ordinal);
+        Assert.Empty(Directory.EnumerateFiles(staging));
     }
 
     [Fact]
-    public void Applying_copies_the_staged_files_into_place_and_keeps_the_staged_copy()
-    {
-        using var directory = new TemporaryDirectory();
-        var target = Path.Combine(directory.Path, "app", "ZoneManager.exe");
-        var helper = Path.Combine(directory.Path, "app", "ZoneManager.Helper.exe");
-        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-        File.WriteAllText(target, "alt");
-        File.WriteAllText(helper, "alter helfer");
-        var staging = Path.Combine(directory.Path, "updates");
-        Directory.CreateDirectory(staging);
-        File.WriteAllText(UpdateInstaller.BuildStagedExecutablePath(staging), "neu");
-        File.WriteAllText(UpdateInstaller.BuildStagedHelperPath(staging), "neuer helfer");
-
-        var result = UpdateInstaller.Apply(staging, target, Moment);
-
-        Assert.Equal(UpdateInstallStatus.Applied, result.Status);
-        Assert.Equal("neu", File.ReadAllText(target));
-        Assert.Equal("neuer helfer", File.ReadAllText(helper));
-        Assert.Equal("alt", File.ReadAllText(UpdateInstaller.BuildSupersededPath(target, Moment)));
-        // Die bereitgestellte Datei ist die, aus der der Uebernahmeprozess laeuft; sie bleibt liegen.
-        Assert.True(File.Exists(UpdateInstaller.BuildStagedExecutablePath(staging)));
-    }
-
-    [Fact]
-    public void Applying_without_a_staged_file_changes_nothing()
-    {
-        using var directory = new TemporaryDirectory();
-        var target = Path.Combine(directory.Path, "ZoneManager.exe");
-        File.WriteAllText(target, "alt");
-
-        var result = UpdateInstaller.Apply(Path.Combine(directory.Path, "leer"), target, Moment);
-
-        Assert.Equal(UpdateInstallStatus.DownloadFailed, result.Status);
-        Assert.Equal("alt", File.ReadAllText(target));
-    }
-
-    [Fact]
-    public void A_blocked_target_puts_the_previous_file_back()
-    {
-        using var directory = new TemporaryDirectory();
-        var target = Path.Combine(directory.Path, "ZoneManager.exe");
-        File.WriteAllText(target, "alt");
-        var staging = Path.Combine(directory.Path, "updates");
-        Directory.CreateDirectory(staging);
-        File.WriteAllText(UpdateInstaller.BuildStagedExecutablePath(staging), "neu");
-
-        UpdateInstallResult result;
-        using (new FileStream(target, FileMode.Open, FileAccess.Read, FileShare.None))
-        {
-            result = UpdateInstaller.Apply(staging, target, Moment);
-        }
-
-        Assert.Equal(UpdateInstallStatus.ReplaceFailed, result.Status);
-        Assert.Equal("alt", File.ReadAllText(target));
-        Assert.False(File.Exists(target + ".download"));
-    }
-
-    [Fact]
-    public void Cleaning_removes_the_staging_directory_and_tolerates_a_file_in_use()
+    public async Task A_release_without_a_checksum_is_refused_before_anything_is_loaded()
     {
         using var directory = new TemporaryDirectory();
         var staging = Path.Combine(directory.Path, "updates");
-        Directory.CreateDirectory(staging);
-        var staged = UpdateInstaller.BuildStagedExecutablePath(staging);
-        File.WriteAllText(staged, "neu");
+        var release = Release("paket");
+        var installer = new UpdateInstaller(() => new HttpClient(new StubHandler(release.Responses)));
 
-        using (new FileStream(staged, FileMode.Open, FileAccess.Read, FileShare.None))
-        {
-            Assert.False(UpdateInstaller.CleanStagingDirectory(staging));
-            Assert.True(File.Exists(staged));
-        }
+        var result = await installer.StageAsync(
+            release.Description with { Checksum = null, Notes = null },
+            staging,
+            CancellationToken.None);
 
-        Assert.True(UpdateInstaller.CleanStagingDirectory(staging));
+        Assert.Equal(UpdateInstallStatus.Refused, result.Status);
         Assert.False(Directory.Exists(staging));
-        Assert.True(UpdateInstaller.CleanStagingDirectory(staging));
     }
 
     [Fact]
-    public void Write_access_is_probed_with_a_real_file()
+    public async Task An_unreachable_address_reports_a_failed_download()
     {
         using var directory = new TemporaryDirectory();
+        var staging = Path.Combine(directory.Path, "updates");
+        var release = Release("paket");
+        var installer = new UpdateInstaller(() => new HttpClient(new StubHandler([])));
 
-        Assert.True(UpdateApplyRunner.CanWriteTo(Path.Combine(directory.Path, "neu")));
-        Assert.Empty(Directory.EnumerateFiles(Path.Combine(directory.Path, "neu")));
-        Assert.False(UpdateApplyRunner.CanWriteTo(string.Empty));
+        var result = await installer.StageAsync(release.Description, staging, CancellationToken.None);
+
+        Assert.Equal(UpdateInstallStatus.DownloadFailed, result.Status);
+        Assert.Empty(Directory.EnumerateFiles(staging));
+    }
+
+    [Fact]
+    public void The_staging_directory_is_emptied_and_a_missing_one_is_no_error()
+    {
+        using var directory = new TemporaryDirectory();
+        var staging = Path.Combine(directory.Path, "updates");
+        Directory.CreateDirectory(staging);
+        File.WriteAllText(Path.Combine(staging, "ZoneManager-Setup-alt.msi"), "alt");
+
+        UpdateInstaller.CleanStagingDirectory(staging);
+        Assert.Empty(Directory.EnumerateFiles(staging));
+
+        UpdateInstaller.CleanStagingDirectory(Path.Combine(directory.Path, "gibtesnicht"));
+        UpdateInstaller.CleanStagingDirectory(string.Empty);
+    }
+
+    [Fact]
+    public void Files_left_behind_by_the_former_swap_are_removed_once()
+    {
+        // Bis zum 10.09.2026 wurde die laufende Programmdatei beiseitegeschoben. Auf Rechnern, die
+        // damals ein Update bekommen haben, liegen die Reste noch.
+        using var directory = new TemporaryDirectory();
+        var executable = Path.Combine(directory.Path, "ZoneManager.exe");
+        File.WriteAllText(executable, "laufend");
+        File.WriteAllText($"{executable}.previous.1", "alt");
+        File.WriteAllText($"{executable}.previous.2", "aelter");
+
+        Assert.Equal(2, UpdateInstaller.RemoveSupersededFiles(executable));
+        Assert.Equal(0, UpdateInstaller.RemoveSupersededFiles(executable));
+        Assert.Equal(0, UpdateInstaller.RemoveSupersededFiles(null));
+        Assert.True(File.Exists(executable));
     }
 
     private static (ReleaseDescription Description, Dictionary<string, byte[]> Responses) Release(
-        string executableContent,
-        string? helper,
+        string packageContent,
         string? checksumOverride = null)
     {
-        var responses = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
-        var executableBytes = System.Text.Encoding.UTF8.GetBytes(executableContent);
-        responses["https://github.com/x/ZoneManager.exe"] = executableBytes;
-        responses["https://github.com/x/ZoneManager.exe.sha256"] =
-            System.Text.Encoding.UTF8.GetBytes((checksumOverride ?? Checksum(executableBytes)) + "  ZoneManager.exe\n");
-
-        byte[]? helperBytes = helper is null ? null : System.Text.Encoding.UTF8.GetBytes(helper);
-        if (helperBytes is not null)
-        {
-            responses["https://github.com/x/ZoneManager.Helper.exe"] = helperBytes;
-            responses["https://github.com/x/ZoneManager.Helper.exe.sha256"] =
-                System.Text.Encoding.UTF8.GetBytes(Checksum(helperBytes) + "  ZoneManager.Helper.exe\n");
-        }
-
+        var bytes = System.Text.Encoding.UTF8.GetBytes(packageContent);
+        var url = "https://github.com/x/ZoneManager-Setup-2026.0905.01.msi";
+        var responses = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase) { [url] = bytes };
+        var checksum = checksumOverride ?? Checksum(bytes);
         var description = new ReleaseDescription(
             "v2026.0905.01",
-            "https://github.com/x/ZoneManager.exe",
-            executableBytes.Length,
-            null,
-            "https://github.com/x/ZoneManager.exe.sha256",
-            helperBytes is null ? null : "https://github.com/x/ZoneManager.Helper.exe",
-            helperBytes?.Length ?? 0,
-            helperBytes is null ? null : "https://github.com/x/ZoneManager.Helper.exe.sha256");
+            url,
+            bytes.Length,
+            $"Fehlerbehebungen\n\nSHA-256 `{checksum}`",
+            checksum);
         return (description, responses);
     }
 

@@ -19,18 +19,14 @@ public interface IReleaseFeed
 /// Die Abfrage sendet nichts ausser der Anfrage selbst — keine Version, keine Rechnerkennung, keine
 /// Zählung. Liegt ein Zugangsschlüssel vor, geht er als <c>Authorization: Bearer</c> mit; nur so ist
 /// die Release-Ablage eines privaten Repositories überhaupt lesbar. Die Antwort wird eingedampft —
-/// Tag sowie Adresse und Grösse der Programmdatei, des Fensterhelfers und der beiden Prüfsummendateien —
-/// und alles andere verworfen.
+/// Tag, Adresse und Grösse des Installationspakets sowie die Prüfsumme aus dem Text — und alles
+/// andere verworfen.
 /// </summary>
 public sealed class GitHubReleaseFeed : IReleaseFeed
 {
     public const string DefaultEndpoint =
         "https://api.github.com/repos/klopp1991/zone-manager/releases/latest";
 
-    private const string AssetName = "ZoneManager.exe";
-    private const string ChecksumAssetName = "ZoneManager.exe.sha256";
-    private const string HelperAssetName = "ZoneManager.Helper.exe";
-    private const string HelperChecksumAssetName = "ZoneManager.Helper.exe.sha256";
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(15);
     private readonly Func<HttpClient> clientFactory;
     private readonly string endpoint;
@@ -74,8 +70,8 @@ public sealed class GitHubReleaseFeed : IReleaseFeed
     }
 
     /// <summary>
-    /// Zieht die benötigten Angaben aus der Antwort. Fehlt die Programmdatei, gibt es kein Ergebnis;
-    /// fehlt der Fensterhelfer, bleibt der vorhandene liegen — ältere Veröffentlichungen tragen ihn nicht.
+    /// Zieht die benötigten Angaben aus der Antwort. Ohne Installationspaket gibt es kein Ergebnis; die
+    /// Prüfsumme steht im Text der Veröffentlichung, weil an ihr keine zweite Datei mehr hängt.
     /// </summary>
     public static ReleaseDescription? Parse(JsonElement root)
     {
@@ -95,49 +91,24 @@ public sealed class GitHubReleaseFeed : IReleaseFeed
         }
 
         string? downloadUrl = null;
-        string? checksumUrl = null;
         long sizeInBytes = 0;
-        string? helperUrl = null;
-        string? helperChecksumUrl = null;
-        long helperSizeInBytes = 0;
         foreach (var asset in assets.EnumerateArray())
         {
             if (asset.ValueKind != JsonValueKind.Object ||
                 !asset.TryGetProperty("name", out var name) ||
                 name.ValueKind != JsonValueKind.String ||
-                AssetUrl(asset) is not { Length: > 0 } assetUrl)
+                name.GetString() is not { } assetName ||
+                !assetName.EndsWith(UpdateCheck.PackageExtension, StringComparison.OrdinalIgnoreCase) ||
+                AssetUrl(asset) is not { Length: > 0 } assetUrl ||
+                !asset.TryGetProperty("size", out var size) ||
+                !size.TryGetInt64(out var parsedSize))
             {
                 continue;
             }
 
-            var assetName = name.GetString();
-            if (string.Equals(assetName, ChecksumAssetName, StringComparison.OrdinalIgnoreCase))
-            {
-                checksumUrl = assetUrl;
-                continue;
-            }
-
-            if (string.Equals(assetName, HelperChecksumAssetName, StringComparison.OrdinalIgnoreCase))
-            {
-                helperChecksumUrl = assetUrl;
-                continue;
-            }
-
-            if (!asset.TryGetProperty("size", out var size) || !size.TryGetInt64(out var parsedSize))
-            {
-                continue;
-            }
-
-            if (string.Equals(assetName, AssetName, StringComparison.OrdinalIgnoreCase))
-            {
-                downloadUrl = assetUrl;
-                sizeInBytes = parsedSize;
-            }
-            else if (string.Equals(assetName, HelperAssetName, StringComparison.OrdinalIgnoreCase))
-            {
-                helperUrl = assetUrl;
-                helperSizeInBytes = parsedSize;
-            }
+            downloadUrl = assetUrl;
+            sizeInBytes = parsedSize;
+            break;
         }
 
         if (downloadUrl is null)
@@ -153,10 +124,7 @@ public sealed class GitHubReleaseFeed : IReleaseFeed
             downloadUrl,
             sizeInBytes,
             notes,
-            checksumUrl,
-            helperUrl,
-            helperSizeInBytes,
-            helperChecksumUrl);
+            UpdateCheck.TryParseChecksum(notes, out var checksum) ? checksum : null);
     }
 
     /// <summary>

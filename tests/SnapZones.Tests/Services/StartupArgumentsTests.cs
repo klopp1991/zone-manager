@@ -8,10 +8,12 @@ public sealed class StartupArgumentsTests
     [Fact]
     public void The_value_behind_a_switch_is_read_regardless_of_case()
     {
-        string[] arguments = ["--verbose", "--APPLY-UPDATE", @"C:\Programme\ZoneManager\ZoneManager.exe"];
+        string[] arguments = ["--verbose", "--INSTALL-DISPLAY-DRIVER", @"C:\Programme\ZoneManager"];
 
-        Assert.Equal(@"C:\Programme\ZoneManager\ZoneManager.exe", StartupArguments.ReadValue(arguments, StartupArguments.ApplyUpdate));
-        Assert.Null(StartupArguments.ReadValue(["--apply-update"], StartupArguments.ApplyUpdate));
+        Assert.Equal(
+            @"C:\Programme\ZoneManager",
+            StartupArguments.ReadValue(arguments, StartupArguments.InstallDisplayDriver));
+        Assert.Null(StartupArguments.ReadValue(["--install-display-driver"], StartupArguments.InstallDisplayDriver));
     }
 
     [Theory]

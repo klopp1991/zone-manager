@@ -29,13 +29,14 @@ wie du willst — und wechselst sie in einem Klick.
 
 ## Herunterladen und starten
 
-`ZoneManager.exe` aus dem [neuesten Release](https://github.com/klopp1991/zone-manager/releases/latest)
-laden und starten. Das war's — keine Installation, keine Laufzeitumgebung, kein Setup-Assistent. Die
-Datei läuft aus dem Ordner, in dem sie liegt.
+`ZoneManager-Setup-<Version>.msi` aus dem
+[neuesten Release](https://github.com/klopp1991/zone-manager/releases/latest) laden und ausführen. Das
+Paket legt Programm und Fensterhelfer nach `%ProgramFiles%`, verknüpft es im Startmenü und trägt es in
+«Apps und Features» ein — deinstallierbar wie jedes andere Programm. Eine Laufzeitumgebung braucht es
+nicht, sie steckt in der Programmdatei.
 
-Wer sie dauerhaft einrichten will, nimmt das Installationspaket aus demselben Release oder ruft
-`ZoneManager.exe --install` auf: Das kopiert sie nach `%ProgramFiles%`, verknüpft sie im Startmenü und
-trägt sie in «Apps und Features» ein — deinstallierbar wie jedes andere Programm.
+An einem Release hängt genau diese eine Datei. Ihre SHA-256-Prüfsumme steht im Text des Releases; das
+Programm rechnet sie beim Update selbst nach.
 
 ---
 
@@ -168,8 +169,9 @@ verschlucken — auf einer Schweizer Tastatur `@`, `#` und `|`, auf einer deutsc
 - **Ein Schutzschalter** hält das Einrasten an, wenn Windows ungewöhnlich viele Fensterereignisse meldet
   oder ein Rückruf fehlschlägt; die Statuszeile sagt jederzeit, woran man ist. Ein Stopp wegen blosser
   Last hebt sich nach zehn Sekunden von selbst wieder auf.
-- **Updates** werden nur über HTTPS aus der Release-Ablage dieses Projekts geladen und an Herkunft,
-  Grösse und SHA-256-Prüfsumme geprüft. Eine Veröffentlichung ohne Prüfsummendatei wird abgelehnt.
+- **Updates** kommen als Installationspaket, nur über HTTPS aus der Release-Ablage dieses Projekts,
+  geprüft an Herkunft, Grösse und der SHA-256-Prüfsumme aus dem Text der Veröffentlichung. Eine
+  Veröffentlichung ohne Prüfsumme wird abgelehnt.
   Übernommen wird die neue Version erst, nachdem die laufende beendet ist; die eigene Programmdatei wird
   nie unter dem laufenden Programm ausgetauscht.
 - **Die eigene Programmdatei bleibt unter Beobachtung.** Wird sie von aussen ersetzt — etwa durch einen

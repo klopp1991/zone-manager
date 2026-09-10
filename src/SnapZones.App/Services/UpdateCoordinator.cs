@@ -15,9 +15,10 @@ namespace SnapZones.App.Services;
 /// </para>
 ///
 /// <para>
-/// Die laufende Programmdatei wird von hier aus nie angefasst. Die neue Version landet in einem
-/// Bereitstellungsverzeichnis und wird von dort als eigener Prozess gestartet, der auf das Ende dieses
-/// Prozesses wartet und erst dann die Dateien austauscht. Siehe <see cref="UpdateInstaller"/>.
+/// Die laufende Programmdatei wird von hier aus nie angefasst. An einer Veröffentlichung hängt genau
+/// eine Datei, das Installationspaket; es landet geprüft in einem Bereitstellungsverzeichnis und wird
+/// von dort über <c>msiexec</c> gestartet. Windows Installer ersetzt Programmdatei und Fensterhelfer
+/// gemeinsam, sobald diese Anwendung beendet ist. Siehe <see cref="UpdateInstaller"/>.
 /// </para>
 /// </summary>
 public sealed class UpdateCoordinator
@@ -30,6 +31,7 @@ public sealed class UpdateCoordinator
     private readonly Action<string, string, Exception?> log;
     private readonly Func<ProcessStartInfo, bool> start;
     private ReleaseDescription? offered;
+    private string? stagedPackagePath;
 
     public UpdateCoordinator(
         Func<string> currentVersion,
@@ -82,9 +84,9 @@ public sealed class UpdateCoordinator
     }
 
     /// <summary>
-    /// Stellt die zuletzt gefundene Veröffentlichung bereit. Erfolgreich heisst: Programmdatei und
-    /// Fensterhelfer liegen geprüft im Bereitstellungsverzeichnis. Übernommen wird erst nach dem Beenden,
-    /// siehe <see cref="TryLaunchApply"/>.
+    /// Stellt die zuletzt gefundene Veröffentlichung bereit. Erfolgreich heisst: das Installationspaket
+    /// liegt geprüft im Bereitstellungsverzeichnis. Übernommen wird es erst beim Beenden, siehe
+    /// <see cref="TryLaunchInstaller"/>.
     /// </summary>
     public async Task<UpdateInstallResult> StageAsync(CancellationToken cancellationToken)
     {
@@ -102,11 +104,12 @@ public sealed class UpdateCoordinator
                 "Der Pfad der laufenden Programmdatei ist nicht bekannt.");
         }
 
-        var result = await installer.StageAsync(stagingDirectory(), release, cancellationToken).ConfigureAwait(false);
+        var result = await installer.StageAsync(release, stagingDirectory(), cancellationToken).ConfigureAwait(false);
         if (result.Status == UpdateInstallStatus.Staged)
         {
             offered = null;
             IsStaged = true;
+            stagedPackagePath = result.PackagePath;
             log("INFO", $"Update auf {release.TagName} bereitgestellt in {stagingDirectory()}.", null);
         }
         else
@@ -118,51 +121,57 @@ public sealed class UpdateCoordinator
     }
 
     /// <summary>
-    /// Startet die bereitgestellte Programmdatei im Übernahmemodus. Sie wartet auf das Ende dieses
-    /// Prozesses, tauscht dann die Dateien und startet die neue Version. Der eigene Prozess muss danach
-    /// enden, sonst wartet der Nachfolger vergeblich.
+    /// Startet das bereitgestellte Installationspaket. Windows Installer fragt dabei einmal nach
+    /// Administratorrechten und ersetzt Programmdatei und Fensterhelfer gemeinsam.
+    ///
+    /// <para>
+    /// Der eigene Prozess muss danach enden. Windows Installer erkennt eine laufende Programmdatei über
+    /// den Neustart-Manager; bis er beim Kopieren ankommt, ist diese Anwendung längst beendet. Bleibt
+    /// sie stehen, legt er den gewohnten Dialog «Dateien in Benutzung» vor, statt etwas halb zu
+    /// ersetzen.
+    /// </para>
     /// </summary>
-    public bool TryLaunchApply()
+    public bool TryLaunchInstaller()
     {
-        if (!IsStaged || executablePath() is not { Length: > 0 } target)
+        if (!IsStaged || stagedPackagePath is not { Length: > 0 } package)
         {
             return false;
         }
 
-        var staged = UpdateInstaller.BuildStagedExecutablePath(stagingDirectory());
-        if (!File.Exists(staged))
+        if (!File.Exists(package))
         {
-            log("ERROR", "Die bereitgestellte Programmdatei ist nicht mehr vorhanden.", null);
+            log("ERROR", "Das bereitgestellte Installationspaket ist nicht mehr vorhanden.", null);
             IsStaged = false;
             return false;
         }
 
-        // Ohne Shell: die bereitgestellte Datei stammt aus dem Netz und die Shell legte für sie den
-        // Dialog «Datei öffnen - Sicherheitswarnung» vor. Siehe <see cref="ProcessRestart.BuildStartInfo"/>.
+        // Ueber die Shell, weil ein MSI seine Rechte selbst anfordert; ohne sie startet msiexec
+        // unerhoeht und bricht beim Schreiben nach «Programme» ab.
         var startInfo = new ProcessStartInfo
         {
-            FileName = staged,
-            WorkingDirectory = Path.GetDirectoryName(target) ?? AppContext.BaseDirectory,
-            UseShellExecute = false
+            FileName = "msiexec.exe",
+            UseShellExecute = true
         };
-        startInfo.ArgumentList.Add(StartupArguments.ApplyUpdate);
-        startInfo.ArgumentList.Add(target);
-        startInfo.ArgumentList.Add(StartupArguments.WaitForPid);
-        startInfo.ArgumentList.Add(Environment.ProcessId.ToString(CultureInfo.InvariantCulture));
+        startInfo.ArgumentList.Add("/i");
+        startInfo.ArgumentList.Add(package);
+        // Fortschritt ohne Rueckfragen: der Benutzer hat das Update im Programm schon bestaetigt.
+        startInfo.ArgumentList.Add("/qb");
+        startInfo.ArgumentList.Add("/norestart");
 
         try
         {
             if (start(startInfo))
             {
+                log("INFO", $"Das Installationspaket {Path.GetFileName(package)} wurde gestartet.", null);
                 return true;
             }
 
-            log("ERROR", "Windows hat die Übernahme des Updates nicht gestartet.", null);
+            log("ERROR", "Windows hat das Installationspaket nicht gestartet.", null);
             return false;
         }
         catch (Exception exception)
         {
-            log("ERROR", "Der Start der Übernahme nach dem Update ist fehlgeschlagen.", exception);
+            log("ERROR", "Der Start des Installationspakets ist fehlgeschlagen.", exception);
             return false;
         }
     }

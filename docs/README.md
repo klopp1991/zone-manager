@@ -436,23 +436,28 @@ Heruntergeladen wird nur über HTTPS aus der Release-Ablage des Projekts; ein Ve
 wird abgelehnt. Die geladene Datei muss ausserdem genau die angekündigte Grösse haben, sonst wird sie
 verworfen — eine abgebrochene Übertragung sieht sonst wie eine vollständige Datei aus.
 
-Der Austausch geht in zwei Hälften, die in zwei Prozessen laufen. Die laufende Anwendung lädt
-Programmdatei und Fensterhelfer nach `%LOCALAPPDATA%\ZoneManager\updates` und prüft beide; ihre eigene
-Programmdatei fasst sie dabei nicht an. Dann startet sie die bereitgestellte Datei im Übernahmemodus
-(`--apply-update <Programmdatei> --wait-for-pid <Prozess>`) und beendet sich. Der neue Prozess wartet
-auf ihr Ende, schiebt die bisherige Datei als `ZoneManager.exe.previous.<Zeitstempel>` beiseite, legt die
-neue an ihren Platz und startet sie von dort. Liegt das Programm unter `%ProgramFiles%`, holt sich der
-Übernahmeprozess dafür einmal Administratorrechte. Scheitert die Übernahme, kommt die alte Datei zurück
-und wird gestartet; es bleibt nie eine halb ersetzte Programmdatei liegen. Beim nächsten Start werden
-die beiseitegeschobenen Dateien und das Bereitstellungsverzeichnis gelöscht.
+An einer Veröffentlichung hängt seit dem 10.09.2026 genau eine Datei: das Installationspaket
+`ZoneManager-Setup-<Version>.msi`. Programmdatei und Fensterhelfer stecken darin und werden nicht mehr
+einzeln veröffentlicht — einzeln daneben zu liegen brachte nichts als die Gefahr, dass eine neue
+Anwendung gegen einen alten Helfer läuft. Die SHA-256-Prüfsumme des Pakets steht im Text der
+Veröffentlichung; ohne sie wird nichts geladen.
 
-Diese Reihenfolge ist zwingend. Die Einzeldatei lädt viele ihrer Bausteine erst bei Bedarf über den Pfad
-der eigenen Programmdatei nach. Wird sie unter dem laufenden Prozess weggeschoben, scheitert jedes
-spätere Nachladen mit einer `FileNotFoundException` — beim Beenden, beim ersten Fehlerdialog, bei der
-nächsten Updatesuche. Bis zum 04.09.2026 wurde die laufende Datei sofort nach dem Download ersetzt, und
-genau so endete das Programm mehrfach.
+Die laufende Anwendung lädt das Paket nach `%LOCALAPPDATA%\ZoneManager\updates` und prüft es an Grösse
+und Prüfsumme; ihre eigene Programmdatei fasst sie dabei nicht an. Stimmt etwas nicht, wird die Datei
+gelöscht und nichts übernommen. Beim Übernehmen startet sie `msiexec /i <Paket> /qb /norestart` und
+beendet sich sofort. Windows Installer fragt einmal nach Administratorrechten, ersetzt Programmdatei und
+Fensterhelfer gemeinsam und hält den Eintrag in «Apps und Features» nach. Läuft die Anwendung beim
+Kopieren wider Erwarten noch, legt der Installer den gewohnten Dialog «Dateien in Benutzung» vor, statt
+etwas halb zu ersetzen. Beim nächsten Start wird das Bereitstellungsverzeichnis geleert.
 
-Ohne digitale Signatur kann das Programm die geladene Datei nur an Herkunft und Grösse prüfen, nicht an
+Damit fällt der frühere Austausch der laufenden Programmdatei weg. Er war nötig, weil die Einzeldatei
+viele ihrer Bausteine erst bei Bedarf über den Pfad der eigenen Programmdatei nachlädt: wird sie unter
+dem laufenden Prozess weggeschoben, scheitert jedes spätere Nachladen mit einer
+`FileNotFoundException` — beim Beenden, beim ersten Fehlerdialog, bei der nächsten Updatesuche. Bis zum
+04.09.2026 wurde die laufende Datei sofort nach dem Download ersetzt, und genau so endete das Programm
+mehrfach. Ein Installationspaket hat dieses Problem nicht: es läuft, wenn die Anwendung nicht mehr läuft.
+
+Ohne digitale Signatur kann das Programm das Paket nur an Herkunft, Grösse und Prüfsumme prüfen, nicht an
 einer Signatur. Wer das nicht will, lädt Releases von Hand herunter und lässt die Suche ausgeschaltet.
 
 ## Rechte
@@ -608,7 +613,7 @@ Minuten nach einem Build — der Fall, den diese Prüfung seither abfängt.
 - Nicht rechteckige oder überlappende Zonen und virtuelle Desktops sind noch nicht enthalten.
 - Zwei baugleiche Monitore ohne Seriennummer in der EDID werden nach einem Umstecken nicht wiedererkannt; ihre Layouts bleiben als «nicht verbunden» stehen.
 - Updates werden nur auf Anstoss oder beim Start gesucht, nie im Hintergrund während des Betriebs.
-- Die geladene Programmdatei wird an Herkunft, Grösse und der SHA-256-Prüfsumme aus `ZoneManager.exe.sha256` derselben Veröffentlichung geprüft, nicht an einer digitalen Signatur. Eine Veröffentlichung ohne Prüfsummendatei wird nicht geladen.
+- Das geladene Installationspaket wird an Herkunft, Grösse und der SHA-256-Prüfsumme aus dem Text derselben Veröffentlichung geprüft, nicht an einer digitalen Signatur. Eine Veröffentlichung ohne Prüfsumme wird nicht geladen.
 - Die gemerkten Fensterpositionen lassen sich nur gesamthaft verwerfen, nicht einzeln ansehen oder löschen.
 - Eigene Layouts können nicht über eine dokumentierte API in das native Windows-Snap-Popup eingefügt werden; die Anwendung verwendet ein eigenes Overlay.
 - Das Programm ist nicht digital signiert und kann beim ersten Start eine Windows-Sicherheitswarnung auslösen.
@@ -620,7 +625,7 @@ Die Version folgt dem Schema `YYYY.MMDD.NN`. `NN` beginnt an jedem Tag bei `01` 
 
 `Directory.Build.props` hält die Werte für alle Projekte und wird ausschliesslich von `scripts\set-version.ps1` geschrieben. Die Anzeigeform mit führender Null (`2026.0831.01`) steht in `ZoneManagerVersion` und `InformationalVersion`; `AssemblyVersion` und `FileVersion` tragen die numerische Form `2026.831.1`, weil Assemblyversionen keine führenden Nullen speichern können. Die Anwendung liest ausschliesslich die `InformationalVersion` und schneidet ein etwaiges Metadatensuffix ab.
 
-`scripts\publish-release.ps1` führt den vollständigen Weg aus: Version schreiben, `scripts\verify.ps1` ausführen, `Directory.Build.props` committen, Tag `v<Version>` setzen, Commit und Tag pushen und das GitHub-Release mit `ZoneManager.exe` als Anhang erstellen. Das Skript arbeitet nur auf `master` und nur bei sauberem Arbeitsbaum und reicht `-SkipDpiCheck` an den Prüflauf durch; ohne angemeldetes GitHub CLI oder `GH_TOKEN` endet es nach dem Push und nennt den Befehl für das Release.
+`scripts\publish-release.ps1` führt den vollständigen Weg aus: Version schreiben, `scripts\verify.ps1` ausführen, `Directory.Build.props` committen, Tag `v<Version>` setzen, Commit und Tag pushen und das GitHub-Release mit dem Installationspaket als einzigem Anhang erstellen; seine Prüfsumme schreibt das Skript in den Text des Releases. Das Skript arbeitet nur auf `master` und nur bei sauberem Arbeitsbaum und reicht `-SkipDpiCheck` an den Prüflauf durch; ohne angemeldetes GitHub CLI oder `GH_TOKEN` endet es nach dem Push und nennt den Befehl für das Release.
 
 Die EXE wird bewusst nicht versioniert, sondern nur an Releases angehängt: Sie ist ein reproduzierbares Build-Artefakt von rund 74 MB, das die Repository-Historie sonst mit jeder Auslieferung dauerhaft vergrössern würde. Rund sieben MB davon entfallen seit den Vollbildzonen auf die Windows-Laufzeitprojektion für die Bildschirmaufnahme und den eingebetteten Vollbildzonen-Treiber.
 
@@ -652,7 +657,7 @@ Dieser Schritt kostet bei jedem Build einen vollständigen Self-contained-Publis
 
 Der Prüflauf misst sich selbst. Jeder Schritt meldet seine Dauer als Zeile `STEP <Name> <Sekunden>`, und `VERIFY_TIMING` nennt am Ende die Gesamtzeit und die Rangliste; `scripts\publish-release.ps1` tut dasselbe mit `RELEASE_TIMING`.
 
-Bis zum 09.09.2026 lief derselbe Publish dreimal je Lauf — für eine Artefaktprüfung in einem Wegwerfverzeichnis, für den ausdrücklichen Publish nach `outputs\` und beim Kopieren ins Rootverzeichnis. Jeder Durchgang erzeugte dieselben 70 MB und schob sie über das Netzlaufwerk, und `scripts\install-root-executable.ps1` rechnete jeder Datei fünfmal die Prüfsumme nach. Seitdem entsteht die Programmdatei einmal, geprüft wird zweimal — an der Quelle und an der vorbereiteten Kopie, den beiden Stellen, an denen tatsächlich Daten bewegt werden —, und aus rund 165 Sekunden wurden rund 100. Die Anhänge eines Releases gehen ausserdem gleichzeitig hoch statt nacheinander.
+Bis zum 09.09.2026 lief derselbe Publish dreimal je Lauf — für eine Artefaktprüfung in einem Wegwerfverzeichnis, für den ausdrücklichen Publish nach `outputs\` und beim Kopieren ins Rootverzeichnis. Jeder Durchgang erzeugte dieselben 70 MB und schob sie über das Netzlaufwerk, und `scripts\install-root-executable.ps1` rechnete jeder Datei fünfmal die Prüfsumme nach. Seitdem entsteht die Programmdatei einmal, geprüft wird zweimal — an der Quelle und an der vorbereiteten Kopie, den beiden Stellen, an denen tatsächlich Daten bewegt werden —, und aus rund 165 Sekunden wurden rund 100. Seit dem 10.09.2026 hängt ausserdem nur noch das Installationspaket am Release, nicht mehr sechs Dateien.
 
 Der Skripttest `scripts\test-set-version.ps1` läuft ausserhalb von `verify.ps1`, legt dafür ein temporäres Repository an und prüft das Versionsschema samt Tageswechsel und Tag-Erkennung.
 
