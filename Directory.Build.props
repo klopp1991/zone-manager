@@ -6,11 +6,11 @@
     Version ohne fuehrende Nullen, weil Assemblys keine speichern koennen.
   -->
   <PropertyGroup>
-    <ZoneManagerVersion>2026.0909.03</ZoneManagerVersion>
-    <Version>2026.909.3</Version>
-    <AssemblyVersion>2026.909.3</AssemblyVersion>
-    <FileVersion>2026.909.3</FileVersion>
-    <InformationalVersion>2026.0909.03</InformationalVersion>
+    <ZoneManagerVersion>2026.0910.01</ZoneManagerVersion>
+    <Version>2026.910.1</Version>
+    <AssemblyVersion>2026.910.1</AssemblyVersion>
+    <FileVersion>2026.910.1</FileVersion>
+    <InformationalVersion>2026.0910.01</InformationalVersion>
     <!-- Ohne diesen Schalter haengt das SDK die Commit-Id an die InformationalVersion. -->
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
